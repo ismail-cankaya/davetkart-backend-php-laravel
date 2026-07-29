@@ -1,17 +1,68 @@
 # DavetKart Backend — Geliştirme Yol Haritası
 
-> **Oluşturma:** 30 Temmuz 2026
-> **Neyi değiştiriyor:** `03-MIMARI-PLAN.md` §8'deki 12 adımlık **yatay** sırayı
-> iptal eder, yerine **dikey dilim** sırasını koyar. Mimari kararlar (katman
-> modeli, veri modeli, güvenlik stratejisi) aynen geçerlidir.
+> **Oluşturma:** 30 Temmuz 2026 · **Terim güncellemesi:** 30 Temmuz 2026
+> **Neyi değiştiriyor:** `03-MIMARI-PLAN.md` §8'deki 12 adımlık **katman-katman**
+> inşa sırasını iptal eder, yerine **özellik-özellik** inşa sırasını koyar.
+> Mimari kararlar (katman modeli, klasör yapısı, veri modeli, güvenlik stratejisi)
+> **aynen geçerlidir** — değişen tek şey dosyaların yazılma sırasıdır.
 > **Ayrıca:** K9 kararı revize edildi — üretim veritabanı **PostgreSQL 16**.
 
 ---
 
-## 1. Neden sırayı değiştiriyoruz?
+## 0. Terim uyarısı: iki ayrı eksen 🔴
 
-Eski plan **yatay** dilimlenmişti: önce *tüm* enum'lar, sonra *tüm* migration'lar,
-sonra *tüm* modeller… Bu sırayla ilk çalışan endpoint 6. adımda ortaya çıkıyor.
+Literatürde "yatay mimari" ve "dikey mimari" terimleri **iki farklı anlamda**
+kullanılır. Karıştırılırsa bu dokümanın tamamı yanlış okunur.
+
+### Eksen A — Klasörleme (dosyalar neye göre gruplanır?)
+
+| Katman-bazlı klasörleme | Özellik-bazlı klasörleme |
+|---|---|
+| `app/Http/Controllers/`, `app/Models/`, `app/Actions/` | `app/Modules/Auth/`, `app/Modules/Payment/` |
+| Laravel varsayılanı | `nwidart/laravel-modules` gibi paketlerle |
+
+**Bizim seçimimiz: katman-bazlı klasörleme.** (K2 + K3)
+Modül sınırları ayrı klasör ağacıyla değil, **alt klasör disipliniyle** korunur:
+`app/Actions/Auth/`, `app/Actions/Invitation/`, `app/Actions/Payment/`…
+Tek geliştiricili bir projede `app/Modules/` kurmak aşırı mühendisliktir.
+
+> **"Modüler Monolit" ne demek, ne demek değil?**
+> Planımızdaki bu terim bir **dağıtım** kararıdır: *"mikroservis değil, tek
+> uygulama olarak deploy edilir."* Klasör yapısıyla ilgisi yoktur.
+> `app/Modules/` klasörleri kurmuyoruz.
+
+### Eksen B — İnşa sırası (dosyalar hangi sırayla yazılır?)
+
+| Katman-katman inşa | Özellik-özellik inşa |
+|---|---|
+| Tüm migration'lar → tüm modeller → tüm controller'lar | Auth'un tüm katmanları → Invitation'ın tüm katmanları |
+| İlk çalışan endpoint en sonda | İlk çalışan endpoint 6. dosyada |
+
+**Bizim seçimimiz: özellik-özellik inşa.** (K17 — bu dokümanın konusu)
+
+### İki eksen bağımsızdır
+
+Katman-bazlı klasörleme kullanıp özellik-özellik inşa edebilirsin — bizim
+yaptığımız tam olarak budur. Aşağıdaki tablo projedeki durumu özetler:
+
+|  | Seçim | Kayıt |
+|---|---|---|
+| Klasörleme | Katman-bazlı (+ Action katmanı) | K2, K3 |
+| İnşa sırası | Özellik-özellik | K17 |
+| Dağıtım | Tek uygulama (Modüler Monolit) | K2 |
+
+> **Not:** Literatürde *"Vertical Slice Architecture"* diye gerçek bir mimari var
+> ve o, **Eksen A**'nın sağ sütununu anlatır. Biz onu **yapmıyoruz**. Bu
+> dokümandaki "özellik-özellik" ifadesi yalnızca **Eksen B**'yi, yani teslimat
+> sırasını kasteder.
+
+---
+
+## 1. Neden inşa sırasını değiştiriyoruz?
+
+Eski plan **katman-katman** dilimlenmişti: önce *tüm* enum'lar, sonra *tüm*
+migration'lar, sonra *tüm* modeller… Bu sırayla ilk çalışan endpoint 6. adımda
+ortaya çıkıyor.
 
 Sorun teknik değil, **öğrenme** sorunu:
 
@@ -21,8 +72,8 @@ Sorun teknik değil, **öğrenme** sorunu:
 
 **Yeni yaklaşım: Walking Skeleton (Yürüyen İskelet).**
 
-Önce tek bir isteği **uçtan uca** çalıştırırız. Kısa ama *eksiksiz* bir dikey
-dilim — her katmandan birer dosya:
+Önce tek bir isteği **uçtan uca** çalıştırırız. Kısa ama *eksiksiz* bir özellik
+dilimi — her katmandan birer dosya:
 
 ```
 POST /api/auth/register
@@ -40,6 +91,63 @@ POST /api/auth/register
 
 Bu iskelet bir kez yürüdükten sonra, kalan her modül **aynı kalıbın tekrarıdır**.
 Öğrenme eğrisi bir kez tırmanılır.
+
+### Izgara olarak: aynı 18 dosya, iki farklı sıra
+
+Satırlar katmanlar, sütunlar özellikler. Her iki yolda da **aynı 18 dosya**
+yazılır; değişen yalnızca doldurma yönüdür.
+
+**Katman-katman (satır satır):**
+
+|  | Auth | Invitation | RSVP |
+|---|:---:|:---:|:---:|
+| Migration | 1 | 2 | 3 |
+| Model | 4 | 5 | 6 |
+| FormRequest | 7 | 8 | 9 |
+| Action | 10 | 11 | 12 |
+| Resource | 13 | 14 | 15 |
+| Controller | 16 | 17 | 18 |
+
+→ 6. dosyada elinde üç migration ve üç model var. **Hiçbir şey çalışmıyor.**
+İlk çalışan endpoint 16. dosyada.
+
+**Özellik-özellik (sütun sütun):**
+
+|  | Auth | Invitation | RSVP |
+|---|:---:|:---:|:---:|
+| Migration | **1** | 7 | 13 |
+| Model | **2** | 8 | 14 |
+| FormRequest | **3** | 9 | 15 |
+| Action | **4** | 10 | 16 |
+| Resource | **5** | 11 | 17 |
+| Controller | **6** | 12 | 18 |
+
+→ 6. dosyada **çalışan bir kayıt endpoint'i** var. Frontend'den giriş yapılır.
+
+**Neden bu fark önemli?** Sözleşme hatası (yanlış camelCase eşlemesi, yanlış
+yanıt zarfı) katman-katman sırada 12 resource'a kopyalanmış olarak keşfedilir;
+özellik-özellik sırada ilk özellikte, tek dosyada yakalanır.
+
+> **Katman-katman sıranın tek gerçek üstünlüğü** — 7 tabloyu birlikte tasarlayıp
+> ilişki hatalarını erken görmek — bizde **zaten karşılandı**: `03-MIMARI-PLAN.md`
+> §3.2 tüm tabloları indeks ve FK'larıyla tasarlamış durumda.
+> **Kural: tasarımı bütün yap, inşayı parça parça.**
+
+### Özellikler arası yabancı anahtarlar
+
+Özellik-özellik giderken bazen henüz var olmayan bir tabloya FK gerekir.
+Somut örnek: `rsvps.photo_media_id` → `media` tablosu (RSVP Faz 5, Media Faz 6).
+
+Çözüm: kolon Faz 5'te **nullable ve kısıtsız** açılır, kısıt Faz 6'da küçük bir
+migration ile eklenir:
+
+```php
+Schema::table('rsvps', function (Blueprint $table) {
+    $table->foreign('photo_media_id')->references('id')->on('media')->nullOnDelete();
+});
+```
+
+Bu bir kirlilik değil; şema zamanla evrilir, her migration bir adımdır.
 
 > **Yazdığımız config ve enum boşa gitmedi.** İkisi de yerinde duruyor,
 > ilgili fazlarda kullanılacak. Yalnızca sıraları erkendi.
@@ -61,21 +169,48 @@ Bu iskelet bir kez yürüdükten sonra, kalan her modül **aynı kalıbın tekra
 
 ### 2.2 Veri
 
-| Konu | Geliştirme | Üretim | Neden |
-|---|---|---|---|
-| Veritabanı | **SQLite** | **PostgreSQL 16** | Yerelde sıfır kurulum; üretimde düşük RAM tabanı, `jsonb`, güçlü kısıt desteği |
-| Cache | **file** | **Redis 7** | SQLite'ta `database` cache dosya kilidi için yarışır |
-| Kuyruk | **database** | **Redis 7** | `jobs` tablosu yeterli; hacim artarsa Redis |
-| Dosya | **local disk** | **S3 uyumlu** | `Storage` soyutlaması sayesinde geçiş `.env` satırı |
+| Konu | Geliştirme | Test | Üretim | Neden |
+|---|---|---|---|---|
+| Veritabanı | **PostgreSQL 16** | **PostgreSQL 16** (`davetkart_test`) | **PostgreSQL 16** | 🔴 Dev/prod parity — 12-Factor X |
+| Cache | **file** | **array** | **Redis 7** | Yerelde ek servis gereksiz |
+| Kuyruk | **database** | **sync** | **Redis 7** | `jobs` tablosu yeterli; hacim artarsa Redis |
+| Dosya | **local disk** | **fake** | **S3 uyumlu** | `Storage` soyutlaması sayesinde geçiş `.env` satırı |
 
-> **⚠️ K9 revizyonu.** Önceki kayıt "üretimde MySQL 8" diyordu. Gerekçe TR
-> hosting yaygınlığıydı. PostgreSQL'e geçiş sebebi: MySQL 8'in `performance_schema`
-> ve varsayılan buffer ayarlarıyla küçük sunucularda yüksek RAM tabanı;
-> PostgreSQL'in `jsonb` desteği ve daha güçlü kısıt (CHECK, partial index) yeteneği.
-> **Maliyeti sıfır** — henüz tek migration yazılmadı.
+> **⚠️ K9 revizyonu — iki aşamalı.**
 >
+> **Önceki kayıt:** "Geliştirmede SQLite, üretimde MySQL 8."
+> **Yeni karar:** Üç ortamda da **PostgreSQL 16**.
+>
+> **Neden MySQL değil?** MySQL 8'in `performance_schema` ve varsayılan buffer
+> ayarları küçük sunucularda yüksek RAM tabanı üretir. PostgreSQL ayrıca `jsonb`
+> ve daha güçlü kısıt desteği (CHECK, partial index) sunar.
+>
+> **Neden geliştirmede de SQLite değil?** SQLite'ın oradaki gerekçesi "Herd
+> ücretsiz sürümünde MySQL yok" idi — yani *SQLite daha iyi olduğu için* değil,
+> *kurulum zahmetli olduğu için*. PostgreSQL'e geçince bu gerekçe düştü.
+> Asıl mesele **dev/prod parity** (12-Factor X): farklı veritabanı, hataların
+> laptop'ta değil üretimde ortaya çıkması demektir.
+>
+> | Konu | SQLite | PostgreSQL | Bizi etkiler mi |
+> |---|---|---|---|
+> | `ENUM` kolon tipi | Yok, `varchar`'a düşer | Var | 🔴 6 enum |
+> | `jsonb` | Yok, düz metin | İndekslenebilir | 🔴 `gift_options` |
+> | `CHECK` kısıtı | Kısıtlı | Tam | `guest_count > 0` |
+> | Eşzamanlı yazma | Dosya kilidi, tek yazıcı | Satır kilidi | 🔴 LCV seli |
+> | Kısmi indeks | Yok | Var | `WHERE status='published'` |
+> | Yabancı anahtar | Varsayılan **kapalı** | Açık | Yetim kayıt riski |
+>
+> **Feragat edilen tek şey test hızı.** SQLite `:memory:` ile testler 3-5 kat
+> hızlı koşardı. Ama yanlış veritabanında koşan hızlı test yanlış güven verir —
+> `test_rsvp_quota` SQLite'ta geçip PostgreSQL'de farklı davranabilir.
+>
+> **Maliyeti sıfır** — henüz tek migration yazılmadı.
 > Kod tarafında hiçbir şey değişmez: Eloquent ve Schema Builder SQL farklarını
-> gizler. Etkilenen tek şey `.env` ve üretim kurulumu.
+> gizler.
+>
+> **Ortadan kalkan taviz:** Daha önce "SQLite'ta ENUM yok, o yüzden `string`
+> kolon + PHP enum cast kullanacağız" demiştik. Bu bir uyum tavizeydi; artık
+> gerçek `ENUM` veya `CHECK` kısıtı kullanabiliriz. (Karar Faz 3'te verilecek.)
 
 ### 2.3 Kalite araçları
 
@@ -132,12 +267,17 @@ görülebilir bir şeydir; "dosya yazıldı" değildir.
 
 | # | İş | Dosya / Komut |
 |---|---|---|
-| 0.1 | `.env` düzeltmeleri | `APP_NAME=DavetKart`, `APP_LOCALE=tr`, `APP_FAKER_LOCALE=tr_TR`, `CACHE_STORE=file` |
-| 0.2 | Türkçe dil dosyaları | `php artisan lang:publish` + `lang/tr/validation.php` |
-| 0.3 | Pint kurulumu | `composer require laravel/pint --dev` |
-| 0.4 | Larastan kurulumu | `composer require larastan/larastan --dev` + `phpstan.neon` |
-| 0.5 | Test ortamı | `phpunit.xml` → SQLite in-memory |
-| 0.6 | `AppServiceProvider` sıkılaştırma | `Model::preventLazyLoading()`, `Model::shouldBeStrict()` yerelde |
+| 0.1 | PHP sürücü kontrolü | `php -m \| Select-String "pgsql"` → `pdo_pgsql` görünmeli |
+| 0.2 | PostgreSQL 16 kurulumu | Resmî Windows installer (postgresql.org) |
+| 0.3 | İki veritabanı oluştur | `davetkart` ve `davetkart_test` |
+| 0.4 | `.env` düzeltmeleri | `DB_CONNECTION=pgsql`, `APP_NAME=DavetKart`, `APP_LOCALE=tr`, `APP_FAKER_LOCALE=tr_TR`, `CACHE_STORE=file` |
+| 0.5 | Bağlantı doğrulama | `php artisan migrate` → users/cache/jobs/sanctum tabloları oluşmalı |
+| 0.6 | SQLite'ı kaldır | `database/database.sqlite` silinir |
+| 0.7 | Türkçe dil dosyaları | `php artisan lang:publish` + `lang/tr/validation.php` |
+| 0.8 | Pint kurulumu | `composer require laravel/pint --dev` |
+| 0.9 | Larastan kurulumu | `composer require larastan/larastan --dev` + `phpstan.neon` |
+| 0.10 | Test ortamı | `phpunit.xml` → `DB_DATABASE=davetkart_test`, `CACHE_STORE=array`, `QUEUE_CONNECTION=sync` |
+| 0.11 | `AppServiceProvider` sıkılaştırma | `Model::preventLazyLoading()`, `Model::shouldBeStrict()` yerelde |
 
 **Bitti ölçütü:**
 
@@ -172,7 +312,7 @@ middleware → response. `bootstrap/app.php`'nin Laravel 11+ ile üstlendiği ro
 
 ---
 
-### FAZ 2 — Auth dikey dilimi 🎯
+### FAZ 2 — Auth özellik dilimi 🎯
 
 **Amaç:** Tüm katmanları bir arada çalışırken görmek. Sonunda **frontend gerçekten
 giriş yapabilir**.
@@ -202,7 +342,7 @@ yapabilmek**. Token localStorage'a düşüyor, sayfa yenilenince oturum korunuyo
 
 ---
 
-### FAZ 3 — Invitation dikey dilimi (CRUD)
+### FAZ 3 — Invitation özellik dilimi (CRUD)
 
 **Amaç:** Sahiplik, yetkilendirme ve iç içe koleksiyon yönetimi.
 
@@ -341,7 +481,7 @@ kısıtıyla race condition önleme.
 
 | # | İş |
 |---|---|
-| 9.1 | SQLite → PostgreSQL geçişi, migration'ların gerçek DB'de doğrulanması |
+| 9.1 | Üretim PostgreSQL kurulumu, yedekleme ve bağlantı havuzu (PgBouncer) |
 | 9.2 | `APP_DEBUG=false`, `config:cache`, `route:cache`, `view:cache` |
 | 9.3 | Redis'e geçiş (cache + queue), `queue:work` süpervizörü |
 | 9.4 | Gerçek ödeme sağlayıcısı (`IyzicoGateway`) + imza doğrulaması |
@@ -357,7 +497,7 @@ kısıtıyla race condition önleme.
 |---|---|---|---|
 | 0 | Zemin + kalite kapıları | — | 5 |
 | 1 | İlk endpoint | — | 4 |
-| **2** | **Auth (dikey dilim)** | **Giriş / kayıt** | 10 |
+| **2** | **Auth (özellik dilimi)** | **Giriş / kayıt** | 10 |
 | 3 | Invitation CRUD | Dashboard + editör autosave | 12 |
 | 4 | Public davetiye | `/invite/{slug}` sayfası | 6 |
 | 5 | RSVP | LCV gönderimi + canlı panel | 10 |
@@ -401,7 +541,7 @@ kısıtıyla race condition önleme.
 
 | Durum | İş |
 |---|---|
-| ✅ | Laravel 13 kurulumu, SQLite, Sanctum tablosu |
+| ✅ | Laravel 13 kurulumu, Sanctum tablosu |
 | ✅ | `config/davetkart.php` + kılavuzu |
 | ✅ | `config/payment.php`, `config/ai.php` + kılavuzları |
 | ✅ | Laravel varsayılan config'lerinin 11 kılavuzu |
@@ -415,5 +555,6 @@ kısıtıyla race condition önleme.
 | # | Eski | Yeni | Gerekçe |
 |---|---|---|---|
 | **K9'** | Üretimde MySQL 8 | **PostgreSQL 16** | Düşük RAM tabanı, `jsonb`, güçlü kısıt desteği. Migration yazılmadığı için maliyet sıfır |
-| **K17** | Yatay inşa (12 adım) | **Dikey dilim (9 faz)** | Öğrenme hedefi: katmanların birlikte çalıştığını erken görmek |
+| **K17** | Katman-katman inşa (12 adım) | **Özellik-özellik inşa (9 faz)** | Öğrenme hedefi: katmanların birlikte çalıştığını erken görmek. ⚠️ Yalnızca **inşa sırası** değişti; klasörleme katman-bazlı kalıyor (bkz. §0) |
+| **K19** | Geliştirmede SQLite | **Geliştirmede de PostgreSQL 16** | Dev/prod parity (12-Factor X). SQLite'ın gerekçesi "kurulum zahmeti"ydi, teknik üstünlük değil. ENUM/jsonb/CHECK tavizleri ortadan kalktı |
 | **K18** | — | **Pest + Pint + Larastan** | Hata üretimde değil laptop'ta yakalanmalı |

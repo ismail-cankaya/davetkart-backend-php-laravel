@@ -6,53 +6,89 @@ söyler; diğerleri hazır bekler.
 ## Yapı
 
 ```php
-'default' => env('DB_CONNECTION', 'sqlite'),
+'default' => env('DB_CONNECTION', 'pgsql'),
 'connections' => [
     'sqlite' => [...],
     'mysql'  => [...],
-    'pgsql'  => [...],
+    'pgsql'  => [...],   ← bizim kullandığımız
 ],
 ```
 
-Aynı anda birden fazla bağlantı tanımlı olabilir; kod `DB::connection('mysql')`
-ile birine açıkça bağlanabilir. Bizde buna gerek yok.
+Aynı anda birden fazla bağlantı tanımlı olabilir; kod `DB::connection('...')` ile
+birine açıkça bağlanabilir. Bizde buna gerek yok.
 
-## DavetKart kararı: yerelde SQLite, üretimde MySQL 8
+## DavetKart kararı: her ortamda PostgreSQL 16 (K19)
 
-| Ortam | Sürücü | Neden |
+| Ortam | Veritabanı |
+|---|---|
+| Geliştirme | `davetkart` |
+| Test | `davetkart_test` |
+| Üretim | `davetkart` (ayrı sunucu) |
+
+**Neden üç ortamda da aynı?** 12-Factor App'in X. maddesi: *dev/prod parity*.
+Ortamlar farklı veritabanı kullanırsa, hatalar laptop'ta değil **üretimde**
+ortaya çıkar.
+
+### Karar geçmişi
+
+1. **Başlangıç:** "Geliştirmede SQLite, üretimde MySQL 8." SQLite'ın gerekçesi
+   *"Herd ücretsiz sürümünde MySQL yok"* idi — teknik üstünlük değil, kurulum
+   kolaylığı.
+2. **K9':** Üretim MySQL 8 → PostgreSQL 16. MySQL 8'in yüksek RAM tabanı,
+   PostgreSQL'in `jsonb` ve güçlü kısıt desteği.
+3. **K19:** Geliştirme de PostgreSQL. MySQL gitince SQLite'ın gerekçesi düştü.
+
+## 🔴 SQLite ile PostgreSQL farkları — neden önemliydi
+
+| Konu | SQLite | PostgreSQL |
 |---|---|---|
-| Geliştirme | **SQLite** | Herd'ün ücretsiz sürümünde MySQL yok. Laravel 11+ varsayılanı. Tek dosya: `database/database.sqlite` |
-| Üretim | **MySQL 8** | TR hosting'lerde yaygın, eşzamanlı yazmada güçlü |
+| `ENUM` kolon tipi | Yok, `varchar`'a düşer | Var |
+| `jsonb` | Yok, düz metin | İndekslenebilir |
+| `CHECK` kısıtı | Kısıtlı | Tam |
+| Eşzamanlı yazma | Dosya kilidi — tek yazıcı | Satır kilidi |
+| Kısmi indeks | Yok | Var |
+| Yabancı anahtar | Varsayılan **kapalı** | Açık |
+| Kolon değiştirme | Tabloyu yeniden yaratır | `ALTER` |
 
-Geçiş `.env`'de tek satır (`DB_CONNECTION=mysql`) — migration'lar aynı kalır.
-Eloquent ve Schema Builder, SQL farklarını bizden gizler.
+Bu farklar bizde soyut değil:
 
-## 🔴 SQLite ↔ MySQL farkları (migration yazarken önemli)
+- **6 enum** var → `ENUM` desteği işe yarıyor
+- `gift_options` **JSON** kolonu → `jsonb`
+- `guest_count > 0` gibi **CHECK** kısıtları
+- LCV seli senaryosu → **eşzamanlı yazma**
+- `WHERE status = 'published'` → **kısmi indeks**
 
-| Konu | SQLite | MySQL | Ne yapacağız |
-|---|---|---|---|
-| `ENUM` kolon tipi | Yok, `varchar`'a düşer | Var | Kolonu `string` yapıp doğrulamayı **PHP enum** ile yaparız (Adım 2 & 3) |
-| Kolon değiştirme | Kısıtlı | Serbest | Migration'da `change()` yerine yeni migration tercih |
-| Eşzamanlı yazma | Dosya kilidi — tek yazıcı | Satır kilidi | Yerelde sorun değil, üretimde MySQL |
-| `JSON` kolon | Metin olarak saklar | Yerel tip | Eloquent cast'i her ikisinde de aynı çalışır |
-| Yabancı anahtar | Varsayılan **kapalı** | Açık | Laravel açıyor; yine de test edilir |
+> **Ortadan kalkan taviz:** Daha önce "SQLite'ta ENUM yok, o yüzden `string`
+> kolon + PHP enum cast kullanacağız" demiştik. Bu, veritabanı kısıtı yüzünden
+> tasarımı eğmekti. Artık gerçek `ENUM` veya `CHECK` kısıtı kullanabiliriz —
+> hangisinin tercih edileceği Faz 3'te (migration'lar) kararlaştırılacak.
 
-**Sonuç:** `enum(...)` yerine `string` + PHP enum cast kullanacağız. Bu zaten daha
-iyi bir tasarım: veritabanı ENUM'unu değiştirmek tablo kilidi gerektirir, PHP
-enum'unu değiştirmek bir deploy'dur.
+## PostgreSQL'e özgü ayarlar
 
-## `foreign_key_constraints`
+| Anahtar | Değer | Not |
+|---|---|---|
+| `charset` | `utf8` | PostgreSQL'de tek doğru seçim |
+| `search_path` | `public` | Şema adı. Çoklu kiracı yapıda değişir |
+| `sslmode` | `prefer` (yerel) / `require` (üretim) | Üretimde şifresiz bağlantı olmamalı |
 
-SQLite bölümündeki bu anahtar `true` olmalı. Aksi hâlde `invitation_id`
-silinen bir davetiyeye işaret edebilir ve yetim (orphan) kayıtlar oluşur —
-yerelde fark edilmez, üretimde patlar.
+## Test veritabanı neden ayrı?
+
+Testler `RefreshDatabase` ile her koşuda tabloları temizler. Geliştirme
+veritabanınla aynı olsaydı, test koşmak **elle girdiğin tüm veriyi silerdi.**
+
+`phpunit.xml` içinde `DB_DATABASE=davetkart_test` tanımlanır; bu değer
+`.env`'dekini ezer.
 
 ## `redis` bölümü
 
-Şu an kullanılmıyor (`.env`'de Redis kurulu değil). Üretimde cache ve kuyruk
-için Redis'e geçersek burası devreye girer.
+Şu an kullanılmıyor. Üretimde cache ve kuyruk için Redis'e geçildiğinde
+devreye girer.
 
 ## Dikkat
 
-- SQLite dosyası `database/database.sqlite` — **git'e girmez** (`.gitignore`'da).
-- `php artisan migrate:fresh` tüm tabloları siler; yerelde serbest, üretimde asla.
+- `pdo_pgsql` PHP eklentisi kurulu olmalı: `php -m | Select-String "pgsql"`
+- `php artisan migrate:fresh` tüm tabloları siler — yerelde serbest, üretimde asla.
+- PostgreSQL'de tablo/kolon adları **küçük harfe** çevrilir; Laravel zaten
+  `snake_case` kullandığı için sorun çıkmaz.
+- Bağlantı bilgileri `.env`'de: `DB_HOST=127.0.0.1`, `DB_PORT=5432`,
+  `DB_DATABASE=davetkart`, `DB_USERNAME=postgres`, `DB_PASSWORD=...`
