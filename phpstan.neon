@@ -1,0 +1,29 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    # Taranacak klasorler. vendor/ ve storage/ bilincli olarak disarida.
+    paths:
+        - app
+        - config
+        - database
+        - routes
+        - tests
+
+    # 0-10 arasi katilik. 5: makul baslangic, kademeli yukselecek (bkz. kilavuz).
+    level: 5
+
+    # Laravel'in "sihirli" ozelliklerini (Model::where, relation) anlamak icin
+    # Larastan modelleri calistirmadan cozumler. Bellek siniri gerekir.
+    treatPhpDocTypesAsCertain: false
+
+    # Eloquent modellerinde tanimsiz ozellik erisimini yakala.
+    checkModelProperties: true
+
+    # Kod Laravel 13 + PHP 8.3 hedefliyor.
+    phpVersion: 80300
+
+    ignoreErrors:
+        # Laravel'in Facade ve Model cephelerinde statik cozumleme sinirli kalir;
+        # Larastan cogunu cozer, kalan istisnalar buraya EK GEREKCEYLE yazilir.
+        # Su an bos: hicbir istisna kabul edilmedi.
