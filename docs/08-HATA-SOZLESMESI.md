@@ -147,7 +147,7 @@ Saldırgan ULID uzayını tarayıp hangi davetiyelerin var olduğunu haritalayab
 |---|---|
 | Yığın izi (stack trace), dosya yolu, satır no | Sadece `debug` bloğu (yerel) |
 | SQL sorgusu / veritabanı hata metni | Sadece log |
-| Sağlayıcı ham hataları (ödeme, Gemini) | Sadece log; dışarı `PAYMENT_PROVIDER_ERROR` |
+| Sağlayıcı ham hataları (ödeme, Gemini) | Sadece log; dışarı `PAYMENT_PROVIDER_ERROR` (502) veya `PROVIDER_UNAVAILABLE` (503) |
 | Sürüm bilgisi (PHP, Laravel) | Hiçbir yere |
 | Başka kullanıcıya ait herhangi bir alan | Hiçbir yere |
 
@@ -155,6 +155,11 @@ Saldırgan ULID uzayını tarayıp hangi davetiyelerin var olduğunu haritalayab
 
 Her hata kodu, dışarı verdiği parametreleri **kendisi beyan eder**. Varsayılan:
 hiçbiri.
+
+🔴 **Beyaz liste belgede değil, kodda zorlanır.** `ErrorCode::filterParams()`
+listede adı geçmeyen anahtarları sessizce düşürür. Bu kuralın hatırlanmasına
+değil, çağrı yolunun üzerinde durmasına bağlıdır — bkz.
+[`rehber/app/Enums/ErrorCode.md`](rehber/app/Enums/ErrorCode.md) §3.4.
 
 | Parametre | Kime | Neden |
 |---|---|---|
@@ -180,11 +185,46 @@ Durum kodu **kaba sınıflandırma**, `code` **ince ayrım**. İkisi birlikte ç
 | **413** | Dosya çok büyük | `FILE_TOO_LARGE` |
 | **422** | Doğrulama başarısız | `VALIDATION_FAILED` |
 | **429** | Hız sınırı | `RATE_LIMITED` |
-| **500** | Sunucu hatası | `SERVER_ERROR` |
-| **503** | Dış servis erişilemez | `PROVIDER_UNAVAILABLE` |
+| **500** | Sunucu hatası (bizim kodumuz) | `SERVER_ERROR` |
+| **502** | Yukarı akış **geçersiz yanıt döndü** | `PAYMENT_PROVIDER_ERROR` |
+| **503** | Servis geçici olarak kullanılamıyor | `PROVIDER_UNAVAILABLE` |
 
 > 🔴 **401 ile 403 ayrımı ihlal edilemez.** Frontend `api.ts` interceptor'ı
 > 401'de oturumu düşürüyor. Yanlış kod kullanıcıyı sistemden atar.
+
+### 4.1 5xx ailesinin ayrımı (RFC 9110)
+
+İlk tasarımda tüm sağlayıcı hataları 503'e konmuştu. Sektör pratiğine göre
+düzeltildi — üçü **farklı yeri** işaret eder ve izleme (monitoring) alarmları bu
+ayrıma göre yönlendirilir:
+
+| Durum | Sorun nerede | Örnek |
+|---|---|---|
+| **500** | **Bizim kodumuzda** | Yakalanmamış `TypeError` |
+| **502** | **Yukarı akışta** — cevap verdi ama hatalı | Iyzico "işlem reddedildi" döndü |
+| **503** | **Bu serviste** — geçici olarak veremiyoruz | Gemini'ye hiç ulaşılamıyor, bakım |
+
+Ödeme akışında biz bir **gateway**'iz: isteği Iyzico'ya iletiyoruz. Iyzico hata
+döndüğünde sorun bizde değil, aracılık ettiğimiz serviste — bu 502'nin tanımıdır.
+503 demek kendi sunucumuzun çöktüğünü bildirmek olurdu.
+
+**`Retry-After` başlığı** 429 ve 503 ile birlikte gönderilir (RFC 9110 §10.2.3).
+Bu yüzden `PROVIDER_UNAVAILABLE` da `retryAfter` parametresi taşır.
+
+### 4.2 Neden RFC 9457 (Problem Details) kullanılmıyor?
+
+HTTP hata gövdeleri için bir RFC standardı var:
+
+```json
+{ "type": "...", "title": "You do not have enough credit.", "status": 403 }
+```
+
+Kullanmıyoruz: `title` ve `detail` alanları **insan tarafından okunabilir metin**
+zorunlu kılar — K20'nin tam olarak yasakladığı şey. Standarda uymak için İngilizce
+cümle üretip frontend'in onu görmezden gelmesini beklemek ölü kod üretir.
+
+Bizim zarfımız RFC 9457'nin **makine tarafından okunabilir** çekirdeğini (`code`,
+`status`) alır, metin kısmını atar.
 
 ---
 

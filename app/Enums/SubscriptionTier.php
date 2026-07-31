@@ -14,8 +14,8 @@ namespace App\Enums;
 enum SubscriptionTier: string
 {
     case Standart = 'standart';
-    case Gold     = 'gold';
-    case Elit     = 'elit';
+    case Gold = 'gold';
+    case Elit = 'elit';
 
     /** Kapsama karşılaştırması için sayısal sıra (standart=0 < gold=1 < elit=2). */
     public function rank(): int
@@ -48,8 +48,8 @@ enum SubscriptionTier: string
     {
         return match ($this) {
             self::Standart => 'Standart',
-            self::Gold     => 'Gold',
-            self::Elit     => 'Elit',
+            self::Gold => 'Gold',
+            self::Elit => 'Elit',
         };
     }
 
