@@ -191,19 +191,66 @@ ekler, iki ay sonra 40 satırlık bir görmezden gelme listesi kalır.
 
 ## 5. Komutlar
 
+🔴 **Doğru kullanım `composer analyse`** — `--memory-limit=1G` bayrağı içine
+gömülüdür (bkz. §5.1).
+
 ```powershell
-# Tam analiz
-./vendor/bin/phpstan analyse
+composer analyse          # tam analiz (onerilen)
+composer check            # pint --test + phpstan + test  (Faz bitis olcutu)
 
-# Bellek sınırını yükselt (buyuk projelerde gerekebilir)
+# Ham komutlar
 ./vendor/bin/phpstan analyse --memory-limit=1G
-
-# Önbelleği temizle (garip sonuçlarda ilk deneyeceğin)
-./vendor/bin/phpstan clear-result-cache
-
-# Mevcut hataları "kabul edilmiş" olarak dondur
+./vendor/bin/phpstan clear-result-cache        # garip sonuclarda ilk deneme
 ./vendor/bin/phpstan analyse --generate-baseline
 ```
+
+### 5.1 🔴 "PHP memory limit: 128M" hatası
+
+İlk çalıştırmada büyük olasılıkla şunu görürsün:
+
+```
+Child process error: PHPStan process crashed because it reached
+configured PHP memory limit: 128M
+while running parallel worker
+```
+
+**Bu bir hata değil, beklenen davranıştır.** Sebebi:
+
+PHP CLI'ın varsayılan `memory_limit` değeri **128 MB**'tır. PHPStan ise tüm
+kod tabanının **tip grafiğini bellekte** kurar — hangi sınıf hangi tipi
+döndürüyor, hangi metot nereden çağrılıyor. Larastan bunun üstüne **Laravel'in
+tüm modellerini ve cephelerini** çözümler. 128 MB yetmez.
+
+`while running parallel worker` satırı da bilgi verir: PHPStan işi çekirdek
+sayısına bölüp paralel koşar; **sınır her işçi için ayrı ayrı** uygulanır.
+
+**Üç çözüm var, biz üçüncüsünü seçtik:**
+
+| Çözüm | Değerlendirme |
+|---|---|
+| Her seferinde `--memory-limit=1G` yazmak | Unutulur. Yeni gelen aynı hataya çarpar |
+| `php.ini`'de `memory_limit` yükseltmek | Makineye özel — repoya giremez, ekip arkadaşında yine patlar |
+| ✅ **`composer.json`'a script eklemek** | Repoda yaşar, herkes aynı komutu çalıştırır |
+
+```json
+"analyse": [
+    "@php vendor/bin/phpstan analyse --memory-limit=1G"
+]
+```
+
+> **İlke:** Bir aracın doğru çalışması için gereken bayrak, **kişinin hafızasında
+> değil projede** yaşamalı. Aksi halde "bende çalışıyor" sınıfı hatalar doğar.
+
+**Hâlâ yetmezse:** `2G` dene. Sürekli artırman gerekiyorsa `phpstan.neon`'a
+paralel işçi sayısını sınırlamak da seçenek:
+
+```neon
+parameters:
+    parallel:
+        maximumNumberOfProcesses: 2
+```
+
+Daha az işçi = daha az eşzamanlı bellek, karşılığında daha yavaş analiz.
 
 ### Baseline nedir?
 

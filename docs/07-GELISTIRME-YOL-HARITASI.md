@@ -5,7 +5,7 @@
 > inşa sırasını iptal eder, yerine **özellik-özellik** inşa sırasını koyar.
 > Mimari kararlar (katman modeli, klasör yapısı, veri modeli, güvenlik stratejisi)
 > **aynen geçerlidir** — değişen tek şey dosyaların yazılma sırasıdır.
-> **Ayrıca:** K9 kararı revize edildi — üretim veritabanı **PostgreSQL 16**.
+> **Ayrıca:** K9 kararı revize edildi — üretim veritabanı **PostgreSQL 18**.
 
 ---
 
@@ -171,7 +171,7 @@ Bu bir kirlilik değil; şema zamanla evrilir, her migration bir adımdır.
 
 | Konu | Geliştirme | Test | Üretim | Neden |
 |---|---|---|---|---|
-| Veritabanı | **PostgreSQL 16** | **PostgreSQL 16** (`davetkart_test`) | **PostgreSQL 16** | 🔴 Dev/prod parity — 12-Factor X |
+| Veritabanı | **PostgreSQL 18** | **PostgreSQL 18** (`davetkart_test`) | **PostgreSQL 18** | 🔴 Dev/prod parity — 12-Factor X |
 | Cache | **file** | **array** | **Redis 7** | Yerelde ek servis gereksiz |
 | Kuyruk | **database** | **sync** | **Redis 7** | `jobs` tablosu yeterli; hacim artarsa Redis |
 | Dosya | **local disk** | **fake** | **S3 uyumlu** | `Storage` soyutlaması sayesinde geçiş `.env` satırı |
@@ -179,7 +179,7 @@ Bu bir kirlilik değil; şema zamanla evrilir, her migration bir adımdır.
 > **⚠️ K9 revizyonu — iki aşamalı.**
 >
 > **Önceki kayıt:** "Geliştirmede SQLite, üretimde MySQL 8."
-> **Yeni karar:** Üç ortamda da **PostgreSQL 16**.
+> **Yeni karar:** Üç ortamda da **PostgreSQL 18**.
 >
 > **Neden MySQL değil?** MySQL 8'in `performance_schema` ve varsayılan buffer
 > ayarları küçük sunucularda yüksek RAM tabanı üretir. PostgreSQL ayrıca `jsonb`
@@ -268,7 +268,7 @@ görülebilir bir şeydir; "dosya yazıldı" değildir.
 | # | İş | Dosya / Komut |
 |---|---|---|
 | 0.1 | PHP sürücü kontrolü | `php -m \| Select-String "pgsql"` → `pdo_pgsql` görünmeli |
-| 0.2 | PostgreSQL 16 kurulumu | Resmî Windows installer (postgresql.org) |
+| 0.2 | PostgreSQL 18 kurulumu | Resmî Windows installer (postgresql.org) |
 | 0.3 | İki veritabanı oluştur | `davetkart` ve `davetkart_test` |
 | 0.4 | `.env` düzeltmeleri | `DB_CONNECTION=pgsql`, `APP_NAME=DavetKart`, `APP_LOCALE=tr`, `APP_FAKER_LOCALE=tr_TR`, `CACHE_STORE=file` |
 | 0.5 | Bağlantı doğrulama | `php artisan migrate` → users/cache/jobs/sanctum tabloları oluşmalı |
@@ -539,14 +539,43 @@ kısıtıyla race condition önleme.
 
 ## 7. Şu an neredeyiz?
 
+> **Son güncelleme:** 31 Temmuz 2026
+
 | Durum | İş |
 |---|---|
 | ✅ | Laravel 13 kurulumu, Sanctum tablosu |
-| ✅ | `config/davetkart.php` + kılavuzu |
-| ✅ | `config/payment.php`, `config/ai.php` + kılavuzları |
+| ✅ | `config/davetkart.php`, `payment.php`, `ai.php` + kılavuzları |
 | ✅ | Laravel varsayılan config'lerinin 11 kılavuzu |
 | ✅ | `app/Enums/SubscriptionTier.php` + kılavuzu (Faz 7'de kullanılacak) |
-| ⬜ | **SIRADAKİ: Faz 0.1 — `.env` düzeltmeleri** |
+| ✅ | **FAZ 0 TAMAMLANDI** — özet: `docs/rehber/fazlar/FAZ-0.md` |
+| ✅ | PostgreSQL 18 · `davetkart` + `davetkart_test` |
+| ✅ | `.env` / `.env.example` · `pint.json` · `phpstan.neon` · `phpunit.xml` |
+| ✅ | `AppServiceProvider` sıkılaştırma (katı model kipi, CarbonImmutable) |
+| ✅ | `composer lint` / `analyse` / `check` scriptleri |
+| ✅ | **K20 hata sözleşmesi** tasarlandı → `docs/08-HATA-SOZLESMESI.md` |
+| ✅ | **K21 backend tek dil** (`APP_LOCALE=en`) |
+| ⬜ | **SIRADAKİ: Faz 1 — ilk endpoint + hata zarfı** |
+
+### ⚠️ Faz 1'in kapsamı büyüdü (K20)
+
+Hata sözleşmesi kararı Faz 1'e üç dosya ekledi:
+
+| # | Dosya | İşi |
+|---|---|---|
+| 1.1 | `app/Enums/ErrorCode.php` | Hata kodu kataloğu + HTTP durum eşlemesi |
+| 1.2 | `app/Http/Middleware/ForceJsonResponse.php` | API her zaman JSON döner |
+| 1.3 | `bootstrap/app.php` | Middleware kaydı + **exception handler** (hata zarfı) |
+| 1.4 | `routes/api.php` | `GET /api/ping` |
+| 1.5 | `tests/Feature/HealthTest.php` | İlk test + sızıntı testi |
+| 1.6 | `app/Console/Commands/ExportErrorCodes.php` | `php artisan errors:export` |
+
+**Yeni bitiş ölçütü:** `/api/ping` JSON döner **ve** bilinmeyen rota HTML değil
+`{ "error": { "code": "RESOURCE_NOT_FOUND" } }` döner.
+
+### ❌ Faz 8'den çıkarılan
+
+`SetLocaleFromHeader` middleware'i **iptal edildi** (K21). Backend tek dil
+konuşur; `Accept-Language` okunmaz.
 
 ---
 
@@ -554,7 +583,7 @@ kısıtıyla race condition önleme.
 
 | # | Eski | Yeni | Gerekçe |
 |---|---|---|---|
-| **K9'** | Üretimde MySQL 8 | **PostgreSQL 16** | Düşük RAM tabanı, `jsonb`, güçlü kısıt desteği. Migration yazılmadığı için maliyet sıfır |
+| **K9'** | Üretimde MySQL 8 | **PostgreSQL 18** | Düşük RAM tabanı, `jsonb`, güçlü kısıt desteği. Migration yazılmadığı için maliyet sıfır |
 | **K17** | Katman-katman inşa (12 adım) | **Özellik-özellik inşa (9 faz)** | Öğrenme hedefi: katmanların birlikte çalıştığını erken görmek. ⚠️ Yalnızca **inşa sırası** değişti; klasörleme katman-bazlı kalıyor (bkz. §0) |
-| **K19** | Geliştirmede SQLite | **Geliştirmede de PostgreSQL 16** | Dev/prod parity (12-Factor X). SQLite'ın gerekçesi "kurulum zahmeti"ydi, teknik üstünlük değil. ENUM/jsonb/CHECK tavizleri ortadan kalktı |
+| **K19** | Geliştirmede SQLite | **Geliştirmede de PostgreSQL 18** | Dev/prod parity (12-Factor X). SQLite'ın gerekçesi "kurulum zahmeti"ydi, teknik üstünlük değil. ENUM/jsonb/CHECK tavizleri ortadan kalktı |
 | **K18** | — | **Pest + Pint + Larastan** | Hata üretimde değil laptop'ta yakalanmalı |

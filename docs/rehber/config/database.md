@@ -17,7 +17,7 @@ söyler; diğerleri hazır bekler.
 Aynı anda birden fazla bağlantı tanımlı olabilir; kod `DB::connection('...')` ile
 birine açıkça bağlanabilir. Bizde buna gerek yok.
 
-## DavetKart kararı: her ortamda PostgreSQL 16 (K19)
+## DavetKart kararı: her ortamda PostgreSQL 18 (K19)
 
 | Ortam | Veritabanı |
 |---|---|
@@ -34,7 +34,7 @@ ortaya çıkar.
 1. **Başlangıç:** "Geliştirmede SQLite, üretimde MySQL 8." SQLite'ın gerekçesi
    *"Herd ücretsiz sürümünde MySQL yok"* idi — teknik üstünlük değil, kurulum
    kolaylığı.
-2. **K9':** Üretim MySQL 8 → PostgreSQL 16. MySQL 8'in yüksek RAM tabanı,
+2. **K9':** Üretim MySQL 8 → PostgreSQL 18. MySQL 8'in yüksek RAM tabanı,
    PostgreSQL'in `jsonb` ve güçlü kısıt desteği.
 3. **K19:** Geliştirme de PostgreSQL. MySQL gitince SQLite'ın gerekçesi düştü.
 

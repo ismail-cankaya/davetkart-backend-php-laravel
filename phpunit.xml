@@ -2,7 +2,13 @@
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
+         cacheDirectory=".phpunit.cache"
          colors="true"
+         failOnWarning="true"
+         failOnRisky="true"
+         failOnNotice="true"
+         beStrictAboutOutputDuringTests="true"
+         displayDetailsOnTestsThatTriggerDeprecations="true"
 >
     <testsuites>
         <testsuite name="Unit">
@@ -12,23 +18,44 @@
             <directory>tests/Feature</directory>
         </testsuite>
     </testsuites>
+
     <source>
         <include>
             <directory>app</directory>
         </include>
     </source>
+
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
-        <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="BROADCAST_CONNECTION" value="null"/>
-        <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+
+        <!-- K19: testte de PostgreSQL. Ayri veritabani, cunku RefreshDatabase
+             her kosuda tablolari siler ve yeniden kurar. -->
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_DATABASE" value="davetkart_test"/>
         <env name="DB_URL" value=""/>
-        <env name="MAIL_MAILER" value="array"/>
-        <env name="QUEUE_CONNECTION" value="sync"/>
+        <!-- DB_HOST / DB_PORT / DB_USERNAME / DB_PASSWORD .env'den gelir.
+             Bu dosya repoda oldugu icin buraya PAROLA YAZILMAZ. -->
+
+        <!-- Testler hizli ve yan etkisiz kosmali: her sey bellekte. -->
+        <env name="CACHE_STORE" value="array"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="FILESYSTEM_DISK" value="local"/>
+
+        <!-- Hash maliyeti testte dusuk: burada guvenlik degil hiz onemli. -->
+        <env name="BCRYPT_ROUNDS" value="4"/>
+
+        <!-- K21: backend tek dil konusur. -->
+        <env name="APP_LOCALE" value="en"/>
+        <env name="APP_FALLBACK_LOCALE" value="en"/>
+
+        <!-- K20 sizinti testleri icin uretim kipi varsayilan. Debug blogunu
+             test eden senaryolar config(['app.debug' => true]) ile acar. -->
+        <env name="APP_DEBUG" value="false"/>
+
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

@@ -1,7 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Providers;
 
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +25,35 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        $this->configureModels();
+        $this->configureDates();
+        $this->configureCommands();
+    }
+
+    /**
+     * Eloquent kati kip. Uc korumayi birden acar: lazy loading (N+1),
+     * sessizce atilan alanlar, olmayan alana erisim.
+     * Uretimde KAPALI: hata musteri istegini dusurmesin, log'a dussun.
+     */
+    private function configureModels(): void
+    {
+        Model::shouldBeStrict(! $this->app->isProduction());
+    }
+
+    /**
+     * Tarihler degismez (immutable) olsun; ->addDay() cagrisi orijinali
+     * degistirmek yerine yeni ornek dondursun.
+     */
+    private function configureDates(): void
+    {
+        Date::use(CarbonImmutable::class);
+    }
+
+    /**
+     * Uretimde migrate:fresh / migrate:reset / db:wipe komutlarini engelle.
+     */
+    private function configureCommands(): void
+    {
+        DB::prohibitDestructiveCommands($this->app->isProduction());
     }
 }
