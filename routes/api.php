@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\HealthController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -15,4 +16,5 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Sozlesme sagligi: API katmani ayakta ve JSON konusuyor mu?
-Route::get('/ping', fn () => ['status' => 'ok'])->name('health.ping');
+// Closure DEGIL sinif referansi — route:cache closure'lari serilestiremez.
+Route::get('/ping', HealthController::class)->name('health.ping');

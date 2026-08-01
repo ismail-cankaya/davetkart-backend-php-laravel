@@ -554,7 +554,12 @@ kısıtıyla race condition önleme.
 | ✅ | `composer lint` / `analyse` / `check` scriptleri |
 | ✅ | **K20 hata sözleşmesi** tasarlandı → `docs/08-HATA-SOZLESMESI.md` |
 | ✅ | **K21 backend tek dil** (`APP_LOCALE=en`) |
-| ⬜ | **SIRADAKİ: Faz 1 — ilk endpoint + hata zarfı** |
+| ✅ | **FAZ 1 TAMAMLANDI** — özet: `docs/rehber/fazlar/FAZ-1.md` |
+| ✅ | `ErrorCode` (19 kod) · `ForceJsonResponse` · `ApiExceptionRenderer` |
+| ✅ | `bootstrap/app.php` kablolama · `GET /api/ping` · `HealthController` |
+| ✅ | `HealthTest` (7 test, 3'ü sızıntı) · `php artisan errors:export` |
+| ✅ | **K25–K31** kararları · **H10–H13 · R1–R5 · M1–M4 · T6–T9 · G1–G3** kuralları |
+| ⬜ | **SIRADAKİ: Faz 2 — Auth özellik dilimi** |
 
 ### ⚠️ Faz 1'in kapsamı büyüdü (K20)
 

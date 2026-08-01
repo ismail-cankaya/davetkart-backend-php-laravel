@@ -37,8 +37,8 @@ Backend bittiğinde ortaya çıkan şey:
 | Faz | Konu | Frontend'de ne çalışır | ~Dosya | Durum |
 |---|---|---|:---:|:---:|
 | **0** | Zemin: PostgreSQL + kalite araçları + hata sözleşmesi | — | 6 | ✅ |
-| **1** | İlk endpoint + `ForceJsonResponse` + **hata zarfı (K20)** | — | 6 | ⬜ **SIRADAKİ** |
-| **2** | **Auth özellik dilimi** 🎯 walking skeleton | Giriş / kayıt | 10 | ⬜ |
+| **1** | İlk endpoint + `ForceJsonResponse` + **hata zarfı (K20)** | — | 8 | ✅ |
+| **2** | **Auth özellik dilimi** 🎯 walking skeleton | Giriş / kayıt | 10 | ⬜ **SIRADAKİ** |
 | **3** | Invitation CRUD + Policy + Resource ailesi | Dashboard + editör autosave | 12 | ⬜ |
 | **4** | Public davetiye + cache + ETag 🔥 | `/invite/{slug}` sayfası | 6 | ⬜ |
 | **5** | RSVP (public submit + owner list) | LCV gönderimi + canlı panel | 10 | ⬜ |
@@ -118,7 +118,11 @@ Tam liste `docs/rehber/fazlar/FAZ-0.md` §4'te (31 kural). En sık ihlal edilen 
 
 ---
 
-## FAZ 1 — İlk nefes + hata zarfı ⬜ SIRADAKİ
+## FAZ 1 — İlk nefes + hata zarfı ✅ TAMAMLANDI
+
+> Faz özeti ve kurulan kurallar: [`rehber/fazlar/FAZ-1.md`](rehber/fazlar/FAZ-1.md).
+> Aşağıdaki plan tarihsel kayıt olarak duruyor; gerçekleşen 8 dosyadır
+> (`ApiExceptionRenderer` ve `HealthController` plan dışı eklendi — K26, K30).
 
 **Amaç (tek cümle):** Bir HTTP isteğinin Laravel içinde nereden girip nereden
 çıktığını görmek ve K20 hata sözleşmesini **tek merkeze** kurmak.

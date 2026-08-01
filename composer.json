@@ -59,6 +59,7 @@
         "check": [
             "@php vendor/bin/pint --test",
             "@php vendor/bin/phpstan analyse --memory-limit=1G",
+            "@php artisan errors:export --check",
             "@php artisan test"
         ],
         "post-autoload-dump": [
