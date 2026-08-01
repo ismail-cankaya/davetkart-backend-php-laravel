@@ -15,7 +15,9 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+            // K35: ad ve soyad ayri kolon. Birlestirme UserResource'ta yapilir.
+            $table->string('first_name', 60);
+            $table->string('last_name', 60);
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');

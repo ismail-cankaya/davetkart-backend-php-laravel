@@ -208,7 +208,8 @@ değiştirmeyi planlamıyorsanız **YAGNI** ihlalidir.
 
 ```sql
 users
-  id, full_name, email UNIQUE, password, email_verified_at, remember_token, timestamps
+  id, first_name, last_name, email UNIQUE, password, email_verified_at, remember_token, timestamps
+                                    ← K35: ad ve soyad AYRI kolon. Gerekçe §3.3
 
 invitations
   id
@@ -269,7 +270,25 @@ contact_messages
 personal_access_tokens   ← Sanctum'un kendi tablosu
 ```
 
-### 3.3 Üç tasarım detayının gerekçesi
+### 3.3 Dört tasarım detayının gerekçesi
+
+**`users` neden `first_name` + `last_name`, tek `full_name` değil? (K35)**
+Eski satır `full_name` diyordu; iskelet migration'ında ise kolon `name`'di. Karar
+Faz 2 girişinde ad/soyadı **ayırmak** yönünde verildi.
+
+Ayrı kolonun kazandırdığı: fatura ve resmî belgelerde soyadı tek başına gerekir
+(Faz 7 ödeme akışı), soyada göre sıralama/arama mümkün olur, hitap ("Sayın Yılmaz")
+kurulabilir. Tek kolondan bunların hiçbiri **geri kazanılamaz**.
+
+🔴 **Bölme kritik olarak yazma anında yapılır, okuma anında değil.** Kullanıcıdan
+tek string alıp backend'de boşluktan bölmek yasaktır: "Ayşe Nur Kaya" için ad
+"Ayşe" mi "Ayşe Nur" mü olduğu bilinemez ve yanlış bölünen veri geri
+döndürülemez. Bu yüzden veri **kullanıcıdan iki ayrı alan olarak** toplanır —
+sözleşme değişikliğinin sebebi budur (§4.3).
+
+Birleştirme ise güvenlidir ve tek yönlüdür: `UserResource`, frontend'in beklediği
+`fullName` alanını `first_name . ' ' . last_name` ile üretir. Yani veritabanı
+ayrıntılı, sözleşme sade — dönüşüm yine tek noktada (`CLAUDE.md` §1).
 
 **`public_slug` neden UUID/ULID?**
 Frontend `id: string` bekliyor. Ardışık integer kullanırsak misafir `/invite/1`,
@@ -324,7 +343,7 @@ return InvitationResource::collection($invitations);   // {"data": [...]}
 
 | # | Method | Path | Auth | Açıklama |
 |---|---|---|:---:|---|
-| 1 | POST | `/api/auth/register` | — | `{fullName,email,password}` → `{user,token}` |
+| 1 | POST | `/api/auth/register` | — | 🔴 `{firstName,lastName,email,password}` → `{user,token}` (K35) |
 | 2 | POST | `/api/auth/login` | — | `{email,password}` → `{user,token}` |
 | 3 | POST | `/api/auth/logout` | ✅ | Aktif token'ı sil |
 | 4 | GET | `/api/auth/me` | ✅ | *(yeni)* Token doğrulama |
