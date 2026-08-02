@@ -16,10 +16,10 @@ use Laravel\Sanctum\HasApiTokens;
 /**
  * Uygulama kullanicisi (davetiye sahibi).
  *
- * Kolon adi `name`'dir; frontend'in bekledigi `fullName` donusumu
- * yalnizca UserResource icinde yapilir (CLAUDE.md §1).
+ * Ad ve soyad ayri kolondur (K35). Frontend'in bekledigi `fullName`
+ * birlestirmesi yalnizca UserResource icinde yapilir (CLAUDE.md §1).
  */
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['first_name', 'last_name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -35,7 +35,7 @@ class User extends Authenticatable
     protected function email(): Attribute
     {
         return Attribute::set(
-            fn (string $value): string => mb_strtolower(trim($value))
+            fn (string $value): string => mb_strtolower(trim($value)),
         );
     }
 

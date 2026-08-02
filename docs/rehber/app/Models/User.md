@@ -142,30 +142,43 @@ fonksiyon, JavaScript'teki `=>` ile aynı fikir.
 
 ## 3. Alınan kararlar
 
-### 3.1 Kolon adı `name` kalıyor, `full_name` değil
+### 3.1 `$fillable` neden `first_name` + `last_name`? (K35)
 
-`docs/03-MIMARI-PLAN.md` §3.2 `users.full_name` yazıyordu. İskelet migration'ında ise
-kolon `name`. İki seçenek vardı:
+İskelet migration'ında kolon tek ve `name`'di; `03-MIMARI-PLAN.md` ise `full_name`
+diyordu. Faz 2 girişinde ikisi de bırakılıp **ad ve soyad ayrıldı**.
 
-| Seçenek | Bedeli |
-|---|---|
-| Migration'ı `full_name` yapmak | Laravel'in `name` bekleyen her yeri (Notification şablonları, `MailMessage`, ileride eklenebilecek paketler) için model üzerinde override yazmak |
-| `name` bırakmak | `03-MIMARI-PLAN.md`'ye düzeltme notu düşmek |
-
-**`name` seçildi.** Belirleyici gerekçe şu: frontend sözleşmesi (`AuthUser.fullName`)
-zaten **veritabanı kolon adına bakmıyor**. Dönüşüm `UserResource` içinde yapılıyor:
+Gerekçe tek cümleyle: **birleştirmek güvenlidir, ayırmak değildir.**
 
 ```
-DB kolonu        Resource                Frontend
-  name      →   'fullName' => $this->name   →   user.fullName
+first_name="Ayşe"  last_name="Nur Kaya"   →   "Ayşe Nur Kaya"    ✅ kayıpsız
+"Ayşe Nur Kaya"                            →   ad? soyad?         ❌ bilinemez
 ```
 
-Yani sözleşme her iki durumda da korunuyor. Sözleşme korunuyorsa, ekosistemle
-çatışmayan adı seçmek daha ucuzdur.
+Tek kolonda tutulan "Ayşe Nur Kaya" için ad "Ayşe" mi "Ayşe Nur" mü olduğu
+**hiçbir algoritmayla** çıkarılamaz. Yanlış bölünen veri geri kazanılamaz. Buna
+karşılık iki kolondan tek string üretmek her zaman mümkündür.
+
+Ayrı kolonun somut kazançları: fatura ve resmî belge soyadı tek başına ister
+(Faz 7), soyada göre sıralama/arama mümkün olur, "Sayın Kaya" hitabı kurulabilir.
+
+🔴 **Bunun sözleşmeye yansıması asimetriktir:**
+
+| Yön | Değişti mi | Neden |
+|---|---|---|
+| **İstek** `POST /auth/register` | ✅ `{firstName, lastName, ...}` | Veri kullanıcıdan **iki alan olarak** toplanmalı |
+| **Yanıt** `{user, token}` | ❌ `fullName` aynı kaldı | `UserResource` birleştirerek üretiyor |
+
+Yani frontend'in okuma tarafı (`Header`, `DashboardPage`, `LoginPage`) hiç
+kırılmıyor; yalnızca `RegisterPage` formu ve `RegisterPayload` tipi değişiyor.
+
+**Birleştirme bu dosyada yapılmaz.** Modele bir `fullName` accessor'ı eklemek
+cazip görünür ama `CLAUDE.md` §1 nettir: snake_case → camelCase dönüşümünün
+yapıldığı **tek yer** `app/Http/Resources/`'tur. İki yerde dönüşüm yapılabiliyorsa,
+er ya da geç ikisi birbirinden ayrışır.
 
 > **Genel ilke:** İç isimlendirme ile dış sözleşme arasına bir **çeviri katmanı**
-> koyduysan (bizde Resource), iç ismi dış isme benzetmek zorunda değilsin. Katmanın
-> varlık sebebi tam olarak budur.
+> koyduysan (bizde Resource), iç modeli dış sözleşmeye benzetmek zorunda değilsin.
+> Veritabanı ayrıntılı, sözleşme sade olabilir — katmanın varlık sebebi budur.
 
 ### 3.2 `$fillable` — beyaz liste, kara liste değil
 
@@ -326,7 +339,8 @@ gerçekten gerekirse git geçmişinden değil, dokümantasyondan yeniden yazıl�
 | Action içinde `Hash::make($password)` çağırmak | **Çift hash** — parola hash'i tekrar hash'lenir, hiçbir giriş çalışmaz | Ham parolayı ver, cast halleder |
 | `$guarded = []` yazmak | Mass assignment açığı | `#[Fillable([...])]` beyaz listesi |
 | `$fillable`'a yeni kolon eklemeyi unutmak | Alan sessizce kaydedilmez, hata da vermez | Yeni kolon → aynı commit'te `$fillable` |
-| Modeli doğrudan `response()->json($user)` ile döndürmek | `name` snake_case sızar, sözleşme kırılır | Her zaman `UserResource` |
+| Modeli doğrudan `response()->json($user)` ile döndürmek | `first_name` snake_case sızar, `fullName` hiç üretilmez | Her zaman `UserResource` |
+| Modele `fullName` accessor'ı eklemek | Dönüşüm iki yere dağılır, zamanla ayrışır | Birleştirme yalnızca `UserResource`'ta (CLAUDE.md §1) |
 | `email` mutator'ına `null` atamak | `TypeError` — `string` tip bildirimi | Kolon `NOT NULL`; null atanmamalı |
 | Token'ı `$user->createToken('x')` diye kullanmak | `NewAccessToken` nesnesi döner, string değil | `->plainTextToken` |
 | `#[Fillable]` yerine `#[Attributes\Attribute]` aramak | Farklı mekanizma | §2.4'teki uyarıya bak |
@@ -345,7 +359,12 @@ php artisan tinker
 **1. Parola gerçekten hash'leniyor mu?**
 
 ```php
-$u = new App\Models\User(['name' => 'Test', 'email' => 'T@Test.COM', 'password' => 'abc12345']);
+$u = new App\Models\User([
+    'first_name' => 'Test',
+    'last_name'  => 'Kullanici',
+    'email'      => 'T@Test.COM',
+    'password'   => 'abc12345',
+]);
 $u->password;
 // $argon2id$v=19$m=65536,t=4,p=1$... — 'abc12345' DEĞİL
 ```
@@ -360,7 +379,7 @@ $u->email;
 **3. Beyaz liste çalışıyor mu?**
 
 ```php
-$u2 = new App\Models\User(['name' => 'X', 'is_admin' => true]);
+$u2 = new App\Models\User(['first_name' => 'X', 'is_admin' => true]);
 $u2->is_admin;
 // null — anahtar sessizce atıldı
 ```

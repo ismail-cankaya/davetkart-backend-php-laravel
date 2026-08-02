@@ -10,37 +10,44 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
+ * Test ve seeder icin sahte kullanici uretir.
+ *
+ * Ayrintili aciklama: docs/rehber/database/factories/UserFactory.md
+ *
  * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
-    /**
-     * The current password being used by the factory.
-     */
-    protected static ?string $password;
+    /** Uretilen kullanicilarin duz metin parolasi — testler bunu kullanir. */
+    public const PASSWORD = 'password';
 
     /**
-     * Define the model's default state.
+     * Hash bir kez uretilir, tum ornekler paylasir. Parola hash'lemesi
+     * kasitli olarak yavastir; kullanici basina tekrarlamak test suresini uzatir.
+     */
+    protected static ?string $passwordHash = null;
+
+    /**
+     * Bir kullanicinin varsayilan alanlari.
      *
      * @return array<string, mixed>
      */
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
+            'first_name' => fake()->firstName(),
+            'last_name' => fake()->lastName(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
+            'password' => static::$passwordHash ??= Hash::make(self::PASSWORD),
             'remember_token' => Str::random(10),
         ];
     }
 
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
+    /** E-postasi dogrulanmamis kullanici. */
     public function unverified(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn (array $attributes): array => [
             'email_verified_at' => null,
         ]);
     }

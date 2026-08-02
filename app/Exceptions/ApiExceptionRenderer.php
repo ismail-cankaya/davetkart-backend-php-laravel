@@ -135,6 +135,7 @@ final class ApiExceptionRenderer
      * Konumlu kural parametrelerine ad verir: max:10 -> ['max' => 10].
      *
      * @param  list<mixed>  $params
+     *
      * @return array<string, mixed>
      */
     private function nameRuleParams(string $rule, array $params): array
