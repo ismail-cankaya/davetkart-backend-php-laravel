@@ -45,7 +45,14 @@
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="FILESYSTEM_DISK" value="local"/>
 
-        <!-- Hash maliyeti testte dusuk: burada guvenlik degil hiz onemli. -->
+        <!-- Hash maliyeti testte dusuk: burada guvenlik degil hiz onemli.
+             K32 ile surucu Argon2id oldugu icin ARGON_* degerleri belirleyici;
+             BCRYPT_ROUNDS artik etkisiz ama surucu geri alinirsa diye duruyor.
+             64 MB / 4 tur uretim degeridir; her testte odenirse suite dakikalara cikar. -->
+        <env name="HASH_DRIVER" value="argon2id"/>
+        <env name="ARGON_MEMORY" value="1024"/>
+        <env name="ARGON_TIME" value="1"/>
+        <env name="ARGON_THREADS" value="1"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
 
         <!-- K21: backend tek dil konusur. -->

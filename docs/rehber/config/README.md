@@ -26,6 +26,7 @@ Dosyayı bu klasöre koymak onu kaydetmeye yeter; ekstra bir tanımlama yoktur.
 | `ai.php` | ⭐ AI sağlayıcı + API anahtarı | 🔴 Yüksek | [ai.md](ai.md) |
 | `app.php` | Uygulama adı, ortam, dil, zaman dilimi | Orta | [app.md](app.md) |
 | `auth.php` | Kimlik doğrulama guard ve provider'ları | 🔴 Yüksek | [auth.md](auth.md) |
+| `hashing.php` | ⭐ Parola hash algoritması ve iş faktörü (K32) | 🔴 Yüksek | [hashing.md](hashing.md) |
 | `sanctum.php` | API token davranışı | 🔴 Yüksek | [sanctum.md](sanctum.md) |
 | `database.php` | Veritabanı bağlantıları | 🔴 Yüksek | [database.md](database.md) |
 | `cache.php` | Cache sürücüsü | 🔴 Yüksek | [cache.md](cache.md) |
@@ -36,14 +37,18 @@ Dosyayı bu klasöre koymak onu kaydetmeye yeter; ekstra bir tanımlama yoktur.
 | `mail.php` | E-posta gönderimi | Orta | [mail.md](mail.md) |
 | `services.php` | 3. parti servis kimlikleri | Düşük | [services.md](services.md) |
 
-## `.env` düzeltme listesi (yapılacak)
+## `.env` düzeltme listesi — ✅ tamamlandı
 
-| Satır | Şu an | Olması gereken | Neden |
-|---|---|---|---|
-| `APP_NAME` | `Laravel` | `DavetKart` | Mail başlıkları ve log'larda görünür |
-| `APP_LOCALE` | `en` | `tr` | Doğrulama hataları Türkçe dönmeli |
-| `APP_FAKER_LOCALE` | `en_US` | `tr_TR` | Seeder'da Türkçe isimler üretsin |
-| `CACHE_STORE` | `database` | `file` (yerel) | SQLite'ta cache tablosu ek yazma yükü |
+> ⚠️ Bu tablo Faz 0'da yazılmıştı ve bir satırı **sonradan geçersiz kılındı**.
+> Güncel hâli:
+
+| Satır | Sonuç | Not |
+|---|---|---|
+| `APP_NAME` | ✅ `DavetKart` | Mail başlıkları ve log'larda görünür |
+| ~~`APP_LOCALE` → `tr`~~ | ❌ **İptal** → `en` | **K21**: backend tek dil konuşur, API metin döndürmez |
+| `APP_FAKER_LOCALE` | ✅ `tr_TR` | Türkçe test verisi karakter/uzunluk sorunlarını erken gösterir |
+| `CACHE_STORE` | ✅ `file` (yerel) | Üretimde Redis (Faz 9) |
+| `HASH_DRIVER` | ✅ `argon2id` | **K32** — Faz 2'de eklendi, bkz. [hashing.md](hashing.md) |
 
 ## Faydalı komutlar
 

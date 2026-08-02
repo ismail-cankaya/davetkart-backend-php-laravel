@@ -30,7 +30,9 @@ class UserFactory extends Factory
     /**
      * Bir kullanicinin varsayilan alanlari.
      *
-     * @return array<string, mixed>
+     * Donus tipi BILEREK yazilmadi: ust sinif Factory::definition() anahtarlari
+     * "User'in gercek kolon adlari" olarak tanimlar. Buraya daha genis bir tip
+     * yazmak kovaryansi bozar; bos birakilinca ust siniftan devralinir.
      */
     public function definition(): array
     {

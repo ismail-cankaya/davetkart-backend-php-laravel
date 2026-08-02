@@ -8,7 +8,9 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
-use Throwable;
+// Not: `use Throwable;` YOK. Bu dosyanin namespace'i yok, yani zaten global
+// isim alanindayiz; global bir sinifi global alana ithal etmek etkisizdir ve
+// PHP uyari verir. Throwable asagida ithalsiz calisir.
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(

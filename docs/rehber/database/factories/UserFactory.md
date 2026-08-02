@@ -81,6 +81,66 @@ PHP'nin generic'i yoktur; bu satır **PHPStan içindir** (bkz.
 demektir. Sayesinde PHPStan `User::factory()->create()` ifadesinin `User`
 döndürdüğünü bilir ve `$user->first_name` erişimini doğrulayabilir.
 
+### 2.1.1 🔴 `definition()` neden `@return` taşımıyor?
+
+Bu dosya yazılırken iki deneme yapıldı ve ikisi de kırıldı. Hikâye öğreticidir.
+
+**1. deneme — iskeletten gelen `@return array<string, mixed>`:**
+
+```
+Return type (array<string, mixed>) of method UserFactory::definition()
+should be compatible with return type (array<model property of App\Models\User, mixed>)
+of method Factory<App\Models\User>::definition()
+```
+
+Sebebi **kovaryans** kuralıdır: alt sınıf, üst sınıfın dönüş tipini
+**daraltabilir ama genişletemez**. Üst sınıf *"anahtarlar `User`'ın kolon adları
+olacak"* derken biz *"anahtarlar herhangi bir string olabilir"* dedik. Bu bir
+genişletmedir; çağıran taraf üst sınıfın sözleşmesine güvenirken alt sınıf onu
+tutmaz.
+
+**2. deneme — hatanın önerdiği tipi elle yazmak:**
+
+```php
+/** @return array<model property of User, mixed> */
+```
+
+```
+PHPDoc tag @return has invalid value: Unexpected token "property", expected '>'
+```
+
+🔴 **`model property of X` yazılabilir bir tip değildir.** Larastan onu hata
+mesajında *gösterir* çünkü içeride kendisi üretir — ama PHPDoc ayrıştırıcısı
+böyle bir söz dizimi tanımaz. Hata mesajındaki tipi körü körüne kopyalamak
+buradaki tuzaktı.
+
+**Doğru çözüm — hiç yazmamak:**
+
+```php
+/**
+ * Bir kullanicinin varsayilan alanlari.
+ */
+public function definition(): array
+```
+
+`@return` yoksa PHPStan tipi **üst sınıftan devralır**. Devralınan tip zaten en
+doğrusudur ve bize bedava bir kazanç verir: anahtarlar modelin **gerçek
+kolonlarıyla** sınırlıdır.
+
+```php
+'first_nmae' => fake()->firstName(),   // ❌ PHPStan yakalar: böyle bir kolon yok
+```
+
+Yazım hatası test koşturmadan, statik analizde ortaya çıkar — Faz 0'ın "hatayı
+sola çek" ilkesinin somut karşılığı.
+
+> **İki genel ders:**
+> 1. Bir docblock, taşıdığı bilgi üst sınıftakinden **daha iyi değilse**
+>    yazılmamalıdır. Kopyalanmış docblock bilgi eklemez, yalnızca ayrışma riski
+>    üretir.
+> 2. Bir aracın hata mesajındaki tip, her zaman **senin yazabileceğin** bir tip
+>    değildir. Mesaj aracın iç diliyle konuşur.
+
 Laravel'in modeli bulma yolu ise ayrıdır ve **isim kuralına** dayanır:
 
 ```

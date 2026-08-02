@@ -133,6 +133,23 @@ Laravel bu closure'ı **her** exception için çağırır ve dönüş değerine 
 Bu, **Chain of Responsibility** desenidir: halka ya işi üstlenir ya da bir sonrakine
 devreder.
 
+> 🔴 **`Throwable` neden `use` ile ithal edilmiyor?** Faz 2'de bu dosyada
+> `use Throwable;` satırı vardı ve her `composer check` koşusunda şu uyarıyı
+> üretiyordu:
+>
+> ```
+> PHP Warning: The use statement with non-compound name 'Throwable' has no effect
+> ```
+>
+> Sebebi: bu dosyanın **`namespace` bildirimi yok** — yani zaten global isim
+> alanındayız. `Throwable` de global bir sınıf. Global bir sınıfı global alana
+> ithal etmek etkisiz bir işlemdir ve PHP bunu söyler. Satır silindi;
+> `Throwable` ithalsiz zaten çözülüyor.
+>
+> Diğer `use` satırları (`Illuminate\Http\Request` vb.) **bileşik** isimler
+> olduğu için gereklidir ve uyarı üretmez. Kural: ithal, yalnızca ismin
+> **kısaltılması** gerektiğinde anlamlıdır.
+
 Bizim koşulumuz `expectsJson()`. API isteklerinde bu **her zaman true**'dur, çünkü
 `ForceJsonResponse` `Accept` başlığını ezdi. Web rotalarında middleware çalışmadığı
 için false kalır ve Laravel normal HTML akışını sürdürür.
