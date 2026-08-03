@@ -111,32 +111,49 @@ protected $hidden = ['password', 'remember_token'];
 gösterir — gördüğünde şaşırma. Attribute biçimini tercih ediyoruz çünkü Laravel 13
 iskeletinin ürettiği biçim bu; iskeletle çelişmemek gereksiz sürtünmeyi önler.
 
-### 2.4 Accessor / Mutator ve `Attribute` sınıfı
+### 2.4 Accessor ve Mutator
 
 ```php
-protected function email(): Attribute
+protected function setEmailAttribute(string $value): void
 {
-    return Attribute::set(
-        fn (string $value): string => mb_strtolower(trim($value))
-    );
+    $this->attributes['email'] = mb_strtolower(trim($value));
 }
 ```
 
-Eloquent, model üzerinde **kolon adıyla aynı ada sahip** ve `Attribute` döndüren bir
-metot görürse, o kolonu okurken/yazarken bu metodu araya sokar.
+Eloquent, model üzerinde belirli adlandırma kalıplarına uyan metotlar arar ve o
+kolona erişilirken bu metodu **araya sokar**.
 
-| Yön | Adı | Ne zaman çalışır |
-|---|---|---|
-| **Mutator** (`set`) | yazma | `$user->email = '...'` yapıldığında |
-| **Accessor** (`get`) | okuma | `$user->email` okunduğunda |
+| Yön | Adı | Metot kalıbı | Ne zaman çalışır |
+|---|---|---|---|
+| **Mutator** | yazma | `set{Kolon}Attribute` | `$user->email = '...'` yapıldığında |
+| **Accessor** | okuma | `get{Kolon}Attribute` | `$user->email` okunduğunda |
 
-Burada yalnızca `set` tanımlı: veri **giderken** dönüştürülüyor, geldiği gibi
-okunuyor. `fn (...) => ...` PHP'nin **arrow function**'ıdır — tek ifadelik anonim
-fonksiyon, JavaScript'teki `=>` ile aynı fikir.
+Burada yalnızca mutator var: veri **giderken** dönüştürülüyor, geldiği gibi
+okunuyor.
 
-> `Attribute` sınıfının tam adı `Illuminate\Database\Eloquent\Casts\Attribute`'tur —
-> §2.3'teki `Illuminate\Database\Eloquent\Attributes\Fillable` ile **karıştırma**.
-> Benzer isimli, tamamen farklı iki mekanizma.
+`$this->attributes` modelin ham kolon değerlerini tutan dizidir. Mutator içinde
+`$this->email = ...` yazmak **sonsuz döngü** yaratırdı (mutator kendini çağırır);
+bu yüzden doğrudan diziye yazılır.
+
+### 2.4.1 İki sözdizimi — ve neden eskisini seçtik
+
+Laravel 9 ile modern bir alternatif geldi:
+
+```php
+// Modern biçim — Laravel dokümantasyonunun önerdiği
+protected function email(): Attribute
+{
+    return Attribute::set(fn (string $v): string => mb_strtolower(trim($v)));
+}
+```
+
+İkisi **işlevsel olarak eşdeğerdir**. Bu projede klasik biçim kullanılıyor;
+gerekçesi bir mimari tercih değil, araç zincirinin bir kısıtıdır — ayrıntısı
+[§3.6](#36-e-posta-normalizasyonu-ve-larastan-ile-yaşanan-çatışma)'da.
+
+> ⚠️ `Illuminate\Database\Eloquent\Casts\Attribute` (accessor/mutator) ile
+> §2.3'teki `Illuminate\Database\Eloquent\Attributes\Fillable` (PHP 8
+> özniteliği) **karıştırılmamalı**. Benzer isimli, tamamen farklı iki mekanizma.
 
 ---
 
@@ -244,7 +261,8 @@ kılar:
 
 ```php
 User::create([
-    'name' => 'Ali',
+    'first_name' => 'Ali',
+    'last_name' => 'Veli',
     'email' => 'a@b.com',
     'password' => 'gizli-parola',   // ham parola
 ]);
@@ -290,7 +308,7 @@ olduğu için silinebilir. JWT kendi kendini doğrular, sunucu onu geri alamaz �
 frontend'in `useAuthStore.logout()` çağrısı sunucu tarafında iptal beklediği için
 JWT bu projeye uymuyordu.
 
-### 3.6 E-posta normalizasyonu (plan dışı ekleme)
+### 3.6 E-posta normalizasyonu ve Larastan ile yaşanan çatışma
 
 Bu, yol haritasında yazmayan, önerilen bir eklemedir. Gerekçesi:
 
@@ -318,6 +336,77 @@ seeder, tinker, ileride bir admin paneli) kolona yalnızca küçük harf yazıla
 Neden `strtolower` değil `mb_strtolower`? `strtolower` bayt bazlı çalışır ve
 ASCII dışı karakterleri bozabilir. `mb_` öneki "multibyte" demektir — UTF-8'i doğru
 işler. E-postalar pratikte ASCII olsa da, doğru olanı varsayılan seçmek ucuzdur.
+
+#### 3.6.1 🔴 Neden klasik mutator sözdizimi? — bir araç kısıtının izini sürmek
+
+İlk yazımda modern `Attribute` biçimi kullanılmıştı ve `composer check` kırıldı:
+
+```
+Access to an undefined property App\Http\Resources\UserResource::$email
+```
+
+İlginç olan şu: `id`, `first_name`, `last_name` sorunsuz çalışıyordu — **yalnızca
+`email`** bulunamıyordu. Yani sorun `@mixin` veya şema okuma değildi; bu kolona
+özgü bir şeydi. Tek farkı da mutator'a sahip olmasıydı.
+
+Larastan'ın kaynağında iki ayrı eklenti modelin property'lerini sağlar:
+
+```php
+// ModelPropertyExtension — property'yi migration şemasından üretir
+public function hasProperty(...): bool
+{
+    if ($this->modelPropertyHelper->hasAccessor($class, $name, strictGenerics: false)) {
+        return false;                    // ← "bunu ben sağlamıyorum, accessor sağlasın"
+    }
+    return $this->modelPropertyHelper->hasDatabaseProperty($class, $name);
+}
+
+// ModelAccessorExtension — property'yi accessor metodundan üretir
+public function hasProperty(...): bool
+{
+    return $this->modelPropertyHelper->hasAccessor($class, $name, strictGenerics: true);
+}
+```
+
+Ve `hasAccessor()`, `strictGenerics: true` iken dönüş tipinin **generic olmasını**
+şart koşar:
+
+```php
+if ($returnType->getObjectClassReflections() === []
+    || ! $returnType->getObjectClassReflections()[0]->isGeneric()) {
+    return false;
+}
+```
+
+Bizim metodumuz `: Attribute` döndürüyordu — generic parametresiz. Sonuç:
+
+| Eklenti | Kararı | Sebebi |
+|---|---|---|
+| `ModelPropertyExtension` | ❌ Sağlamadı | "Bir accessor var, onun işi" (gevşek kontrol geçti) |
+| `ModelAccessorExtension` | ❌ Sağlamadı | "Generic bildirilmemiş" (katı kontrol kaldı) |
+
+**İkisi de kenara çekildi ve property ortada kaldı.** Hata mesajı "undefined
+property" derken aslında bunu anlatıyordu.
+
+**Çözüm seçenekleri ve neden bu:**
+
+| Seçenek | Değerlendirme |
+|---|---|
+| `@return Attribute<string, string>` yazmak | `Attribute::set()` gerçekte `Attribute<never, string>` döndürür; şablon parametreleri değişmez (invariant) olduğu için bu sefer *dönüş tipi uyuşmazlığı* hatası alınır |
+| Kimliksel bir `get` de yazmak | Çalışır ama hiçbir iş yapmayan kod — yalnızca aracı susturmak için |
+| **Klasik `setEmailAttribute()`** ✅ | `hasAccessor()` önce `email()` adlı metodu arar; klasik biçimde böyle bir metot **yok**, dolayısıyla şema eklentisi kenara çekilmez ve `email` normal bir kolon olarak sağlanır |
+
+Üçüncüsü seçildi. Klasik biçim Laravel'de hâlâ tam desteklidir ve kullanımdan
+kaldırılmamıştır; yalnızca dokümantasyon yenisini öne çıkarır.
+
+> **İki genel ders:**
+> 1. *"Neden A çalışıyor da B çalışmıyor?"* sorusu neredeyse her zaman en hızlı
+>    yoldur. Burada `first_name` çalışıp `email` çalışmaması, aramayı tek bir
+>    farka indirdi.
+> 2. Bir aracın hata mesajı **belirtiyi** söyler, **sebebi** değil. Aracın
+>    kaynağını okumak — `vendor/` klasörü emrindedir — tahmin etmekten hızlıdır.
+>    Bu dosyada iki kez yanlış tahmin edildikten sonra kaynağa bakıldı ve mesele
+>    tek okumada çözüldü.
 
 ### 3.7 Silinen satır
 
