@@ -150,6 +150,62 @@ devreder.
 > olduğu için gereklidir ve uyarı üretmez. Kural: ithal, yalnızca ismin
 > **kısaltılması** gerektiğinde anlamlıdır.
 
+### 2.4 🔴 `is('api/*') ||` — K25'in yapısal sınırı
+
+```php
+fn (Throwable $e, Request $request) => $request->is('api/*') || $request->expectsJson()
+    ? app(ApiExceptionRenderer::class)->render($e)
+    : null,
+```
+
+İlk yazımda yalnızca `expectsJson()` vardı. Faz 2'de testler ilk kez koştuğunda
+`html_request_to_api_still_receives_json` **kırıldı** — ve incelendiğinde bu
+testin yazıldığı günden beri hiç geçmemiş olduğu ortaya çıktı.
+
+**Sebep — Laravel'in `Router` sınıfı:**
+
+```php
+public function dispatchToRoute(Request $request)
+{
+    return $this->runRoute($request, $this->findRoute($request));
+    //                                    ↑ eşleşme yoksa BURADA fırlatır
+}
+
+protected function runRouteWithinStack(Route $route, Request $request)
+{
+    $middleware = $this->gatherRouteMiddleware($route);   // ← ancak burada
+    return (new Pipeline(...))->send($request)->through($middleware)->then(...);
+}
+```
+
+Rota eşleşmezse `runRoute` hiç çağrılmaz, dolayısıyla **grup middleware'i hiç
+çalışmaz**. `/api/olmayan-rota` isteğinde `ForceJsonResponse` devreye girmez,
+`Accept: text/html` olduğu gibi kalır, `expectsJson()` false döner ve Laravel
+HTML 404 sayfası basar.
+
+| Test | Neden geçiyor / kaldı |
+|---|---|
+| `unknown_route_returns_error_envelope` | ✅ `getJson()` `Accept`'i **kendisi** gönderir, middleware'e ihtiyaç yok |
+| `wrong_http_method_...` | ✅ Aynı sebep |
+| `html_request_to_api_still_receives_json` | ❌ Tek `Accept: text/html` gönderen test — middleware'e bağımlıydı |
+
+**Bu K25'in geri alınması değildir.** K25 şunu diyordu: *karar URL desenine değil
+grup üyeliğine dayansın.* Ama eşleşmeyen bir istekte **grup diye bir şey yoktur**;
+danışılabilecek tek sinyal yolun kendisidir. İki koşul iki ayrı durumu kapsar:
+
+| Koşul | Hangi durum | Dayanağı |
+|---|---|---|
+| `expectsJson()` | Rota **eşleşti** | Grup üyeliği (K25'in tercih ettiği yol) |
+| `is('api/*')` | Rota **eşleşmedi** | Yol — başka sinyal yok |
+
+Bedeli dürüstçe yazalım: `api` öneki artık iki yerde biliniyor —
+`withRouting(api: ...)` ve burada. Önek değişirse ikisi birlikte değişmeli.
+
+> **Genel ders:** Bir tasarım ilkesi her zaman her yere uygulanamaz. İlkeyi
+> uygulanamadığı yerde zorlamak yerine, **sınırını bilip yazıya dökmek** doğru
+> mühendisliktir. Sessizce esnetilen ilke, altı ay sonra "burada neden böyle
+> yapmışız?" sorusuna dönüşür.
+
 Bizim koşulumuz `expectsJson()`. API isteklerinde bu **her zaman true**'dur, çünkü
 `ForceJsonResponse` `Accept` başlığını ezdi. Web rotalarında middleware çalışmadığı
 için false kalır ve Laravel normal HTML akışını sürdürür.

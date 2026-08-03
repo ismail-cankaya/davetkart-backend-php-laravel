@@ -27,9 +27,15 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // null donerse Laravel varsayilan akisina duser (web rotalari).
-        // API istekleri ForceJsonResponse sayesinde her zaman JSON bekler.
+        //
+        // Iki kosul, iki farkli durumu kapsar:
+        //   expectsJson() -> rota ESLESTI, ForceJsonResponse Accept'i ezdi.
+        //   is('api/*')   -> rota ESLESMEDI. Router, middleware calismadan once
+        //                    NotFoundHttpException firlatir; grup uyeligi diye
+        //                    bir sey olmadigi icin geriye tek sinyal yol kalir.
+        // Bkz. kilavuz §2.4 (K25'in yapisal siniri).
         $exceptions->render(
-            fn (Throwable $e, Request $request) => $request->expectsJson()
+            fn (Throwable $e, Request $request) => $request->is('api/*') || $request->expectsJson()
                 ? app(ApiExceptionRenderer::class)->render($e)
                 : null,
         );
