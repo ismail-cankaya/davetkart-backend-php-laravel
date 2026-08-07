@@ -26,7 +26,16 @@ Route::get('/ping', HealthController::class)->name('health.ping');
 | Not: group() closure'i R1'i ihlal etmez; R1 rota EYLEMI icin gecerlidir.
 | Grup closure'i kayit aninda calisir, Route nesnesinde saklanmaz.
 */
-Route::prefix('auth')->middleware('throttle:auth')->name('auth.')->group(function (): void {
-    Route::post('/register', [AuthController::class, 'register'])->name('register');
-    Route::post('/login', [AuthController::class, 'login'])->name('login');
+Route::prefix('auth')->name('auth.')->group(function (): void {
+    // Kimlik BILGISI kabul eden uclar: brute-force hedefi, hiz siniri sart (K36).
+    Route::middleware('throttle:auth')->group(function (): void {
+        Route::post('/register', [AuthController::class, 'register'])->name('register');
+        Route::post('/login', [AuthController::class, 'login'])->name('login');
+    });
+
+    // Gecerli token gerektiren uclar: tehdit modeli farkli, throttle:auth YOK.
+    Route::middleware('auth:sanctum')->group(function (): void {
+        Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+        Route::get('/me', [AuthController::class, 'me'])->name('me');
+    });
 });

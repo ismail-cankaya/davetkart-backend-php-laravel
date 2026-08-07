@@ -185,14 +185,65 @@ veriyor; axios `2xx`'in tamamını başarı sayar.
 > başlığı **önerir**. Koymadık: `GET /api/users/{id}` diye bir uç noktamız yok,
 > olmayan bir adresi göstermek yanıltıcı olurdu.
 
-### 3.3 `login`/`logout`/`me` neden şimdi yazılmadı?
+### 3.3 `login()` — 2.8d'de eklendi
 
-Yol haritası bunları 2.8 ve 2.9'a koyuyor. Sebep dilim disiplini: **önce bir uç
-noktayı uçtan uca çalıştır**, sonra ikinciyi ekle.
+```php
+public function login(LoginRequest $request, LoginUserAction $action): JsonResponse
+{
+    $result = $action->handle($request->credentials());
 
-2.7'de rotayı açtığımızda `register` **gerçekten çalışacak** — tarayıcıdan istek
-atıp yanıtı göreceğiz. Dört uç noktayı birden yazsaydık, ilk hatada dördünden
-hangisinin bozuk olduğunu ayıklamak zorunda kalırdık.
+    return $this->session($result['user'], $result['token']);
+}
+```
+
+`register()` ile **aynı şekil**: doğrula → devret → paketle. Tek fark, farklı bir
+Request ve farklı bir Action enjekte edilmesi.
+
+**Durum kodu neden `200`, `201` değil?** `201 Created` "yeni bir kaynak oluştu"
+der. Girişte yeni bir kullanıcı oluşmuyor — bir token üretiliyor ama istemcinin
+istediği şey bu değil, kimliğinin doğrulanması. `200 OK` doğru cevaptır ve
+Sanctum/Fortify örneklerinin de kullandığı koddur.
+
+### 3.4 🔴 `session()` — DRY, satır saymak için değil, sözleşme için
+
+```php
+private function session(User $user, string $token, int $status = JsonResponse::HTTP_OK): JsonResponse
+{
+    return response()->json([
+        'user' => (new UserResource($user))->resolve(),
+        'token' => $token,
+    ], $status);
+}
+```
+
+İki metot da aynı üç satırı yazabilirdi — toplam altı satır, katlanılabilir.
+Çıkarma sebebi **tekrar değil, sözleşme bütünlüğü**.
+
+Frontend her iki uç noktadan **birebir aynı** şekli bekliyor:
+
+```ts
+// services/auth.ts — TEK bir tip, İKİ çağrı
+login(credentials): Promise<AuthSession>;
+register(payload): Promise<AuthSession>;
+```
+
+İki ayrı yerde yazılsaydı, birine bir alan eklenip diğerine eklenmemesi
+**mümkün** olurdu. O hata sessizdir: kayıt çalışır, giriş bozulur — ya da tersi.
+Tek üretim noktası bunu **imkânsız** kılar.
+
+> **Genel ilke:** DRY'ın amacı satır tasarrufu değildir. Amaç **tek doğruluk
+> kaynağıdır**. İki kod parçası aynı görünüyor ama *aynı sebeple* değişmiyorsa
+> birleştirilmemelidir; aynı sebeple değişiyorsa — burada olduğu gibi, çünkü
+> ikisi de `AuthSession` sözleşmesine bağlı — birleştirilmelidir.
+
+Varsayılan parametre (`$status = HTTP_OK`) sayesinde `login()` durum kodunu hiç
+yazmıyor; `register()` ise farklı olanı açıkça belirtiyor. Fark **görünür** kalıyor.
+
+### 3.5 `logout`/`me` neden hâlâ yok?
+
+Dilim disiplini: **önce bir uç noktayı uçtan uca çalıştır**, sonra ikinciyi ekle.
+`logout` ve `me` farklı bir şey gerektiriyor — `auth:sanctum` middleware'i ve
+kimliği doğrulanmış bir istek. Onlar 2.9'un konusu.
 
 > Bu, K17'nin (özellik-özellik inşa) faz içindeki küçük ölçekli hâlidir:
 > **çalışan en küçük dilim** önce.

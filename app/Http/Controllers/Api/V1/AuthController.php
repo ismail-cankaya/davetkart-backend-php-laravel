@@ -6,12 +6,15 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Auth\LoginUserAction;
 use App\Actions\Auth\RegisterUserAction;
+use App\Actions\Auth\RevokeTokenAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 /**
  * Kimlik uc noktalari. Yalnizca YONLENDIRIR; is kurali Action'larda (K3).
@@ -34,6 +37,26 @@ final class AuthController extends Controller
         $result = $action->handle($request->credentials());
 
         return $this->session($result['user'], $result['token']);
+    }
+
+    /** Yalnizca istegi tasiyan token'i iptal eder; govde dondurmez (204). */
+    public function logout(Request $request, RevokeTokenAction $action): Response
+    {
+        /** @var User $user  auth:sanctum burada null OLAMAYACAGINI garanti eder. */
+        $user = $request->user();
+
+        $action->handle($user);
+
+        return response()->noContent();
+    }
+
+    /** Token dogrulama. Zarfsiz DEGIL: {data: ...} varsayilani gecerli (K11). */
+    public function me(Request $request): UserResource
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        return new UserResource($user);
     }
 
     /**
