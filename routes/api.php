@@ -28,4 +28,5 @@ Route::get('/ping', HealthController::class)->name('health.ping');
 */
 Route::prefix('auth')->middleware('throttle:auth')->name('auth.')->group(function (): void {
     Route::post('/register', [AuthController::class, 'register'])->name('register');
+    Route::post('/login', [AuthController::class, 'login'])->name('login');
 });

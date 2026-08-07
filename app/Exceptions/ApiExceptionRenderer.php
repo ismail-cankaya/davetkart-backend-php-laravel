@@ -76,8 +76,9 @@ final class ApiExceptionRenderer
         return match (true) {
             $e instanceof ValidationException => ErrorCode::ValidationFailed,
 
-            // H6: kayit hatasi ASLA `fields` tasimaz — enumeration savunmasi.
+            // H6: auth hatalari ASLA `fields` tasimaz — enumeration savunmasi.
             $e instanceof RegistrationFailedException => ErrorCode::RegistrationFailed,
+            $e instanceof InvalidCredentialsException => ErrorCode::InvalidCredentials,
 
             $e instanceof AuthenticationException => ErrorCode::Unauthenticated,
             $e instanceof ThrottleRequestsException => ErrorCode::RateLimited,
