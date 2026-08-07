@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\HealthController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,3 +19,13 @@ use Illuminate\Support\Facades\Route;
 // Sozlesme sagligi: API katmani ayakta ve JSON konusuyor mu?
 // Closure DEGIL sinif referansi — route:cache closure'lari serilestiremez.
 Route::get('/ping', HealthController::class)->name('health.ping');
+
+/*
+| Kimlik (Faz 2)
+| Yanit ZARFSIZ: {user, token} — {data: ...} YOK (K11).
+| Not: group() closure'i R1'i ihlal etmez; R1 rota EYLEMI icin gecerlidir.
+| Grup closure'i kayit aninda calisir, Route nesnesinde saklanmaz.
+*/
+Route::prefix('auth')->name('auth.')->group(function (): void {
+    Route::post('/register', [AuthController::class, 'register'])->name('register');
+});

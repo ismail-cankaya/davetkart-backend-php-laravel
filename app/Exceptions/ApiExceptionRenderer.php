@@ -75,6 +75,10 @@ final class ApiExceptionRenderer
     {
         return match (true) {
             $e instanceof ValidationException => ErrorCode::ValidationFailed,
+
+            // H6: kayit hatasi ASLA `fields` tasimaz — enumeration savunmasi.
+            $e instanceof RegistrationFailedException => ErrorCode::RegistrationFailed,
+
             $e instanceof AuthenticationException => ErrorCode::Unauthenticated,
             $e instanceof ThrottleRequestsException => ErrorCode::RateLimited,
             $e instanceof PostTooLargeException => ErrorCode::FileTooLarge,

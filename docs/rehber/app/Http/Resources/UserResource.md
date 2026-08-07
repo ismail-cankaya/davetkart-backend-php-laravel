@@ -13,18 +13,18 @@
 Bu dosya **veritabanı ile frontend arasındaki çeviri katmanıdır**.
 
 ```
-VERİTABANI                 UserResource              FRONTEND (types.ts)
-──────────                 ────────────              ───────────────────
+VERİTABANI                 UserResource              FRONTEND
+──────────                 ────────────              ────────
 id          bigint    →    (string) $this->id   →    id: string
-first_name  varchar   ┐
-last_name   varchar   ┴→   trim(f . ' ' . l)    →    fullName: string
+first_name  varchar   →    trim(...)            →    firstName: string
+last_name   varchar   →    trim(...)            →    lastName: string
 email       varchar   →    $this->email         →    email: string
 password    varchar   →    ✖ hiç çıkmaz
 email_verified_at     →    ✖ hiç çıkmaz
 created_at / updated_at →  ✖ hiç çıkmaz
 ```
 
-Üç satır kod, üç ayrı sorunu çözüyor. Sırayla bakalım.
+Dört satır kod, üç ayrı sorunu çözüyor. Sırayla bakalım.
 
 ---
 
@@ -169,20 +169,61 @@ frontend'in tip tanımlarının o geçişte değişmesini önler.
 > bu sınıf hataları tamamen ortadan kaldırır — büyük API'lerin (Twitter, Stripe)
 > yıllar önce öğrendiği bir derstir.
 
-### 3.3 `trim($this->first_name.' '.$this->last_name)`
+### 3.3 `firstName` ve `lastName` ayrı dönüyor — `fullName` yok
 
-K35'in karşılığı burada. Ad ve soyad veritabanında ayrı durur, `fullName` **her
-istekte hesaplanır**.
+İlk yazımda burada birleştirme vardı:
 
-**Neden veritabanında da bir `full_name` kolonu tutmuyoruz?** Tutsaydık iki
-doğruluk kaynağı olurdu: biri güncellenip diğeri unutulduğunda veri sessizce
-çelişirdi. Türetilebilen veri saklanmaz — **normalizasyon** ilkesi.
+```php
+'fullName' => trim($this->first_name.' '.$this->last_name),   // ❌ vazgeçildi
+```
 
-`trim()` neden var? İki kolon da şu an `NOT NULL`, yani teorik olarak gereksiz.
-Ama migration kılavuzunda (§3.3) not düştüğümüz bir ihtimal var: uluslararası
-kullanıcı için `last_name` ileride `nullable` yapılabilir. O gün `trim()`
-olmasaydı `"Ayşe "` gibi sondaki boşluklu bir değer üretilirdi. Bir karakterlik
-maliyetle geleceğe dayanıklılık.
+Karar değiştirildi: **ad ve soyad API'den de ayrı çıkar**, birleştirme gerekirse
+frontend'de yapılır.
+
+**Gerekçe — birleştirme bir sunum kararıdır.** K20'nin ilkesini hatırla:
+*backend olguyu bildirir, frontend anlatır.* "Ayşe Yıldırım" bir olgu değil, bir
+**gösterim tercihidir**. Başka bağlamlarda başka birleşimler istenir:
+
+| Bağlam | İstenen |
+|---|---|
+| Karşılama | "Merhaba **Ayşe**" — sadece ad |
+| Resmî hitap | "Sayın **Yıldırım**" — sadece soyad |
+| Fatura | "YILDIRIM, Ayşe" — ters sıra |
+| Bazı diller | Soyad önce gelir (Macarca, Japonca, Çince) |
+
+Backend `fullName` dönerse bu tercihlerin hiçbiri yapılamaz — bilgi **kaybolarak**
+gönderilmiş olur. Ayrı gönderince frontend istediğini kurar.
+
+> **Genel ilke:** İki veriyi birleştirmek kolay, birleşmiş veriyi ayırmak
+> imkânsızdır. Şüphede kaldığında **ayrık** gönder. Bu, K35'te ad/soyadı
+> veritabanında ayırmakla aynı akıl yürütmenin API sınırına uygulanmış hâlidir.
+
+**`trim()` neden duruyor?** İki kolon da `NOT NULL` ve `RegisterRequest`
+yazarken zaten kırpıyor — yani HTTP yolundan gelen veri temiz. Ama seeder,
+`tinker` veya ileride bir yönetim paneli bu yoldan geçmez. Bir karakterlik
+maliyetle çıktının her kaynaktan tutarlı olması garanti ediliyor.
+
+**Veritabanında `full_name` kolonu neden yok?** Olsaydı iki doğruluk kaynağı
+olurdu: biri güncellenip diğeri unutulduğunda veri sessizce çelişirdi.
+Türetilebilen veri saklanmaz — **normalizasyon** ilkesi.
+
+### 3.3.1 🔴 Bu değişikliğin frontend'e bedeli
+
+Karar doğru ama bedava değil. Frontend şu an `fullName` okuyor:
+
+| Dosya | Ne değişecek |
+|---|---|
+| `types.ts` | `AuthUser` ve `RegisterPayload` → `firstName` + `lastName` |
+| `Header.tsx:124` | `user?.fullName` → `user?.firstName` |
+| `DashboardPage.tsx:222` | `user.fullName` → tercih edilen birleşim |
+| `LoginPage.tsx:29` | `user.fullName` → aynı |
+| `RegisterPage.tsx` | Tek input → **iki input** |
+
+Bu iş `claude/Notlar/03-FRONTEND-YAPILACAKLAR.md` altında izlenir.
+
+Bir sözleşme değişikliğinin maliyetini yazıya dökmek, kararın kendisi kadar
+önemlidir: gelecekte "bu neden değişti, kaça mal oldu?" sorusunun cevabı burada
+durur.
 
 ### 3.4 🔴 `{data: ...}` zarfı — burada değil, controller'da çözülür
 
@@ -257,12 +298,13 @@ $u = App\Models\User::factory()->create();
 (new App\Http\Resources\UserResource($u))->resolve();
 ```
 
-Beklenen çıktı — **tam olarak üç anahtar**:
+Beklenen çıktı — **tam olarak dört anahtar**:
 
 ```php
 [
   "id" => "1",                       // string, sayı değil
-  "fullName" => "Ayşe Yıldırım",
+  "firstName" => "Ayşe",
+  "lastName" => "Yıldırım",
   "email" => "ayse@example.org",
 ]
 ```

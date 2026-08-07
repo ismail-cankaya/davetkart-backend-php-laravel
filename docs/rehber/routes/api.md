@@ -1,9 +1,10 @@
 # `routes/api.php` — Eğitim Dokümanı
 
 > **Kapsanan dosya:** `routes/api.php`
-> **Yol haritasındaki yeri:** Faz 1, dosya 1.4
+> **Yol haritasındaki yeri:** Faz 1, dosya 1.4 · **Faz 2, dosya 2.7** (auth grubu)
 > **Bağlantılı:** [`bootstrap/app.md`](../bootstrap/app.md) ·
-> [`ForceJsonResponse.md`](../app/Http/Middleware/ForceJsonResponse.md)
+> [`ForceJsonResponse.md`](../app/Http/Middleware/ForceJsonResponse.md) ·
+> [`AuthController.md`](../app/Http/Controllers/Api/V1/AuthController.md)
 
 ---
 
@@ -19,6 +20,84 @@ Route::get('/ping', fn () => ['status' => 'ok'])->name('health.ping');
 ```
 
 Faz 9 sonunda 20 rota olacak. Dosyanın **işi** değişmeyecek.
+
+---
+
+## 0.1 Faz 2 eklemesi — auth grubu 🎯
+
+```php
+Route::prefix('auth')->name('auth.')->group(function (): void {
+    Route::post('/register', [AuthController::class, 'register'])->name('register');
+});
+```
+
+Bu üç satır, Faz 2'de yazılan **yedi dosyayı birbirine bağlayan** halkadır.
+`/api/auth/register` adresi bu satırla var olur; öncesinde uygulamada böyle bir
+adres yoktu.
+
+### Üretilen rota
+
+| Method | URI | Ad | Controller |
+|---|---|---|---|
+| POST | `api/auth/register` | `auth.register` | `AuthController@register` |
+
+`prefix('auth')` URI'ye, `name('auth.')` rota adına önek ekler. Sonuç:
+`/api` (bootstrap'tan) + `/auth` (buradan) + `/register`.
+
+### 🔴 `group(function () { ... })` — R1'i ihlal ediyor mu?
+
+**Hayır.** Bu ayrım kafa karıştırıcıdır, netleştirelim.
+
+**R1:** *"Rota dosyasına closure yazılmaz, controller referansı yazılır."*
+Gerekçesi `route:cache`'in closure'ları serileştirememesiydi (Faz 9).
+
+Ama iki farklı closure türü var:
+
+| Closure | Ne zaman çalışır | `route:cache` | Örnek |
+|---|---|---|---|
+| **Rota eylemi** | Her istekte | 🔴 **Kırar** | `Route::get('/x', fn () => ...)` |
+| **Grup tanımı** | Yalnızca **kayıt anında** | ✅ Sorunsuz | `Route::prefix(...)->group(fn () => ...)` |
+
+Grup closure'ı, rotalar kaydedilirken **bir kez** çalışır ve içindeki
+`Route::post(...)` satırlarını tanımlar. İşi bittiğinde atılır — `Route`
+nesnesinde saklanmaz, dolayısıyla serileştirilecek bir şey kalmaz.
+
+Serileştirilen şey **rota eylemidir** (`[AuthController::class, 'register']`)
+ve o bir dizi, closure değil.
+
+> **Genel ders:** Bir kuralı uygularken **lafzını değil gerekçesini** takip et.
+> R1'in gerekçesi "closure yasak" değil, *"`route:cache` kırılmasın"*dı. Gerekçe
+> sağlanıyorsa lafzın ihlali görünürdedir, gerçek değildir.
+
+### Grup neden tek rota için kuruldu?
+
+2.8 ve 2.9'da üç rota daha gelecek ve ikisi `auth:sanctum` middleware'i
+isteyecek:
+
+```php
+Route::prefix('auth')->name('auth.')->group(function (): void {
+    Route::post('/register', [AuthController::class, 'register'])->name('register');
+    Route::post('/login', [AuthController::class, 'login'])->name('login');
+
+    Route::middleware('auth:sanctum')->group(function (): void {
+        Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+        Route::get('/me', [AuthController::class, 'me'])->name('me');
+    });
+});
+```
+
+Şekli şimdi kurmak, sonraki iki adımı **satır eklemeye** indirger.
+
+### ⚠️ Bilinen boşluk — rate limiting yok
+
+Laravel 11+ ile `api` middleware grubu **varsayılan olarak throttle içermez**;
+`bootstrap/app.php`'de `$middleware->throttleApi()` çağrılmadıkça hız sınırı
+yoktur. Bizde çağrılmıyor.
+
+Bugün için kabul edilebilir, ama `POST /auth/login` eklendiğinde bu bir
+**brute-force açığı** hâline gelir: saldırgan dakikada binlerce parola
+deneyebilir. Yol haritası rate limit kaydını Faz 5'e koyuyor — 2.8'de bu takvimi
+yeniden değerlendireceğiz.
 
 ---
 

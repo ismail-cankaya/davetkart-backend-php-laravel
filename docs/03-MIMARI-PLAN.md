@@ -286,9 +286,17 @@ tek string alıp backend'de boşluktan bölmek yasaktır: "Ayşe Nur Kaya" için
 döndürülemez. Bu yüzden veri **kullanıcıdan iki ayrı alan olarak** toplanır —
 sözleşme değişikliğinin sebebi budur (§4.3).
 
-Birleştirme ise güvenlidir ve tek yönlüdür: `UserResource`, frontend'in beklediği
-`fullName` alanını `first_name . ' ' . last_name` ile üretir. Yani veritabanı
-ayrıntılı, sözleşme sade — dönüşüm yine tek noktada (`CLAUDE.md` §1).
+🔴 **Ayrım API sınırında da korunur.** `UserResource` `fullName` **üretmez**;
+`firstName` ve `lastName` ayrı döner. Birleştirme bir **sunum kararıdır** ve
+K20'nin ilkesi gereği frontend'e aittir: "Merhaba Ayşe", "Sayın Yıldırım",
+"YILDIRIM, Ayşe" — üçü de aynı veriden kurulur, ama `fullName` gönderilirse
+hiçbiri kurulamaz.
+
+Genel kural: **birleştirmek kolay, birleşmiş veriyi ayırmak imkânsızdır.**
+Şüphede kaldığında ayrık gönder.
+
+Bedeli: frontend `types.ts`, `Header`, `DashboardPage`, `LoginPage` ve
+`RegisterPage` güncellenecek — `claude/Notlar/03-FRONTEND-YAPILACAKLAR.md`.
 
 **`public_slug` neden UUID/ULID?**
 Frontend `id: string` bekliyor. Ardışık integer kullanırsak misafir `/invite/1`,
@@ -343,7 +351,7 @@ return InvitationResource::collection($invitations);   // {"data": [...]}
 
 | # | Method | Path | Auth | Açıklama |
 |---|---|---|:---:|---|
-| 1 | POST | `/api/auth/register` | — | 🔴 `{firstName,lastName,email,password}` → `{user,token}` (K35) |
+| 1 | POST | `/api/auth/register` | — | 🔴 `{firstName,lastName,email,password}` → `{user,token}`; `user` = `{id,firstName,lastName,email}` (K35) |
 | 2 | POST | `/api/auth/login` | — | `{email,password}` → `{user,token}` |
 | 3 | POST | `/api/auth/logout` | ✅ | Aktif token'ı sil |
 | 4 | GET | `/api/auth/me` | ✅ | *(yeni)* Token doğrulama |

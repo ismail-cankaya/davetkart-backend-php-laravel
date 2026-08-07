@@ -28,8 +28,9 @@ final class UserResource extends JsonResource
             // Frontend `id: string` bekliyor; users.id ise bigint.
             'id' => (string) $this->id,
 
-            // K35: ad ve soyad ayri kolon, birlestirme YALNIZCA burada.
-            'fullName' => trim($this->first_name.' '.$this->last_name),
+            // K35: ad ve soyad ayri olacak, fronted kısmında gerekirse birlestirilir
+            'firstName' => trim($this->first_name),
+            'lastName' => trim($this->last_name),
 
             'email' => $this->email,
         ];

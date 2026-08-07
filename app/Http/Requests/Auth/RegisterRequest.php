@@ -43,6 +43,7 @@ final class RegisterRequest extends FormRequest
      * input bir dizidir; mb_strtolower(dizi) TypeError firlatir. Bu yuzden
      * yalnizca string olanlara dokunulur, gerisi `string` kuralina birakilir.
      */
+    // E posta CamelCase kuralları uygulanıyor (küçük harfe cevriliyor)
     protected function prepareForValidation(): void
     {
         $normalized = [];
