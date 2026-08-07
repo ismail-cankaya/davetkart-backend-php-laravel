@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -28,6 +31,31 @@ class AppServiceProvider extends ServiceProvider
         $this->configureModels();
         $this->configureDates();
         $this->configureCommands();
+        $this->configureRateLimiting();
+    }
+
+    /**
+     * Auth uc noktalari icin hiz siniri (K36).
+     *
+     * IKI limit birlikte calisir, cunku iki farkli saldiri sekli var:
+     *   1) Ayni hesaba tekrarli deneme (brute-force)  -> e-posta + IP anahtari
+     *   2) Ayni IP'den cok hesaba yayilma (spraying)  -> yalnizca IP anahtari
+     *
+     * Ayrica K32 (Argon2id) her denemeyi 64 MB + ~200 ms yaptigi icin sinirsiz
+     * cagri bir BELLEK TUKETIMI saldirisidir; limit onu da kapatir.
+     * Ayrintili aciklama: docs/rehber/app/Providers/AppServiceProvider.md §4
+     */
+    private function configureRateLimiting(): void
+    {
+        RateLimiter::for('auth', function (Request $request): array {
+            $email = $request->input('email');
+            $identity = is_string($email) ? mb_strtolower(trim($email)) : 'anonim';
+
+            return [
+                Limit::perMinute(5)->by($identity.'|'.$request->ip()),
+                Limit::perMinute(20)->by((string) $request->ip()),
+            ];
+        });
     }
 
     /**

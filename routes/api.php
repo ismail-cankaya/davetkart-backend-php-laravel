@@ -26,6 +26,6 @@ Route::get('/ping', HealthController::class)->name('health.ping');
 | Not: group() closure'i R1'i ihlal etmez; R1 rota EYLEMI icin gecerlidir.
 | Grup closure'i kayit aninda calisir, Route nesnesinde saklanmaz.
 */
-Route::prefix('auth')->name('auth.')->group(function (): void {
+Route::prefix('auth')->middleware('throttle:auth')->name('auth.')->group(function (): void {
     Route::post('/register', [AuthController::class, 'register'])->name('register');
 });

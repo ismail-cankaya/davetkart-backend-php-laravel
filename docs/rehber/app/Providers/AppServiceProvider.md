@@ -244,6 +244,121 @@ düşünürsün.
 
 ---
 
+## 5.5 `configureRateLimiting()` — Faz 2'de eklendi (K36)
+
+```php
+private function configureRateLimiting(): void
+{
+    RateLimiter::for('auth', function (Request $request): array {
+        $email = $request->input('email');
+        $identity = is_string($email) ? mb_strtolower(trim($email)) : 'anonim';
+
+        return [
+            Limit::perMinute(5)->by($identity.'|'.$request->ip()),
+            Limit::perMinute(20)->by((string) $request->ip()),
+        ];
+    });
+}
+```
+
+### 5.5.1 Neden Faz 2'de? Plan Faz 5 diyordu
+
+Yol haritası rate limit kaydını Faz 5'e koymuştu. `/auth/login` açılırken bu
+takvim **öne çekildi**. İki gerekçe:
+
+**1. Brute-force.** Hız sınırı olmayan bir giriş uç noktasında saldırgan dakikada
+binlerce parola deneyebilir. Auth'un en bilinen saldırı yüzeyi budur.
+
+**2. 🔴 K32'nin doğurduğu yeni gereksinim.** Argon2id'yi *bilerek* pahalı yaptık:
+her doğrulama **64 MB bellek + ~200 ms CPU**. Saldırgan sahte parolalarla 100
+eşzamanlı istek atarsa sunucudan **6.4 GB RAM** talep etmiş olur. Parolayı
+kırmasına gerek yok — sunucuyu düşürmesi yeter.
+
+> **Genel ders:** Bir tarafı sertleştirmek başka bir tarafı açabilir. K32 kararı
+> parola kırmayı zorlaştırdı ama aynı hamle her isteği pahalı bir kaynak talebine
+> çevirdi. **Pahalı bir işlem, sınırsız çağrılabilir olmamalıdır.**
+
+Ayrıca `03-MIMARI-PLAN.md` §5.4 bunu zaten şart koşuyordu: *"Auth rate limit:
+`/auth/login` → IP+email başına 5/dakika."* Faz 5'e ertelenen şey **genel** API
+limitiydi; auth'unki mimari planda ayrıca yazılıydı.
+
+### 5.5.2 Neden İKİ limit? — iki farklı saldırı şekli
+
+`RateLimiter::for()` bir **dizi** döndürebilir; hepsi ayrı ayrı uygulanır.
+
+| Limit | Anahtar | Hangi saldırıyı durdurur |
+|---|---|---|
+| 5/dakika | `email + IP` | **Brute-force** — tek hesaba çok parola |
+| 20/dakika | `IP` | **Password spraying** — çok hesaba az parola |
+
+Tek başına ilki yetmez: saldırgan her istekte farklı e-posta yazarsa her seferinde
+**taze bir kova** alır ve sınırsız deneme yapabilir. İkinci limit bunu kapatır.
+
+Tek başına ikincisi de yetmez: NAT arkasındaki bir üniversite/ofis ağında
+onlarca meşru kullanıcı aynı IP'yi paylaşır. Sıkı bir IP limiti onları
+engellerdi; hesap bazlı limit hedefi daraltır.
+
+### 5.5.3 Neden anahtara e-posta giriyor, sadece IP değil?
+
+Sadece **e-posta** kullansaydık, saldırgan bir kullanıcının adresine sürekli
+yanlış parola göndererek onu **kilitleyebilirdi** — kurbanın kendi girişi de
+engellenirdi. Buna *lockout DoS* denir.
+
+Sadece **IP** kullansaydık, saldırgan IP değiştirerek (proxy, botnet) sınırı
+aşardı.
+
+`email + IP` bileşimi ikisinin ortasıdır ve Laravel Fortify'ın da kullandığı
+desendir.
+
+### 5.5.4 `is_string` kontrolü — yine güvenilmez veri
+
+```php
+$identity = is_string($email) ? mb_strtolower(trim($email)) : 'anonim';
+```
+
+Rate limiter **doğrulamadan önce** çalışır (middleware katmanı). `email[]=x`
+gönderen bir istekte `$request->input('email')` bir dizidir; `mb_strtolower(dizi)`
+`TypeError` fırlatır ve **rate limiter'ın kendisi 500 üretir**.
+
+`RegisterRequest::prepareForValidation()`'daki aynı kontrolün kardeşi. Kural:
+**doğrulamadan önce çalışan her kod, güvenilmez veriyle karşılaşacağını
+varsaymalıdır.**
+
+### 5.5.5 Hata sözleşmesi — zaten hazırdı
+
+Limit aşıldığında Laravel `ThrottleRequestsException` fırlatır. Faz 1'de
+`ApiExceptionRenderer` bunu şuna eşliyordu:
+
+```php
+$e instanceof ThrottleRequestsException => ErrorCode::RateLimited,   // 429
+```
+
+ve `params()` metodu `Retry-After` başlığını okuyup `retryAfter` parametresini
+ekliyordu. **H13** kuralı (`match (true)` kollarını özelden genele sırala) tam
+olarak bu exception için konulmuştu.
+
+Yani bu faz sadece limiti **tanımladı**; hata yolu bir yıl önceden hazırdı.
+Faz 1'de "şimdi gereksiz gibi görünen" işin ödemesi budur.
+
+### 5.5.6 Limiter nerede saklanıyor?
+
+`RateLimiter` sayaçları **cache'te** tutar:
+
+| Ortam | Sürücü | Sonucu |
+|---|---|---|
+| Yerel | `file` | Sayaç `storage/framework/cache/` altında |
+| Test | `array` | Bellekte; **her testte sıfırlanır** |
+| Üretim | `redis` (Faz 9) | Çok sunucu arasında paylaşılır |
+
+Test ortamındaki `array` sürücüsü önemli: aksi hâlde bir testin denemeleri
+diğerini kilitlerdi.
+
+> ⚠️ Üretimde birden çok sunucu varsa `file` sürücüsü **çalışmaz** — her sunucu
+> kendi sayacını tutar ve limit sunucu sayısıyla çarpılır. Faz 9'daki Redis
+> geçişinin gerekçelerinden biri budur.
+
+---
+
 ## 6. Metotlara bölme — neden?
 
 ```php
@@ -252,6 +367,7 @@ public function boot(): void
     $this->configureModels();
     $this->configureDates();
     $this->configureCommands();
+    $this->configureRateLimiting();
 }
 ```
 
