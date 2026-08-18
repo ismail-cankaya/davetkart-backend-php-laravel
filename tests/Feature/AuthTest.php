@@ -251,6 +251,7 @@ final class AuthTest extends TestCase
 
     /**
      * @param  array<string, mixed>  $overrides
+     *
      * @return array<string, mixed>
      */
     private function registerPayload(array $overrides = []): array

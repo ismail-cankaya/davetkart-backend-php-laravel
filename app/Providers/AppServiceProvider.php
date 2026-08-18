@@ -47,15 +47,23 @@ class AppServiceProvider extends ServiceProvider
      */
     private function configureRateLimiting(): void
     {
-        RateLimiter::for('auth', function (Request $request): array {
-            $email = $request->input('email');
-            $identity = is_string($email) ? mb_strtolower(trim($email)) : 'anonim';
+        RateLimiter::for('auth', $this->authLimits(...));
+    }
 
-            return [
-                Limit::perMinute(5)->by($identity.'|'.$request->ip()),
-                Limit::perMinute(20)->by((string) $request->ip()),
-            ];
-        });
+    /**
+     * Anahtar dogrulamadan ONCE hesaplanir; `email` dizi de gelebilir.
+     *
+     * @return list<Limit>
+     */
+    private function authLimits(Request $request): array
+    {
+        $email = $request->input('email');
+        $identity = is_string($email) ? mb_strtolower(trim($email)) : 'anonim';
+
+        return [
+            Limit::perMinute(5)->by($identity.'|'.$request->ip()),
+            Limit::perMinute(20)->by((string) $request->ip()),
+        ];
     }
 
     /**

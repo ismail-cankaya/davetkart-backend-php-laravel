@@ -42,7 +42,7 @@ final class AuthController extends Controller
     /** Yalnizca istegi tasiyan token'i iptal eder; govde dondurmez (204). */
     public function logout(Request $request, RevokeTokenAction $action): Response
     {
-        /** @var User $user  auth:sanctum burada null OLAMAYACAGINI garanti eder. */
+        /** @var User $user auth:sanctum burada null OLAMAYACAGINI garanti eder. */
         $user = $request->user();
 
         $action->handle($user);

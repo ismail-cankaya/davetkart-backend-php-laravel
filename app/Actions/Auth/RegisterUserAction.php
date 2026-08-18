@@ -23,6 +23,7 @@ final class RegisterUserAction
 
     /**
      * @param  array{first_name: string, last_name: string, email: string, password: string}  $attributes
+     *
      * @return array{user: User, token: string}
      *
      * @throws RegistrationFailedException E-posta zaten kayitliysa.

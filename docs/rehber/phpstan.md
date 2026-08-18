@@ -77,7 +77,7 @@ gelir.
 
 ```neon
 parameters:
-    level: 5
+    level: 6
     paths:
         - app
 ```

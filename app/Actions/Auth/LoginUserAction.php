@@ -29,6 +29,7 @@ final class LoginUserAction
 
     /**
      * @param  array{email: string, password: string}  $credentials
+     *
      * @return array{user: User, token: string}
      *
      * @throws InvalidCredentialsException Kullanici yoksa VEYA parola yanlissa.

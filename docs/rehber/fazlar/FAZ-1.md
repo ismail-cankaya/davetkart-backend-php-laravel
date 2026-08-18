@@ -190,6 +190,50 @@ curl.exe -H "Accept: text/html" http://localhost:8000/olmayan
 # <!DOCTYPE html> ...                                        ← web etkilenmedi
 ```
 
+### 🔴 7.1 DÜZELTME — bu kayıt hatalıydı (Faz 2'de bulundu)
+
+> **Eklendi:** 6 Ağustos 2026
+
+Yukarıdaki *"`composer check` yeşil"* ve ikinci curl çıktısı **doğru değildi**.
+
+Faz 2'de testler ilk kez koştuğunda `html_request_to_api_still_receives_json`
+testi kırıldı — ve incelendiğinde **yazıldığı günden beri hiç geçmemiş olduğu**
+ortaya çıktı.
+
+**Sebep — Laravel'in `Router` sınıfı:**
+
+```php
+public function dispatchToRoute(Request $request)
+{
+    return $this->runRoute($request, $this->findRoute($request));
+    //                                    ↑ eşleşme yoksa BURADA fırlatır
+}
+```
+
+Rota eşleşmezse `runRoute` hiç çağrılmaz, dolayısıyla **grup middleware'i
+çalışmaz**. `/api/olmayan` isteğinde `ForceJsonResponse` devreye girmez,
+`Accept: text/html` olduğu gibi kalır, `expectsJson()` false döner ve Laravel
+HTML 404 basar.
+
+Diğer iki 404 testi geçiyordu çünkü `getJson()`/`postJson()` `Accept` başlığını
+**kendileri** gönderiyor — middleware'e ihtiyaç duymuyorlar.
+
+**Düzeltme (Faz 2):** `bootstrap/app.php`'deki render koşuluna yol kontrolü
+eklendi:
+
+```php
+fn (Throwable $e, Request $request) => $request->is('api/*') || $request->expectsJson()
+```
+
+Bu **K25'in geri alınması değildir**: eşleşmeyen bir istekte *grup diye bir şey
+yoktur*, danışılabilecek tek sinyal yoldur. Ayrıntı:
+[`bootstrap/app.md`](../bootstrap/app.md) §2.4.
+
+> **Ders:** Bir faz özetine *"doğrulandı"* yazmak, doğrulamanın kendisi değildir.
+> Bu kayıt, komut çalıştırılmadan yazılmıştı. Faz 2'de konan **B4** kuralının
+> (*"dokümanda verilen söz kodda karşılığı yoksa yalandır"*) doğduğu olaylardan
+> biri budur.
+
 ---
 
 ## 8. Faz 2'ye devir
