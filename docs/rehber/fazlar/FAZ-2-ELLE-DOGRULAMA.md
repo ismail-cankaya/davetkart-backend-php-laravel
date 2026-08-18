@@ -184,7 +184,7 @@ kullanıcının *kendi gönderdiği* veri hakkında — söylenebilir. E-posta �
 
 ---
 
-## 5. Frontend'in şu an gönderdiği gövde (2.7)
+## 5. Eski sözleşmeyle gelen gövde reddediliyor (2.7)
 
 ```powershell
 api POST /auth/register '{"fullName":"Ayse Yildirim","email":"yeni@ornek.test","password":"gizli1234"}'
@@ -192,9 +192,9 @@ api POST /auth/register '{"fullName":"Ayse Yildirim","email":"yeni@ornek.test","
 
 **Beklenen:** `422` + `fields` içinde `firstName` ve `lastName` için `required`.
 
-✅ **Kanıtladığı:** Bu bir **hata değil, beklenen sonuç**. Frontend hâlâ
-`fullName` gönderiyor; K35 sonrası güncellenmedi. Faz 2'nin bitiş ölçütünün son
-parçası.
+✅ **Kanıtladığı:** K35 öncesi biçim artık kabul edilmiyor. Frontend güncellendi
+(`types.ts`, `RegisterPage`, `utils/user.ts`), yani bu gövdeyi artık kimse
+göndermiyor — ama sözleşmenin **sıkı** olduğunu doğrulamak yine de değerli.
 
 ---
 
@@ -459,7 +459,47 @@ Dürüstlük payı — `AuthTest` şunları **doğrulamıyor**:
 | **Zamanlama farkı** | Testte kararsız (flaky) ölçüm | §8 — elle |
 | `Retry-After` **başlığı** | Yalnızca gövdedeki `params` test ediliyor | §6 |
 | Gerçek HTTP başlıkları | Test istemcisi framework içinde | §2, §10 |
-| Tarayıcı/frontend entegrasyonu | Backend testinin kapsamı dışı | Faz 2 bitiş ölçütü |
+| Tarayıcı/frontend entegrasyonu | Backend testinin kapsamı dışı | §15 |
+
+---
+
+## 15. 🎯 Uçtan uca — Faz 2'nin asıl bitiş ölçütü
+
+İki terminal:
+
+```powershell
+# 1. terminal — backend
+cd D:\Projects\davetkart\davetkart-backend-php-laravel
+php artisan migrate:fresh
+php artisan serve
+
+# 2. terminal — frontend
+cd D:\Projects\davetkart\davetkart-frontent
+npm run dev
+```
+
+Tarayıcıda `http://localhost:5173`:
+
+| # | Adım | Beklenen |
+|---|---|:---:|
+| 1 | `/register` → **Ad** ve **Soyad** iki ayrı alan | ⬜ |
+| 2 | Formu doldur → kayıt ol | Dashboard'a yönlendirir, "Aramıza hoş geldiniz, Ayşe Yıldırım!" | ⬜ |
+| 3 | Header'da tam ad görünüyor | ⬜ |
+| 4 | **Sayfayı yenile (F5)** → oturum korunuyor | ⬜ |
+| 5 | Çıkış yap → anonim görünüme dönüyor | ⬜ |
+| 6 | `/login` → **yanlış parola** gir | 🔴 Formda **kalıyor**, yazdıkların duruyor | ⬜ |
+| 7 | Doğru parolayla gir | Dashboard | ⬜ |
+| 8 | Çıkış → art arda 6 kez yanlış parola dene | 🔴 "Çok fazla deneme yaptınız. N saniye…" | ⬜ |
+
+**6. adım kritik.** Düzeltme öncesi `logout()` tetikleniyordu ve form
+sıfırlanıyordu. Şimdi `apiErrorCode(error) !== 'INVALID_CREDENTIALS'` kontrolü
+sayesinde oturum düşürülmüyor.
+
+**4. adım** `localStorage` + `restoreSession()` yolunu doğrular — token kalıcı.
+
+> DevTools → Network sekmesinde `POST /api/auth/register` isteğinin gövdesine
+> bak: `{"firstName":"Ayse","lastName":"Yildirim",...}` görmelisin. `fullName`
+> yoksa K35 uyarlaması tamamdır.
 
 ---
 

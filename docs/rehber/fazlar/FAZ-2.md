@@ -1,9 +1,9 @@
 # Faz 2 — Auth Özellik Dilimi
 
-> **Durum:** ✅ Tamamlandı · 6 Ağustos 2026
-> **Yazılan/düzenlenen kod dosyası:** 17 · **Yazılan kılavuz:** 16
+> **Durum:** ✅ Tamamlandı (backend **ve** frontend) · 6 Ağustos 2026
+> **Yazılan/düzenlenen kod dosyası:** 17 backend + 7 frontend · **Kılavuz:** 16
 > **Bitiş ölçütü:** 4 uç nokta çalışıyor · `composer check` yeşil (21 test) ·
-> PHPStan **level 6**
+> PHPStan **level 6** · frontend sözleşmeye uyumlu
 
 ---
 
@@ -252,17 +252,48 @@ php artisan test --filter=AuthTest      # 14 test
 
 Elle doğrulama: [`FAZ-2-ELLE-DOGRULAMA.md`](FAZ-2-ELLE-DOGRULAMA.md) — 13 adım.
 
-### 7.1 ⚠️ Backend bitti, faz tam bitmedi
+### 7.1 ✅ Frontend uyarlaması tamamlandı
 
-Yol haritasındaki bitiş ölçütü şuydu: *"Frontend'i `npm run dev` ile açıp gerçek
+Yol haritasındaki bitiş ölçütü: *"Frontend'i `npm run dev` ile açıp gerçek
 hesapla giriş yapabilmek."*
 
-**Backend tarafı hazır. Frontend güncellenmedi** — hâlâ `fullName` gönderiyor
-(K35). Bu iş `claude/Notlar/03-FRONTEND-YAPILACAKLAR.md` **Bölüm II**'de
-listelendi: 4 kırıcı, 3 davranışsal madde.
+**Backend ve frontend sözleşmesi uyumlu.** Frontend tarafında yapılanlar:
 
-Faz 3'e geçmeden önce o listenin kırıcı maddeleri tamamlanmalı; aksi hâlde
-uçtan uca doğrulama hiç yapılmamış olur.
+| Dosya | Değişiklik |
+|---|---|
+| `src/types.ts` | `AuthUser` · `RegisterPayload` → `firstName` + `lastName` |
+| `src/utils/user.ts` | 🆕 `fullName()` — birleştirmenin **tek yeri** |
+| `src/pages/RegisterPage.tsx` | İki ayrı input, `maxLength={60}`, `minLength={8}` |
+| `src/pages/LoginPage.tsx` | `fullName(user)` · parola `minLength` **kaldırıldı** (D3) |
+| `src/pages/DashboardPage.tsx` · `Header.tsx` | `fullName(user)` |
+| `src/services/api.ts` | `apiErrorCode()` / `apiErrorParams()` + 🔴 **401 ayrımı** |
+| `LoginPage` · `RegisterPage` | `429` → `retryAfter` ile doğru mesaj |
+
+🔴 **En kritik frontend düzeltmesi — 401'in iki anlamı:**
+
+```ts
+if (status === 401 && apiErrorCode(error) !== 'INVALID_CREDENTIALS') {
+  useAuthStore.getState().logout();
+}
+```
+
+Ayrım yapılmasaydı, kullanıcı yanlış parola girdiğinde `logout()` tetiklenir,
+giriş sayfası yeniden kurulur ve **yazdıkları kaybolurdu**. `ErrorCode`
+enum'unda `Unauthenticated` ile `InvalidCredentials`'ı ayrı case olarak
+tutmanın (Faz 1) karşılığı burada alındı.
+
+**D3 kuralı frontend'de de uygulandı:** `LoginPage`'in parola alanındaki
+`minLength={6}` kaldırıldı; `RegisterPage`'deki `minLength={8}` duruyor. Giriş
+formu politika uygulamaz, kayıt formu uygular — **kural veri üretilirken
+geçerlidir, okunurken değil.** Aynı ilkenin backend ve frontend'de ayrı ayrı
+görünmesi tesadüf değil; sözleşme iki tarafta da aynı mantığı taşımalı.
+
+### 7.2 Kalan frontend işi — Faz 2'yi bloke etmiyor
+
+`claude/Notlar/03` §14'teki kalan maddeler **K20'nin (hata sözleşmesi) frontend
+tarafıdır**, K35'in değil: `errors`/`validation`/`fields` çeviri bölümleri ve
+`toDisplayError()` katmanı. Şu an toast'larda sabit Türkçe metinler var; o
+katman geldiğinde 10 dile açılacaklar.
 
 ---
 
