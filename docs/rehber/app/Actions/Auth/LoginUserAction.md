@@ -13,7 +13,7 @@
 ```php
 $user = User::where('email', $credentials['email'])->first();
 
-$hash = $user?->password ?? self::dummyHash();          // ← savunma burada
+$hash = $user->password ?? self::dummyHash();           // ← savunma burada
 
 $passwordMatches = Hash::check($credentials['password'], $hash);
 
@@ -96,7 +96,7 @@ Bir güvenlik kararının başka bir açığı büyütmesi — K36'da (rate limi
 ## 2. Savunma: sahte hash
 
 ```php
-$hash = $user?->password ?? self::dummyHash();
+$hash = $user->password ?? self::dummyHash();
 
 $passwordMatches = Hash::check($credentials['password'], $hash);
 
@@ -189,20 +189,64 @@ pratik olmaktan çıkar.
 
 ## 3. Diğer kararlar
 
-### 3.1 `$user?->password` — nullsafe operatörü
+### 3.1 `$user->password ?? ...` — neden nullsafe operatörü YOK
 
 ```php
-$hash = $user?->password ?? self::dummyHash();
+$hash = $user->password ?? self::dummyHash();
 ```
 
-`?->` PHP 8 ile geldi: sol taraf `null` ise ifade **tümüyle** `null` olur ve
-hata fırlamaz. TypeScript'teki `?.` ile aynı.
+`$user` burada `null` olabilir (`->first()` kayıt bulamazsa `null` döner). İlk
+bakışta `?->` gerekliymiş gibi durur:
 
-Bu satır olmadan `$user->password` yazsaydık, kullanıcı bulunamadığında
-`Error: Attempt to read property on null` alırdık → 500.
+```php
+$hash = $user?->password ?? self::dummyHash();   // ❌ fazladan
+```
 
-Zincir: `$user?->password` (null olabilir) → `??` (null ise sağdakini al) →
-sonuç her zaman `string`.
+**Gerekmiyor** — ve PHPStan bunu hata olarak bildirir:
+
+```
+Using nullsafe property access "?->password" on left side of ?? is unnecessary.
+Use -> instead.    (nullsafe.neverNull)
+```
+
+#### Sebep: `??` zaten "isset" mantığıyla çalışır
+
+PHP'de `??` operatörü sıradan bir operatör değildir. Sol tarafını
+**`isset()` gibi** değerlendirir: erişim zincirindeki hiçbir adım için uyarı
+veya hata üretmez, sadece "elde edilebildi mi?" diye bakar.
+
+| İfade | `$user` null iken sonuç |
+|---|---|
+| `$user->password` | 💥 `Error: Attempt to read property on null` |
+| `$user->password ?? $x` | ✅ `$x` — hata yok, uyarı yok |
+| `$user?->password ?? $x` | ✅ `$x` — aynı sonuç, fazladan sözdizimi |
+
+Yani hatayı önleyen şey `?->` değil, **`??`'nin kendisidir.** `?->` eklemek
+davranışı değiştirmez; sadece okuyana "burada null kontrolü var" diye ikinci bir
+sinyal verir ve kodu gereksiz yere karmaşıklaştırır.
+
+#### `?->` ne zaman gerçekten gerekir?
+
+Sonucu `??` ile yakalamadığın zaman:
+
+```php
+$sehir = $user?->address?->city;        // ✅ ?-> şart, ?? yok
+$user?->notify(new Hosgeldin);          // ✅ null ise metot hiç çağrılmaz
+```
+
+TypeScript'teki `?.` ile aynı iş — ama TypeScript'te `??` böyle bir bastırma
+yapmaz, o yüzden `a?.b ?? c` orada doğrudur. **PHP'de değildir.** Diller
+benzeyince alışkanlık taşımak bu tür ince hatalar üretir.
+
+#### 🔴 Bu satır neden ilk yazımda yanlıştı?
+
+Bu kılavuzun önceki sürümü "`$user->password` yazsaydık 500 alırdık" diyordu.
+**Bu yanlıştı** — `??` varken 500 alınmaz. Hatayı fark eden `composer check`
+zincirindeki PHPStan oldu (Faz 3, 3.2'den sonra).
+
+Ders: bir savunmanın *gerçekten* koruyup korumadığı, "mantıklı görünmesiyle"
+değil **çalıştırılarak** doğrulanır. Faz 2'nin **B4** kuralı burada bir kez daha
+işledi: dokümanda verilen söz, kodda karşılığı yoksa yalandır.
 
 ### 3.2 `rehashIfNeeded()` — bir sözü tutmak
 
@@ -287,7 +331,7 @@ bilgi üretme.**
 | `Auth::attempt()` kullanmak | Session kurar, zamanlama savunması yok | Manuel `Hash::check` |
 | İki farklı exception fırlatmak | Enumeration açığı | Tek `InvalidCredentialsException` |
 | `rehashIfNeeded` atlamak | `rehash_on_login` sözü tutulmaz | Elle uygula |
-| `$user->password` (nullsafe'siz) | Kullanıcı yoksa 500 | `$user?->password` |
+| `$user?->password ?? ...` | Fazladan `?->` — PHPStan `nullsafe.neverNull` verir | `$user->password ?? ...` |
 | Her girişte eski token'ları silmek | Diğer cihazlardaki oturum düşer | Yalnızca yeni token üret |
 
 ---

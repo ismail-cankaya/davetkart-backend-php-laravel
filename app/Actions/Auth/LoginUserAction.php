@@ -39,7 +39,8 @@ final class LoginUserAction
         $user = User::where('email', $credentials['email'])->first();
 
         // Kullanici yoksa sahte hash kullanilir — is yuku her iki yolda da AYNI.
-        $hash = $user?->password ?? self::dummyHash();
+        // '??' null erisimini zaten bastirir; '?->' fazladan olurdu (PHPStan).
+        $hash = $user->password ?? self::dummyHash();
 
         // 🔴 Kontrolden ONCE calisir; sirasi degistirilemez.
         $passwordMatches = Hash::check($credentials['password'], $hash);

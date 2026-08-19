@@ -92,15 +92,11 @@ Faz 3'te bu metot gerçekten iş yapacak: `UpdateInvitationRequest`'te
 'firstName' => ['required', 'string', 'max:60'],   // dizi ile  ← bizim
 ```
 
-Dizi biçimini seçtik çünkü **kural nesneleri** ancak böyle kullanılabilir:
+Dizi biçimini seçtik çünkü boru karakteri, `regex:/^a|b$/` gibi kuralların
+**içinde** geçtiğinde ayrıştırmayı bozar. Dizi biçimi her durumda güvenlidir.
 
-```php
-'password' => ['required', 'string', 'max:255', Password::min(8)],
-//                                              ↑ bir NESNE, string değil
-```
-
-Ayrıca boru karakteri, `regex:/^a|b$/` gibi kuralların içinde geçtiğinde
-ayrıştırmayı bozar. Dizi biçimi her durumda güvenlidir.
+Dizi biçimi ayrıca **kural nesnelerini** (`Password::min(8)` gibi) kabul eden tek
+biçimdir — ama biz onları bilerek kullanmıyoruz, sebebi §3.5'te.
 
 ### 2.3 `prepareForValidation()` — sıra kritik
 
@@ -273,7 +269,7 @@ Kaydedilen:  ismail@gmail.com   →  UNIQUE ihlali → 500
 ### 3.5 Parola kuralı — neden karmaşıklık zorunluluğu yok?
 
 ```php
-'password' => ['required', 'string', 'max:255', Password::min(8)],
+'password' => ['required', 'string', 'min:8', 'max:255'],
 ```
 
 Büyük harf, rakam, sembol **zorunlu tutulmadı**. Bu bilinçli.
@@ -287,7 +283,7 @@ NIST'in önerdiği: **uzunluk** + bilinen sızmış parolaların engellenmesi.
 
 | Kural | Durumumuz |
 |---|---|
-| Minimum uzunluk | ✅ `Password::min(8)` |
+| Minimum uzunluk | ✅ `min:8` |
 | Sızmış parola kontrolü | ⬜ `->uncompromised()` mevcut, **eklenmedi** |
 | Kompozisyon zorunluluğu | ❌ Bilerek yok |
 
@@ -295,6 +291,46 @@ NIST'in önerdiği: **uzunluk** + bilinen sızmış parolaların engellenmesi.
 sorun: `api.ts` timeout'u 15 saniye, servis çökerse kayıt akışı kilitlenir,
 çevrimdışı geliştirmede testler kırılır. Faz 9'da kuyruk veya yerel liste ile
 yeniden değerlendirilecek.
+
+#### 🔴 Neden `Password::min(8)` değil de `'min:8'`? (D6)
+
+Bu satır ilk yazımda `Password::min(8)` idi. **Yanlıştı** ve hatayı Faz 3'te
+`composer check` yakaladı.
+
+Sebep, doğrulama hatasının nasıl raporlandığıyla ilgili. K20 gereği API hata
+**metni** değil hata **kodu** döndürür; başarısız olan kuralın **adı** yanıta
+girer:
+
+```json
+{ "error": { "code": "VALIDATION_FAILED",
+             "fields": { "password": [ { "rule": "min", "params": [8] } ] } } }
+```
+
+Frontend bu `rule` değerini bir çeviri anahtarı gibi kullanır: `min` + `8` →
+"En az 8 karakter". Yani **kural adı API sözleşmesinin parçasıdır.**
+
+Laravel bir kural **nesnesi** başarısız olduğunda onu sınıf adıyla raporlar.
+`Password::min(8)` kullanınca yanıt şuna dönüşüyordu:
+
+```
+"rule": "illuminate\_validation\_rules\_password"
+```
+
+Üç ayrı sorun:
+
+| Sorun | Neden önemli |
+|---|---|
+| **Kararsız** | Laravel o sınıfı taşırsa bizim public API'miz değişir |
+| **Sızıntı** | Yanıt hangi framework'ü kullandığımızı söyler |
+| **Kullanılamaz** | Frontend bunu neye çevirecek? Uzunluk bilgisi kayıp |
+
+Buradan çıkan kural — **D6:** *doğrulama kuralının adı API sözleşmesinin
+parçasıdır; bu yüzden kural nesnesi değil, adı sabit string kural tercih edilir.*
+
+İleride parola politikasını sertleştirmek gerekirse (`uncompromised()` gibi),
+kural nesnesini geri getirmek yerine ya açık string kurallar yazılır ya da
+`ApiExceptionRenderer`'a sınıf → sabit kod eşlemesi eklenir. Sözleşmeye
+framework iç adı **hiçbir durumda** girmez.
 
 **`max:255` neden var?** Girdiyi sınırsız bırakmak, saldırganın 10 MB'lık bir
 parola gönderip Argon2id'ye onu hash'lettirmesine izin verir — ucuz bir DoS

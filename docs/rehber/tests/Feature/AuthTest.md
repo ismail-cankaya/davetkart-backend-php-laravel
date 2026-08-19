@@ -162,7 +162,10 @@ $laptop = $user->createToken('api')->plainTextToken;
 
 $this->withToken($phone)->postJson(route('auth.logout'))->assertNoContent();
 
+$this->forgetAuthState();                                                    // 🔴 T13
 $this->withToken($phone)->getJson(route('auth.me'))->assertUnauthorized();   // gitti
+
+$this->forgetAuthState();                                                    // 🔴 T13
 $this->withToken($laptop)->getJson(route('auth.me'))->assertOk();            // duruyor
 ```
 
@@ -171,6 +174,31 @@ cihazdan girmiş, birinden çıkıyor.
 
 `withToken()` `Authorization: Bearer <token>` başlığını ekler — gerçek istemcinin
 yaptığı şeyin aynısı.
+
+#### 🔴 `forgetAuthState()` neden şart? (T13)
+
+Bu test Faz 3'e kadar **hiç geçmedi** ve sebebi `RevokeTokenAction` değildi.
+
+`Illuminate\Auth\RequestGuard` çözdüğü kullanıcıyı bir özellikte tutar ve
+`setRequest()` o özelliği temizlemez. Testte uygulama nesnesi istekler arasında
+yaşamaya devam ettiği için, ilk kimlikli istekten sonra guard **token'a hiç
+bakmadan** aynı kullanıcıyı döndürür.
+
+Etkisi iki yönlü:
+
+| Satır | Guard sıfırlanmazsa | Gerçek |
+|---|---|---|
+| `$phone` ile `me` | 200 döner → test **haksız kırmızı** | Token gerçekten iptal edilmiş |
+| `$laptop` ile `me` | 200 döner → test **haksız yeşil** | Token hiç okunmadı bile |
+
+İkincisi daha tehlikeli: `$laptop` yerine anlamsız bir string yazsan test yine
+geçerdi. Bu, **T10**'un ("`actingAs()` boş yeşil test üretir") kardeşidir —
+`withToken()` doğru kullanılmış ama önbellek aynı sonucu doğurmuş.
+
+Yardımcı ortak `TestCase`'te durur, çünkü Faz 3'ün sahiplik testleri (3.12) iki
+farklı kullanıcının token'ıyla arka arkaya istek atacak — orada sıfırlamayı
+unutmak **IDOR testini sessizce boşa çıkarır**.
+Ayrıntılı açıklama: [`TestCase.md`](../TestCase.md)
 
 ### 3.3 `me_returns_the_wrapped_user` — `actingAs` vs `withToken`
 

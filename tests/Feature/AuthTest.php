@@ -212,7 +212,12 @@ final class AuthTest extends TestCase
 
         $this->withToken($phone)->postJson(route('auth.logout'))->assertNoContent();
 
+        // 🔴 T13: guard cozdugu kullaniciyi onbellekler, setRequest onu temizlemez.
+        // Sifirlanmazsa sonraki istek TOKEN'A HIC BAKMADAN ayni kullaniciyi doner.
+        $this->forgetAuthState();
         $this->withToken($phone)->getJson(route('auth.me'))->assertUnauthorized();
+
+        $this->forgetAuthState();
         $this->withToken($laptop)->getJson(route('auth.me'))->assertOk();
 
         $this->assertSame(1, $user->tokens()->count());
