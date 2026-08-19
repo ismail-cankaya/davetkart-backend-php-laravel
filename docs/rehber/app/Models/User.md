@@ -511,6 +511,41 @@ $t->accessToken->token;                   // sha256 hash — DB'de duran bu
 
 ---
 
+## 6.5 Faz 3 eklentisi — `invitations()` ilişkisi
+
+Faz 3'ün 3.5 adımında bu modele tek bir metot eklendi:
+
+```php
+/** @return HasMany<Invitation, $this> */
+public function invitations(): HasMany
+{
+    return $this->hasMany(Invitation::class);
+}
+```
+
+**Neden gerekti?** `Invitation` modelinin `#[Fillable]` listesinde `user_id`
+**yok** — sahiplik istemci kararı olmadığı için. Dolayısıyla davetiye ancak
+buradan oluşturulabiliyor:
+
+```php
+$user->invitations()->create([...]);   // user_id'yi Eloquent doldurur
+```
+
+Aidiyet böylece doğrulanması gereken bir **girdi** olmaktan çıkıp yapısal bir
+**garanti**ye dönüşüyor.
+
+**Neden sıralama gömülü değil?** `Invitation::timelineEvents()` ilişkisinde
+`->orderBy('sort_order')` var, burada yok. Ölçüt: program adımlarının sırası
+**anlamın parçası** (program bir akıştır), davetiyelerin sırası ise bir **sunum
+tercihi** (dashboard tarihe göre, ada göre veya duruma göre listeleyebilir).
+
+> Sorulacak soru: *"bu kural olmadan veri yanlış mı olur, yoksa sadece farklı mı
+> görünür?"* Yanlış oluyorsa modele, farklı görünüyorsa çağırana ait.
+
+Ayrıntı: [`TimelineEvent.md`](TimelineEvent.md) §5.
+
+---
+
 ## 7. Bağlantılar
 
 | İlgili | Nerede |

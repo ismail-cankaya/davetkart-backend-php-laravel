@@ -8,6 +8,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -51,5 +52,18 @@ class User extends Authenticatable
             // Atama aninda varsayilan hash surucusuyle (Argon2id, K32) hash'lenir.
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Kullanicinin davetiyeleri — sahipligi kuran tek dogru yol.
+     *
+     * Siralama BILEREK yok: davetiye sirasi bir sunum tercihidir, cagiran
+     * belirler. (timelineEvents'te sira anlamin parcasi oldugu icin oradadir.)
+     *
+     * @return HasMany<Invitation, $this>
+     */
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(Invitation::class);
     }
 }
