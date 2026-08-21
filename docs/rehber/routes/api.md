@@ -147,17 +147,13 @@ Route::get('/invitations/count', [...]);        // ✅ once sabit
 Route::apiResource('invitations', InvitationController::class);
 ```
 
-### `where` kısıtı bu riski neden azaltıyor?
+### `whereUlid` kısıtı bu riski neden azaltıyor?
 
 ```php
-->where(['invitation' => '[0-9A-HJKMNP-TV-Z]{26}'])
+->whereUlid('invitation')
 ```
 
-`{invitation}` parametresini **26 karakterlik ULID** desenine sınırlıyor.
-Crockford Base32 alfabesi: `0-9` ve `A-Z`, ama `I`, `L`, `O`, `U` **yok** —
-sırasıyla `1`, `1`, `0` ile karışmasınlar ve istenmeyen kelimeler oluşmasın diye.
-
-İki kazancı var:
+`{invitation}` parametresini **ULID biçimine** sınırlıyor. İki kazancı var:
 
 1. `/invitations/count` artık `{invitation}`'a **eşleşmez**; sıra hatası yapsan
    bile rota doğru çalışır
@@ -165,6 +161,80 @@ sırasıyla `1`, `1`, `0` ile karışmasınlar ve istenmeyen kelimeler oluşmas�
    verilir, sorgu açılmaz
 
 Bu, savunmayı "hatırlamaya" değil **yapıya** bağlamanın bir örneği daha.
+
+### 🔴 Faz 4 düzeltmesi: bu kısıt elle yazılmıştı ve HİÇBİR ŞEYE eşleşmiyordu
+
+Faz 3'te bu satır şöyle yazılmıştı:
+
+```php
+->where(['invitation' => '[0-9A-HJKMNP-TV-Z]{26}'])   // ❌ yalnızca BÜYÜK harf
+```
+
+Regex doğru görünüyor: Crockford Base32 alfabesi (`0-9` ve `A-Z`, ama `I`, `L`,
+`O`, `U` yok — sırasıyla `1`, `1`, `0` ile karışmasınlar diye), 26 karakter.
+Kâğıt üzerinde kusursuz. Ama Laravel'in ürettiği ULID'ler **küçük harflidir**:
+
+```php
+// vendor/laravel/framework/src/Illuminate/Database/Eloquent/Concerns/HasUlids.php:16
+public function newUniqueId()
+{
+    return strtolower((string) Str::ulid());
+}
+```
+
+Sonuç: `{invitation}` parametreli **hiçbir rota hiçbir istekle eşleşmedi.**
+`Router::findRoute()` başarısız oldu, `NotFoundHttpException` fırladı,
+`ApiExceptionRenderer::fromStatus(404)` onu `RESOURCE_NOT_FOUND`'a çevirdi.
+
+#### 🔴 Asıl bedel: testler boş yeşil yandı
+
+`show`, `update`, `destroy` uçları **404** dönüyordu — ve Faz 3'ün güvenlik
+testleri tam olarak 404 bekliyordu:
+
+| Test | Beklenen | Aldığı | Neden geçti |
+|---|---|---|---|
+| `owner cannot read another users invitation` | 404 | 404 | **Rota eşleşmediği için** — Policy hiç çalışmadı |
+| `owner cannot update another users invitation` | 404 | 404 | aynı |
+| `missing and forbidden invitations are indistinguishable` | 404 = 404 | ✓ | biri rota, diğeri binding — **iki farklı sebep** |
+| `owner can read their own invitation` | 200 | **404** | ← tek gerçek sinyal buydu |
+
+Yani `app/Policies/InvitationPolicy.php` dosyasını tamamen silseydin bu üç test
+yine geçerdi. Faz 3'ün **güvenlik dosyası bir kez bile çalışmamıştı**.
+
+Bu, Faz 2'nin 24. dersinin (`actingAs()` guard'ı atlar → boş yeşil test) rota
+katmanındaki ikizi. Ortak kalıp: *"beklediğim yanıtı aldım"* ile *"beklediğim
+sebeple aldım"* farklı şeylerdir.
+
+#### Doğrusu: framework'ün kısıtını kullan
+
+Laravel bu deseni zaten üretiyor:
+
+```php
+// vendor/laravel/framework/src/Illuminate/Routing/CreatesRegularExpressionRouteConstraints.php:52
+return $this->assignExpressionToParameters(
+    $parameters,
+    '[0-7][0-9a-hjkmnp-tv-zA-HJKMNP-TV-Z]{25}',
+);
+```
+
+Elle yazdığımızdan **iki yönden daha iyi**:
+
+| | Elle yazılan | `whereUlid()` |
+|---|---|---|
+| Harf durumu | yalnızca büyük | **büyük ve küçük** |
+| İlk karakter | `0-9A-Z` (herhangi) | **`0-7`** — 48 bitlik zaman damgasının taşamayacağı aralık |
+
+`PendingResourceRegistration` sınıfı `CreatesRegularExpressionRouteConstraints`
+trait'ini kullandığı için `apiResource(...)->whereUlid('invitation')` doğrudan
+çalışır.
+
+> **Kural (R6):** Framework'ün hazır bir kısıtı varsa deseni elle yazma.
+> Elle yazılan desen **sessizce yanlış** olabilir; framework'ünki, kimliği
+> üreten kodla aynı depoda durduğu için onunla birlikte değişir.
+
+> **Ders:** Bir regex'i "okuyup doğru görmek" onu test etmek değildir. Bu desen
+> aylarca doğru göründü çünkü onu doğrulayan tek test (`owner can read their
+> own`) hiç koşmamıştı — PHPStan zinciri daha önce kırıyordu.
 
 ### Neden `auth:sanctum` grubu, `public` değil?
 

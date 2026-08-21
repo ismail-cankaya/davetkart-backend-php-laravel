@@ -57,6 +57,129 @@ eklendiğinde satırı kopyalamayı unutabilirsin. İlişkiden oluşturmak savun
 
 ---
 
+### 🔴 Peki `status`? Aynı ailenin ikinci yarısı (Faz 4 düzeltmesi)
+
+`user_id` gibi `status` de **sunucunun malıdır** ve `#[Fillable]` listesinde
+yoktur (3.4). Ama sahiplikten bir farkı var: `user_id`'yi ilişki **yazıyor**,
+`status`'ü hiçbir PHP kodu yazmıyordu. Değeri yalnızca migration'daki
+`->default('saved')` biliyordu.
+
+Faz 3'te bu satır şöyleydi:
+
+```php
+$invitation = $user->invitations()->create($attributes);   // ❌ status yok
+```
+
+`create()` yalnızca kendisine verilen alanları `INSERT`'e koyar. Veritabanı
+`status` kolonunu varsayılanıyla doldurur — **ama Eloquent bunu geri okumaz.**
+Bellekteki model insert'ten sonra da `status` niteliği taşımaz:
+
+```php
+$invitation->status;          // null
+$invitation->status->value;   // 💥 Attempt to read property "value" on null
+```
+
+`InvitationResource:30` tam olarak burada 500 veriyordu.
+
+#### Neden katı kip bunu yakalamadı?
+
+Faz 0'da `shouldBeStrict()` açıldı ve o `preventAccessingMissingAttributes()`'ı
+da içerir — eksik bir alana erişmek normalde `MissingAttributeException`
+fırlatır. Ama kaynağa bakınca korumanın bir istisnası olduğu görülüyor
+(`vendor/.../Concerns/HasAttributes.php:518`):
+
+```php
+if ($this->exists &&
+    ! $this->wasRecentlyCreated &&              // ← istisna burada
+    static::preventsAccessingMissingAttributes()) {
+    throw new MissingAttributeException($this, $key);
+}
+```
+
+Yeni oluşturulmuş modellerde koruma **bilerek** devre dışı: insert sonrası
+modelin her kolonu bellekte olmayabilir, her erişimde patlamak kullanılamaz bir
+framework üretirdi. Yani güvenlik ağının deliği tam olarak bu hatanın durduğu
+yerdeydi — bu yüzden hata gürültülü bir exception yerine sessiz bir `null`
+olarak çıktı.
+
+#### Çözüm: `create()` yerine `make()` + açık atama
+
+```php
+$invitation = $user->invitations()->make($attributes);
+$invitation->status = InvitationStatus::default();
+$invitation->save();
+```
+
+`make()`, `create()`'in kaydetmeyen ikizidir. Kaynağı
+(`vendor/.../Relations/HasOneOrMany.php:61`):
+
+```php
+public function make(array $attributes = [])
+{
+    return tap($this->related->newInstance($attributes), function ($instance) {
+        $this->setForeignAttributesForCreate($instance);   // user_id yine ilişkiden
+        $this->applyInverseRelationToModel($instance);
+    });
+}
+```
+
+Yani §2'de anlatılan yapısal sahiplik garantisi **aynen korunuyor**; araya
+yalnızca "kaydetmeden önce sunucunun kendi alanını yazması" adımı giriyor.
+
+#### 🔴 `$fillable` atamayı değil, TOPLU atamayı korur
+
+Burada kafa karıştıran nokta şu: `status` `#[Fillable]` listesinde yok, peki
+`$invitation->status = ...` nasıl çalışıyor?
+
+| Yol | `$fillable` denetlenir mi? |
+|---|---|
+| `create([...])` · `fill([...])` · `make([...])` | **Evet** — liste dışı anahtar düşer (katı kipte exception) |
+| `$model->status = ...` · `setAttribute()` | **Hayır** — hiç uğramaz |
+
+`$fillable` bir **toplu atama (mass assignment)** savunmasıdır: dışarıdan gelen
+bir *diziyi* modele dökerken hangi anahtarların geçebileceğini söyler. Tek tek
+atama zaten programcının bilinçli bir kararıdır; korunacak bir şey yoktur.
+
+Bu ayrım tam da istediğimiz şeyi mümkün kılıyor: **istemci `status` gönderemez,
+ama sunucu yazabilir.** Aynı alan, iki farklı yazara karşı iki farklı davranış.
+
+#### Veritabanı varsayılanı neden duruyor?
+
+`->default('saved')` migration'da kaldı. İki katman çakışmıyor, **farklı yolları
+kapatıyorlar**:
+
+| Yol | Kim doldurur |
+|---|---|
+| `CreateInvitationAction` (Eloquent) | Bu satır — ve bellekteki model de doğru olur |
+| `DB::table('invitations')->insert(...)` (ham SQL, seeder, konsol) | Veritabanı varsayılanı |
+
+İkisi de aynı kaynaktan besleniyor: `InvitationStatus::default()`. Migration'daki
+metin de o enum'dan üretilmişti (3.2). Yani **iki katman var, tek doğruluk
+kaynağı var** — E1'in yasakladığı şey iki *kaynak*, iki *katman* değil.
+
+> **Kural (E7):** Sunucunun sahip olduğu bir alanın değerini **sunucu kodu**
+> söyler. Veritabanı varsayılanı bir yedektir, tek beyan değil — çünkü ORM onu
+> geri okumaz ve bellekteki nesne yanlış kalır.
+
+#### Değerlendirilip seçilmeyen alternatif
+
+`Invitation` modeline bir `creating` olayı koymak da mümkündü:
+
+```php
+protected static function booted(): void
+{
+    static::creating(fn (self $i) => $i->status ??= InvitationStatus::default());
+}
+```
+
+Avantajı: **her** Eloquent oluşturma yolu kapsanır, ikinci bir Action yazılırsa
+hatırlamaya gerek kalmaz. Dezavantajı: karar görünmez bir olay dinleyicisine
+taşınır; `CreateInvitationAction`'ı okuyan biri sunucunun ne karar verdiğini
+göremez. Bugün tek oluşturma yolu bu Action olduğu için **görünürlük** tercih
+edildi. Faz 7'de ikinci bir oluşturma yolu doğarsa karar yeniden tartışılmalı.
+
+---
+
 ## 3. `DB::transaction()` — sınır neden burada?
 
 ```php

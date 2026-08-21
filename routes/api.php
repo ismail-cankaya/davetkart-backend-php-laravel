@@ -46,9 +46,13 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
 |
 | ⚠️ Sabit segmentli rotalar (ornek: /invitations/count) buraya, apiResource'un
 | USTUNE yazilmali; aksi halde {invitation} onlari yutar. whereUlid kisiti bu
-| riski ayrica azaltir: {invitation} yalnizca 26 karakterlik ULID'e eslesir.
+| riski ayrica azaltir: {invitation} yalnizca ULID bicimine eslesir.
+|
+| 🔴 R6: kisit ELLE YAZILMAZ. HasUlids::newUniqueId() strtolower() uyguluyor;
+| elle yazilan buyuk-harf regex hicbir istegi eslestirmedi ve Policy hic
+| calismadi. Gerekce: docs/rehber/routes/api.md §5.
 */
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('invitations', InvitationController::class)
-        ->where(['invitation' => '[0-9A-HJKMNP-TV-Z]{26}']);
+        ->whereUlid('invitation');
 });

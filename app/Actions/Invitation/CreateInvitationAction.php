@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Invitation;
 
+use App\Enums\InvitationStatus;
 use App\Models\Invitation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,16 @@ final class CreateInvitationAction
     {
         // E4: iki tabloya yaziliyor. Yarim kalan davetiye programsiz kalirdi.
         return DB::transaction(function () use ($user, $attributes, $timelineEvents): Invitation {
-            $invitation = $user->invitations()->create($attributes);
+            $invitation = $user->invitations()->make($attributes);
+
+            // 🔴 E7: sunucunun sahip oldugu alanin degerini sunucu KODU soyler.
+            // `status` #[Fillable] listesinde yok — dogrudan atama toplu atama
+            // korumasini asmaz, ona hic ugramaz. create() kullansaydik degeri
+            // yalnizca veritabani varsayilani bilirdi ve bellekteki model null
+            // kalirdi. Gerekce: docs/rehber/app/Actions/Invitation/CreateInvitationAction.md §2
+            $invitation->status = InvitationStatus::default();
+
+            $invitation->save();
 
             if ($timelineEvents !== null) {
                 $this->syncTimelineEvents->handle($invitation, $timelineEvents);
