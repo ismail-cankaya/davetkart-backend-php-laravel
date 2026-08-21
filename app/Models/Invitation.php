@@ -42,6 +42,10 @@ class Invitation extends Model
     protected function casts(): array
     {
         return [
+            // 🔴 InvitationPolicy kati karsilastirma yapar; HasUlids yuzunden
+            // getIncrementing() false, yani anahtar cast'i otomatik gelmiyor.
+            'user_id' => 'integer',
+
             'status' => InvitationStatus::class,
 
             // K23: degismez tarih. $d->addDay() orijinali bozmaz, kopya doner.
