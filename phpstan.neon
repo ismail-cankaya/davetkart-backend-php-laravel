@@ -21,6 +21,13 @@ parameters:
     # Eloquent modellerinde tanimsiz ozellik erisimini yakala.
     checkModelProperties: true
 
+    # 🔴 Laravel 11+ `casts()` METODU icin sart. Varsayilan false; o durumda
+    # Larastan metodun BILDIRILEN donus tipine bakar, bizimki array<string,string>
+    # oldugu icin sabit dizi degildir ve TUM cast'ler sessizce yok sayilir —
+    # `event_at` CarbonImmutable degil string gorunur. true: metodun govdesi
+    # AST'den okunur. Gerekce ve kanit: docs/rehber/phpstan.md §4.
+    parseModelCastsMethod: true
+
     # Kod Laravel 13 + PHP 8.3 hedefliyor.
     phpVersion: 80300
 

@@ -161,6 +161,67 @@ hata bile vermez. Faz 3'te 28 alanlı `Invitation` modeliyle çalışırken bu a
 > Karşılığında modellerin PHPDoc'unun doğru olması gerekir. `@property` blokları
 > eksikse alarm üretir. Faz 2'de `User` modelini yazarken bunları da yazacağız.
 
+### 🔴 `parseModelCastsMethod: true` — Faz 4'te eklendi
+
+**Bu ayar olmadan modelin `casts()` metodu HİÇ okunmaz.** Larastan'ın varsayılanı
+`false`'tur ve o hâlde şu yol izlenir (`vendor/larastan/larastan/src/Properties/ModelCastHelper.php`):
+
+```php
+if ($this->parseModelCastsMethod) {
+    $castsMethodReturnType = $this->parseCastsMethod($modelClassReflection);  // AST'yi okur
+} else {
+    $castsMethodReturnType = $modelClassReflection
+        ->getMethod('casts', new OutOfClassScope())
+        ->getVariants()[0]->getReturnType();                                  // BİLDİRİLEN tip
+}
+
+if ($castsMethodReturnType->isConstantArray()->yes()) {   // ← eleme burada
+    $modelCasts = array_merge($modelCasts, ...);
+}
+```
+
+`false` dalında Larastan metodun **gövdesine değil, bildirilen dönüş tipine**
+bakar. Bizim modellerimizde bu tip `@return array<string, string>` — yani
+"anahtarları ve değerleri string olan bir dizi". Doğru bir tiptir ama **sabit
+dizi (constant array) değildir**: PHPStan hangi anahtarın hangi değere
+bağlandığını bilmez. `isConstantArray()` `false` döner ve `array_merge` satırına
+hiç girilmez.
+
+Sonuç: **bütün cast'ler sessizce yok sayılır.** Larastan geriye kalan tek
+kaynağa, migration'daki kolon tipine düşer:
+
+| Kolon (migration) | Cast (model) | Ayar `false` iken Larastan ne sanır | Sonuç |
+|---|---|---|---|
+| `timestamp('event_at')` | `immutable_datetime` | `string` | `$x->event_at?->format()` → **hata** |
+| `date('rsvp_deadline')` | `immutable_date` | `string` | aynı |
+| `string('status', 16)` | `InvitationStatus::class` | `string` | `$x->status->value` → **hata** |
+
+`true` yapınca `parseCastsMethod()` devreye girer: dosyayı ayrıştırır, `casts()`
+metodunun ilk `return [...]` düğümünü bulur ve **gerçek** sabit diziyi çıkarır.
+Cast'ler artık uygulanır.
+
+> **Koşul:** `casts()` tek bir literal `return [...]` içermeli. Kaynak kodda
+> `if (! $returnNode->expr instanceof Array_) { return new NullType(); }` var —
+> diziyi bir değişkende toplayıp döndürürsen ayar yine işlemez.
+
+#### Bu neden Faz 4'e kadar patlamadı?
+
+Faz 2'de `User::casts()` da aynı sebeple yok sayılıyordu — ama `password` ve
+`email_verified_at` hiçbir yerde **nesne gibi** kullanılmadı, yalnızca okundu.
+Hata ancak bir cast'in ürünü üzerinde metot çağrıldığında görünür hâle geldi:
+Faz 3'ün Resource'ları `->format()` ve `->value` yazdı.
+
+Görünmesi bir de gecikti: PHPStan **sonuç önbelleği** (result cache) tutar ve bir
+dosyanın hatalarını yeniden hesaplamadan geri verebilir. Faz 4'ün ilk dosyası
+eklenince tam analiz koştu (`66/66 100%`) ve üç hata birden ortaya çıktı.
+
+> **Ders:** *Aracın sustuğu yer, hatanın olmadığı yer değildir.* Faz 3'ün 26.
+> dersi ("çalıştırılmayan kod, doğru olduğu varsayılan koddur") burada bir
+> varyantını buldu: **bir ayar yüzünden hiç değerlendirilmemiş kural da doğru
+> varsayılır.** Bir aracı kurarken "açık mı?" ile "işini yapıyor mu?" ayrı
+> sorulardır — ikincisi ancak aracın bir şeyi **yakaladığını görünce**
+> cevaplanır.
+
 ### `phpVersion: 80300`
 
 Analizi PHP 8.3 kurallarına göre yapar. Senin makinende 8.4 kurulu olsa bile
