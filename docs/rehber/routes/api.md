@@ -101,6 +101,81 @@ yeniden değerlendireceğiz.
 
 ---
 
+## 0.2 Faz 3 eklemesi — davetiye koleksiyonu
+
+```php
+Route::middleware('auth:sanctum')->group(function (): void {
+    Route::apiResource('invitations', InvitationController::class)
+        ->where(['invitation' => '[0-9A-HJKMNP-TV-Z]{26}']);
+});
+```
+
+Tek satır beş rota üretir (K37 — tam REST koleksiyonu):
+
+| Method | Path | Controller | Policy | Yanıt |
+|---|---|---|---|---|
+| GET | `/api/invitations` | `index` | `viewAny` | `200` · `{data: [...]}` |
+| POST | `/api/invitations` | `store` | `create` | `201` · `{data: {...}}` |
+| GET | `/api/invitations/{invitation}` | `show` | `view` | `200` · `{data: {...}}` |
+| PUT/PATCH | `/api/invitations/{invitation}` | `update` | `update` | `200` · `{data: {...}}` |
+| DELETE | `/api/invitations/{invitation}` | `destroy` | `delete` | `204` · gövde yok |
+
+Rota adları da otomatik: `invitations.index`, `invitations.store`… Testlerde
+`route('invitations.show', $invitation)` diye çağıracağız — URL'yi elle yazmak
+yerine (R3).
+
+`apiResource`, `resource`'tan farklı olarak `create` ve `edit` rotalarını
+**üretmez**; onlar HTML form sayfaları içindir ve bizde frontend ayrı çalışıyor.
+
+### ⚠️ Rota sırası tuzağı
+
+Laravel rotaları **kayıt sırasına** göre eşleştirir; ilk eşleşen kazanır. Yarın
+sabit segmentli bir rota eklenirse:
+
+```php
+Route::apiResource('invitations', InvitationController::class);
+Route::get('/invitations/count', [...]);        // ❌ ASLA calismaz
+```
+
+`/invitations/count` isteği önce `{invitation}` desenine takılır ve `count`
+bir davetiye kimliği sanılır. Sonuç: 404 — ve sebebi kodu okurken görünmez.
+
+Doğrusu, sabit rotayı **üste** yazmaktır:
+
+```php
+Route::get('/invitations/count', [...]);        // ✅ once sabit
+Route::apiResource('invitations', InvitationController::class);
+```
+
+### `where` kısıtı bu riski neden azaltıyor?
+
+```php
+->where(['invitation' => '[0-9A-HJKMNP-TV-Z]{26}'])
+```
+
+`{invitation}` parametresini **26 karakterlik ULID** desenine sınırlıyor.
+Crockford Base32 alfabesi: `0-9` ve `A-Z`, ama `I`, `L`, `O`, `U` **yok** —
+sırasıyla `1`, `1`, `0` ile karışmasınlar ve istenmeyen kelimeler oluşmasın diye.
+
+İki kazancı var:
+
+1. `/invitations/count` artık `{invitation}`'a **eşleşmez**; sıra hatası yapsan
+   bile rota doğru çalışır
+2. Geçersiz biçimli bir kimlik veritabanına hiç gitmez — 404 rota katmanında
+   verilir, sorgu açılmaz
+
+Bu, savunmayı "hatırlamaya" değil **yapıya** bağlamanın bir örneği daha.
+
+### Neden `auth:sanctum` grubu, `public` değil?
+
+K12: auth gerektirmeyen rotalar `/api/public/` önekiyle gruplanır. Davetiye
+CRUD'u **sahibine** aittir, dolayısıyla korumalı grupta.
+
+Misafirin göreceği okuma ucu (`/api/public/invitations/{slug}`) Faz 4'te ayrı
+bir grupta yazılacak — aynı veriye iki farklı kapı, iki farklı yetki modeli.
+
+---
+
 ## 1. `/api` öneki nereden geliyor?
 
 Dosyada `/ping` yazıyor ama endpoint `/api/ping`. Önek bu dosyada değil,

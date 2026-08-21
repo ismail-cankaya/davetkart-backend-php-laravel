@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\HealthController;
+use App\Http\Controllers\Api\V1\InvitationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -38,4 +39,16 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('/me', [AuthController::class, 'me'])->name('me');
     });
+});
+
+/*
+| Davetiyeler (Faz 3) — K37: tam REST koleksiyonu.
+|
+| ⚠️ Sabit segmentli rotalar (ornek: /invitations/count) buraya, apiResource'un
+| USTUNE yazilmali; aksi halde {invitation} onlari yutar. whereUlid kisiti bu
+| riski ayrica azaltir: {invitation} yalnizca 26 karakterlik ULID'e eslesir.
+*/
+Route::middleware('auth:sanctum')->group(function (): void {
+    Route::apiResource('invitations', InvitationController::class)
+        ->where(['invitation' => '[0-9A-HJKMNP-TV-Z]{26}']);
 });
