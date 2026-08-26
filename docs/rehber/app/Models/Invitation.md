@@ -413,7 +413,99 @@ düşer.**
 
 ---
 
-## 10. Sırada ne var?
+## 10. Faz 4 eklemesi — `publicCacheKey()`
+
+```php
+public static function publicCacheKey(string $id): string
+{
+    return Config::string('davetkart.cache.key_prefix').':public-invitation:'.$id;
+}
+```
+
+### Neden model? Cache bir altyapı işi değil mi?
+
+Doğru soru. Cache'in *nasıl* çalıştığı (sürücü, TTL, geçersizleştirme) altyapı
+işidir ve bu metot onların hiçbirine karışmıyor. Burada tanımlanan tek şey
+**adlandırma**: "bu kaydın misafire açık sürümü cache'te hangi adla anılır?"
+
+Bir kaydın nasıl adlandırıldığı, kaydın kimliğinden türer — kimliğin sahibi de
+modeldir. `getRouteKeyName()`, `getKey()` gibi metotlar aynı aileden.
+
+### 🔴 Asıl gerekçe: iki tüketici, tek üretici
+
+Bu anahtarı iki ayrı yer kullanacak:
+
+| Kim | Ne yapar |
+|---|---|
+| `PublicInvitationController` (4.3) | `Cache::remember($key, ...)` — **yazar ve okur** |
+| `ClearInvitationCache` (4.6) | `Cache::forget($key)` — **siler** |
+
+İkisi anahtarı elle kursaydı:
+
+```php
+// Controller
+Cache::remember('davetkart:public-invitation:'.$id, ...);
+
+// Listener — bir gün biri tireyi alt çizgi yapar
+Cache::forget('davetkart:public_invitation:'.$id);       // ❌
+```
+
+Sonuç **sessiz** bir hata olurdu: `forget()` var olmayan bir anahtarı silmeye
+çalışır, hiçbir hata vermez, `true` bile dönebilir. Davetiye yayınlanır ama
+misafirler 6 saat boyunca **eski hâlini** görmeye devam eder. Kimse fark etmez.
+
+Bu, Faz 2'de kurduğumuz **C3** kuralının cache'teki karşılığı:
+
+> **C3** — Aynı sözleşmeyi üreten iki uç **tek yerden** üretir. DRY'ın amacı
+> satır tasarrufu değil, tek doğruluk kaynağıdır.
+
+> **Kalıp:** İki kod yolunun **aynı metni** üretmesi gerekiyorsa, o metni üreten
+> bir fonksiyon yaz. Metin bir dosya adı, bir cache anahtarı, bir kuyruk adı ya
+> da bir olay adı olabilir — kural aynı: *eşleşmesi gereken şeyi iki kez yazma.*
+
+### `Config::string()` neden `config()` değil?
+
+```php
+Config::string('davetkart.cache.key_prefix')     // ✅ string döner
+config('davetkart.cache.key_prefix')             // mixed döner
+```
+
+`config()` yardımcısının dönüş tipi `mixed`'dır — çünkü config dosyaları her
+şeyi tutabilir. `mixed`'ı string'le birleştirmek PHPStan seviyesi yükseldikçe
+(K22: Faz 5'te 8) hata verir ve insanı `(string)` cast'i yazmaya iter. Cast ise
+sorunu çözmez, **saklar**: anahtar yanlışlıkla bir diziye çevrilirse
+`(string)` "Array" yazar ve cache anahtarın adı `Array` olur.
+
+Laravel 11+ tipli erişimciler getirdi
+(`vendor/laravel/framework/src/Illuminate/Config/Repository.php:90`):
+
+```php
+public function string(string $key, $default = null): string
+{
+    $value = $this->get($key, $default);
+
+    if (! is_string($value)) {
+        throw new InvalidArgumentException(...);   // gürültülü hata
+    }
+
+    return $value;
+}
+```
+
+Yanlış tip **anında ve açıkça** patlar. Faz 3'ün 29. dersi: *tip belirsizliğini
+sınırda çöz.* Config okuması bir sınırdır.
+
+### Neden `static` ve neden `$id` parametresi?
+
+Metot bir örneğe (instance) ihtiyaç duymuyor: elimizde yalnızca URL'den gelen
+bir ULID varken de anahtarı üretebilmeliyiz. `Cache::remember()` çağrısı, tam
+da **veritabanına gitmeden önce** yapılıyor — o anda ortada bir `Invitation`
+nesnesi yok. Metot `$this`'e bağlı olsaydı, anahtarı almak için önce modeli
+yüklemek gerekirdi ve cache'in bütün amacı kaybolurdu.
+
+---
+
+## 11. Sırada ne var?
 
 **3.5 — `app/Models/TimelineEvent.php`**
 

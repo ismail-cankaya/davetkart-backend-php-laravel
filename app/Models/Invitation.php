@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Config;
 
 /**
  * Kullanicinin olusturdugu davetiye.
@@ -63,6 +64,19 @@ class Invitation extends Model
             'show_rsvp' => 'boolean',
             'ask_menu_preference' => 'boolean',
         ];
+    }
+
+    /**
+     * Misafire acik surumun cache anahtari.
+     *
+     * Controller yazar (4.3), ClearInvitationCache siler (4.6): iki tuketici,
+     * TEK uretici (C3). Anahtari elle kuran ikinci bir yer olsaydi, birinde
+     * yapilan bir degisiklik digerini sessizce bayat cache'e kilitlerdi.
+     * Ayrintili aciklama: docs/rehber/app/Models/Invitation.md §10
+     */
+    public static function publicCacheKey(string $id): string
+    {
+        return Config::string('davetkart.cache.key_prefix').':public-invitation:'.$id;
     }
 
     /** @return BelongsTo<User, $this> */
