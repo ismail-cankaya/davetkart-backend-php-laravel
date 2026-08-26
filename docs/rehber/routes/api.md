@@ -246,6 +246,104 @@ bir grupta yazılacak — aynı veriye iki farklı kapı, iki farklı yetki mode
 
 ---
 
+## 0.3 Faz 4 eklemesi — `/api/public/` grubu 🔴
+
+```php
+Route::prefix('public')->name('public.')->group(function (): void {
+    Route::get('/invitations/{id}', [PublicInvitationController::class, 'show'])
+        ->whereUlid('id')
+        ->name('invitations.show');
+});
+```
+
+### Üretilen rota
+
+| Method | URI | İsim | Auth |
+|---|---|---|:---:|
+| GET | `/api/public/invitations/{id}` | `public.invitations.show` | — |
+
+Frontend'in `/invite/:id` sayfası bu ucu çağıracak (4.8).
+
+### 🔴 Önek neden var? (K12)
+
+Bu projedeki tüm rotalar arasında **auth gerektirmeyen** olanlar bir avuç. Onları
+ayrı bir önek altında toplamanın gerekçesi kolaylık değil, **fail-safe
+tasarım**.
+
+İki dünyayı karşılaştır:
+
+| Öneksiz dünya | Önekli dünya |
+|---|---|
+| Rota yazarken `auth:sanctum`'u **eklemek** gerekir | Rota yazarken `public/` altına **koymak** gerekir |
+| Unutmanın sonucu: davetiye herkese açık | Unutmanın sonucu: uç **çalışmaz** (401) |
+| Hata sessizdir, üretimde fark edilir | Hata gürültülüdür, ilk denemede fark edilir |
+
+Kritik fark, **unutmanın hangi yöne düştüğü**. Öneksiz düzende varsayılan
+"açık"tır ve güvenlik bir hatırlama işidir. Önekli düzende varsayılan
+"kapalı"dır; açmak için ayrıca bir şey yapman gerekir.
+
+Buna *fail-safe* denir: sistem arızalandığında **güvenli tarafa** düşmesi.
+Asansörün elektrik kesilince frenlemesi gibi.
+
+> Aynı ilkenin projedeki diğer örnekleri: `$fillable` beyaz listesi (S3),
+> Resource'un beyaz liste olması (C1), Policy reddinin 404 olması (H7).
+> Hepsi **varsayılanı kapalı** tutar.
+
+### ⚠️ Bu grup bir kapı — buraya rota eklemek onu internete açmaktır
+
+Dosyadaki yorum bu yüzden bir uyarı taşıyor. Buraya bir satır eklerken
+sorulacak soru şudur:
+
+> *"Bu veriyi, kimliği bilinmeyen herhangi biri görebilir mi?"*
+
+Cevap "duruma göre" ise rota buraya **gelmez** — koşul bir Policy'ye veya
+sorgunun kapsamına aittir. Bizim durumumuzda cevap net: *yayınlanmış* bir
+davetiye zaten linki olan herkese açıktır, ve "yayınlanmış mı?" sorusu
+`ResolvePublicInvitationAction`'ın sorgusunda cevaplanıyor (4.1).
+
+### `whereUlid('id')` — R6 burada da geçerli
+
+Faz 3'ün elle yazılmış regex'i hiçbir isteğe eşleşmiyordu (§0.2). Aynı hatayı
+yeni bir rotada tekrarlamamak için framework'ün kısıtını kullanıyoruz.
+
+İki kazancı var:
+
+1. Biçimsiz bir kimlik **veritabanına hiç gitmez** — 404 rota katmanında verilir
+2. Cache anahtarı da kirlenmez: `Cache::remember()` ancak geçerli biçimli bir
+   ULID ile çağrılabilir
+
+İkincisi düşünüldüğünden önemli. Kısıt olmasaydı
+`/api/public/invitations/<10.000 karakterlik çöp>` isteği bir cache anahtarı
+üretirdi. Saldırgan farklı çöplerle cache'i **şişirebilirdi** (cache flooding).
+Rota kısıtı bunu daha kapıda kesiyor.
+
+### `name('public.')` neden var?
+
+**R2:** her rota isimlendirilir. Grup öneki isme de uygulanıyor, sonuç
+`public.invitations.show`.
+
+İsim, testlerin URL metnine değil rotanın kendisine bağlanmasını sağlar:
+
+```php
+$this->getJson(route('public.invitations.show', $inv));   // ✅
+$this->getJson('/api/public/invitations/'.$inv->id);      // ❌ metne bağlı
+```
+
+Ad alanı ayrımı ayrıca okunabilirlik veriyor: `invitations.show` sahibin ucu,
+`public.invitations.show` misafirinki. İsimler de sözleşmenin bir parçası.
+
+### Grup neden `auth:sanctum` grubunun ALTINDA?
+
+Sıra burada bir tuzak üretmiyor — `/api/public/invitations/...` ile
+`/api/invitations/...` farklı yollar, birbirini yutamazlar (§0.2'deki tuzak
+aynı önek altında sabit segment ile parametre çakışınca doğuyordu).
+
+Dosyanın sonunda durmasının sebebi okunabilirlik: dosya yukarıdan aşağı
+"korumalı uçlar → açık uçlar" diye okunuyor ve istisna en görünür yerde,
+kendi uyarı bloğuyla duruyor.
+
+---
+
 ## 1. `/api` öneki nereden geliyor?
 
 Dosyada `/ping` yazıyor ama endpoint `/api/ping`. Önek bu dosyada değil,

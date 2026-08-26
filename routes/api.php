@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\PublicInvitationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -55,4 +56,21 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('invitations', InvitationController::class)
         ->whereUlid('invitation');
+});
+
+/*
+| Public davetiye (Faz 4) — 🔴 K12: auth GEREKTIRMEYEN rotalarin TEK yeri.
+|
+| Bu oneki ayirmanin sebebi kolaylik degil, fail-safe tasarim: 'auth:sanctum'
+| unutulursa bir davetiye herkese acilir. Onek, "acik olmak"i bir UNUTMANIN
+| sonucu olmaktan cikarip ACIKCA ISARETLENMIS bir istisna yapar.
+|
+| ⚠️ Buraya bir rota eklemek, onu internete acmaktir. Once "bu veriyi kimligi
+| bilinmeyen biri gorebilir mi?" sorusu cevaplanir.
+| Ayrintili aciklama: docs/rehber/routes/api.md §0.3
+*/
+Route::prefix('public')->name('public.')->group(function (): void {
+    Route::get('/invitations/{id}', [PublicInvitationController::class, 'show'])
+        ->whereUlid('id')
+        ->name('invitations.show');
 });
