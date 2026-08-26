@@ -13,12 +13,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-/**
- * Uygulama kullanicisi (davetiye sahibi).
- *
- * Ad ve soyad ayri kolondur (K35). Frontend'in bekledigi `fullName`
- * birlestirmesi yalnizca UserResource icinde yapilir (CLAUDE.md §1).
- */
+// Fiillable: Sadece bu alanlar değiştirilebilir.
+// Hidden: Bu alanlar JSON cevirmede gizlenir.
 #[Fillable(['first_name', 'last_name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
