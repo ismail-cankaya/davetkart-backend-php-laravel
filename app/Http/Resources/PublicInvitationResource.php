@@ -27,7 +27,7 @@ final class PublicInvitationResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'invitation' => $this->design(),
+            'invitation' => $this->design($request),
         ];
     }
 
@@ -36,7 +36,7 @@ final class PublicInvitationResource extends JsonResource
      *
      * @return array<string, mixed>
      */
-    private function design(): array
+    private function design(Request $request): array
     {
         $design = [
             'title' => $this->title ?? '',
@@ -70,7 +70,10 @@ final class PublicInvitationResource extends JsonResource
         // 🔴 C4: kapali modulun VERISI govdeye hic girmez — bos string olarak
         // degil, anahtar olarak da yok. Gerekce ve tehdit modeli: kilavuz §3.
         if ($this->show_timeline) {
-            $design['timelineEvents'] = PublicTimelineEventResource::collection($this->timelineEvents);
+            // ->resolve(): koleksiyonu DUZ DIZIYE cevirir. Cevrilmezse cache'e
+            // Resource nesnesi (ve icindeki Eloquent modelleri) yazilirdi — 4.3.
+            $design['timelineEvents'] = PublicTimelineEventResource::collection($this->timelineEvents)
+                ->resolve($request);
         }
 
         if ($this->show_gallery) {
