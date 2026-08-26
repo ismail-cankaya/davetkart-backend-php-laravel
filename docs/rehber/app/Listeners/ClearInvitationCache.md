@@ -156,7 +156,66 @@ Gevşek bağın kazancı tam da bu: `UpdateInvitationAction` ikisinden de habers
 
 ---
 
-## 5. TTL ile olay: hangisi taze tutuyor?
+## 5. 🔴 `ShouldHandleEventsAfterCommit` — transaction yarışı
+
+`UpdateInvitationAction` işini bir transaction içinde yapıyor (E4):
+
+```php
+DB::transaction(function () use (...) {
+    $invitation->fill($attributes)->save();      // ← 'updated' olayı BURADA fırlar
+    $this->syncTimelineEvents->handle(...);
+    ...
+});                                              // ← commit BURADA
+```
+
+Model olayları **transaction'ın içinde** fırlar. Dinleyici hemen çalışsaydı,
+cache commit'ten **önce** temizlenirdi. Zararsız gibi duruyor — değil:
+
+```
+t0  T1: transaction başlar, save() → cache anahtarı SİLİNİR
+t1  T2: bir misafir GET atar → cache MISS
+t2  T2: veritabanını okur → T1 henüz commit etmedi → ESKİ veriyi görür
+t3  T2: cache'i ESKİ veriyle doldurur
+t4  T1: commit eder
+    ⇒ Cache artık eski veriyi tutuyor ve kimse temizlemeyecek — 6 saat.
+```
+
+Yani cache temizleme, **temizlemeye çalıştığı bayatlığı kendi üretebilir.**
+Buna *race condition* (yarış koşulu) denir: sonucu, iki işlemin hangi sırayla
+ilerlediği belirliyor.
+
+Çözüm tek satır:
+
+```php
+final class ClearInvitationCache implements ShouldHandleEventsAfterCommit
+```
+
+Laravel dinleyiciyi transaction yöneticisine erteliyor
+(`vendor/.../Events/Dispatcher.php:601`). Kaynağa bakınca üç davranış
+görünüyor:
+
+| Durum | Ne olur |
+|---|---|
+| Transaction içinde | Temizleme **commit'ten sonraya** ertelenir |
+| Transaction yok (örn. `destroy()` ucu) | `addCallback()` geri çağrımı **hemen** çalıştırır (`DatabaseTransactionsManager.php:219`) |
+| Transaction **rollback** olur | Geri çağrım **hiç** çalışmaz — boşuna temizlik yapılmaz |
+
+Üçüncüsü hoş bir yan kazanç: başarısız bir güncelleme cache'i gereksiz yere
+düşürmüyor.
+
+> ⚠️ **Dürüstlük payı:** bu yarışı *daraltır*, matematiksel olarak kapatmaz.
+> Commit'ten hemen önce başlayıp temizlikten hemen sonra biten bir okuma hâlâ
+> teorik olarak eski veri yazabilir. Pencere mikrosaniyeler mertebesine iner
+> (transaction süresi yerine), ve kalan risk TTL ile sınırlıdır. Tam çözüm
+> (sürüm damgalı anahtar ya da yazma anında cache'i doldurma) bu ölçekte
+> gereksiz karmaşıklık olurdu.
+>
+> Bir savunmanın **neyi kapatmadığını** yazmak, kapattığını yazmak kadar
+> önemli — 4.5'te ETag için de aynısını yapmıştık.
+
+---
+
+## 6. TTL ile olay: hangisi taze tutuyor?
 
 Faz 4'ün cache tasarımında iki mekanizma var ve **rolleri farklı**:
 
@@ -183,7 +242,7 @@ ilkenin daha büyük bir örneğini göreceğiz.
 
 ---
 
-## 6. Sık yapılan hatalar
+## 7. Sık yapılan hatalar
 
 | # | Hata | Ne olur | Doğrusu |
 |---|---|---|---|
@@ -193,7 +252,7 @@ ilkenin daha büyük bir örneğini göreceğiz.
 | 4 | Sınıfı `app/Listeners/` dışına koymak | Keşif taramaz | Standart klasör |
 | 5 | `Cache::flush()` çağırmak | **Tüm** uygulamanın cache'i uçar (oturumlar, rate limiter sayaçları) | Yalnızca ilgili anahtar |
 | 6 | Dinleyicide `false` döndürmek | Sonraki dinleyiciler hiç çalışmaz | `void` |
-| 7 | "TTL zaten var, olay gereksiz" demek | Kullanıcı düzeltmesini 6 saat göremez | İkisi farklı rolde (§5) |
+| 7 | "TTL zaten var, olay gereksiz" demek | Kullanıcı düzeltmesini 6 saat göremez | İkisi farklı rolde (§6) |
 
 > 5. madde: `Cache::flush()` bu tür bir dosyada en sık görülen ve en pahalı
 > hatadır. "Emin olmak için hepsini temizleyelim" refleksi, aynı cache'i
@@ -202,7 +261,7 @@ ilkenin daha büyük bir örneğini göreceğiz.
 
 ---
 
-## 7. Kendin dene
+## 8. Kendin dene
 
 Dinleyici hazır ama olay henüz **fırlatılmıyor** — model kablolaması 4.6c'de.
 O yüzden olayı elle fırlatıyoruz; keşfin çalıştığını da böyle görüyoruz.
@@ -260,7 +319,7 @@ composer check
 
 ---
 
-## 8. Terim sözlüğü
+## 9. Terim sözlüğü
 
 | Terim | Anlamı |
 |---|---|
@@ -274,20 +333,20 @@ composer check
 
 ---
 
-## 9. Sırada ne var?
+## 10. Sırada ne var?
 
-**4.6c — model kablolaması.** Olay ve dinleyici hazır, ama olayı **kimse
-fırlatmıyor**. `Invitation` modeline `$dispatchesEvents` haritası eklenecek:
+**4.7 — `tests/Feature/PublicInvitationTest.php`.** Faz 4'ün bütün zinciri
+artık kurulu; geriye onun **gerçekten** çalıştığını kanıtlamak kalıyor.
 
-```php
-protected $dispatchesEvents = [
-    'updated' => InvitationChanged::class,
-    'deleted' => InvitationChanged::class,
-    ...
-];
-```
+Bu fazda üç ayrı yerde "sessizce yanlış olabilir" dedik ve üçünün de tek
+panzehiri test:
 
-Bu, birlikte aldığımız kararın uygulaması: olay Action'lardan **elle** değil,
-modelden **yapısal olarak** fırlar — böylece yeni bir yazma yolu eklendiğinde
-kimsenin bir şey hatırlaması gerekmez. Orada hangi Eloquent olaylarının haritaya
-girdiğini ve `created`'ın neden **bilerek dışarıda** bırakıldığını konuşacağız.
+| Sessiz olabilecek şey | Testi ne doğrulayacak |
+|---|---|
+| Otomatik keşif kopabilir (§2) | Güncelleme sonrası cache anahtarı düşmeli |
+| Kapalı modülün verisi sızabilir (4.2b) | `show_gift=false` iken gövdede `iban` **anahtarı olmamalı** |
+| Yayınlanmamış davetiye sızabilir (4.1) | `saved` durumunda 404, ve var olmayan ULID ile **ayırt edilemez** olmalı |
+
+Ayrıca **T14** gereği bazı testler yanıta değil **etkiye** bakacak: 404
+dönmesi, davetiyenin sızmadığını kanıtlamaz — cache'in ve gövdenin ne
+içerdiğine bakmak gerekir.

@@ -6,6 +6,7 @@ namespace App\Listeners;
 
 use App\Events\InvitationChanged;
 use App\Models\Invitation;
+use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -14,9 +15,13 @@ use Illuminate\Support\Facades\Cache;
  * 🔴 KUYRUGA ALINMAZ (ShouldQueue YOK): temizleme gecikirse misafirler o sure
  * boyunca eski davetiyeyi gorur; kuyruk hic calismiyorsa TTL dolana kadar (6
  * saat) gorur. Temizleme, yazma isleminin ayrilmaz parcasidir.
+ *
+ * 🔴 ShouldHandleEventsAfterCommit: model olaylari transaction'in ICINDE
+ * firlar. Commit'ten once temizlersek, arada gelen bir okuma cache'i ESKI
+ * veriyle yeniden doldurabilir. Kilavuz §5.
  * Ayrintili aciklama: docs/rehber/app/Listeners/ClearInvitationCache.md
  */
-final class ClearInvitationCache
+final class ClearInvitationCache implements ShouldHandleEventsAfterCommit
 {
     public function handle(InvitationChanged $event): void
     {

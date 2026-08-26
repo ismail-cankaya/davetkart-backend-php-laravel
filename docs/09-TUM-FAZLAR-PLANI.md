@@ -38,9 +38,9 @@ Backend bittiğinde ortaya çıkan şey:
 |---|---|---|:---:|:---:|
 | **0** | Zemin: PostgreSQL + kalite araçları + hata sözleşmesi | — | 6 | ✅ |
 | **1** | İlk endpoint + `ForceJsonResponse` + **hata zarfı (K20)** | — | 8 | ✅ |
-| **2** | **Auth özellik dilimi** 🎯 walking skeleton | Giriş / kayıt | 10 | ⬜ **SIRADAKİ** |
-| **3** | Invitation CRUD + Policy + Resource ailesi | Dashboard + editör autosave | 12 | ⬜ |
-| **4** | Public davetiye + cache + ETag 🔥 | `/invite/{slug}` sayfası | 6 | ⬜ |
+| **2** | **Auth özellik dilimi** 🎯 walking skeleton | **Giriş / kayıt** ✅ | 10 → **17** | ✅ |
+| **3** | **Invitation CRUD + Policy + Resource ailesi** | **Dashboard + editör autosave** ✅ | 12 → **12 + 8 FE** | ✅ |
+| **4** | Public davetiye + cache + ETag 🔥 | `/invite/{slug}` sayfası | 6 | ⬜ **SIRADAKİ** |
 | **5** | RSVP (public submit + owner list) | LCV gönderimi + canlı panel | 10 | ⬜ |
 | **6** | Media + Job | Galeri yüklemesi | 7 | ⬜ |
 | **7** | `TierResolver` + Payment + publish 🔴 | Yayınlama + paywall | 12 | ⬜ |
@@ -242,76 +242,109 @@ Sanctum token mimarisi · Argon2id'ye geçiş · 401 ile 403 ayrımı.
 
 ---
 
-## FAZ 3 — Invitation CRUD
+## FAZ 3 — Invitation CRUD ✅ TAMAMLANDI
+
+> **Bitiş:** 19 Ağustos 2026 · Özet, kronoloji ve kurulan **15 kural**:
+> [`rehber/fazlar/FAZ-3.md`](rehber/fazlar/FAZ-3.md)
 
 **Amaç:** Sahiplik, yetkilendirme (IDOR) ve iç içe koleksiyon yönetimi. Projenin
 en büyük fazı ve veri modelinin kalbi.
 
 ### Dosyalar
 
-| # | Dosya | Not |
-|---|---|---|
-| 3.1 | `app/Enums/InvitationStatus.php` | ⚠️ Frontend `'published' \| 'saved'` diyor; `draft` uyuşmazlığı **burada** çözülür |
-| 3.2 | `..._create_invitations_table.php` | ULID slug, 6 `show_*` kolonu, indeksler |
-| 3.3 | `..._create_timeline_events_table.php` | FK CASCADE, `sort_order` |
-| 3.4 | `app/Models/Invitation.php` | `$fillable`, `casts()`, ilişkiler |
-| 3.5 | `app/Models/TimelineEvent.php` | |
-| 3.6 | `InvitationFactory` + `DatabaseSeeder` | Deterministik test verisi |
-| 3.7 | `app/Policies/InvitationPolicy.php` | 🔴 IDOR savunması |
-| 3.8 | `StoreInvitationRequest` / `UpdateInvitationRequest` | camelCase doğrulama |
-| 3.9 | `InvitationResource` + `InvitationPayloadResource` + `TimelineEventResource` | 🔴 28 alanlı camelCase eşlemesi |
-| 3.10 | `CreateInvitationAction` / `UpdateInvitationAction` / `SyncTimelineEventsAction` | |
-| 3.11 | `InvitationController` + rotalar | |
-| 3.12 | `tests/Feature/InvitationTest.php` | 🔴 "başkasının davetiyesini okuyamaz" |
+| # | Dosya | Not | Durum |
+|---|---|---|:---:|
+| 3.1 | `app/Enums/InvitationStatus.php` | ⚠️ **K38** — `draft` atıldı: `saved \| published` | ✅ |
+| 3.2 | `..._create_invitations_table.php` | ⚠️ **K40** — ULID **PK**, ayrı slug yok · **K39** CHECK · **K41** `phone_background` yok | ✅ |
+| 3.3 | `..._create_timeline_events_table.php` | `foreignUlid` · `sort_order` · CASCADE | ✅ |
+| 3.4 | `app/Models/Invitation.php` | `#[Fillable]` özniteliği · `immutable_*` · `user_id` int cast | ✅ |
+| 3.5 | `app/Models/TimelineEvent.php` | + `User::invitations()` | ✅ |
+| **3.6** | `InvitationFactory` + **`TimelineEventFactory`** + `DatabaseSeeder` | 🆕 İkinci fabrika · seeder yeniden yazıldı | ✅ |
+| 3.7 | `app/Policies/InvitationPolicy.php` | 🔴 IDOR savunması, reddi **404** | ✅ |
+| **3.8** | `Requests/Invitation/` — **3 dosya** | 🆕 Soyut taban + iki alt sınıf (C3) | ✅ |
+| 3.9 | `Resources/` — 3 dosya | ⚠️ `whenLoaded()` **kullanılmadı** (sapma) | ✅ |
+| 3.10 | `Actions/Invitation/` — 3 dosya | Transaction + senkronizasyon | ✅ |
+| 3.11 | `InvitationController` + rotalar | ⚠️ `authorizeResource` yerine `Gate::authorize()` (sapma) | ✅ |
+| 3.12 | `tests/Feature/InvitationTest.php` | **18 test** | ✅ |
+| — | Frontend uyarlaması | 🆕 **8 dosya** — K37 + K44'ün sonucu | ✅ |
 
 ### Endpoint'ler
 
-| Method | Path | Açıklama |
+| Method | Path | Açıklama | Durum |
+|---|---|---|:---:|
+| GET | `/api/invitations` | Kullanıcının tüm davetiyeleri | ✅ |
+| POST | `/api/invitations` | Yeni taslak — `201` | ✅ |
+| GET | `/api/invitations/{id}` | Sahibin okuması; başkasınınkinde **404** | ✅ |
+| PUT | `/api/invitations/{id}` | Güncelle (debounce'lu autosave) | ✅ |
+| DELETE | `/api/invitations/{id}` | Soft delete — `204` | ✅ |
+| POST | `/api/invitations/{id}/publish` | ⚠️ **AÇILMADI — Faz 7'ye taşındı** | ⬜ |
+
+⚠️ Plan bu rotanın Faz 3'te açılmasını, iş kuralının Faz 7'de yazılmasını
+öngörüyordu. Açılmadı: çağıracak bir iş kuralı yokken sözleşmeye uç nokta
+eklemek, tutulamayan bir söz olurdu (B4).
+
+### 🔴 Hibrit veri modeli — uygulanan hâli
+
+| Veri | Nerede | Durum |
 |---|---|---|
-| GET | `/api/invitations` | Kullanıcının tüm davetiyeleri |
-| POST | `/api/invitations` | Yeni taslak |
-| GET | `/api/invitations/{id}` | Sahibin düzenleme için okuması |
-| PUT | `/api/invitations/{id}` | Güncelle (debounce'lu autosave) |
-| DELETE | `/api/invitations/{id}` | Soft delete |
-| POST | `/api/invitations/{id}/publish` | ⚠️ Rota burada açılır, **iş kuralı Faz 7'de** |
+| 6 × `show_*` | **Ayrı boolean kolon** | ✅ K6 uygulandı |
+| `status`, `event_at`, `published_at`, `rsvp_deadline` | Kolon | ✅ |
+| `title`, `subtitle`, `names`, `venue`, `map_url`, `iban` | Kolon — **hepsi nullable** | ✅ |
+| `gift_options: number[]` | **`jsonb` kolon** | ✅ |
+| `timeline_events[]` | **Ayrı tablo** | ✅ |
+| `gallery_images[]` | Ayrı tablo (`media`) | ⬜ Faz 6 — Resource şimdilik `[]` döner |
+| `phone_background` | ❌ **Kolon açılmadı** | ✅ K41 — `preset_id`'den türetilir |
 
-### 🔴 Hibrit veri modeli — kararın gerekçesi
+**⚠️ `public_slug` kolonu YOK.** Plan ayrı bir slug kolonu öngörüyordu; **K40**
+ile `id`'nin kendisi ULID yapıldı. Frontend zaten `/invite/{record.id}`
+kullanıyordu — iki kimlik tutmak gereksiz karmaşıklıktı.
 
-| Veri | Nerede | Neden |
-|---|---|---|
-| `show_gallery`, `show_gift`, `show_envelope`, `show_timeline`, `show_timer`, `show_rsvp` | **Ayrı boolean kolon** | Paywall'ı `WHERE show_gallery = true` ile SQL'de doğrulamak (Faz 7) |
-| `status`, `event_at`, `published_at`, `rsvp_deadline` | Kolon | Sorgu / sıralama / filtre |
-| `title`, `subtitle`, `names`, `venue`, `map_url`, `iban` | Kolon | Sabit şema |
-| `gift_options: number[]` | **JSON kolon** | Sorgulanmayacak küçük dizi |
-| `timeline_events[]` | **Ayrı tablo** | Sıralı, düzenlenebilir |
-| `gallery_images[]` | **Ayrı tablo (`media`)** | Dosya meta verisi taşıyor |
+**İndeksler — uygulanan:** `INDEX(user_id, status)` → dashboard sorgusu ·
+`INDEX(invitation_id, sort_order)` → timeline sıralaması ·
+~~`UNIQUE(public_slug)`~~ → gereksiz, birincil anahtar zaten benzersiz.
 
-**`public_slug` neden ULID?** Ardışık integer kullanılırsa misafir `/invite/1`,
-`/invite/2` diye gezip başkalarının davetiyelerini okur. ULID tahmin edilemez ama
-**zaman sıralı** — UUID v4'ün indekste yol açtığı sayfa parçalanmasını yaşatmaz.
-Ayrıca frontend `id: string` bekliyor.
+**Neden içerik alanları nullable?** Autosave yarım veri gönderir: kullanıcı
+başlığı silip yenisini yazmak için duraklarsa o boş hâl sunucuya gider.
+Eksiksizlik kuralı **yayın anında** aranır (D3'ün aynı biçimi).
 
-**İndeksler:** `INDEX(user_id, status)` → dashboard sorgusu ·
-`UNIQUE(public_slug)` → public erişim · `INDEX(invitation_id, sort_order)` →
-timeline sıralaması.
+### 🔴 Kısıt neden yalnızca `status`'te?
 
-### Bitti ölçütü
+`palette`, `category_id` ve `preset_id` de kapalı kümeler ama CHECK almadılar.
+Ölçüt **sahiplik** (**E6**): `status` backend'in malı ve güvenlik sınırı
+(Faz 4'ün public sorgusu ona bakacak). Diğer üçü frontend kataloğunun
+anahtarları — kısıtlansaydı tasarımcının eklediği her yeni tema bir backend
+deploy'u gerektirirdi.
 
-Dashboard'da davetiye listesi **gerçek veritabanından** geliyor; editörde
-autosave çalışıyor.
+### Bitti ölçütü — karşılandı ✅
 
-### Öğrenilecek
+Dashboard'da davetiye listesi gerçek veritabanından geliyor; editörde autosave
+çalışıyor. Uçtan uca doğrulama:
+[`rehber/fazlar/FAZ-3-ELLE-DOGRULAMA.md`](rehber/fazlar/FAZ-3-ELLE-DOGRULAMA.md) §11.
 
-Migration ve indeks stratejisi · Eloquent ilişkileri · mass assignment güvenliği ·
-Policy ile IDOR kapatma · iç içe koleksiyon senkronizasyonu · `whenLoaded()` ile
-N+1 önleme.
+### Öğrenilen
 
-### Açık kararlar
+Migration ve indeks stratejisi · Eloquent ilişkileri · mass assignment
+güvenliği · Policy ile IDOR kapatma · iç içe koleksiyon senkronizasyonu ·
+N+1 önleme · **sahipliğin bir `if` değil sorgunun kapsamı olduğu** ·
+**çalıştırılmayan kodun doğru varsayıldığı**.
 
-| Soru | Ne zaman |
+### Açık kararlar — kapandı ✅
+
+| Soru | Karar |
 |---|---|
-| Migration'da gerçek `ENUM` mü, `CHECK` kısıtı mı? | Bu fazda |
-| `InvitationStatus`'te `draft` durumu kalacak mı? | Bu fazda |
+| ~~Migration'da gerçek `ENUM` mü, `CHECK` kısıtı mı?~~ | **K39** — `VARCHAR + CHECK`; değerler enum'dan beslenir |
+| ~~`InvitationStatus`'te `draft` durumu kalacak mı?~~ | **K38** — hayır; onu doğuran olay yok |
+
+### Bu fazda doğan yeni kararlar
+
+| # | Karar |
+|---|---|
+| **K37** | `/api/invitations` REST koleksiyonu (upsert değil) |
+| **K40** | ULID birincil anahtar; `timeline_events.id` bigint kalır |
+| **K41** | `phone_background` türetilir, saklanmaz |
+| **K42** | Yayın hakkı iki kaynaktan, tek arayüzden sorulur (Faz 7) |
+| **K43** | Plan kotası **yayınlananı** sayar, taslağı değil (Faz 7) |
+| **K44** | Kimliği backend üretir; `id: null` = yeni satır |
 
 ---
 

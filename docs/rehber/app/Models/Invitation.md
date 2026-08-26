@@ -505,6 +505,114 @@ yüklemek gerekirdi ve cache'in bütün amacı kaybolurdu.
 
 ---
 
+## 11. Faz 4 eklemesi — `$dispatchesEvents`
+
+```php
+protected $dispatchesEvents = [
+    'updated' => InvitationChanged::class,
+    'deleted' => InvitationChanged::class,
+    'restored' => InvitationChanged::class,
+];
+```
+
+Eloquent'in **kendi** olaylarını (`updated`, `deleted`…) bizim **alan
+olayımıza** (`InvitationChanged`) çeviren bir harita. Bu satırlarla birlikte
+cache temizleme zinciri tamamlanıyor:
+
+```
+$invitation->save()
+   → Eloquent 'updated' olayı
+   → InvitationChanged (bu harita)
+   → ClearInvitationCache (otomatik keşif)
+   → Cache::forget(...)
+```
+
+### 🔴 Neden modelde, Action'da değil?
+
+Birlikte tartıştığımız karardı. İki seçenek vardı:
+
+| | Action'dan elle | **Modelden yapısal** |
+|---|---|---|
+| Görünürlük | Yüksek — `UpdateInvitationAction`'ı okuyan görür | Düşük — haritayı bilmek gerekir |
+| Kapsam | Yazdığın yer kadar | **Her Eloquent yazma yolu** |
+| Unutmanın bedeli | 6 saat sessiz yanlış veri | Unutulamaz |
+
+Belirleyici olan üçüncü satır. Bugün iki yazma yolu var
+(`UpdateInvitationAction` ve controller'ın doğrudan `$invitation->delete()`
+çağrısı) ve sayı **artacak**: Faz 6 medya, Faz 7 yayınlama. Elle fırlatma
+düzeninde her yeni yolda birinin bir satırı hatırlaması gerekirdi — ve
+unutulduğunda hiçbir test kırılmazdı, çünkü hata "yanlış cevap" değil "eski
+cevap".
+
+> Bu, **E7**'de verdiğimiz kararın **tersi** — ve çelişki değil. Orada
+> (`status` ataması) tek bir oluşturma yolu vardı ve unutmanın bedeli gürültülü
+> bir hataydı; görünürlüğü seçtik. Burada yol sayısı artıyor ve unutmanın
+> bedeli sessiz. *Aynı soruya farklı cevap veren şey, yolun sayısı ve hatanın
+> sesidir.*
+
+Aynı aile: **N1** (alt kayıt üst kaydın ilişkisinden oluşturulur), **E2**
+(benzersizlik veritabanı kısıtıyla), **P3** (sahiplik sorgunun kapsamıyla),
+**K12** (public rotalar ayrı önekte). Hepsi garantiyi *hatırlamaya* değil
+*yapıya* bağlar.
+
+### Haritadaki üç olay — ve dışarıdaki bir tanesi
+
+| Eloquent olayı | Haritada mı | Neden |
+|---|---|---|
+| `updated` | ✅ | Autosave, başlık değişikliği, modül açma/kapama — asıl yol |
+| `deleted` | ✅ | Soft delete sonrası uç 404 dönmeli; cache'te kalan kopya silinmiş davetiyeyi yayında tutar |
+| `restored` | ✅ | `SoftDeletes` kullanan bir modelde geri alma birinci sınıf bir olaydır. Bugün uygulamada geri alma **ucu** yok ama `$inv->restore()` bugün de çalışır (ve 4.7'de test edilecek) |
+| `created` | ❌ | **Bilerek yok.** Yeni bir davetiyenin ULID'i daha önce hiç var olmadı, dolayısıyla o anahtarla bir cache girdisi de olamaz. Silinecek bir şey yok. |
+
+`forceDelete()` ayrıca bir şey gerektirmiyor: kaynağa bakınca
+(`SoftDeletes::forceDelete()`) onun da `delete()` üzerinden geçtiği ve
+`deleted` olayını fırlattığı görülüyor.
+
+> ⚠️ Haritanın kapsamadığı bir yol var: **ham SQL.**
+> `DB::table('invitations')->update(...)` Eloquent'i hiç kullanmaz, dolayısıyla
+> hiçbir model olayı fırlamaz. Cache o durumda TTL dolana kadar bayat kalır —
+> TTL'in (4.3 §4) neden hâlâ orada durduğunun sebebi tam olarak bu.
+
+### Program adımları değişince ne oluyor?
+
+`SyncTimelineEventsAction` `timeline_events` tablosuna yazıyor —
+`Invitation` modeline değil. O hâlde `updated` nasıl fırlıyor?
+
+Faz 3'te yazdığımız bir ayrıntı sayesinde:
+
+```php
+// UpdateInvitationAction
+if ($timelineChanged && ! $invitation->wasChanged()) {
+    $invitation->touch();          // updated_at tazelenir → 'updated' fırlar
+}
+```
+
+O satırı frontend'in "son kaydetme" göstergesi bozulmasın diye yazmıştık.
+Şimdi ikinci bir işe daha yarıyor: programı değişen davetiyenin cache'i de
+düşüyor.
+
+> **Ders:** Doğru katmanda alınmış bir karar, umulmadık bir yerde ikinci kez
+> işe yarar. (`localKey`'in 4.2a'da yaptığı gibi.) Tersi de doğrudur: yanlış
+> katmandaki bir karar umulmadık bir yerde ikinci kez bozar.
+
+### Docblock'ta neden `@var` yok?
+
+Üst sınıfta zaten var:
+
+```php
+// vendor/.../Concerns/HasEvents.php:16
+/** @var array<string, class-string> */
+protected $dispatchesEvents = [];
+```
+
+Kopyalasaydık iki şey olurdu: (a) tekrar, (b) Laravel bir gün tipi
+değiştirdiğinde bizimki sessizce eskir. Faz 2'nin **19. dersi**: *docblock, üst
+sınıftakinden daha iyi bilgi taşımıyorsa yazılmamalıdır.* Prose yorumu
+bıraktık — o gerçekten yeni bilgi taşıyor (neden bu üç olay, neden `created`
+yok).
+
+---
+
 ## 11. Sırada ne var?
 
 **3.5 — `app/Models/TimelineEvent.php`**

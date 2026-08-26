@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\InvitationStatus;
+use App\Events\InvitationChanged;
 use Database\Factories\InvitationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -34,6 +35,20 @@ class Invitation extends Model
 {
     /** @use HasFactory<InvitationFactory> */
     use HasFactory, HasUlids, SoftDeletes;
+
+    /**
+     * Eloquent olayi -> alan (domain) olayi haritasi.
+     *
+     * Cache temizleme buradan tetiklenir. Action'lardan ELLE firlatmak yerine
+     * modele gomuldu: yeni bir yazma yolu eklendiginde kimsenin hatirlamasi
+     * gerekmesin. `created` BILEREK yok — yeni kaydin cache girdisi olamaz.
+     * Ayrintili aciklama: docs/rehber/app/Models/Invitation.md §11
+     */
+    protected $dispatchesEvents = [
+        'updated' => InvitationChanged::class,
+        'deleted' => InvitationChanged::class,
+        'restored' => InvitationChanged::class,
+    ];
 
     /**
      * Get the attributes that should be cast.

@@ -1,8 +1,8 @@
 # Faz 2 — Auth Özellik Dilimi
 
 > **Durum:** ✅ Tamamlandı (backend **ve** frontend) · 6 Ağustos 2026
-> **Yazılan/düzenlenen kod dosyası:** 17 backend + 7 frontend · **Kılavuz:** 16
-> **Bitiş ölçütü:** 4 uç nokta çalışıyor · `composer check` yeşil (21 test) ·
+> **Yazılan/düzenlenen kod dosyası:** 17 backend + 7 frontend · **Kılavuz:** 17
+> **Bitiş ölçütü:** 4 uç nokta çalışıyor · `composer check` yeşil (**22 test**) ·
 > PHPStan **level 6** · frontend sözleşmeye uyumlu
 
 ---
@@ -58,8 +58,9 @@ sorabilmek için önce bir kullanıcı gerekiyor.
 | — | *(plan dışı)* Rate limit | ✅ **K36** — Faz 5'ten öne çekildi |
 | 2.8 | Giriş dilimi | ✅ **+ plan dışı** `InvalidCredentialsException` |
 | 2.9 | `RevokeTokenAction` + `logout` + `me` | ✅ Rota yapısı yeniden düzenlendi |
-| 2.10 | `AuthTest` | ✅ 14 test |
+| 2.10 | `AuthTest` | ✅ 15 test **+ plan dışı** `TestCase::forgetAuthState()` (T13) |
 | — | PHPStan 5 → 6 | ✅ **K22 takvimi tutuldu** |
+| — | *(plan dışı)* Frontend K35 uyarlaması | ✅ 7 dosya |
 
 **Plan 10 dosyaydı, 17 oldu.** Genişleme üç kaynaktan geldi: K35 (şema
 değişikliği), H10/H11'in zorunlu kıldığı iki exception sınıfı, ve K36 (rate
@@ -87,7 +88,8 @@ değil.
 | 2.8c1 | `Exceptions/InvalidCredentialsException.php` | Parametresiz kurucu | [↗](../app/Exceptions/InvalidCredentialsException.md) |
 | 2.8c2 | `Actions/Auth/LoginUserAction.php` | Zamanlama savunması | [↗](../app/Actions/Auth/LoginUserAction.md) |
 | 2.9 | `Actions/Auth/RevokeTokenAction.php` | Token izolasyonu | [↗](../app/Actions/Auth/RevokeTokenAction.md) |
-| 2.10 | `tests/Feature/AuthTest.php` | 14 test | [↗](../tests/Feature/AuthTest.md) |
+| 2.10 | `tests/Feature/AuthTest.php` | 15 test, 5'i güvenlik regresyonu | [↗](../tests/Feature/AuthTest.md) |
+| 2.10 | `tests/TestCase.php` | `forgetAuthState()` — guard önbelleği (**T13**) | [↗](../tests/TestCase.md) |
 
 ### 3.2 Düzenlenen mevcut dosyalar
 
@@ -115,7 +117,8 @@ değil.
 
 ## 4. Kurulan kurallar
 
-Faz 0'ın 31 ve Faz 1'in 19 kuralına ek olarak, bundan sonraki her fazda geçerli.
+Faz 0'ın 31 ve Faz 1'in 19 kuralına ek olarak **21 kural**; bundan sonraki her
+fazda geçerli.
 
 ### 4.1 Kimlik ve güvenlik
 
@@ -164,6 +167,7 @@ Faz 0'ın 31 ve Faz 1'in 19 kuralına ek olarak, bundan sonraki her fazda geçer
 | **T10** | Token/oturum testleri **`withToken()`** ile yazılır | `actingAs()` guard'ı atlar; `currentAccessToken()` null döner ve test **boş yeşil** yanar |
 | **T11** | Ayırt edilemezlik **ham gövde karşılaştırmasıyla** doğrulanır | `assertJsonPath` yalnızca baktığın yeri kontrol eder |
 | **T12** | Ölçümü kararsız olan şey **teste konmaz** | Zamanlama farkı elle doğrulanır; flaky test güveni yok eder |
+| **T13** | Aynı testte ikinci kimlikli istekten **önce** `forgetAuthState()` çağrılır | `RequestGuard` çözdüğü kullanıcıyı özellikte tutar; `setRequest()` temizlemez. Çağrılmazsa ikinci istek **token'a hiç bakmadan** ilk kullanıcıyı döner — iptal edilmiş token geçerli, başkasının token'ı "sahibin" görünür |
 
 ### 4.6 Belgeleme
 
@@ -195,6 +199,7 @@ Faz 0'ın 31 ve Faz 1'in 19 kuralına ek olarak, bundan sonraki her fazda geçer
 | Ne | Nasıl bulundu |
 |---|---|
 | `html_request_to_api_still_receives_json` testi **hiç geçmemişti** | Faz 2'de testler ilk kez koştu; `Router` kaynağı okunarak sebep bulundu |
+| 🔴 **Guard önbelleği testleri boş yeşil yapıyordu** (T13) | `logout_revokes_only_the_current_token` hem haksız kırmızı hem haksız yeşil üretiyordu; `$laptop` yerine anlamsız bir string yazılsa da test geçerdi |
 | `rehash_on_login` sözü **tutulmuyordu** | `hashing.md` ↔ `LoginUserAction` çapraz kontrolü (**B4**) |
 | `logout`/`me` yanlış rate limit kovasında | Limiter anahtarı incelenirken: `email` yok → `'anonim\|IP'` → aynı IP'deki herkes tek kovayı paylaşır |
 | `bootstrap/app.php` → `use Throwable;` uyarısı | Her `composer check` çıktısını kirletiyordu |
@@ -236,9 +241,9 @@ Route Model Binding (7 ile 8 arasına).
 ## 7. Bitiş ölçütü — doğrulama
 
 ```powershell
-composer check                          # pint + phpstan(6) + katalog + 21 test
+composer check                          # pint + phpstan(6) + katalog + 22 test
 php artisan route:list --path=api       # 5 rota
-php artisan test --filter=AuthTest      # 14 test
+php artisan test --filter=AuthTest      # 15 test
 ```
 
 Çalışan uç noktalar:

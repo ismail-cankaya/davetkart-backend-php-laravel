@@ -312,61 +312,146 @@ middleware → response. `bootstrap/app.php`'nin Laravel 11+ ile üstlendiği ro
 
 ---
 
-### FAZ 2 — Auth özellik dilimi 🎯
+### FAZ 2 — Auth özellik dilimi ✅ TAMAMLANDI
+
+> **Bitiş:** 6 Ağustos 2026 · Özet ve kurulan **21 kural**:
+> [`rehber/fazlar/FAZ-2.md`](rehber/fazlar/FAZ-2.md)
+> Elle doğrulama: [`rehber/fazlar/FAZ-2-ELLE-DOGRULAMA.md`](rehber/fazlar/FAZ-2-ELLE-DOGRULAMA.md)
 
 **Amaç:** Tüm katmanları bir arada çalışırken görmek. Sonunda **frontend gerçekten
-giriş yapabilir**.
+giriş yapabiliyor.**
 
-| # | Dosya | Katman |
-|---|---|---|
-| 2.1 | `app/Models/User.php` (düzenleme) | `$fillable`, `casts()`, `HasApiTokens` |
-| 2.2 | `database/factories/UserFactory.php` | Test verisi |
-| 2.3 | `app/Http/Resources/UserResource.php` | `full_name` → `fullName` dönüşümü |
-| 2.4 | `app/Http/Requests/Auth/RegisterRequest.php` | Doğrulama |
-| 2.5 | `app/Actions/Auth/RegisterUserAction.php` | İş kuralı |
-| 2.6 | `app/Http/Controllers/Api/V1/AuthController.php` | Yönlendirme |
-| 2.7 | `routes/api.php` (ekleme) | `/auth/register` |
-| 2.8 | `LoginRequest` + `LoginUserAction` + rota | Giriş |
-| 2.9 | `logout` + `me` | Token iptali, doğrulama |
-| 2.10 | `tests/Feature/AuthTest.php` | 🔴 Zarfsız yanıt sözleşmesi testi |
+**Plan 10 dosyaydı, gerçekleşen 17 oldu.** Genişleme üç zorunluluktan geldi:
+K35 (şema değişikliği), H10/H11'in gerektirdiği iki exception sınıfı, K36 (rate
+limit). Kapsam kayması değil — plan yazılırken görülmemiş bağımlılıklar.
+
+| # | Dosya | Katman | Durum |
+|---|---|---|:---:|
+| **2.0** | `..._create_users_table.php` | 🆕 **K35** — `first_name` + `last_name`, `VARCHAR(60)` | ✅ |
+| 2.1 | `app/Models/User.php` | `#[Fillable]`, `hashed` cast, `HasApiTokens`, e-posta mutator | ✅ |
+| — | `.env` · `.env.example` · `phpunit.xml` | 🆕 **K32'nin uygulanması** — Argon2id devrede | ✅ |
+| 2.2 | `database/factories/UserFactory.php` | Test verisi, hash memoization, `PASSWORD` sabiti | ✅ |
+| 2.3 | `app/Http/Resources/UserResource.php` | ⚠️ **K35 ile revize** — `firstName`/`lastName` **ayrı** döner | ✅ |
+| 2.4 | `Requests/Auth/RegisterRequest.php` | 🔴 `unique` **bilerek yok** (A1) | ✅ |
+| **2.5a** | `Exceptions/RegistrationFailedException.php` | 🆕 H10/H11 zorunluluğu | ✅ |
+| 2.5b | `Actions/Auth/RegisterUserAction.php` | Transaction + UNIQUE kısıtı yakalama (E2, E4) | ✅ |
+| 2.6 | `Controllers/Api/V1/AuthController.php` | 3 satırlık metotlar + `session()` yardımcısı | ✅ |
+| 2.7 | `routes/api.php` | 🎯 İlk gerçek uç nokta | ✅ |
+| **2.8a** | `AppServiceProvider::configureRateLimiting()` | 🆕 **K36** — Faz 5'ten öne çekildi | ✅ |
+| 2.8b | `Requests/Auth/LoginRequest.php` | 🔴 `Password::min` **bilerek yok** (D3) | ✅ |
+| **2.8c1** | `Exceptions/InvalidCredentialsException.php` | 🆕 **Parametresiz kurucu** — ayrım imkânsız | ✅ |
+| 2.8c2 | `Actions/Auth/LoginUserAction.php` | 🔴 **Zamanlama savunması** + rehash | ✅ |
+| 2.8d | `AuthController::login()` + rota | Giriş | ✅ |
+| 2.9 | `RevokeTokenAction` + `logout` + `me` | Token izolasyonu (A6) | ✅ |
+| 2.10 | `tests/Feature/AuthTest.php` + `tests/TestCase.php` | 15 test · 🆕 `forgetAuthState()` (T13) | ✅ |
+| — | `phpstan.neon` | **K22** — level 5 → **6** | ✅ |
 
 **🔴 Sözleşme kuralı:** Auth yanıtı **zarfsız** döner — `{user, token}`.
-Diğer tüm endpoint'ler `{data: ...}` zarfıyla. `services/auth.ts` doğrudan
-`data.user` okuyor.
+Diğer tüm endpoint'ler `{data: ...}` zarfıyla. ⚠️ `/auth/me` **zarflıdır**:
+istisna `login` ve `register` için ad ad tanımlıdır (C2).
 
-**Bitti ölçütü:** Frontend'i `npm run dev` ile açıp **gerçek hesapla giriş
-yapabilmek**. Token localStorage'a düşüyor, sayfa yenilenince oturum korunuyor.
+**Çalışan uç noktalar:**
 
-**Öğrenilecek:** FormRequest ↔ Action ↔ Resource iş bölümü, `validated()` ile
-`all()` farkı, Sanctum token üretimi, Argon2id geçişi, 401 ile 403 ayrımı.
+| Method | Path | Auth | Yanıt |
+|---|---|:---:|---|
+| POST | `/api/auth/register` | — | `201` · zarfsız `{user, token}` |
+| POST | `/api/auth/login` | — | `200` · zarfsız `{user, token}` |
+| POST | `/api/auth/logout` | ✅ | `204` · gövde yok |
+| GET | `/api/auth/me` | ✅ | `200` · **zarflı** `{data: {...}}` |
+
+**Bitti ölçütü — karşılandı ✅:** Frontend `npm run dev` ile açılıp gerçek
+hesapla giriş yapılabiliyor. Token `localStorage`'a düşüyor, sayfa yenilenince
+oturum korunuyor.
+
+**Frontend'de yapılanlar (K35 sözleşme değişikliği):** `types.ts` ·
+🆕 `utils/user.ts` (`fullName()` yardımcısı) · `RegisterPage` iki input ·
+`Header`/`Dashboard`/`LoginPage` · `services/api.ts`'te 🔴 **401 ayrımı**
+(`INVALID_CREDENTIALS` oturumu düşürmez). Ayrıntı:
+`claude/Notlar/03-FRONTEND-YAPILACAKLAR.md` **Bölüm II**.
+
+**Öğrenilen:** FormRequest ↔ Action ↔ Resource iş bölümü · `validated()` ile
+`all()` farkı · Sanctum token üretimi ve iptali · Argon2id geçişi · 401 ile 403
+ayrımı · **kullanıcı sayımı (enumeration)** ve **zamanlama saldırısı** savunmaları.
 
 ---
 
-### FAZ 3 — Invitation özellik dilimi (CRUD)
+### FAZ 3 — Invitation özellik dilimi (CRUD) ✅ TAMAMLANDI
+
+> **Bitiş:** 19 Ağustos 2026 · Özet, **kronoloji** ve kurulan **15 kural**:
+> [`rehber/fazlar/FAZ-3.md`](rehber/fazlar/FAZ-3.md)
+> Elle doğrulama: [`rehber/fazlar/FAZ-3-ELLE-DOGRULAMA.md`](rehber/fazlar/FAZ-3-ELLE-DOGRULAMA.md)
 
 **Amaç:** Sahiplik, yetkilendirme ve iç içe koleksiyon yönetimi.
 
-| # | Dosya | Not |
+**Plan 12 backend dosyasıydı; gerçekleşen 12 backend + 8 frontend oldu.**
+Genişleme iki karardan geldi: **K37** (REST koleksiyonu — frontend'in "hesap
+başına tek davetiye" varsayımı geçersiz kılındı) ve **K44** (kimliği backend
+üretir). İkisi de sözleşme değişikliği olduğu için frontend uyarlaması bu fazın
+parçası oldu.
+
+| # | Dosya | Not | Durum |
+|---|---|---|:---:|
+| 3.1 | `app/Enums/InvitationStatus.php` | ⚠️ **K38** — `draft` atıldı, iki değer kaldı: `saved \| published` | ✅ |
+| 3.2 | `..._create_invitations_table.php` | ⚠️ **K40** — ULID **birincil anahtar**, ayrı slug **yok**. **K39** CHECK kısıtı · **K41** `phone_background` kolonu **yok** · içerik alanları **tamamen nullable** | ✅ |
+| 3.3 | `..._create_timeline_events_table.php` | `foreignUlid` (üst PK ULID) · `sort_order` · CASCADE | ✅ |
+| 3.4 | `app/Models/Invitation.php` | ⚠️ `$fillable` değil **`#[Fillable]`** özniteliği (Laravel 13) · `immutable_*` cast (K23) · `'user_id' => 'integer'` (P4) | ✅ |
+| 3.5 | `app/Models/TimelineEvent.php` | + `User::invitations()` ilişkisi | ✅ |
+| **3.6** | `InvitationFactory` + **`TimelineEventFactory`** + `DatabaseSeeder` | 🆕 İkinci fabrika · 🔴 seeder Faz 2'den beri **bozuktu** (`name` kolonu yok), yeniden yazıldı | ✅ |
+| 3.7 | `app/Policies/InvitationPolicy.php` | 🔴 IDOR savunması — reddi **404** (H7, Faz 1'de kurulmuştu) | ✅ |
+| **3.8** | `Requests/Invitation/{InvitationRequest, Store…, Update…}.php` | 🆕 **Üç** dosya: ortak soyut taban + iki ince alt sınıf (C3). 21 alanlık açık eşleme | ✅ |
+| 3.9 | `Resources/{InvitationResource, InvitationPayloadResource, TimelineEventResource}.php` | ⚠️ **Sapma:** `whenLoaded()` **kullanılmadı** — gerekçe aşağıda | ✅ |
+| 3.10 | `Actions/Invitation/{Create…, Update…, SyncTimelineEvents…}.php` | Transaction (E4) + senkronizasyon (N1-N4) | ✅ |
+| 3.11 | `InvitationController` + `routes/api.php` | ⚠️ **Sapma:** `authorizeResource` **çalışmıyor** — gerekçe aşağıda. Rota ULID desenine kısıtlandı | ✅ |
+| 3.12 | `tests/Feature/InvitationTest.php` | **18 test**, 5'i sahiplik. 🔴 T13 olmadan ikisi **boş yeşil** yanardı | ✅ |
+| — | `tests/TestCase.php` · `LoginUserAction` · `RegisterRequest` · `AuthTest` | 🆕 Faz 2'de bulunan **4 kusurun** düzeltilmesi (aşağıda) | ✅ |
+
+**Çalışan uç noktalar:**
+
+| Method | Path | Auth | Yanıt |
+|---|---|:---:|---|
+| GET | `/api/invitations` | ✅ | `200` · `{data: [...]}` — yalnızca kendi kayıtları |
+| POST | `/api/invitations` | ✅ | `201` · `{data: {...}}` |
+| GET | `/api/invitations/{id}` | ✅ | `200` · başkasınınkinde **404** |
+| PUT | `/api/invitations/{id}` | ✅ | `200` · program senkronize edilir |
+| DELETE | `/api/invitations/{id}` | ✅ | `204` · soft delete |
+
+⚠️ **`POST /api/invitations/{id}/publish` AÇILMADI.** Plan "rota burada açılsın,
+iş kuralı Faz 7'de" diyordu; açılmadı çünkü çağıracak bir iş kuralı yok ve boş
+bir uç nokta sözleşmede yalan bir söz olurdu (B4). **Faz 7'ye taşındı.**
+
+**🔴 İki plan sapması — gerekçeleriyle:**
+
+| Plandaki | Yapılan | Neden |
 |---|---|---|
-| 3.1 | `app/Enums/InvitationStatus.php` | ⚠️ Frontend `'published' \| 'saved'` diyor; `draft` uyuşmazlığı burada çözülecek |
-| 3.2 | `database/migrations/..._create_invitations_table.php` | ULID slug, indeksler, `show_*` kolonları |
-| 3.3 | `..._create_timeline_events_table.php` | FK CASCADE, `sort_order` |
-| 3.4 | `app/Models/Invitation.php` | `$fillable`, `casts()`, ilişkiler |
-| 3.5 | `app/Models/TimelineEvent.php` | |
-| 3.6 | `InvitationFactory` + `DatabaseSeeder` | Deterministik test verisi |
-| 3.7 | `app/Policies/InvitationPolicy.php` | 🔴 IDOR savunması |
-| 3.8 | `StoreInvitationRequest` / `UpdateInvitationRequest` | camelCase doğrulama |
-| 3.9 | `InvitationResource` + `InvitationPayloadResource` + `TimelineEventResource` | 🔴 28 alanlı camelCase eşlemesi |
-| 3.10 | `CreateInvitationAction` / `UpdateInvitationAction` / `SyncTimelineEventsAction` | |
-| 3.11 | `InvitationController` + rotalar | |
-| 3.12 | `tests/Feature/InvitationTest.php` | 🔴 "başkasının davetiyesini okuyamaz" testi |
+| `whenLoaded()` ile N+1 önleme (3.9) | Doğrudan `$this->timelineEvents` + controller'da `with()` | `whenLoaded` ilişki yüklü değilse anahtarı **düşürür**; frontend eksik alanı varsayılanla doldurur ve kullanıcı **hiç yazmadığı bir programı** görür. Doğrudan erişimde `preventLazyLoading` yerelde exception fırlatır — sessiz yanlış veri yerine gürültülü hata |
+| `authorizeResource` (3.11) | Her metotta `Gate::authorize()` | Laravel 11+ taban controller'ı boş; `authorizeResource` `$this->middleware()` çağırıyor ve o metot **yok** |
 
-**Bitti ölçütü:** Frontend dashboard'unda davetiye listesi **gerçek veritabanından**
-geliyor; editörde autosave çalışıyor.
+**🔴 Faz 2'de bulunan ve bu fazda düzeltilen kusurlar:** Faz 3'ün ilk
+`composer check` çalıştırması Faz 2'nin **yeşil kapanmadığını** ortaya çıkardı.
 
-**Öğrenilecek:** Migration ve indeks stratejisi, Eloquent ilişkileri, mass
-assignment güvenliği, Policy ile IDOR kapatma, iç içe koleksiyon senkronizasyonu,
-`whenLoaded()` ile N+1 önleme.
+| Kusur | Ne zamandan beri | Düzeltme |
+|---|---|---|
+| `Password::min(8)` framework sınıf adını sözleşmeye sızdırıyordu | 4 Ağu | `'min:8'` (**D6**) |
+| Guard önbelleği token testini **boş yeşil** yakıyordu | 7 Ağu | `forgetAuthState()` (**T13**) |
+| `LoginUserAction`'da gereksiz `?->` + kılavuzda **yanlış açıklama** | 4 Ağu | Düzeltildi (**B4**) |
+| `DatabaseSeeder` var olmayan `name` kolonuna yazıyordu | Faz 0'dan beri | Yeniden yazıldı + idempotans |
+
+**Bitti ölçütü — karşılandı ✅:** Dashboard'da davetiye listesi gerçek
+veritabanından geliyor; editörde autosave çalışıyor.
+
+**Frontend'de yapılanlar (K37 + K44 sözleşme değişikliği) — 8 dosya:**
+`types.ts` (`id: string \| null` + `localKey`) · `services/invitations.ts` (REST
+istemcisi) · `services/persistence.ts` (kimlik taşıyan arayüz) ·
+🔴 `stores/useInvitationStore.ts` (`recordId`, kaydetme kuyruğu,
+`adoptServerIds`) · `hooks/useDashboardData.ts` (gerçek dizi + iyimser silme) ·
+`pages/DashboardPage.tsx` (kart kaydın tamamını taşır, silme düğmesi) ·
+`components/create/TimelineEditor.tsx` · `data.ts`.
+Kılavuzları: `davetkart-frontent/docs/rehber/src/`.
+
+**Öğrenilen:** Migration ve indeks stratejisi · Eloquent ilişkileri · mass
+assignment güvenliği · **Policy ile IDOR kapatma** · iç içe koleksiyon
+senkronizasyonu · N+1 önleme · **sahipliğin bir `if` değil sorgunun kapsamı
+olduğu** · **çalıştırılmayan kodun doğru varsayıldığı**.
 
 ---
 
@@ -497,7 +582,7 @@ kısıtıyla race condition önleme.
 |---|---|---|---|
 | 0 | Zemin + kalite kapıları | — | 5 |
 | 1 | İlk endpoint | — | 4 |
-| **2** | **Auth (özellik dilimi)** | **Giriş / kayıt** | 10 |
+| **2** ✅ | **Auth (özellik dilimi)** | **Giriş / kayıt** ✅ | 10 planlandı → **17 oldu** |
 | 3 | Invitation CRUD | Dashboard + editör autosave | 12 |
 | 4 | Public davetiye | `/invite/{slug}` sayfası | 6 |
 | 5 | RSVP | LCV gönderimi + canlı panel | 10 |
@@ -539,7 +624,7 @@ kısıtıyla race condition önleme.
 
 ## 7. Şu an neredeyiz?
 
-> **Son güncelleme:** 31 Temmuz 2026
+> **Son güncelleme:** 6 Ağustos 2026
 
 | Durum | İş |
 |---|---|
@@ -559,7 +644,44 @@ kısıtıyla race condition önleme.
 | ✅ | `bootstrap/app.php` kablolama · `GET /api/ping` · `HealthController` |
 | ✅ | `HealthTest` (7 test, 3'ü sızıntı) · `php artisan errors:export` |
 | ✅ | **K25–K31** kararları · **H10–H13 · R1–R5 · M1–M4 · T6–T9 · G1–G3** kuralları |
-| ⬜ | **SIRADAKİ: Faz 2 — Auth özellik dilimi** |
+| ✅ | **FAZ 2 TAMAMLANDI** — özet: `docs/rehber/fazlar/FAZ-2.md` |
+| ✅ | `users` şeması **K35**: `first_name` + `last_name` · `User` modeli · `UserFactory` · `UserResource` |
+| ✅ | **K32 fiilen uygulandı** — `.env`'de `HASH_DRIVER` eksikti, hâlâ bcrypt kullanılıyordu |
+| ✅ | `Register`/`LoginRequest` · `Register`/`Login`/`RevokeTokenAction` · `AuthController` (4 uç) |
+| ✅ | 🔴 **Enumeration savunması** (`unique`/`exists` yok) · 🔴 **zamanlama savunması** (sahte hash) |
+| ✅ | **K36 hız sınırı** — Faz 5'ten öne çekildi (Argon2id bellek tüketimi saldırısı) |
+| ✅ | `AuthTest` 15 test · `TestCase::forgetAuthState()` (**T13**) · toplam **22 test** |
+| ✅ | **K22** — PHPStan level 5 → **6** |
+| ✅ | **K35–K36** kararları · **A1–A7 · D1–D5 · E1–E5 · C1–C3 · T10–T13 · B4** kuralları |
+| ✅ | Frontend K35 uyarlaması + 401 ayrımı — `Notlar/03` **Bölüm II** |
+| ⬜ | **SIRADAKİ: Faz 3 — Invitation özellik dilimi (CRUD)** |
+
+### ⚠️ Faz 2'nin kapsamı da büyüdü (K35 · K36 · H10-H11)
+
+Plan 10 dosyaydı, 17 oldu. Üç kaynak:
+
+| Kaynak | Eklenen |
+|---|---|
+| **K35** — ad/soyad ayrımı | `2.0` migration + `UserResource` revizyonu + frontend uyarlaması |
+| **H10/H11** — Action hata yanıtı üretmez | `RegistrationFailedException` · `InvalidCredentialsException` |
+| **K36** — hız sınırı | `AppServiceProvider::configureRateLimiting()` + rota grubu ayrımı |
+
+Ayrıca **K32 planda "uygulandı" görünüyordu ama uygulanmamıştı**: `config/hashing.php`
+yayınlanmış, `.env`'e `HASH_DRIVER` hiç yazılmamıştı. Faz 2'ye kadar **bcrypt**
+kullanılıyordu.
+
+> **Ders (B4):** Karar kaydında ✅ görünen bir madde, kodda doğrulanmadıysa
+> yalnızca bir niyettir.
+
+### 🔴 Faz 1'de bulunan hata
+
+`html_request_to_api_still_receives_json` testi **yazıldığı günden beri hiç
+geçmemişti** — ve `FAZ-1.md`'ye "doğrulandı" diye yazılmıştı. Sebep:
+`Router::findRoute()` eşleşme bulamazsa exception fırlatır ve **grup middleware'i
+hiç çalışmaz**, dolayısıyla `ForceJsonResponse` devreye girmez.
+
+Düzeltme Faz 2'de yapıldı: `bootstrap/app.php`'de render koşuluna
+`$request->is('api/*') ||` eklendi. Ayrıntı: [`rehber/fazlar/FAZ-1.md`](rehber/fazlar/FAZ-1.md) §7.1.
 
 ### ⚠️ Faz 1'in kapsamı büyüdü (K20)
 
@@ -592,3 +714,5 @@ konuşur; `Accept-Language` okunmaz.
 | **K17** | Katman-katman inşa (12 adım) | **Özellik-özellik inşa (9 faz)** | Öğrenme hedefi: katmanların birlikte çalıştığını erken görmek. ⚠️ Yalnızca **inşa sırası** değişti; klasörleme katman-bazlı kalıyor (bkz. §0) |
 | **K19** | Geliştirmede SQLite | **Geliştirmede de PostgreSQL 18** | Dev/prod parity (12-Factor X). SQLite'ın gerekçesi "kurulum zahmeti"ydi, teknik üstünlük değil. ENUM/jsonb/CHECK tavizleri ortadan kalktı |
 | **K18** | — | **Pest + Pint + Larastan** | Hata üretimde değil laptop'ta yakalanmalı |
+| **K35** | `users.full_name` (tek kolon) | **`first_name` + `last_name`** — API'de de **ayrı döner** | Birleştirmek kolay, birleşmiş veriyi ayırmak imkânsız ("Ayşe Nur Kaya" bölünemez). Fatura soyadı tek başına ister (Faz 7). Birleştirme bir **sunum kararıdır** → frontend'e ait. Faz 2'de alındı ve uygulandı |
+| **K36** | Rate limit Faz 5'te | **Auth uçlarında Faz 2'de** | Brute-force **ve** K32'nin doğurduğu bellek tüketimi saldırısı: Argon2id her isteği 64 MB'lık kaynak talebine çevirdi. İki limit: 5/dk (e-posta+IP) · 20/dk (IP) |
