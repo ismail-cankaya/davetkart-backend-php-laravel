@@ -399,3 +399,73 @@ public function hataliMetot(): int
 | `declare(strict_types=1)` gerekçesi | [`pint.md`](pint.md) §4 |
 | Faz 0 bitti ölçütü | `docs/07-GELISTIRME-YOL-HARITASI.md` → Faz 0 |
 | Kod standartları | `CLAUDE.md` |
+
+---
+
+## 🆕 Faz 5 — level 6 → 8 (K22 takvimi)
+
+> **Eklendi:** 28 Ağustos 2026 · **Dosya:** 5.14
+> 🔴 **Bu değişiklik ayrı bir commit'tedir ve tek başına geri alınabilir.**
+
+### Neden yükseltiyoruz?
+
+K22 Faz 0'da bir **takvim** koymuştu: level 5 → 6 (Faz 2) → 8 (Faz 5).
+Takvim olmasaydı iki şeyden biri olurdu: ya en baştan level 8 açılıp proje
+başlayamazdı, ya da hiç yükseltilmezdi.
+
+Kademeli yükseltmenin mantığı: **her seviye, bir önceki seviyede yazılmış kodun
+üzerine yeni bir soru sorar.**
+
+| Seviye | Yeni sorusu |
+|---|---|
+| 5 | Tipler uyuşuyor mu? |
+| 6 | Eksik tip bildirimi var mı? (dizinin iç tipi, generic parametreler) |
+| 7 | Birleşim (union) tipinin **her kolu** için kod doğru mu? |
+| **8** | `null` olabilen bir değer üzerinde metot çağrılıyor mu? |
+
+### Level 8 tam olarak neyi yakalar?
+
+```php
+$user->currentAccessToken()->delete();
+//    ^^^^^^^^^^^^^^^^^^^^ null dönebilir -> level 8 hata verir
+```
+
+Bu, Faz 2'de `RevokeTokenAction` yazılırken **elle** düşünülmüş bir konuydu.
+Level 8, o düşünmeyi **araca** devrediyor: unutulduğu gün araç söylüyor.
+
+Faz 5'in LCV kodunda bu kontrol doğrudan işe yarıyor:
+
+```php
+$deadline = $invitation->rsvp_deadline;   // CarbonImmutable|null
+
+if ($deadline === null) {
+    return;
+}
+
+$deadline->lessThan(now()->startOfDay());   // artık null olamaz — araç biliyor
+```
+
+Erken `return` olmasaydı level 8 hata verirdi. Yani seviye, **son tarih
+kontrolünün doğru yazıldığını** doğruluyor.
+
+### ⚠️ Yükseltme patlarsa ne yapılır?
+
+Faz 0-4 kodu level 6 altında yazıldı. Seviye atlayınca **eski dosyalarda da**
+yeni hatalar çıkabilir — bu bir kusur değil, aracın yeni bir soru sormasıdır.
+
+`composer check` **fail-fast** olduğu için PHPStan kırılırsa **testler hiç
+koşmaz**. Yani bu adım patlarsa Faz 5'in geri kalanını da göremezsin.
+
+**Yapılacak:**
+
+```powershell
+git log --oneline | Select-String "5.14"
+git revert <o-commit>          # yalnızca bu adım geri alınır
+composer check                  # fazın geri kalanı doğrulanır
+```
+
+Sonra hatalar tek tek okunup düzeltilir ve yükseltme tekrar denenir.
+🔴 **Yapılmayacak:** `ignoreErrors`'a toplu kural eklemek. **K4** gereği her
+satır **gerekçe yorumu** ister; gerekçesiz bir susturma, aracın zamanla
+anlamını yitirmesidir (Faz 4, ders 35: *bir aracı kurmak ile aracın işini
+yapması ayrı şeylerdir*).

@@ -11,8 +11,19 @@ parameters:
         - tests
 
     # 0-10 arasi katilik. K22 takvimi: Faz 0-1 -> 5, Faz 2 -> 6, Faz 5 -> 8.
-    # 6: eksik tip bildirimlerini yakalar (array'in ic tipi, generic parametreler).
-    level: 6
+    #
+    # 7: birlesim (union) tiplerinin her koluna gore dogrulama.
+    # 8: NULL OLABILEN degerler uzerinde metot cagrisi hata sayilir.
+    #    Ornek: $user->currentAccessToken()->delete() — token null olabilir.
+    #    Bu seviye, Faz 5'in LCV kodundaki `?->` ve null kontrollerinin bir
+    #    tercih degil ZORUNLULUK oldugunu araca dogrulatir.
+    #
+    # ⚠️ Bu yukseltme Faz 5'te AYRI BIR COMMIT olarak yapildi. Faz 0-4 kodu
+    # level 6 altinda yazilmisti; seviye atlayinca eski dosyalarda da yeni
+    # hatalar cikabilir. Cikarsa: `git revert <bu commit>` ile yalnizca bu adim
+    # geri alinir, fazin geri kalani etkilenmez. Sonra hatalar tek tek
+    # duzeltilip yukseltme tekrar denenir.
+    level: 8
 
     # Laravel'in "sihirli" ozelliklerini (Model::where, relation) anlamak icin
     # Larastan modelleri calistirmadan cozumler. Bellek siniri gerekir.
