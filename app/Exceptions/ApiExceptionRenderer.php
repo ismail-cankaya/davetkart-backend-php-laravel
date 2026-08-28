@@ -76,9 +76,18 @@ final class ApiExceptionRenderer
         return match (true) {
             $e instanceof ValidationException => ErrorCode::ValidationFailed,
 
-            // H6: auth hatalari ASLA `fields` tasimaz — enumeration savunmasi.
-            $e instanceof RegistrationFailedException => ErrorCode::RegistrationFailed,
-            $e instanceof InvalidCredentialsException => ErrorCode::InvalidCredentials,
+            // 🔴 H11 artik tip sistemine bagli: kendi kodunu bilen exception onu
+            // KENDISI soyler, buraya kol eklemek gerekmez. Faz 5 oncesinde her
+            // yeni exception bir kol istiyordu; unutulursa 500 doniyordu, yani
+            // istemci hatasi sunucu hatasi gibi gorunuyordu.
+            //
+            // Auth exception'lari (RegistrationFailed, InvalidCredentials) da bu
+            // arayuzu uygular. H6 korunur: `fields` yalnizca ValidationException
+            // kolunda uretilir, buraya dusen hicbir sey alan adi tasimaz.
+            //
+            // H13 gerektirdigi icin ValidationException'dan SONRA, genel
+            // HttpExceptionInterface kolundan ONCE duruyor.
+            $e instanceof HasErrorCode => $e->errorCode(),
 
             $e instanceof AuthenticationException => ErrorCode::Unauthenticated,
             $e instanceof ThrottleRequestsException => ErrorCode::RateLimited,
@@ -173,13 +182,20 @@ final class ApiExceptionRenderer
     }
 
     /**
-     * Zarf disi parametreler. Su an yalnizca hiz siniri; digerleri kendi
-     * exception siniflarini kazandiklari fazlarda eklenecek (Faz 5, Faz 7).
+     * Zarf disi parametreler.
+     *
+     * Kendi kodunu bilen exception kendi parametrelerini de bilir. Yine de H12
+     * gecerlidir: buradan donen her sey render()'da filterParams() beyaz
+     * listesinden gecer — exception'in "verilebilir" demesi yetmez.
      *
      * @return array<string, mixed>
      */
     private function params(Throwable $e): array
     {
+        if ($e instanceof HasErrorCode) {
+            return $e->errorParams();
+        }
+
         if (! $e instanceof ThrottleRequestsException) {
             return [];
         }

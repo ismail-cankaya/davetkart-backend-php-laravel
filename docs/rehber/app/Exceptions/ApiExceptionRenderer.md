@@ -345,3 +345,35 @@ olduğunun canlı kanıtı. Sonra geri al.
 | **report / render** | Laravel'de hatayı loglama / kullanıcıya gösterme aşamaları |
 | **Fail-safe** | Bilgi eksikse güvenli tarafa düşen tasarım |
 | **YAGNI** | "You Aren't Gonna Need It" — ihtiyaç doğmadan kod yazma |
+
+---
+
+## 🆕 Faz 5 güncellemesi — `HasErrorCode` arayüzü
+
+> **Eklendi:** 28 Ağustos 2026 · **Dosya:** 5.5
+
+`resolveCode()` içindeki exception-başına-bir-kol düzeni kaldırıldı. Yerine tek
+bir kol geldi:
+
+```php
+$e instanceof HasErrorCode => $e->errorCode(),
+```
+
+**Ne değişti:**
+
+| Önce | Sonra |
+|---|---|
+| Her yeni exception için match'e kol eklenirdi | Exception `HasErrorCode`'u uygular, kod kendi üstünde durur |
+| Kol eklenmezse sessizce 500 dönerdi | Arayüz uygulanmazsa yine 500 döner — ama artık tek bir yerde, belgelenmiş bir alışkanlık var |
+| `RegistrationFailedException` / `InvalidCredentialsException` kolları | İkisi de arayüze taşındı; **davranış birebir aynı** |
+
+**Ne değişmedi:**
+
+- **H12** hâlâ yolun üzerinde: `errorParams()`'tan dönen her şey
+  `ErrorCode::filterParams()` beyaz listesinden geçer.
+- **H13** hâlâ geçerli: yeni kol `ValidationException`'dan **sonra**, genel
+  `HttpExceptionInterface` kolundan **önce** duruyor.
+- **H6** hâlâ geçerli: `fields` yalnızca `ValidationException` kolunda üretilir.
+
+Ayrıntılı gerekçe ve mutasyon denemesi:
+[`HasErrorCode.md`](HasErrorCode.md).

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Exceptions;
 
+use App\Enums\ErrorCode;
 use RuntimeException;
 
 /**
@@ -14,10 +15,26 @@ use RuntimeException;
  * hatirlanmaya degil, sinifin sekline baglanmistir.
  * Ayrintili aciklama: docs/rehber/app/Exceptions/InvalidCredentialsException.md
  */
-final class InvalidCredentialsException extends RuntimeException
+final class InvalidCredentialsException extends RuntimeException implements HasErrorCode
 {
     public function __construct()
     {
         parent::__construct('Login failed: invalid email or password.');
+    }
+
+    public function errorCode(): ErrorCode
+    {
+        return ErrorCode::InvalidCredentials;
+    }
+
+    /**
+     * 🔴 BOS ve oyle kalmali (H6/A2): "kullanici yok" ile "parola yanlis"
+     * ayrimini tasiyabilecek TEK kanal buydu.
+     *
+     * @return array<string, mixed>
+     */
+    public function errorParams(): array
+    {
+        return [];
     }
 }

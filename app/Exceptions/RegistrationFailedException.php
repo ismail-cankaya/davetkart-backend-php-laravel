@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Exceptions;
 
+use App\Enums\ErrorCode;
 use RuntimeException;
 
 /**
@@ -14,7 +15,7 @@ use RuntimeException;
  * bir hesap tarayicisina cevirir (08 §3.1).
  * Ayrintili aciklama: docs/rehber/app/Exceptions/RegistrationFailedException.md
  */
-final class RegistrationFailedException extends RuntimeException
+final class RegistrationFailedException extends RuntimeException implements HasErrorCode
 {
     /**
      * E-posta zaten kayitli.
@@ -24,5 +25,21 @@ final class RegistrationFailedException extends RuntimeException
     public static function emailTaken(): self
     {
         return new self('Registration failed: email already exists.');
+    }
+
+    public function errorCode(): ErrorCode
+    {
+        return ErrorCode::RegistrationFailed;
+    }
+
+    /**
+     * 🔴 BOS ve oyle kalmali (H6): sebep disari cikarsa kayit formu bir hesap
+     * tarayicisina doner.
+     *
+     * @return array<string, mixed>
+     */
+    public function errorParams(): array
+    {
+        return [];
     }
 }
