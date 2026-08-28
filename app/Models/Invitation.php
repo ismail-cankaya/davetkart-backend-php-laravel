@@ -126,4 +126,18 @@ class Invitation extends Model
     {
         return $this->hasMany(Rsvp::class);
     }
+
+    /**
+     * Bu davetiyeye yuklenmis dosyalarin KAYITLARI.
+     *
+     * Siralama yok: galeri sirasi bu tabloda degil, `gallery_images` dizisinde
+     * tutuluyor (kullanicinin surukleyip biraktigi sira). Buradaki satirlar
+     * sunucunun kaydi — kota sayimi ve temizlik icin.
+     *
+     * @return HasMany<Media, $this>
+     */
+    public function media(): HasMany
+    {
+        return $this->hasMany(Media::class);
+    }
 }
