@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Models\Invitation;
+use App\Models\Rsvp;
 use App\Models\User;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -44,11 +45,24 @@ class DatabaseSeeder extends Seeder
             ->withTimeline()
             ->create(['title' => 'Taslak Davetiye']);
 
-        Invitation::factory()
+        // LCV modulu ACIK ve son tarihi ILERIDE: Faz 5'in elle dogrulama
+        // betigi bu davetiye uzerinden kosuyor (FAZ-5-ELLE-DOGRULAMA.md).
+        $yayinda = Invitation::factory()
             ->for($user)
             ->published()
             ->withTimeline()
-            ->create(['title' => 'Yayindaki Davetiye']);
+            ->create([
+                'title' => 'Yayindaki Davetiye',
+                'show_rsvp' => true,
+                'rsvp_deadline' => now()->addMonth()->toDateString(),
+                'ask_menu_preference' => true,
+            ]);
+
+        // Panelin bos gorunmemesi icin uc yanit. Toplamlar bilerek farkli:
+        // katilan 3 + kararsiz 1 = 4 kotadan yer tutar, gelmeyen 2 tutmaz (K50).
+        Rsvp::factory()->for($yayinda)->guests(3)->create(['guest_name' => 'Can Dogan']);
+        Rsvp::factory()->for($yayinda)->pending()->create(['guest_name' => 'Elif Yilmaz']);
+        Rsvp::factory()->for($yayinda)->declined()->guests(2)->create(['guest_name' => 'Mert Kaya']);
 
         $this->command?->info(sprintf(
             'Demo hesap: %s / %s',
