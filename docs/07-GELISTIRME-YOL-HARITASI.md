@@ -583,9 +583,9 @@ kısıtıyla race condition önleme.
 | 0 | Zemin + kalite kapıları | — | 5 |
 | 1 | İlk endpoint | — | 4 |
 | **2** ✅ | **Auth (özellik dilimi)** | **Giriş / kayıt** ✅ | 10 planlandı → **17 oldu** |
-| 3 | Invitation CRUD | Dashboard + editör autosave | 12 |
-| 4 | Public davetiye | `/invite/{slug}` sayfası | 6 |
-| 5 | RSVP | LCV gönderimi + canlı panel | 10 |
+| **3** ✅ | **Invitation CRUD** | **Dashboard + editör autosave** ✅ | 12 + 8 FE |
+| **4** ✅ | **Public davetiye** | **`/invite/{id}` sayfası** ✅ | 6 planlandı → **8 + 2 FE** |
+| **5** ⚠️ | **RSVP** — kod yazıldı, **doğrulanmadı** | LCV gönderimi + canlı panel | 10 planlandı → **16** |
 | 6 | Media | Galeri yüklemesi | 7 |
 | 7 | Ödeme + paywall | Yayınlama akışı | 12 |
 | 8 | AI + iletişim + i18n | Asistan, iletişim formu | 6 |
@@ -654,7 +654,26 @@ kısıtıyla race condition önleme.
 | ✅ | **K22** — PHPStan level 5 → **6** |
 | ✅ | **K35–K36** kararları · **A1–A7 · D1–D5 · E1–E5 · C1–C3 · T10–T13 · B4** kuralları |
 | ✅ | Frontend K35 uyarlaması + 401 ayrımı — `Notlar/03` **Bölüm II** |
-| ⬜ | **SIRADAKİ: Faz 3 — Invitation özellik dilimi (CRUD)** |
+| ✅ | **FAZ 3 TAMAMLANDI** — özet: `docs/rehber/fazlar/FAZ-3.md` |
+| ✅ | `InvitationStatus` · iki migration · `Invitation`/`TimelineEvent` modelleri · fabrikalar |
+| ✅ | 🔴 `InvitationPolicy` (IDOR) · Request ailesi (21 alan eşlemesi) · Resource ailesi |
+| ✅ | `Create`/`Update`/`SyncTimelineEventsAction` · `InvitationController` (5 uç) · 18 test |
+| ✅ | **K37–K44** kararları · **P1–P4 · N1–N4 · D6 · E6 · C4–C5 · T13–T14 · B5** kuralları |
+| ✅ | **FAZ 4 TAMAMLANDI** — özet: `docs/rehber/fazlar/FAZ-4.md` |
+| ✅ | `ResolvePublicInvitationAction` · public Resource ailesi · `/api/public/` grubu (K12) |
+| ✅ | `SetEtag` middleware (304) · `InvitationChanged` + `ClearInvitationCache` · 25 test |
+| ✅ | **K45–K48** kararları · **O1–O6 · R6 · E7 · C6 · T15 · B6** kuralları |
+| ✅ | 🔴 Faz 3'te bulunan üç kusur düzeltildi (ULID regex'i, `status` yazılmıyordu, Larastan cast'leri okumuyordu) |
+| ⚠️ | **FAZ 5 — kod yazıldı, DOĞRULANMADI** — özet: `docs/rehber/fazlar/FAZ-5.md` |
+| ⚠️ | `composer check` hiç koşmadı; kapanış ölçütü `FAZ-5-ELLE-DOGRULAMA.md` (16 adım) |
+| ✅ | `RsvpStatus` · `rsvps` migration (2 CHECK) · `Rsvp` modeli · `StoreRsvpRequest` (honeypot) |
+| ✅ | `HasErrorCode` arayüzü + 2 exception · `RsvpQuotaResolver` dikiş yeri (K51) |
+| ✅ | 🔴 `SubmitRsvpAction` — 5 katmanlı savunma · `RsvpResource` · `RsvpPolicy` · 2 controller |
+| ✅ | `throttle:rsvp` (2 kova) + `throttleApi()` — **FAZ-4 §9.2 borcu kapandı** |
+| ✅ | `RsvpTest` 29 test + 18 satırlık mutasyon tablosu · **K22**: PHPStan 6 → **8** |
+| ✅ | **K49–K53** kararları · **L1–L4 · E8–E9 · C7 · P5 · T16 · B7** kuralları |
+| 🔴 | **Frontend uyarlaması BEKLİYOR** — 7 dosya, honeypot alanı dâhil (`FAZ-5.md` §8) |
+| ⬜ | **SIRADAKİ: Faz 5'i doğrula, sonra Faz 6 — Media** |
 
 ### ⚠️ Faz 2'nin kapsamı da büyüdü (K35 · K36 · H10-H11)
 

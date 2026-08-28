@@ -40,9 +40,9 @@ Backend bittiğinde ortaya çıkan şey:
 | **1** | İlk endpoint + `ForceJsonResponse` + **hata zarfı (K20)** | — | 8 | ✅ |
 | **2** | **Auth özellik dilimi** 🎯 walking skeleton | **Giriş / kayıt** ✅ | 10 → **17** | ✅ |
 | **3** | **Invitation CRUD + Policy + Resource ailesi** | **Dashboard + editör autosave** ✅ | 12 → **12 + 8 FE** | ✅ |
-| **4** | Public davetiye + cache + ETag 🔥 | `/invite/{slug}` sayfası | 6 | ⬜ **SIRADAKİ** |
-| **5** | RSVP (public submit + owner list) | LCV gönderimi + canlı panel | 10 | ⬜ |
-| **6** | Media + Job | Galeri yüklemesi | 7 | ⬜ |
+| **4** | Public davetiye + cache + ETag 🔥 | `/invite/{id}` sayfası ✅ | 6 → **8 + 2 FE** | ✅ |
+| **5** | RSVP (public submit + owner list) | LCV gönderimi + canlı panel | 10 → **16** | ⚠️ **DOĞRULANMADI** |
+| **6** | Media + Job | Galeri yüklemesi | 7 | ⬜ **SIRADAKİ** |
 | **7** | `TierResolver` + Payment + publish 🔴 | Yayınlama + paywall | 12 | ⬜ |
 | **8** | AI proxy + Contact | Asistan, iletişim formu | 6 | ⬜ |
 | **9** | Üretim hazırlığı | — | — | ⬜ |
@@ -94,7 +94,7 @@ Her faz bir kavramı **ilk kez** getirir. Öğrenme sırası budur:
 |---|---|
 | `composer check` yeşil | **Her dosyadan sonra** |
 | PHPStan level 5 → **6** | Faz 2 sonunda |
-| PHPStan level 6 → **8** | Faz 5 sonunda |
+| PHPStan level 6 → **8** | Faz 5 sonunda ✅ (5.14 · ⚠️ doğrulanmadı) |
 | `docs/rehber/fazlar/FAZ-N.md` özeti | Her faz sonunda |
 
 ## 6. Her fazda geçerli sabit kurallar
@@ -393,7 +393,20 @@ Event/Listener ile modüller arası gevşek bağ.
 
 ---
 
-## FAZ 5 — RSVP
+## FAZ 5 — RSVP ⚠️ KOD YAZILDI, DOĞRULANMADI
+
+> **Fazın kaydı:** [`rehber/fazlar/FAZ-5.md`](rehber/fazlar/FAZ-5.md)
+> **Kapanış ölçütü:** [`rehber/fazlar/FAZ-5-ELLE-DOGRULAMA.md`](rehber/fazlar/FAZ-5-ELLE-DOGRULAMA.md)
+>
+> 🔴 `composer check` hiç koşmadı. Aşağıdaki plan **uygulandı**, ama üç sapmayla:
+>
+> | Plandaki | Olan |
+> |---|---|
+> | 5.1 `label()` Türkçe | **Yazılmadı** — K21 o notu geçersiz kılmıştı |
+> | 5.5 tek exception | \+ `RsvpDeadlinePassedException` \+ `HasErrorCode` arayüzü |
+> | 5.7 tek `RsvpController` | İki controller (public + owner) |
+> | (plan dışı) | `RsvpQuotaResolver` arayüzü — K51 |
+> | 🔴 5.9 `Jobs/SendRsvpNotification` | **YAZILMADI** — K53, gerekçe `FAZ-5.md` §7 |
 
 **Amaç:** **Auth'suz yazma yolu** — sistemin en çok saldırıya açık noktası.
 Katmanlı savunma (defense in depth) burada öğrenilir.
