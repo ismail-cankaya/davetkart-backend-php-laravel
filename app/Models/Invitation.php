@@ -111,4 +111,19 @@ class Invitation extends Model
     {
         return $this->hasMany(TimelineEvent::class)->orderBy('sort_order');
     }
+
+    /**
+     * Bu davetiyeye gelen LCV yanitlari.
+     *
+     * Siralama BILEREK yok. Program adimlarinin sirasi anlamin parcasiydi ve
+     * iliskiye gomulmustu; LCV listesinin sirasi ise bir SUNUM tercihidir —
+     * kota sorgusu hic siralamaz, panel en yeniyi ustte ister. Karar cagirana
+     * birakildi (Faz 3, 2.8'in ayni ailesi).
+     *
+     * @return HasMany<Rsvp, $this>
+     */
+    public function rsvps(): HasMany
+    {
+        return $this->hasMany(Rsvp::class);
+    }
 }
