@@ -44,6 +44,13 @@ return [
     'media' => [
         'disk' => env('DAVETKART_MEDIA_DISK', 'public'),
 
+        // Kuyruktaki OptimizeUploadedImage isinin ayarlari. Telefon kameralari
+        // 4000+ piksel uretiyor; galeride 2000 fazlasiyla yeterli.
+        'optimize' => [
+            'max_width_px' => 2000,
+            'jpeg_quality' => 82,
+        ],
+
         'gallery' => [
             'max_size_kb' => 5120,
             'mimes' => ['image/jpeg', 'image/png', 'image/webp'],
