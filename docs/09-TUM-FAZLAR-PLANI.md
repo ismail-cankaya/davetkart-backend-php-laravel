@@ -41,7 +41,7 @@ Backend bittiğinde ortaya çıkan şey:
 | **2** | **Auth özellik dilimi** 🎯 walking skeleton | **Giriş / kayıt** ✅ | 10 → **17** | ✅ |
 | **3** | **Invitation CRUD + Policy + Resource ailesi** | **Dashboard + editör autosave** ✅ | 12 → **12 + 8 FE** | ✅ |
 | **4** | Public davetiye + cache + ETag 🔥 | `/invite/{id}` sayfası ✅ | 6 → **8 + 2 FE** | ✅ |
-| **5** | RSVP (public submit + owner list) | LCV gönderimi + canlı panel | 10 → **16** | ⚠️ **DOĞRULANMADI** |
+| **5** | RSVP (public submit + owner list) | LCV gönderimi + canlı panel ⬜ | 10 → **16** | ⚠️ 17/17 adım ✅ · **doğrulama bekliyor** |
 | **6** | Media + Job | Galeri yüklemesi | 7 | ⬜ **SIRADAKİ** |
 | **7** | `TierResolver` + Payment + publish 🔴 | Yayınlama + paywall | 12 | ⬜ |
 | **8** | AI proxy + Contact | Asistan, iletişim formu | 6 | ⬜ |
@@ -407,6 +407,9 @@ Event/Listener ile modüller arası gevşek bağ.
 > | 5.7 tek `RsvpController` | İki controller (public + owner) |
 > | (plan dışı) | `RsvpQuotaResolver` arayüzü — K51 |
 > | 🔴 5.9 `Jobs/SendRsvpNotification` | **YAZILMADI** — K53, gerekçe `FAZ-5.md` §7 |
+>
+> **17 geliştirme adımının tamamı ✅ commit'lendi** (`faz-5` dalı).
+> Kalan tek iş **doğrulama**: `composer check` + 16 adımlık elle doğrulama.
 
 **Amaç:** **Auth'suz yazma yolu** — sistemin en çok saldırıya açık noktası.
 Katmanlı savunma (defense in depth) burada öğrenilir.
@@ -481,7 +484,7 @@ exception → HTTP kodu eşlemesi · kuyruk.
 | 6.5 | `MediaController` |
 | 6.6 | `Jobs/OptimizeUploadedImage` |
 | 6.7 | `tests/Feature/MediaTest.php` |
-| 6.8 | `..._add_media_foreign_keys_to_rsvps_table.php` — Faz 5'in askıda kalan FK'si |
+| 6.8 | `..._add_media_columns_to_rsvps_table.php` — 🔴 **düzeltildi**, aşağıya bak |
 
 ### Endpoint'ler
 
@@ -499,18 +502,37 @@ exception → HTTP kodu eşlemesi · kuyruk.
 | Yüklenenler **çalıştırılabilir dizinde durmaz** | Yüklenen kodun sunucuda çalışmasını yapısal olarak engeller |
 | Optimizasyon **kuyruğa** gider | `api.ts` timeout'u 15 saniye |
 
-### Şema evrimi notu
+### 🔴 Şema evrimi notu — DÜZELTİLDİ (28 Ağustos 2026)
 
-Faz 5'te `rsvps.photo_media_id` kolonu **nullable ve kısıtsız** açılmıştı, çünkü
-`media` tablosu henüz yoktu. Kısıt burada eklenir:
+**Eski varsayım (yanlış):** *"Faz 5'te `rsvps.photo_media_id` kolonu nullable ve
+kısıtsız açılmıştı; kısıt burada eklenir."*
+
+**Gerçek:** Faz 5 medya kolonlarını **hiç açmadı**. Gerekçe **ders 26**:
+*çalıştırılmayan kod, doğru olduğu varsayılan koddur.* Bir faz boyunca hiçbir
+kodun yazmadığı, hiçbir testin doğrulamadığı iki kolon açmak, Faz 4'te
+`InvitationPublished` olayının `InvitationChanged`'e dönüşme sebebiyle (K48)
+aynı hatadır.
+
+Bu yüzden **6.8 artık kolonları VE yabancı anahtarı birlikte ekler**:
 
 ```php
+// ..._add_media_columns_to_rsvps_table.php
 Schema::table('rsvps', function (Blueprint $table) {
-    $table->foreign('photo_media_id')->references('id')->on('media')->nullOnDelete();
+    $table->foreignUlid('photo_media_id')->nullable()
+          ->constrained('media')->nullOnDelete();
+    $table->foreignUlid('video_media_id')->nullable()
+          ->constrained('media')->nullOnDelete();
 });
 ```
 
-Bu bir kirlilik değildir; şema zamanla evrilir, her migration bir adımdır.
+İki ayrı migration yerine tek tutarlı şema değişikliği — hem daha temiz hem de
+"kolon var ama kısıtı yok" ara durumu hiç oluşmuyor.
+
+> ⚠️ `media.id` tipi 6.2'de kararlaştırılacak. URL'de geçecekse **K40/K52**
+> gereği ULID olmalı; yukarıdaki `foreignUlid` bu varsayıma dayanıyor.
+
+Şema zamanla evrilir, her migration bir adımdır — ama **ileriyi tahmin ederek
+boş kolon açmak** evrim değil, borçtur.
 
 ### Bitti ölçütü
 

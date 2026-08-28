@@ -15,7 +15,7 @@ dosya neden böyle yazıldı"* sorusunu cevaplar. Buradaki faz özetleri ise
 | **2** | Auth özellik dilimi | ✅ | [FAZ-2.md](FAZ-2.md) | [13 adım](FAZ-2-ELLE-DOGRULAMA.md) |
 | **3** | Invitation CRUD | ✅ | [FAZ-3.md](FAZ-3.md) | [betik](FAZ-3-ELLE-DOGRULAMA.md) |
 | **4** | Public davetiye + cache | ✅ | [FAZ-4.md](FAZ-4.md) | [15 adım](FAZ-4-ELLE-DOGRULAMA.md) |
-| **5** | RSVP / LCV | ⚠️ **DOĞRULANMADI** | [FAZ-5.md](FAZ-5.md) | 🔴 [16 adım](FAZ-5-ELLE-DOGRULAMA.md) |
+| **5** | RSVP / LCV | ⚠️ 17/17 adım ✅ · **doğrulama bekliyor** | [FAZ-5.md](FAZ-5.md) | 🔴 [16 adım](FAZ-5-ELLE-DOGRULAMA.md) |
 | 6 | Media | ⬜ | — |
 | 7 | Ödeme ve paywall | ⬜ | — |
 | 8 | AI asistan + iletişim | ⬜ | — |

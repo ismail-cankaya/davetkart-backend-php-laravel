@@ -476,28 +476,48 @@ koşullu istek, `/api/public/` fail-safe grubu.
 
 ---
 
-### FAZ 5 — RSVP modülü
+### FAZ 5 — RSVP modülü ⚠️ KOD TAMAMLANDI · DOĞRULAMA BEKLİYOR
 
 **Amaç:** Auth'suz yazma yolu — en çok saldırıya açık nokta.
 
-| # | Dosya |
-|---|---|
-| 5.1 | `app/Enums/RsvpStatus.php` — DB İngilizce, `label()` Türkçe |
-| 5.2 | `..._create_rsvps_table.php` — `ip_hash`, `(invitation_id, status)` indeksi |
-| 5.3 | `app/Models/Rsvp.php` |
-| 5.4 | `StoreRsvpRequest` — honeypot alanı |
-| 5.5 | `app/Exceptions/RsvpQuotaExceededException.php` |
-| 5.6 | `SubmitRsvpAction` — 🔴 deadline + kota + IP hash |
-| 5.7 | `RsvpResource` + `RsvpController` (public submit + owner list) |
-| 5.8 | Rate limit kaydı (`bootstrap/app.php`) |
-| 5.9 | `Jobs/SendRsvpNotification` |
-| 5.10 | `tests/Feature/RsvpTest.php` — 🔴 kota `SUM(guest_count)` ile |
+> **Faz kaydı:** `docs/rehber/fazlar/FAZ-5.md`
+> **Kapanış ölçütü:** `docs/rehber/fazlar/FAZ-5-ELLE-DOGRULAMA.md` (16 adım)
+>
+> 🔴 17 geliştirme adımının tamamı yazıldı ve commit'lendi, ama `composer check`
+> **hiç koşmadı** (gerekçe: `FAZ-5.md` §0). Faz ancak elle doğrulama betiği
+> yeşil bittiğinde kapanır — kural **B7**.
+
+Plan 10 dosyaydı, **17 adım** oldu:
+
+| # | Dosya | Durum |
+|---|---|---|
+| 5.1 | `app/Enums/RsvpStatus.php` — ⚠️ `label()` **yazılmadı** (K21 · K49) | ✅ |
+| 5.2 | `..._create_rsvps_table.php` — ULID PK (K52), **iki** CHECK, `ip_hash` | ✅ |
+| 5.3 | `app/Models/Rsvp.php` + `Invitation::rsvps()` | ✅ |
+| 5.4 | `Requests/Rsvp/StoreRsvpRequest.php` — honeypot | ✅ |
+| 5.5 | 🆕 `Exceptions/HasErrorCode.php` + `RsvpDeadlinePassed`/`RsvpQuotaExceeded` | ✅ |
+| 5.6 | 🆕 `Contracts/RsvpQuotaResolver.php` + `Services/Rsvp/TierRsvpQuotaResolver.php` (K51) | ✅ |
+| 5.7 | `Actions/Rsvp/SubmitRsvpAction.php` — 🔴 5 katmanlı savunma | ✅ |
+| 5.8 | `Resources/RsvpResource.php` | ✅ |
+| 5.9 | `Policies/RsvpPolicy.php` | ✅ |
+| 5.10 | `PublicRsvpController` + `RsvpController` (plan tek controller diyordu) | ✅ |
+| 5.11 | Rotalar + `throttle:rsvp` (2 kova) + `throttleApi()` | ✅ |
+| 5.12 | `database/factories/RsvpFactory.php` + seeder | ✅ |
+| 5.13 | `tests/Feature/RsvpTest.php` — **29 test** + mutasyon tablosu | ✅ |
+| 5.14 | PHPStan level 6 → **8** (K22) — ayrı commit, geri alınabilir | ✅ |
+| 5.15 | `FAZ-5.md` | ✅ |
+| 5.16 | `FAZ-5-ELLE-DOGRULAMA.md` | ✅ |
+| 5.17 | `docs/07` · `docs/09` · `fazlar/README.md` güncellemesi | ✅ |
+| — | 🔴 `Jobs/SendRsvpNotification` | ❌ **YAZILMADI (K53)** |
 
 **Bitti ölçütü:** Misafir LCV gönderiyor, sahip panelde 15 sn'de bir güncellenen
-listeyi görüyor.
+listeyi görüyor. → ⬜ Frontend uyarlaması bekliyor (`claude/Notlar/04`).
 
 **Öğrenilecek:** Katmanlı savunma, rate limiting, honeypot, KVKK veri
-minimizasyonu, özel exception → HTTP kodu eşlemesi, kuyruk.
+minimizasyonu, özel exception → HTTP kodu eşlemesi, kuyruk (⚠️ kuyruk K53
+nedeniyle bu fazda öğrenilmedi).
+
+**Kalite kapısı:** PHPStan level 6 → **8** ✅ (doğrulanmadı)
 
 ---
 
@@ -512,6 +532,7 @@ minimizasyonu, özel exception → HTTP kodu eşlemesi, kuyruk.
 | 6.5 | `MediaController` → ⚠️ rota `/api/media/upload` (frontend böyle çağırıyor) |
 | 6.6 | `Jobs/OptimizeUploadedImage` |
 | 6.7 | `tests/Feature/MediaTest.php` |
+| 6.8 | `..._add_media_columns_to_rsvps_table.php` — 🔴 Faz 5 medya kolonlarını **hiç açmadı** (ders 26); kolonlar ve FK burada birlikte gelir. Ayrıntı: `docs/09` §FAZ 6 |
 
 **Bitti ölçütü:** Editörden galeri fotoğrafı yükleniyor, önizlemede görünüyor.
 
@@ -585,7 +606,7 @@ kısıtıyla race condition önleme.
 | **2** ✅ | **Auth (özellik dilimi)** | **Giriş / kayıt** ✅ | 10 planlandı → **17 oldu** |
 | **3** ✅ | **Invitation CRUD** | **Dashboard + editör autosave** ✅ | 12 + 8 FE |
 | **4** ✅ | **Public davetiye** | **`/invite/{id}` sayfası** ✅ | 6 planlandı → **8 + 2 FE** |
-| **5** ⚠️ | **RSVP** — kod yazıldı, **doğrulanmadı** | LCV gönderimi + canlı panel | 10 planlandı → **16** |
+| **5** ⚠️ | **RSVP** — 17/17 adım ✅, **doğrulama bekliyor** | LCV gönderimi + canlı panel ⬜ | 10 planlandı → **16** |
 | 6 | Media | Galeri yüklemesi | 7 |
 | 7 | Ödeme + paywall | Yayınlama akışı | 12 |
 | 8 | AI + iletişim + i18n | Asistan, iletişim formu | 6 |
