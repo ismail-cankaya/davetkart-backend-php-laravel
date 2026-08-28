@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\PublicInvitationController;
+use App\Http\Controllers\Api\V1\PublicRsvpController;
+use App\Http\Controllers\Api\V1\RsvpController;
 use App\Http\Middleware\SetEtag;
 use Illuminate\Support\Facades\Route;
 
@@ -57,6 +59,28 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('invitations', InvitationController::class)
         ->whereUlid('invitation');
+
+    /*
+    | LCV paneli (Faz 5).
+    |
+    | Liste ucu 15 saniyede bir cagrilir (config: poll_interval_seconds), yani
+    | sistemin en sik istenen auth'lu ucudur. SetEtag burada K46'nin karsiligini
+    | aliyor: Faz 4'te ETag'i ayri bir middleware yapmamizin gerekcesi
+    | "Faz 5'in polling ucu ayni katmani yeniden kullanacak" idi (C3).
+    |
+    | ⚠️ throttle:rsvp BURAYA KONMAZ — o kova YAZMA icindir (dakikada 10).
+    | Okuma polling'i 15 sn'de bir gelir ve o kovada bogulurdu.
+    */
+    Route::get('/invitations/{invitation}/rsvps', [RsvpController::class, 'index'])
+        ->whereUlid('invitation')
+        ->middleware(SetEtag::class)
+        ->name('invitations.rsvps.index');
+
+    // K52: rsvps.id ULID oldugu icin burada da whereUlid kullanilabiliyor —
+    // bicimsiz kimlik veritabanina hic ulasmaz (O6).
+    Route::delete('/rsvps/{rsvp}', [RsvpController::class, 'destroy'])
+        ->whereUlid('rsvp')
+        ->name('rsvps.destroy');
 });
 
 /*
@@ -74,4 +98,19 @@ Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(func
     Route::get('/invitations/{id}', [PublicInvitationController::class, 'show'])
         ->whereUlid('id')
         ->name('invitations.show');
+
+    /*
+    | 🔴 Sistemin TEK auth'suz YAZMA yolu (Faz 5).
+    |
+    | Ic ice kaynak: bir LCV yaniti her zaman bir davetiyeye aittir ve bu
+    | aidiyet URL'nin YAPISINDA durur. Duz bir /api/public/rsvps ucu olsaydi
+    | davetiye kimligi govdeden gelirdi — yani istemcinin sozune kalirdi.
+    |
+    | throttle:rsvp iki kova birden uygular (5.11): IP basina dakikada 10,
+    | davetiye basina saatte 60. Ikisi iki farkli saldiriyi kapatir.
+    */
+    Route::post('/invitations/{invitation}/rsvps', [PublicRsvpController::class, 'store'])
+        ->whereUlid('invitation')
+        ->middleware('throttle:rsvp')
+        ->name('invitations.rsvps.store');
 });

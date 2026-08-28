@@ -24,6 +24,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // prepend: throttle gibi erken firlatanlardan ONCE calismali,
         // yoksa o hatalar HTML doner. Bkz. kilavuz §2.2.
         $middleware->prependToGroup('api', ForceJsonResponse::class);
+
+        // Genel API tavani (Faz 5 · FAZ-4 §9.2'nin acik borcu). Limiter tanimi
+        // AppServiceProvider::apiLimits(). Gruba EKLENIR, basa degil:
+        // ForceJsonResponse once calismali ki 429 yaniti da JSON olsun (M3).
+        $middleware->throttleApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // null donerse Laravel varsayilan akisina duser (web rotalari).

@@ -640,3 +640,77 @@ HTTP'de her `GET` gövdesiz karşılığını da tanımlar.
 | **`route:cache`** | Rotaları serileştirip önbelleğe alan üretim optimizasyonu |
 | **Invokable controller** | Tek `__invoke()` metodu olan controller |
 | **Fail-safe** | Unutulduğunda güvenli tarafa düşen tasarım |
+
+---
+
+## 🆕 Faz 5 eklemeleri — LCV uçları ve hız sınırı
+
+> **Eklendi:** 28 Ağustos 2026 · **Dosya:** 5.11
+
+### Üç yeni rota
+
+| Method | Path | Grup | Middleware |
+|---|---|---|---|
+| `POST` | `/api/public/invitations/{invitation}/rsvps` | public (auth **yok**) | `SetEtag` (etkisiz), `throttle:rsvp` |
+| `GET` | `/api/invitations/{invitation}/rsvps` | `auth:sanctum` | `SetEtag` |
+| `DELETE` | `/api/rsvps/{rsvp}` | `auth:sanctum` | — |
+
+### 🔴 Neden iç içe kaynak (`/invitations/{id}/rsvps`)?
+
+Düz bir `/api/public/rsvps` ucu da yazılabilirdi; frontend'in bugünkü servisi
+(`src/services/rsvps.ts`) zaten öyle çağırıyor. Yazmıyoruz:
+
+> Bir LCV yanıtı **her zaman** bir davetiyeye aittir. Düz uçta bu aidiyet
+> **gövdeden** gelirdi — yani istemcinin sözüne kalırdı.
+
+İç içe URL'de aidiyet **yapısaldır**: `SubmitRsvpAction` davetiyeyi URL'den
+alır, `$invitation->rsvps()->make(...)` ile yazar ve istemcinin gönderdiği
+hiçbir alan aidiyeti değiştiremez (**N1**).
+
+Bu, Faz 3'te `timeline_events` için verilen kararın aynısı — ve orada olduğu
+gibi burada da frontend uyarlanacak (`FAZ-5.md` §8).
+
+### `throttle:rsvp` neden yalnızca POST'ta?
+
+Okuma ucu (`GET .../rsvps`) **15 saniyede bir** çağrılıyor. `throttle:rsvp`
+dakikada 10 istek veriyor — panel açık kalan bir sahip birkaç dakikada `429`
+yerdi.
+
+İki uç, iki farklı tehdit modeli:
+
+| Uç | Tehdit | Savunma |
+|---|---|---|
+| `POST` (auth yok) | Spam, kota doldurma, bot | `throttle:rsvp` — dar |
+| `GET` (auth'lu) | Yok denecek kadar az | `throttle:api` (60/dk) + `SetEtag` |
+
+### `SetEtag` public gruba takılı ama POST'a etki etmiyor
+
+Public grup zaten `SetEtag` middleware'ini taşıyordu (Faz 4). Yeni `POST` ucu
+da o grubun içinde, ama middleware ilk satırında kendini devre dışı bırakıyor:
+
+```php
+if (! $request->isMethodCacheable() || $response->getStatusCode() !== Response::HTTP_OK) {
+    return $response;
+}
+```
+
+`POST` cache'lenebilir bir metot değil ve yanıt `201`. Yani **hiçbir şey
+yapmıyor** — bilerek. Bir middleware'in "burada bana iş düşmüyor" diyebilmesi,
+grubu bölmekten iyidir.
+
+### Genel API tavanı (`throttleApi`)
+
+`bootstrap/app.php`'ye eklendi:
+
+```php
+$middleware->throttleApi();
+```
+
+**FAZ-4 §9.2'nin açık borcuydu:** public davetiye ucunda 404'ler
+cache'lenmiyor, yani rastgele ULID yağdıran biri her istekte bir sorgu
+açtırabiliyordu. Ayrıca `logout`/`me` uçlarının hiçbir sınırı yoktu (Faz 2'den
+beri açık madde).
+
+Sıra önemli: `ForceJsonResponse` **prepend** ile başta duruyor, `throttleApi()`
+gruba **eklendiği** için ondan sonra çalışıyor. Böylece `429` yanıtı da JSON
+zarfıyla dönüyor (**M3**: koruyucu middleware zincirin başına konur).

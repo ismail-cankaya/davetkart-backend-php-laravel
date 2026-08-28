@@ -10,6 +10,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
@@ -54,6 +55,62 @@ class AppServiceProvider extends ServiceProvider
     private function configureRateLimiting(): void
     {
         RateLimiter::for('auth', $this->authLimits(...));
+        RateLimiter::for('rsvp', $this->rsvpLimits(...));
+        RateLimiter::for('api', $this->apiLimits(...));
+    }
+
+    /**
+     * 🔴 LCV gonderimi — sistemin tek auth'suz YAZMA yolu (Faz 5).
+     *
+     * IKI kova birlikte calisir, cunku iki farkli saldiri sekli var:
+     *   1) Tek kaynaktan seri gonderim        -> IP anahtari (dakikada 10)
+     *   2) Botnet'ten tek davetiyeye yagmur   -> davetiye anahtari (saatte 60)
+     *
+     * Ikincisi olmasaydi 500 farkli IP'den gelen istek hicbir limite takilmaz
+     * ve bir davetiyenin LCV listesi coplenirdi; birincisi olmasaydi tek bir
+     * makine tum davetiyeleri sirayla doldurabilirdi.
+     *
+     * Kota bu limitin YERINE GECMEZ (5.7): hiz siniri ne kadar cok/hizli
+     * gonderildigine bakar, kota kac MISAFIR yazildigina.
+     *
+     * @return list<Limit>
+     */
+    private function rsvpLimits(Request $request): array
+    {
+        // Rota parametresi: throttle middleware'i rota eslesmesinden SONRA
+        // calisir, dolayisiyla burada okunabilir.
+        $invitation = $request->route('invitation');
+        $invitation = is_string($invitation) ? $invitation : 'bilinmeyen';
+
+        return [
+            Limit::perMinute(Config::integer('davetkart.rsvp.rate_limit.per_ip_per_minute'))
+                ->by('rsvp-ip|'.$request->ip()),
+
+            Limit::perHour(Config::integer('davetkart.rsvp.rate_limit.per_invitation_per_hour'))
+                ->by('rsvp-inv|'.$invitation),
+        ];
+    }
+
+    /**
+     * Genel API tavani — FAZ-4 §9.2'nin acik borcu.
+     *
+     * Faz 4'te fark edilmisti: public davetiye ucunda 404'ler CACHE'LENMIYOR,
+     * yani rastgele ULID yagdiran biri her istekte bir sorgu actirabiliyordu.
+     * Ayrica logout/me uclarinin hicbir siniri yoktu.
+     *
+     * 🔴 Anahtar yalnizca IP: bu limiter GRUP seviyesinde, yani auth:sanctum'DAN
+     * ONCE calisir. $request->user() burada zaten null doner (varsayilan guard
+     * 'web'), ustelik T13'te ogrenildigi gibi guard'a erken dokunmak onbellek
+     * tuzagi acar. Kullanici bazli tavan gerekirse rota seviyesinde ayri bir
+     * limiter tanimlanir.
+     *
+     * @return list<Limit>
+     */
+    private function apiLimits(Request $request): array
+    {
+        return [
+            Limit::perMinute(60)->by('api|'.$request->ip()),
+        ];
     }
 
     /**

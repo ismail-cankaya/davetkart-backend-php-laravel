@@ -470,3 +470,66 @@ app()->isProduction();   // false  (APP_ENV=local)
 | Test ortamı | [`../../phpunit.md`](../../phpunit.md) |
 | Bu dosyanın büyüyeceği yer | Faz 7 — `PaymentGateway` → `FakeGateway` bağlama |
 | Eager loading kuralı | `CLAUDE.md` §4 |
+
+---
+
+## 🆕 Faz 5 eklemeleri — iki yeni limiter ve bir konteyner bağlaması
+
+> **Eklendi:** 28 Ağustos 2026 · **Dosya:** 5.6 ve 5.11
+
+### `register()` artık boş değil
+
+```php
+$this->app->bind(RsvpQuotaResolver::class, TierRsvpQuotaResolver::class);
+```
+
+LCV kotasının kaynağı Faz 7'de değişecek (K42). Bu bağlama sayesinde o gün
+değişen tek satır burası olacak; `SubmitRsvpAction` ve testleri hiç
+dokunulmadan kalacak. Ayrıntı:
+[`../Contracts/RsvpQuotaResolver.md`](../Contracts/RsvpQuotaResolver.md).
+
+> `register()` yalnızca **bağlama** yapar, iş yapmaz — `boot()`'un aksine.
+> Sağlayıcılar sırayla kaydedildiği için `register()` içinde başka bir servisi
+> kullanmak güvenli değildir.
+
+### `rsvp` limiter — iki kova, iki saldırı
+
+```php
+Limit::perMinute(10)->by('rsvp-ip|'.$request->ip()),
+Limit::perHour(60)->by('rsvp-inv|'.$invitation),
+```
+
+`auth` limiter'ında olduğu gibi burada da **iki kova birlikte** çalışıyor,
+çünkü tek bir kova tek bir saldırıyı kapatır:
+
+| Kova | Neyi durdurur | Neyi durduramaz |
+|---|---|---|
+| IP başına 10/dk | Tek makineden seri gönderim | 500 IP'li bir botnet |
+| Davetiye başına 60/saat | Tek davetiyeye yağmur | Tüm davetiyelere yayılan yavaş saldırı |
+
+İkisi birlikte her ikisini de dar bir alana sıkıştırır. Bu, `auth` için Faz 2'de
+verilen kararın (K36) aynı mantığı: *brute-force* ve *spraying* farklı
+şekillerdir.
+
+**Değerler config'ten okunuyor** (`davetkart.rsvp.rate_limit.*`), koda gömülü
+değil — bir sınır ayarını değiştirmek kod değişikliği gerektirmemeli.
+
+🔴 **Hız sınırı kotanın yerine geçmez.** Hız sınırı *ne kadar sık* gönderildiğine
+bakar; kota *kaç misafir* yazıldığına. Bir saldırgan saatte 60 istekle günlerce
+gönderim yapıp 100'lük kotayı yine doldurabilir — onu kota durdurur (5.7).
+
+### `api` limiter — anahtarda neden kullanıcı yok?
+
+```php
+Limit::perMinute(60)->by('api|'.$request->ip()),
+```
+
+Bu limiter **grup seviyesinde** çalışır, yani `auth:sanctum`'dan **önce**.
+O anda `$request->user()` zaten `null` döner (varsayılan guard `web`).
+
+Üstelik dokunmak istemezdik: **T13**, guard'a erken dokunmanın bir önbellek
+tuzağı açtığını Faz 2'de acı biçimde göstermişti (`RequestGuard` çözdüğü
+kullanıcıyı özellikte tutuyor ve `setRequest()` onu temizlemiyor).
+
+Kullanıcı bazlı bir tavan gerekirse, doğru yer **rota seviyesinde** ayrı bir
+limiter'dır — `auth:sanctum`'dan sonra çalışacağı yerde.
