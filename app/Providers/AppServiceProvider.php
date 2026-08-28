@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Contracts\RsvpQuotaResolver;
+use App\Services\Rsvp\TierRsvpQuotaResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
@@ -17,10 +19,14 @@ class AppServiceProvider extends ServiceProvider
 {
     /**
      * Register any application services.
+     *
+     * Konteyner baglamalari burada yapilir: "bu arayuz istendiginde su sinifi
+     * ver". Faz 7'de LCV kotasi gercek abonelik kayitlarindan okunacak (K42);
+     * o gun degisecek TEK satir asagidakidir — SubmitRsvpAction'a dokunulmaz.
      */
     public function register(): void
     {
-        //
+        $this->app->bind(RsvpQuotaResolver::class, TierRsvpQuotaResolver::class);
     }
 
     /**
