@@ -49,13 +49,19 @@ return [
             'mimes' => ['image/jpeg', 'image/png', 'image/webp'],
             'max_per_invitation' => 30,
         ],
+        // 🔴 max_per_invitation her turde ZORUNLU: LCV medyasini kimligi
+        // bilinmeyen misafir yukluyor. Hiz siniri "ne siklikta"ya bakar, kota
+        // "ne kadar"a — ikisi birbirinin yerine gecmez (L3). Bu sinir olmasa
+        // gonderim yapmadan yuklenen "yetim" dosyalarla disk doldurulabilirdi.
         'rsvp_photo' => [
             'max_size_kb' => 2048,
             'mimes' => ['image/jpeg', 'image/png', 'image/webp'],
+            'max_per_invitation' => 200,
         ],
         'rsvp_video' => [
             'max_size_kb' => 20480,
             'mimes' => ['video/mp4', 'video/quicktime'],
+            'max_per_invitation' => 100,
         ],
     ],
 
