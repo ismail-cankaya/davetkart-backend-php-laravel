@@ -40,8 +40,8 @@ Backend bittiğinde ortaya çıkan şey:
 | **1** | İlk endpoint + `ForceJsonResponse` + **hata zarfı (K20)** | — | 8 | ✅ |
 | **2** | **Auth özellik dilimi** 🎯 walking skeleton | **Giriş / kayıt** ✅ | 10 → **17** | ✅ |
 | **3** | **Invitation CRUD + Policy + Resource ailesi** | **Dashboard + editör autosave** ✅ | 12 → **12 + 8 FE** | ✅ |
-| **4** | Public davetiye + cache + ETag 🔥 | `/invite/{slug}` sayfası | 6 | ⬜ **SIRADAKİ** |
-| **5** | RSVP (public submit + owner list) | LCV gönderimi + canlı panel | 10 | ⬜ |
+| **4** | **Public davetiye + cache + ETag** 🔥 | **`/invite/{id}` sayfası** ✅ | 6 → **8 + 2 FE** | ✅ |
+| **5** | RSVP (public submit + owner list) | LCV gönderimi + canlı panel | 10 | ⬜ **SIRADAKİ** |
 | **6** | Media + Job | Galeri yüklemesi | 7 | ⬜ |
 | **7** | `TierResolver` + Payment + publish 🔴 | Yayınlama + paywall | 12 | ⬜ |
 | **8** | AI proxy + Contact | Asistan, iletişim formu | 6 | ⬜ |
@@ -348,48 +348,87 @@ N+1 önleme · **sahipliğin bir `if` değil sorgunun kapsamı olduğu** ·
 
 ---
 
-## FAZ 4 — Public davetiye 🔥
+## FAZ 4 — Public davetiye 🔥 ✅ **TAMAMLANDI** (27 Ağustos 2026)
 
 **Amaç:** Sistemin en yüksek trafikli noktası. Davetiye linki WhatsApp grubuna
 düşer, 500 kişi 2 dakikada açar — ama veri **neredeyse hiç değişmez**. Kitap gibi
 bir okuma yükü.
 
-### Dosyalar
+### Dosyalar — planlanan 6, gerçekleşen 8 backend + 2 frontend
 
-| # | Dosya |
-|---|---|
-| 4.1 | `ResolvePublicInvitationAction` — slug → yayınlanmış davetiye |
-| 4.2 | `PublicInvitationController` — auth'suz, cache'li |
-| 4.3 | `routes/api.php` → `/api/public/invitations/{slug}` |
-| 4.4 | `Events/InvitationPublished` + `Listeners/ClearInvitationCache` |
-| 4.5 | ETag middleware veya controller içi `304` |
-| 4.6 | `tests/Feature/PublicInvitationTest.php` — 🔴 taslak sızmıyor |
+| # | Dosya | Durum |
+|---|---|---|
+| 4.1 | `ResolvePublicInvitationAction` — id → **yalnızca yayınlanmış** davetiye | ✅ |
+| 4.2a | `PublicTimelineEventResource` — misafire `id` gitmez | ✅ **planda yoktu** |
+| 4.2b | `PublicInvitationResource` — kapalı modülün verisi gövdeye girmez (C6) | ✅ |
+| 4.3 | `PublicInvitationController` — auth'suz, cache'li | ✅ |
+| 4.4 | `routes/api.php` → `/api/public/invitations/{id}` | ✅ |
+| 4.5 | `Http/Middleware/SetEtag.php` | ✅ **middleware seçildi** (K46) |
+| 4.6 | `Events/InvitationChanged` + `Listeners/ClearInvitationCache` | ✅ **ad değişti** (K48) |
+| 4.7 | `tests/Feature/PublicInvitationTest.php` | ✅ **25 test** |
+| 4.8 | Frontend: `publicInvitation.ts` + `InvitePage.tsx` | ✅ |
 
-### İki katmanlı optimizasyon
+### İki katmanlı optimizasyon — uygulandı
 
 ```
-1. katman — Cache::remember(...6 saat)   → veritabanına hiç gitme
-2. katman — ETag / 304 Not Modified      → gövdeyi hiç gönderme
+1. katman — Cache::remember(...6 saat)   → veritabanına hiç gitme      ✅
+2. katman — ETag / 304 Not Modified      → gövdeyi hiç gönderme        ✅
 ```
 
-Cache temizleme `InvitationPublished` / `InvitationUpdated` event'leriyle yapılır —
-TTL beklenmez, yayın anında geçersiz kılınır.
+🔴 **Ama cache Action'ın İÇİNDE değil (K45):** Action saf bir okuma olarak
+kaldı, cache controller'da ve **Resource çıktısı olan dizi** üzerinde çalışıyor.
+Sebep: cache'te serileşmiş bir Eloquent modeli tutmak, model şeması değişince
+bayat bir nesne canlandırır; dizi ise neyse odur. Ayrıca ETag aynı diziden
+hesaplanabiliyor.
+
+Cache temizleme **`InvitationChanged`** olayıyla yapılıyor (plandaki
+`InvitationPublished` **değil** — yayın akışı Faz 7'de, o olayı bugün fırlatan
+kod yok). Olay modelden **yapısal** olarak fırlıyor (`$dispatchesEvents`:
+`updated`, `deleted`, `restored`), yani yeni bir yazma yolu eklendiğinde
+kimsenin bir şey hatırlaması gerekmiyor.
+
+🔴 **TTL bir tazelik garantisi değil, üst sınırdır (O3).** Tazeliği olay
+sağlar; TTL yalnızca olayın kaçırıldığı durumlar (ham SQL, `event:cache` bayat)
+için emniyet kemeridir.
 
 ### `/api/public/` öneki neden var?
 
 Auth gerektirmeyen rotaları tek grupta toplamak, `auth:sanctum` middleware'ini
 yanlışlıkla unutma riskini **yapısal olarak** kaldırır. Varsayılan kapalı, istisna
-açıkça işaretli — bir *fail-safe* tasarımıdır (K12).
+açıkça işaretli — bir *fail-safe* tasarımıdır (K12). ✅ Uygulandı.
 
-### Bitti ölçütü
+### 🔴 Kapalı modülün verisi gönderilmez (C6)
 
-`/invite/{slug}` sayfası gerçek backend'den yükleniyor; ikinci istek
-`304 Not Modified` dönüyor. Yayınlanmamış davetiye **sızmıyor**.
+Fazın sözleşme kararı: `show_gift = false` iken `iban`, `bankName`,
+`accountHolder`, `giftOptions` gövdeye **hiç girmez** — boş string olarak değil,
+**anahtar olarak da** yok. Aynı kural kapalı olan her modüle uygulandı.
 
-### Öğrenilecek
+Sebep: kullanıcı hediye modülünü açıp IBAN'ını girip sonra kapatabilir. Modül
+kapalıysa ekranda hiçbir şey görünmez — ama veri gövdedeyse DevTools açan
+misafir onu okur. **Ekranda görünmemek ile gönderilmemek farklı şeylerdir.**
 
-Okuma-ağırlıklı yük · cache invalidation stratejileri · ETag ve koşullu istek ·
-Event/Listener ile modüller arası gevşek bağ.
+### Bitti ölçütü ✅
+
+`/invite/{id}` sayfası gerçek backend'den yükleniyor; `If-None-Match` ile ikinci
+istek `304 Not Modified` dönüyor. Yayınlanmamış, silinmiş ve hiç var olmayan
+davetiye **ayırt edilemez** biçimde 404 dönüyor.
+
+### Öğrenilen
+
+Okuma-ağırlıklı yük · iki katmanlı optimizasyon · cache invalidation · ETag ve
+koşullu istek (RFC 7232) · `/api/public/` fail-safe grubu · Event/Listener ile
+gevşek bağ · **bir savunmanın neyi kapatmadığını yazmak** (B6).
+
+### ⚠️ Faz 5'e devredilen borçlar
+
+| Konu | Not |
+|---|---|
+| Genel API hız sınırı yok | Public uçta 404'ler cache'lenmiyor; rastgele ULID yağdıran biri her istekte bir sorgu açtırıyor → **5.8** |
+| `event_at` saat dilimi | Duvar saati saklanıyor; geri sayım başka saat diliminde kayıyor. Doğru çözüm `invitations.timezone` kolonu + iki alan |
+| Cache invalidation uçtan uca test edilemiyor | `RefreshDatabase` rollback ediyor; kanıt `FAZ-4-ELLE-DOGRULAMA.md` **adım 12** |
+
+**Ayrıntı:** `docs/rehber/fazlar/FAZ-4.md` (kronoloji, K45-K48, 11 kural,
+dersler 34-41, Faz 3'te bulunan üç kusur).
 
 ---
 

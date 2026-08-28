@@ -455,24 +455,54 @@ olduğu** · **çalıştırılmayan kodun doğru varsayıldığı**.
 
 ---
 
-### FAZ 4 — Public davetiye (okuma yolu) 🔥
+### FAZ 4 — Public davetiye (okuma yolu) 🔥 ✅ **TAMAMLANDI** (27 Ağustos 2026)
 
 **Amaç:** Sistemin en yüksek trafikli noktası. Cache ve ETag.
 
-| # | Dosya |
-|---|---|
-| 4.1 | `ResolvePublicInvitationAction` — slug → yayınlanmış davetiye |
-| 4.2 | `PublicInvitationController` — auth'suz, cache'li |
-| 4.3 | `routes/api.php` → `/api/public/invitations/{slug}` |
-| 4.4 | `Events/InvitationPublished` + `Listeners/ClearInvitationCache` |
-| 4.5 | ETag middleware veya controller içi `304` |
-| 4.6 | `tests/Feature/PublicInvitationTest.php` — 🔴 taslak sızmıyor |
+**Planlanan 6 dosya → 8 backend + 2 frontend dosyası oldu.**
 
-**Bitti ölçütü:** `/invite/{slug}` sayfası gerçek backend'den yükleniyor;
-ikinci istek `304 Not Modified` dönüyor.
+| # | Dosya | Durum |
+|---|---|---|
+| 4.1 | `ResolvePublicInvitationAction` — id → **yalnızca yayınlanmış** davetiye | ✅ |
+| 4.2a | `PublicTimelineEventResource` — **planda yoktu**, misafire `id` gitmemeli (C5) | ✅ **eklendi** |
+| 4.2b | `PublicInvitationResource` — 🔴 **C6**: kapalı modülün verisi hiç gönderilmez | ✅ |
+| 4.3 | `PublicInvitationController` — auth'suz, cache'li | ✅ |
+| 4.4 | `routes/api.php` → `/api/public/invitations/{id}` (K12) | ✅ |
+| 4.5 | `Http/Middleware/SetEtag.php` — ETag → `304` | ✅ |
+| 4.6 | `Events/InvitationChanged` + `Listeners/ClearInvitationCache` (K7) | ✅ ⚠️ **ad değişti** |
+| 4.7 | `tests/Feature/PublicInvitationTest.php` — 🔴 taslak sızmıyor | ✅ **25 test** |
+| 4.8 | Frontend: `publicInvitation.ts` + `InvitePage.tsx` | ✅ |
 
-**Öğrenilecek:** Okuma-ağırlıklı yük, cache invalidation stratejileri, ETag ve
-koşullu istek, `/api/public/` fail-safe grubu.
+**Bitti ölçütü:** ✅ `/invite/{id}` sayfası gerçek backend'den yükleniyor;
+`If-None-Match` ile ikinci istek `304 Not Modified` dönüyor; yayınlanmamış
+davetiye sızmıyor.
+
+#### 🔴 Plandan sapmalar (tartışılarak yapıldı, geri alınmamalı)
+
+| Planda | Yapılan | Neden |
+|---|---|---|
+| Cache Action içinde | Cache **controller'da**, Resource çıktısı **dizi** üzerinde (**K45**) | Action saf ve cache'siz test edilebilir kalır; cache'te serileşmiş Eloquent modeli şema değişince bayat nesne canlandırır; ETag aynı diziden hesaplanır |
+| `Events/InvitationPublished` | `Events/InvitationChanged` (**K48**) | Yayın akışı Faz 7'de — `InvitationPublished`'ı bugün fırlatan kod yok, üç faz boyunca ölü kod olurdu. Olay modelden **yapısal** fırlıyor (`$dispatchesEvents`) |
+| Tek public Resource | + `PublicTimelineEventResource` | Artan bigint kimlik, K40'ın kapattığı sayım sızıntısını geri getirirdi |
+| "ETag middleware **veya** controller içi 304" | **Middleware** (**K46**) | Faz 5'in polling ucu aynı katmanı yeniden kullanacak (C3) |
+| Cache testleri uçtan uca | Zincir **üç halkaya** bölündü (**T15**) | `RefreshDatabase` rollback ediyor, `ShouldHandleEventsAfterCommit` testte hiç koşmuyor. Boşluk `FAZ-4-ELLE-DOGRULAMA.md` adım 12 ile kapatıldı |
+
+#### Faz 4'ün ortaya çıkardığı Faz 3 kusurları
+
+| Kusur | Etkisi | Düzeltme |
+|---|---|---|
+| Rota ULID kısıtı elle yazılmış, yalnızca büyük harf; `HasUlids` `strtolower()` uyguluyor | `show`/`update`/`destroy` **hiç çalışmadı**; 3 IDOR testi **boş yeşil** | `whereUlid()` (**R6**) |
+| `CreateInvitationAction` `status` yazmıyordu | `POST /api/invitations` → **500** | `make()` + açık atama (**E7**) |
+| Larastan `casts()` metodunu hiç okumuyordu | 3 PHPStan hatası gizliydi | `parseModelCastsMethod: true` |
+
+#### Kurulan kurallar
+
+**O1-O6** (yeni önbellek serisi) · **R6** · **E7** · **C6** · **T15** · **B6**.
+Tam listesi: `docs/rehber/fazlar/FAZ-4.md` §5.
+
+**Öğrenilen:** Okuma-ağırlıklı yük, iki katmanlı optimizasyon, cache
+invalidation, ETag ve koşullu istek (RFC 7232), `/api/public/` fail-safe grubu,
+Event/Listener ile gevşek bağ.
 
 ---
 
@@ -583,8 +613,8 @@ kısıtıyla race condition önleme.
 | 0 | Zemin + kalite kapıları | — | 5 |
 | 1 | İlk endpoint | — | 4 |
 | **2** ✅ | **Auth (özellik dilimi)** | **Giriş / kayıt** ✅ | 10 planlandı → **17 oldu** |
-| 3 | Invitation CRUD | Dashboard + editör autosave | 12 |
-| 4 | Public davetiye | `/invite/{slug}` sayfası | 6 |
+| **3** ✅ | **Invitation CRUD** | **Dashboard + editör autosave** ✅ | 12 planlandı → **12 backend + 8 frontend** |
+| **4** ✅ | **Public davetiye + cache + ETag** | **`/invite/{id}` sayfası** ✅ | 6 planlandı → **8 backend + 2 frontend** |
 | 5 | RSVP | LCV gönderimi + canlı panel | 10 |
 | 6 | Media | Galeri yüklemesi | 7 |
 | 7 | Ödeme + paywall | Yayınlama akışı | 12 |
