@@ -1,6 +1,6 @@
 {
-    "generatedAt": "2026-08-01T13:39:17+00:00",
-    "count": 19,
+    "generatedAt": "2026-08-28T13:00:00+00:00",
+    "count": 20,
     "codes": {
         "FILE_TOO_LARGE": {
             "status": 413,
@@ -27,6 +27,13 @@
         "MALFORMED_REQUEST": {
             "status": 400,
             "params": [],
+            "retryable": false
+        },
+        "MEDIA_QUOTA_EXCEEDED": {
+            "status": 403,
+            "params": [
+                "limit"
+            ],
             "retryable": false
         },
         "PAYMENT_PROVIDER_ERROR": {

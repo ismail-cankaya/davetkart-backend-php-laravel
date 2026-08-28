@@ -29,6 +29,7 @@ enum ErrorCode: string
     case InvitationLocked = 'INVITATION_LOCKED';
     case RsvpDeadlinePassed = 'RSVP_DEADLINE_PASSED';
     case RsvpQuotaExceeded = 'RSVP_QUOTA_EXCEEDED';
+    case MediaQuotaExceeded = 'MEDIA_QUOTA_EXCEEDED';
 
     // 404 — kaynak yok VEYA senin degil (H7: sahiplik yoksa 403 degil 404)
     case ResourceNotFound = 'RESOURCE_NOT_FOUND';
@@ -67,7 +68,8 @@ enum ErrorCode: string
 
             self::InvitationLocked,
             self::RsvpDeadlinePassed,
-            self::RsvpQuotaExceeded => 403,
+            self::RsvpQuotaExceeded,
+            self::MediaQuotaExceeded => 403,
 
             self::ResourceNotFound => 404,
 
@@ -98,6 +100,11 @@ enum ErrorCode: string
         return match ($this) {
             self::PaywallTierInsufficient => ['requiredTier'],
             self::RsvpQuotaExceeded => ['remaining', 'limit'],
+
+            // 🔴 'remaining' YOK, yalnizca 'limit'. Kalan sayi kac dosyanin
+            // yuklendigini ele verir; sahip zaten kendi galerisini goruyor ama
+            // misafirin LCV yuklemesi de ayni kodu doneriyor (H9).
+            self::MediaQuotaExceeded => ['limit'],
             self::FileTooLarge => ['max'],
             self::RateLimited, self::ProviderUnavailable => ['retryAfter'],
             default => [],
