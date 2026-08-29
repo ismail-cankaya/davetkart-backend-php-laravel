@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\Media;
+use GdImage;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Config;
@@ -134,7 +135,7 @@ final class OptimizeUploadedImage implements ShouldQueue
      * galerisinde 2000 piksel fazlasiyla yeterli. Asil kazanc burada:
      * yeniden kodlamadan cok, PIKSEL SAYISINI dusurmekten geliyor.
      */
-    private function downscale(\GdImage $image): \GdImage
+    private function downscale(GdImage $image): GdImage
     {
         $maxWidth = Config::integer('davetkart.media.optimize.max_width_px');
         $width = imagesx($image);
