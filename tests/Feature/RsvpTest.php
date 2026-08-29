@@ -471,10 +471,13 @@ final class RsvpTest extends TestCase
      */
     private function published(array $overrides = []): Invitation
     {
-        return Invitation::factory()->published()->create(array_merge([
+        /** @var array<string, mixed> $attributes */
+        $attributes = array_merge([
             'show_rsvp' => true,
             'rsvp_deadline' => null,
-        ], $overrides));
+        ], $overrides);
+
+        return Invitation::factory()->published()->create($attributes);
     }
 
     private function url(Invitation $invitation): string
@@ -508,6 +511,7 @@ final class RsvpTest extends TestCase
         return $this->payload([StoreRsvpRequest::HONEYPOT_FIELD => 'http://spam.example']);
     }
 
+    /** @param  TestResponse<\Illuminate\Http\Response>  $response */
     private function body(TestResponse $response): string
     {
         return (string) $response->getContent();

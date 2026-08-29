@@ -156,6 +156,81 @@ controller'ın işidir, Resource'un değil.
 > bir listede fark edilmeden çoğalırdı. Yükleme kararını çağıranda tutmak,
 > maliyeti **görünür** kılar.
 
+### 🔴 5.1 İlişki `null` dönebilir — ve bu PHPStan level 8'de ortaya çıktı
+
+`loadMissing('invitation')` çağrılsa **bile** `$rsvp->invitation` `null`
+olabilir. Sebep: `Invitation` modeli **`SoftDeletes`** kullanıyor.
+
+Sahip davetiyesini sildiğinde satır veritabanından **gitmez**, yalnızca
+`deleted_at` dolar. `rsvps` satırları da yerinde kalır (FK `cascadeOnDelete`
+gerçek bir `DELETE` beklerdi, soft delete o değildir). Ama Eloquent'in
+`SoftDeletingScope`'u **ilişkiye de uygulanır**: silinmiş davetiye ilişkiden
+çözülmez, `null` döner.
+
+O hâlde eski kod şuydu:
+
+```php
+return $this->invitations->update($user, $rsvp->invitation);   // ← Invitation|null
+```
+
+`InvitationPolicy::update()` imzası `Invitation` istiyor. `null` geçince PHP
+**`TypeError`** fırlatır → `ApiExceptionRenderer` bunu tanımaz → **500**.
+
+Yani: silinmiş bir davetiyenin LCV'sini silmeye çalışan **sahip**, 404 yerine
+*"sunucu hatası"* görürdü. Bir yetki kararı, bir çökmeye dönüşürdü.
+
+Düzeltilmiş hâli:
+
+```php
+$invitation = $rsvp->invitation;
+
+return $invitation !== null && $this->invitations->update($user, $invitation);
+```
+
+#### Bu bir "kısa devre" — A4'ü ihlal etmiyor mu?
+
+**A4** diyordu ki: *güvenlik kodunda kısa devre değerlendirmesi yasaktır.*
+`&&` operatörü sol taraf `false` ise sağ tarafı **hiç çalıştırmaz**.
+
+İhlal değil. **Ders 27**'nin ayırt edici sorusu şuydu: *"sağ taraf her durumda
+çalışmalı mı?"*
+
+| Yer | Sağ taraf her durumda çalışmalı mı | Sonuç |
+|---|---|---|
+| `LoginUserAction` (A4'ün doğduğu yer) | ✅ **Evet** — kullanıcı yoksa bile hash doğrulanmalı (zamanlama savunması, A3) | Kısa devre **yasak** |
+| Burada | ❌ **Hayır** — davetiye yoksa policy'yi çağırmanın anlamı yok; çağıramayız da (TypeError) | Kısa devre **doğru araç** |
+
+Ve fail-safe yönü doğru: bilinmeyen durumda cevap **`false`** — yani "hayır".
+Bir güvenlik kontrolünün varsayılanı her zaman ret olmalı.
+
+#### Neden ara değişken?
+
+```php
+$invitation = $rsvp->invitation;                        // ← neden bu satır?
+return $invitation !== null && $this->invitations->update($user, $invitation);
+```
+
+`$rsvp->invitation !== null && $this->invitations->update($user, $rsvp->invitation)`
+da yazılabilirdi. Yazılmadı, çünkü `$rsvp->invitation` bir **dinamik özellik**
+(`__get` sihri) — statik analiz araçları böyle bir erişimin iki çağrı arasında
+aynı değeri döndüreceğini **garanti edemez** ve tip daralması korunmayabilir.
+Ara değişken daralmayı kesinleştirir.
+
+Bu, Faz 3'ün **29. dersinin** ("tip belirsizliğini sınırda çöz") aynı ailesi.
+
+#### 🔴 Bunu hangi araç yakaladı?
+
+Hiçbir test değil. **PHPStan level 8.** Level 6'da bu hata görünmüyordu;
+`composer check` Faz 5'in `5.14` commit'iyle level 8'e çıkınca ortaya çıktı.
+
+Ders 35'in doğrudan uygulaması: *bir aracın çalıştığı, ancak bir şeyi
+**yakaladığını gördüğünde** bilinir.* Level yükseltmesi bir tören değildi —
+gerçek bir 500'ü önledi.
+
+> ⚠️ **Test borcu:** bu senaryonun (`soft-deleted davetiyenin LCV'si silinmeye
+> çalışılır → 404`) testi **henüz yok**. `MediaTest` ile birlikte yazılacak
+> testlerde bir satır olarak duruyor.
+
 ---
 
 ## 6. Ret neden 404, nerede 404'e çevriliyor?
@@ -192,6 +267,7 @@ silmeye çalışandan ayırt edilemeyen bir cevap alır.
 | 5 | Liste ucunu policy ile korumaya çalışmak | P3: koleksiyon **sorguyla** korunur; filtreyi unutmak sessiz kalmamalı |
 | 6 | Policy'yi `AuthServiceProvider`'a elle kaydetmek | Laravel 11+ konvansiyonla bulur; ikinci bir kayıt yeri kafa karıştırır |
 | 7 | Policy içinde sorgu yazmak | Policy karar verir, veri toplamaz |
+| 8 | 🔴 `$rsvp->invitation`'ı `null` olamaz saymak | Davetiye **soft-delete** edilmişse ilişki `null` döner → `TypeError` → **500** (§5.1) |
 
 ---
 

@@ -37,7 +37,10 @@ final class RsvpPolicy
      */
     public function view(User $user, Rsvp $rsvp): bool
     {
-        return $this->invitations->view($user, $rsvp->invitation);
+        $invitation = $rsvp->invitation;
+
+        // Davetiye soft-delete edilmisse iliski null doner (bkz. delete()).
+        return $invitation !== null && $this->invitations->view($user, $invitation);
     }
 
     /**
@@ -51,6 +54,13 @@ final class RsvpPolicy
      */
     public function delete(User $user, Rsvp $rsvp): bool
     {
-        return $this->invitations->update($user, $rsvp->invitation);
+        $invitation = $rsvp->invitation;
+
+        // 🔴 Invitation SoftDeletes kullaniyor: davetiye silinince satir kalir
+        // ama iliski NULL doner. Kontrol olmasa InvitationPolicy::update()
+        // TypeError firlatir ve yetki hatasi 500'e donusurdu.
+        // Bu bir kisa devre AMA A4'un yasakladigi tur degil: sag taraf
+        // "her durumda calismali mi?" sorusunun cevabi burada HAYIR (ders 27).
+        return $invitation !== null && $this->invitations->update($user, $invitation);
     }
 }

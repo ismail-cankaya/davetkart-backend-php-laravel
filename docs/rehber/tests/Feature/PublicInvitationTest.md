@@ -214,6 +214,126 @@ halkaların **birleştiğini** değil, her birinin doğru olduğunu gösteriyorl
 > Bir testin **neyi kanıtlamadığını** bilmek, kanıtladığını bilmek kadar
 > önemli. 4.5'te ETag için, 4.6'da yarış koşulu için aynısını yaptık.
 
+### 🔴 6.1 `touch()` testi neden `travel()` gerektiriyor?
+
+Bu test **Faz 4'te yazıldı, Faz 6'da ilk kez koştu ve kırmızı yandı.** Sebebi
+bu kılavuzun en öğretici bölümü:
+
+```php
+$this->published()->touch();          // ← eski hâli
+Event::assertDispatched(InvitationChanged::class);
+// The expected [App\Events\InvitationChanged] event was not dispatched.
+```
+
+#### Zincirin kaynaktan takibi
+
+`touch()`'tan olaya giden yol dört adım:
+
+```php
+// 1) Illuminate\Database\Eloquent\Concerns\HasTimestamps::touch()
+$this->updateTimestamps();
+return $this->save();
+
+// 2) HasTimestamps::updateTimestamps()
+$time = $this->freshTimestamp();
+if (! is_null($updatedAtColumn) && ! $this->isDirty($updatedAtColumn)) {
+    $this->setUpdatedAt($time);
+}
+
+// 3) Model::save()   ← 🔴 KRİTİK SATIR
+$saved = $this->isDirty() ? $this->performUpdate($query) : true;
+
+// 4) Model::performUpdate()
+$this->fireModelEvent('updated', false);   // ← olay BURADA fırlıyor
+```
+
+Adım 3'te `isDirty()` `false` dönerse `performUpdate()` **hiç çağrılmaz** —
+ve olay hiç fırlamaz. `save()` yine de `true` döner, yani **hiçbir hata
+görünmez**.
+
+#### Peki `updated_at` neden "değişmemiş" sayılıyor?
+
+Çünkü zaman damgası veritabanına **saniye** hassasiyetinde yazılıyor:
+
+```php
+// Illuminate\Database\Grammar (Postgres)
+public function getDateFormat()
+{
+    return 'Y-m-d H:i:s';      // ← mikrosaniye YOK
+}
+
+// HasAttributes::fromDateTime()
+return $this->asDateTime($value)->format($this->getDateFormat());
+```
+
+`create()` ile `touch()` arasında 0.05 saniye geçiyor. İkisi de aynı saniyeye
+düşünce, `original['updated_at']` ile yeni değer **birebir aynı string** olur:
+
+```
+'2026-08-29 14:07:11'  ===  '2026-08-29 14:07:11'    → isDirty() = false
+```
+
+🔴 Bu test **flaky** idi: saniye sınırına denk gelirse geçer, gelmezse geçmez.
+**T12** (*ölçümü kararsız olan şey teste konmaz*) tam olarak bunu yasaklıyordu —
+ama testi yazarken bu bağımlılık görünmüyordu, çünkü zaman **örtük** bir
+girdiydi.
+
+#### Kusur testte mi üretimde mi?
+
+**Testte.** Gerçek akışta kurgu oluşmaz:
+
+| | Testte | Üretimde (`UpdateInvitationAction`) |
+|---|---|---|
+| Model nereden geliyor | Aynı test metodunda `create()` edildi | Route model binding ile **veritabanından** okundu |
+| `updated_at`'in yaşı | ~0.05 saniye | Kullanıcının son kaydından beri **saniyeler/dakikalar** |
+| `isDirty()` | `false` | `true` |
+
+**Ders 33**: *bir aracın kırılması, kırılan yerin hatalı olduğu anlamına
+gelmez.* Faz 3'te `logout revokes only the current token` testinde aynı şey
+olmuştu — kusur `RevokeTokenAction`'da değil, testin guard önbelleğindeydi.
+
+**Ders 40 / T15**: *test edilebilirlik ile doğruluk çatışırsa testi uyarla,
+üretimi değil.* Zaman damgasına mikrosaniye eklemek (`timestamp('updated_at', 6)`
++ `$dateFormat = 'Y-m-d H:i:s.u'`) testi yeşile döndürürdü — ama şemayı bir
+testin rahatlığı için değiştirmek olurdu.
+
+#### Düzeltme
+
+```php
+$inv = $this->published();
+
+$this->travel(1)->second();          // ← zamanı DETERMİNİSTİK olarak ilerlet
+
+Event::fake([InvitationChanged::class]);
+$inv->touch();
+```
+
+`travel()` `Carbon::setTestNow()` çağırır ve Carbon 3'te bu
+`FactoryImmutable::getDefaultInstance()`'a yazar — yani `CarbonImmutable`
+(K23) de aynı test-now'ı okur. Temizlik gerekmiyor: Laravel `tearDown()`
+içinde `Carbon::setTestNow()` **ve** `CarbonImmutable::setTestNow()` çağırıyor
+(`InteractsWithTestCaseLifecycle.php:163,167`), yani sonraki testlere sızmaz.
+
+#### ⚠️ Bu düzeltmenin KAPATMADIĞI şey (B6)
+
+Testi düzeltmek, altındaki gerçekliği değiştirmiyor: **`touch()` tabanlı cache
+geçersizleştirme saniye altı çözünürlükte kör.** Aynı saniye içinde iki kayıt
+gelirse ikincisi `updated_at`'i değiştirmez → `updated` olayı fırlamaz →
+**cache düşmez**.
+
+Üretimde bunun olması için autosave'in aynı saniyede iki kez, üstelik davetiye
+alanlarına hiç dokunmadan (yalnızca program değiştirerek) kaydetmesi gerekir.
+Debounce ve ağ gecikmesi bunu pratikte çok zorlaştırıyor — ama **imkânsız
+kılmıyor**, ve TTL (O3: *tazelik garantisi değil, üst sınır*) o kaçırılan turu
+en fazla 6 saat sonra kapatır.
+
+> 📋 **Açık madde.** Gerçek çözüm `touch()`'a güvenmek yerine program
+> senkronizasyonundan sonra `InvitationChanged`'i **açıkça** fırlatmaktır — ama
+> bu K48'in (*olay modelden yapısal fırlar*) yeniden tartışılması demek.
+> `FAZ-6.md` §9'a devrediliyor.
+
+---
+
 ### `Event::fake()` model olaylarını da yakalıyor mu?
 
 Evet, ve bu tesadüf değil:

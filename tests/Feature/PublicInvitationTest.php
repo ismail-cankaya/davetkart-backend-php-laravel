@@ -262,13 +262,35 @@ final class PublicInvitationTest extends TestCase
         Event::assertDispatched(InvitationChanged::class);
     }
 
-    /** Yalnizca program degisse bile: UpdateInvitationAction'daki touch() sayesinde. */
+    /**
+     * Yalnizca program degisse bile: UpdateInvitationAction'daki touch() sayesinde.
+     *
+     * 🔴 travel() SART, konfor degil. touch() yalnizca `updated_at` GERCEKTEN
+     * degistiginde kaydeder ve PostgresGrammar::getDateFormat() 'Y-m-d H:i:s'
+     * dondurur — MIKROSANIYE YOK. Ayni saniye icinde olusturulup touch()'lanan
+     * bir kayitta yeni damga eskisiyle birebir ayni string olur;
+     * Model::save() isDirty() false gorur, performUpdate() cagrilmaz ve
+     * 'updated' olayi HIC firlamaz.
+     *
+     * Uretimde bu kurgu olusmaz: UpdateInvitationAction'a gelen model DB'den
+     * saniyeler once yazilmis bir damgayla gelir. Yani kusur URETIMDE degil
+     * TESTIN KURGUSUNDA idi (ders 33) — ve testi uyarliyoruz, uretimi degil
+     * (ders 40 / T15).
+     *
+     * Ayrintili aciklama: docs/rehber/tests/Feature/PublicInvitationTest.md §6.1
+     */
     #[Test]
     public function touching_an_invitation_dispatches_the_change_event(): void
     {
-        Event::fake([InvitationChanged::class]);
+        $inv = $this->published();
 
-        $this->published()->touch();
+        // Zamani DETERMINISTIK olarak ilerlet — saniye sinirina denk gelmeyi
+        // ummak flaky test uretirdi (T12). Laravel tearDown'da test-now'i
+        // kendisi sifirliyor (InteractsWithTestCaseLifecycle), sizinti yok.
+        $this->travel(1)->second();
+
+        Event::fake([InvitationChanged::class]);
+        $inv->touch();
 
         Event::assertDispatched(InvitationChanged::class);
     }
@@ -410,12 +432,17 @@ final class PublicInvitationTest extends TestCase
         return route('public.invitations.show', $invitation);
     }
 
+    /** @param  TestResponse<\Illuminate\Http\Response>  $response */
     private function body(TestResponse $response): string
     {
         return $response->getContent() ?: '';
     }
 
-    /** TestResponse::__get sihri yerine acik public ozellik uzerinden. */
+    /**
+     * TestResponse::__get sihri yerine acik public ozellik uzerinden.
+     *
+     * @param  TestResponse<\Illuminate\Http\Response>  $response
+     */
     private function etag(TestResponse $response): string
     {
         return (string) $response->baseResponse->headers->get('ETag');
