@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Rsvp;
 
 use App\Contracts\RsvpQuotaResolver;
+use App\Enums\MediaKind;
 use App\Enums\RsvpStatus;
 use App\Exceptions\RsvpDeadlinePassedException;
 use App\Exceptions\RsvpQuotaExceededException;
@@ -23,8 +24,9 @@ use Illuminate\Support\Facades\DB;
  *   0. Hiz siniri      -> rota katmani (5.8), bu Action'a hic gelmez
  *   1. Honeypot        -> bot sessizce yutulur, VERITABANINA HIC GIDILMEZ
  *   2. Hedef acik mi   -> ResolveOpenRsvpInvitationAction (yayin + modul + son tarih)
- *   3. Kota            -> dolduysa 403 (kilitli transaction icinde)
- *   4. KVKK            -> ham IP yerine hash
+ *   3. Medya aidiyeti  -> baskasinin/yanlis turdeki medya SESSIZCE dusurulur
+ *   4. Kota            -> dolduysa 403 (kilitli transaction icinde)
+ *   5. KVKK            -> ham IP yerine hash
  *
  * Sira tesadufi degil: en ucuz kontrol en basta. Bot trafigi tek bir sorgu
  * bile actirmadan elenir.
@@ -46,6 +48,7 @@ final class SubmitRsvpAction
      * @param  array<string, mixed>  $attributes  StoreRsvpRequest::rsvpAttributes()
      * @param  string  $ip  Ham IP — SAKLANMAZ, yalnizca hash'lenir
      * @param  bool  $honeypotTripped  Gorunmez alan dolduruldu mu (5.4)
+     * @param  array{photo: ?string, video: ?string}  $mediaIds  🔴 DOGRULANMAMIS
      *
      * @throws ModelNotFoundException Davetiye yok / yayinda degil / LCV kapali -> 404
      * @throws RsvpDeadlinePassedException Son tarih gecti -> 403
@@ -56,6 +59,7 @@ final class SubmitRsvpAction
         array $attributes,
         string $ip,
         bool $honeypotTripped,
+        array $mediaIds = ['photo' => null, 'video' => null],
     ): Rsvp {
         // 1. KATMAN — 🔴 En basta, cunku en ucuzu ve en cok isleyeni.
         // Bot ne bir sorgu actirir ne bir satir yazar; yine de basarili
@@ -75,7 +79,19 @@ final class SubmitRsvpAction
         // kodu tarafindan atanir (E7'nin ayni gerekcesi).
         $rsvp->ip_hash = $this->hashIp($ip);
 
-        // 3. KATMAN — kota. Kontrol ve yazma AYNI transaction icinde:
+        // 🔴 MEDYA BAGLAMA (Faz 6). Kimlik istemciden geldi ve BICIMSEL olarak
+        // dogrulandi ('ulid'), ama MESRU oldugu bilinmiyor. Sahiplik burada
+        // soruluyor — yabanci anahtar kisiti "boyle bir medya var mi"
+        // sorusunu cevaplar, "BU DAVETIYEYE ait mi" sorusunu cevaplayamaz.
+        $rsvp->photo_media_id = $this->resolveGuestMedia(
+            $invitation, $mediaIds['photo'], MediaKind::RsvpPhoto,
+        );
+
+        $rsvp->video_media_id = $this->resolveGuestMedia(
+            $invitation, $mediaIds['video'], MediaKind::RsvpVideo,
+        );
+
+        // 4. KATMAN — kota. Kontrol ve yazma AYNI transaction icinde:
         // aralarinda baska bir istek araya girerse ikisi birden kotayi asardi.
         DB::transaction(function () use ($invitation, $rsvp): void {
             $this->assertQuotaAvailable($invitation, $rsvp->guest_count);
@@ -140,6 +156,41 @@ final class SubmitRsvpAction
         if ($used + $incomingGuests > $limit) {
             throw new RsvpQuotaExceededException;
         }
+    }
+
+    /**
+     * Istemcinin verdigi medya kimligini DOGRULAR; gecersizse null doner.
+     *
+     * Iki kosul birden aranir ve ikisi de sorgunun KAPSAMINDA (P3 ailesi):
+     *   1. Medya BU davetiyeye ait mi   -> $invitation->media() iliskisi
+     *   2. Beklenen TURDE mi            -> where('kind', ...)
+     *
+     * 🔴 Ikincisi olmasaydi misafir kendi yukledigi rsvp_video kimligini
+     * photoMediaId olarak gonderebilir, ya da (davetiyeye ait oldugu icin)
+     * SAHIBIN GALERI fotografini kendi yanitina ilistirebilirdi.
+     *
+     * 🔴 Gecersiz kimlik EXCEPTION FIRLATMAZ, sessizce null olur. Gerekce
+     * bir kolaylik degil bir savunma: 403/422 donmek, saldirgana "bu kimlik
+     * gecerliydi ama senin degil" ile "bu kimlik hic yok" arasindaki farki
+     * ogretirdi — yani media tablosu ULID uzayindan taranabilir hale gelirdi
+     * (docs/08 §3.2'nin ayni gerekcesi). Misafir kendi gonderdigi kimligi
+     * zaten biliyor; yanitta fotografin gorunmemesi ona yeterli sinyal.
+     *
+     * Dogrulama kurali olarak yazilamazdi: FormRequest davetiyeyi henuz
+     * cozmemistir, dolayisiyla "hangi davetiye" sorusunun cevabi orada YOK.
+     */
+    private function resolveGuestMedia(Invitation $invitation, ?string $mediaId, MediaKind $kind): ?string
+    {
+        if ($mediaId === null) {
+            return null;
+        }
+
+        $belongs = $invitation->media()
+            ->whereKey($mediaId)
+            ->where('kind', $kind)
+            ->exists();
+
+        return $belongs ? $mediaId : null;
     }
 
     /**

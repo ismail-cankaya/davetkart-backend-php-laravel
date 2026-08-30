@@ -33,8 +33,9 @@ katman dizisi var.**
 2. Hedef açık mı   → ResolveOpenRsvpInvitationAction  ⟵ 6.13'te ÇIKARILDI
                      ├─ yayında değil / modül kapalı → 404
                      └─ son tarih geçti              → 403
-3. Kota            → dolduysa 403 (kilitli transaction içinde)
-4. KVKK            → ham IP yerine hash
+3. Medya aidiyeti  → başkasının / yanlış türdeki medya SESSİZCE düşer  ⟵ 6.20
+4. Kota            → dolduysa 403 (kilitli transaction içinde)
+5. KVKK            → ham IP yerine hash
 ```
 
 > 🔴 **6.13 (Faz 6) değişikliği:** eski 2. ve 3. katmanlar (görünürlük, modül,
@@ -182,7 +183,118 @@ verdiler.
 
 ---
 
-## 5. Katman 3 — Kota: `SUM` ve yarış koşulu
+## 4.5 🆕 Katman 3 — Medya aidiyeti (Faz 6)
+
+```php
+$rsvp->photo_media_id = $this->resolveGuestMedia($invitation, $mediaIds['photo'], MediaKind::RsvpPhoto);
+$rsvp->video_media_id = $this->resolveGuestMedia($invitation, $mediaIds['video'], MediaKind::RsvpVideo);
+```
+
+Misafir önce dosyayı yükler (`POST /public/invitations/{id}/media`), `{id, url}`
+alır, sonra LCV formunda o **kimliği** iliştirir. Bu katman *"bu kimlik gerçekten
+senin mi?"* sorusunu cevaplıyor.
+
+### 🔴 Neden veritabanı kısıtı yetmiyor?
+
+6.17'de `photo_media_id` üzerine yabancı anahtar kondu. O kısıt şunu garanti
+eder:
+
+> Böyle bir medya **var**.
+
+Cevaplayamadığı soru şu:
+
+> Bu medya **BU davetiyeye** mi ait?
+
+Yani kısıt olmasaydı bir misafir uydurma bir kimlik yazardı; kısıt varken
+**gerçek ama başkasının** kimliğini yazabilir. Medya kimlikleri ULID (K56) ve
+tahmin edilemez — ama aynı davetiyeye yükleme yapan başka bir misafirin kimliği
+ona yanıtında dönmüştür.
+
+**E2** (*bütünlük veritabanı kısıtıyla korunur*) ile **N1** (*aidiyet yapısal
+garanti olmalı*) farklı sorulardır. Birincisi veritabanının, ikincisi Action'ın
+işi.
+
+### İki koşul, tek sorgu
+
+```php
+$invitation->media()
+    ->whereKey($mediaId)
+    ->where('kind', $kind)
+    ->exists();
+```
+
+| Koşul | Neyi engelliyor |
+|---|---|
+| `$invitation->media()` | Başka davetiyenin medyasını iliştirmeyi |
+| `where('kind', $kind)` | 🔴 **Sahibin `gallery` fotoğrafını** kendi yanıtına iliştirmeyi |
+
+İkincisi kolay atlanır. Galeri fotoğrafı **aynı davetiyeye ait** olduğu için ilk
+koşulu geçer. Tür kontrolü olmasaydı misafir, sahibin özel galeri görselini
+kendi LCV'sine ekleyebilirdi — üstelik `photoMediaId` alanına bir `rsvp_video`
+kimliği yazarak da sözleşmeyi bozabilirdi.
+
+Sorgu bir `if` değil, bir **kapsam** (**P3** ailesi): aidiyet ilişkinin
+üzerinden soruluyor, `where('invitation_id', ...)` elle yazılmıyor.
+
+### 🔴 Geçersiz kimlik neden exception fırlatmıyor?
+
+```php
+return $belongs ? $mediaId : null;
+```
+
+`403` ya da `422` dönmek daha "dürüst" görünürdü. Dönmüyoruz — ve bu bir kolaylık
+değil, bir savunma:
+
+| Yanıt | Saldırgan ne öğrenir |
+|---|---|
+| `403 "bu medya senin değil"` | 🔴 Kimlik **gerçek**. `media` tablosu ULID uzayından taranabilir |
+| `404 "böyle bir medya yok"` | Kimlik **sahte** — yine bir bit bilgi |
+| **`null` (sessiz)** | Hiçbir şey |
+
+Bu, `docs/08` §3.2'nin (*başkasının kaynağında 404, 403 değil*) bir adım
+ilerisi: burada **hiçbir** ayrım verilmiyor. Faz 5'in **L2** kuralıyla aynı
+aile — *reddin kendisi bir bilgi sızıntısıdır.*
+
+Meşru kullanıcı bir şey kaybetmiyor: kendi gönderdiği kimliği zaten biliyor ve
+yanıtta fotoğrafın görünmemesi ona yeterli sinyal.
+
+> ⚠️ **T14 zorunlu.** Yanıt `201` ve ayırt edilemez olduğu için test **etkiyi**
+> doğrulamak zorunda: `assertDatabaseHas('rsvps', ['photo_media_id' => null])`.
+> Yanıta bakan bir test, savunma tamamen silinse de yeşil kalır — honeypot ile
+> birebir aynı durum (ders 44).
+
+### Neden `mediaIds` ayrı bir parametre?
+
+```php
+public function handle(
+    string $invitationId,
+    array $attributes,      // ← toplu atamaya gidiyor
+    string $ip,
+    bool $honeypotTripped,
+    array $mediaIds = [...], // ← doğrulanacak
+): Rsvp
+```
+
+`$attributes` doğrudan `$invitation->rsvps()->make()`'e gidiyor. Kimlikler o
+dizide olsaydı **doğrulanmadan** kolona yazılırdı ve veritabanı kısıtı da
+onları kabul ederdi (medya gerçekten var — sadece başkasının).
+
+Aynı ayrım `StoreRsvpRequest`'te de var: `rsvpAttributes()` ile `mediaIds()`
+iki farklı **güven seviyesi** taşıyor. Bir dizinin adı, içindekilere ne kadar
+güvenilebileceğini söylemeli.
+
+### Varsayılan değer neden var?
+
+```php
+array $mediaIds = ['photo' => null, 'video' => null],
+```
+
+`SubmitRsvpAction`'ı çağıran her yer medya göndermek zorunda kalmasın diye —
+ve varsayılan **güvenli tarafta**: medya yok.
+
+---
+
+## 5. Katman 4 — Kota: `SUM` ve yarış koşulu
 
 ### Neden `SUM(guest_count)`, `COUNT(*)` değil?
 
@@ -252,7 +364,7 @@ daha hızlı hem de sahibin autosave'ini hiç bloklamıyor.
 
 ---
 
-## 6. Katman 4 — KVKK: `ip_hash`
+## 6. Katman 5 — KVKK: `ip_hash`
 
 ```php
 $rsvp->ip_hash = $this->hashIp($ip);
@@ -339,6 +451,9 @@ süs demektir.
 | `quotaConsumingValues()` → `values()` | `declined_rsvps_do_not_consume_quota` |
 | `sum('guest_count')` → `count()` | `quota_counts_guests_not_rows` |
 | `$rsvp->ip_hash = ...` silinir | veritabanı `NOT NULL` ihlali → tüm gönderim testleri |
+| `resolveGuestMedia()` içindeki `where('kind', $kind)` silinir | 🔴 "misafir sahibin galeri fotoğrafını iliştiremez" — **T14**: `photo_media_id` **null kalmalı** |
+| `resolveGuestMedia()` içindeki `$invitation->media()` → `Media::query()` | "başka davetiyenin medyası iliştirilemez" |
+| `return $belongs ? $mediaId : null` → `throw` | "geçersiz kimlik 201 döner ve ayırt edilemez" (**L2**) |
 
 ### Elle
 

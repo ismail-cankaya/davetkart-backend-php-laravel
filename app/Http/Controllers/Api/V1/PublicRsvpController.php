@@ -33,6 +33,9 @@ final class PublicRsvpController extends Controller
             $request->rsvpAttributes(),
             (string) $request->ip(),
             $request->isHoneypotTripped(),
+            // 🔴 AYRI parametre, rsvpAttributes()'in icinde DEGIL: o dizi
+            // toplu atamaya gidiyor ve toplu atama sahiplik kontrolunu atlar.
+            $request->mediaIds(),
         );
 
         // 201 hem gercek kayitta hem honeypot yutmasinda doner — ayirt
