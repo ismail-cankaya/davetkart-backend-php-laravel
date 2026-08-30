@@ -223,3 +223,88 @@ göreceğiz: doğrulama biçim denetler, **iş kuralı** denetlemez.
 | Tablo | [`../../database/migrations/2026_08_28_120000_create_rsvps_table.md`](../../database/migrations/2026_08_28_120000_create_rsvps_table.md) |
 | Durum enum'u | [`../Enums/RsvpStatus.md`](../Enums/RsvpStatus.md) |
 | Kardeş model | [`TimelineEvent.md`](TimelineEvent.md) |
+
+---
+
+## 🆕 Faz 6 eklemesi — iki medya ilişkisi
+
+```php
+public function photoMedia(): BelongsTo
+{
+    return $this->belongsTo(Media::class, 'photo_media_id');
+}
+
+public function videoMedia(): BelongsTo
+{
+    return $this->belongsTo(Media::class, 'video_media_id');
+}
+```
+
+### 🔴 `#[Fillable]` listesi neden genişlemedi?
+
+Liste hâlâ beş alan:
+
+```php
+#[Fillable(['guest_name', 'guest_count', 'status', 'menu_preference', 'message'])]
+```
+
+`photo_media_id` ve `video_media_id` **bilerek dışarıda**. Sebep, `ip_hash` ve
+`invitation_id`'nin dışarıda olma sebebinden farklı ve daha ince:
+
+| Alan | Neden fillable değil |
+|---|---|
+| `ip_hash` | Değeri **sunucu üretir**; istemciden gelen bir "IP" veri değil yalandır |
+| `invitation_id` | Aidiyet **ilişkiden** kurulur (`$invitation->rsvps()->make()`) — **N1** |
+| **`photo_media_id`** | 🔴 Değer istemciden **gelir**, ama **doğrulanmadan** atanamaz |
+
+Üçüncüsü yeni bir kategori. Misafir `photoMediaId` gönderecek (6.19) ve o
+kimlik gerçek bir medyayı işaret edebilir — **ama başkasının davetiyesindeki**
+bir medyayı.
+
+Toplu atama (`$rsvp->fill($validated)`) bu soruyu **atlar**. Kimlik doğrudan
+kolona yazılır, veritabanı kısıtı da onu kabul eder (medya gerçekten var).
+Sonuç: bir misafir, komşu bir davetiyeye yüklenmiş fotoğrafı kendi yanıtına
+iliştirebilir.
+
+Bu yüzden `SubmitRsvpAction` (6.20) önce **sahiplik sorar**, sonra açıkça yazar:
+
+```php
+$rsvp->photo_media_id = $this->resolveGuestMedia($invitation, $photoMediaId, MediaKind::RsvpPhoto);
+```
+
+**E7**'nin ailesi: *sunucunun sahip olduğu alanın değerini sunucu kodu söyler.*
+Burada değer istemciden gelse de **kararı** sunucu veriyor.
+
+> Yabancı anahtar kısıtı (6.17) *"böyle bir medya var mı?"* sorusunu cevaplar.
+> *"Bu medya SANA ait mi?"* sorusunu cevaplayamaz — o bir iş kuralıdır ve
+> Action'a aittir.
+
+### Kolon adı neden açıkça yazıldı?
+
+```php
+$this->belongsTo(Media::class, 'photo_media_id');
+```
+
+Laravel `photoMedia` ilişki adından `photo_media_id`'yi zaten **doğru** tahmin
+ederdi. Yine de yazıldı: iki ilişki **aynı tabloya** bakıyor ve hangisinin hangi
+kolonu kullandığı okunduğunda görülmeli. Konvansiyona güvenmenin maliyeti sıfır
+olmadığı tek durum, iki şeyin birbirine karışabildiği durumdur.
+
+### Neden `hasOne` değil `belongsTo`?
+
+Yabancı anahtar **`rsvps` tablosunda** duruyor. `belongsTo`, "kimliği bende olan"
+tarafın ilişkisidir. `hasOne` yazsaydık Laravel `media.rsvp_id` diye bir kolon
+arardı — yoktu, ve olmamalı: aynı medya teorik olarak birden çok yerden
+referans alınabilir.
+
+### Eager loading borcu
+
+`RsvpResource` bu ilişkilere erişecek (6.21). `Model::preventLazyLoading()`
+geliştirmede **açık** olduğu için, liste ucu `with()` kullanmak zorunda:
+
+```php
+$invitation->rsvps()->with(['photoMedia', 'videoMedia'])->latest()->get();
+```
+
+Aksi hâlde 50 LCV = **101 sorgu** (N+1) ve yerelde `LazyLoadingViolationException`.
+Faz 3'ün 3.9 kararıyla aynı: `with()` çağrısı **controller'ın** işidir.

@@ -50,4 +50,33 @@ class Rsvp extends Model
     {
         return $this->belongsTo(Invitation::class);
     }
+
+    /**
+     * Misafirin ektigi fotograf — YOKSA null.
+     *
+     * 🔴 photo_media_id #[Fillable] listesinde YOK ve olmayacak. Kimlik
+     * istemciden geliyor, yani "bu medya bu davetiyeye mi ait?" sorusu
+     * cevaplanmadan atanamaz. Toplu atama o soruyu ATLAR — SubmitRsvpAction
+     * once dogrular, sonra acikca yazar (N1 + E7 ailesi).
+     *
+     * @return BelongsTo<Media, $this>
+     */
+    public function photoMedia(): BelongsTo
+    {
+        // Kolon adi konvansiyondan (photo_media_id) turetilemez cunku iliski
+        // adi 'photoMedia'; Laravel 'photo_media_id' tahmin ederdi ve dogru
+        // olurdu — yine de ACIKCA yaziliyor: iki iliski ayni tabloya bakiyor
+        // ve hangisinin hangi kolonu kullandigi okundugunda gorulmeli.
+        return $this->belongsTo(Media::class, 'photo_media_id');
+    }
+
+    /**
+     * Misafirin ektigi video — YOKSA null.
+     *
+     * @return BelongsTo<Media, $this>
+     */
+    public function videoMedia(): BelongsTo
+    {
+        return $this->belongsTo(Media::class, 'video_media_id');
+    }
 }
