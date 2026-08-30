@@ -291,3 +291,88 @@ yeni exception için bir `match` kolu büyütmesini durduracağız.
 | Durum enum'u | [`../../../Enums/RsvpStatus.md`](../../../Enums/RsvpStatus.md) |
 | Kardeş request | [`../Invitation/InvitationRequest.md`](../Invitation/InvitationRequest.md) |
 | Hata sözleşmesi | `docs/08-HATA-SOZLESMESI.md` |
+
+---
+
+## 🆕 Faz 6 eklemesi — `photoMediaId` / `videoMediaId`
+
+```php
+'photoMediaId' => ['sometimes', 'nullable', 'string', 'ulid'],
+'videoMediaId' => ['sometimes', 'nullable', 'string', 'ulid'],
+```
+
+Misafir önce dosyayı `POST /api/public/invitations/{id}/media` ucuna yükler,
+`{id, url}` alır, sonra LCV formunu gönderirken o **kimliği** iliştirir.
+
+### 🔴 Neden URL değil kimlik?
+
+Frontend `RsvpDraft.photoUrl` tutuyor ve `RsvpCreatePayload` içinde `photoUrl`
+gönderiyordu. Bu sözleşme **değişecek** (Faz 6 §8, frontend borcu).
+
+Sebep tek cümleyle: **bir URL doğrulanamaz.**
+
+```
+İstemci: "photoUrl": "https://baskasite.com/kotu.jpg"     → sunucu ne diyecek?
+İstemci: "photoUrl": ".../storage/media/rsvp_photo/x.jpg"  → bu kimin dosyası?
+```
+
+Kimlik gönderildiğinde sunucu **sorabilir**: *bu medya bu davetiyeye mi ait ve
+misafirin yükleyebileceği bir tür mü?* **N1**: *aidiyet, doğrulanacak bir girdi
+olmaktan çıkıp yapısal garanti olmalıdır.*
+
+### 🔴 Neden `exists:media,id` kuralı yok?
+
+Üç sebep:
+
+1. **Varlık zaten garanti.** 6.17'de yabancı anahtar kısıtı kondu; olmayan bir
+   medyaya işaret eden satır veritabanına **giremez** (**E2**: bütünlük
+   kısıtla korunur, `if` ile değil).
+2. **Asıl soru "var mı" değil.** `exists` *"böyle bir medya var mı?"* der.
+   Bizim sorumuz *"bu medya BU DAVETİYEYE ait mi?"* — bunu bir doğrulama kuralı
+   cevaplayamaz, çünkü doğrulama katmanı davetiyeyi henüz **çözmemiştir**.
+3. **`exists` bir sorgu açar.** Biçimsiz bir kimlik veritabanına hiç gitmemeli
+   (**O6**'nın aynı gerekçesi). `ulid` kuralı biçimi sorguya gitmeden eler.
+
+`ulid` kuralı biçimi doğrular, **meşruiyeti değil**. Bu ayrımı bilerek
+koruyoruz: doğrulama katmanının işi bittiğinde hâlâ cevaplanmamış bir soru
+kalıyor ve o soru Action'a ait.
+
+### `mediaIds()` neden ayrı bir erişimci?
+
+```php
+public function mediaIds(): array
+{
+    return ['photo' => ..., 'video' => ...];
+}
+```
+
+`rsvpAttributes()`'a **eklenmedi**, çünkü o dizinin gittiği yer belli:
+
+```php
+$rsvp = $invitation->rsvps()->make($attributes);   // ← TOPLU ATAMA
+```
+
+Toplu atama, aradaki her kontrolü **atlar**. Kimlikler o diziye girseydi
+doğrulanmadan kolona yazılırdı ve veritabanı kısıtı da onları kabul ederdi
+(medya gerçekten var — sadece **başkasının**).
+
+İki erişimci = iki farklı güven seviyesi:
+
+| Erişimci | İçeriği | Nereye gidiyor |
+|---|---|---|
+| `rsvpAttributes()` | Doğrulanmış, **güvenli** | Toplu atama |
+| `mediaIds()` | Biçimsel olarak geçerli, **meşruiyeti belirsiz** | Action'ın sahiplik kontrolü |
+
+🔴 Bir dizinin adı, içindekilere ne kadar güvenilebileceğini söylemeli. Aynı
+diziye koymak, o ayrımı görünmez kılardı.
+
+### `COLUMN_MAP`'e neden girmedi?
+
+Aynı gerekçe. Haritanın çıktısı **doğrudan** `make()`'e gidiyor; harita bir
+"toplu atamaya izin verilen alanlar" listesidir ve medya kimlikleri o listeye
+ait değil.
+
+`Rsvp` modelindeki `#[Fillable]` listesi de aynı sebeple genişlemedi (6.18) —
+iki koruma aynı yöne bakıyor ve biri diğerini gereksiz kılmıyor: harita
+*"hangi alan hangi kolona"*, `#[Fillable]` *"hangi kolon toplu atanabilir"*
+der.

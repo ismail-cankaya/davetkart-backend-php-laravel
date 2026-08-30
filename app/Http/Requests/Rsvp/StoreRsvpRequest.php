@@ -32,7 +32,13 @@ final class StoreRsvpRequest extends FormRequest
      * Istek alani -> veritabani kolonu (D4).
      *
      * ACIKCA yazilir, Str::snake ile TURETILMEZ. Listede olmayan alan sessizce
-     * duser: 'photoUrl'/'videoUrl' bugun buraya girmiyor (medya Faz 6).
+     * duser.
+     *
+     * 🔴 photoMediaId / videoMediaId BU HARITAYA GIRMEZ (Faz 6). Sebep:
+     * bu haritanin ciktisi $invitation->rsvps()->make($attributes) ile TOPLU
+     * ATANIYOR ve toplu atama "bu medya bu davetiyeye mi ait?" sorusunu
+     * ATLAR. Kimlikler ayri bir erisimciyle (mediaIds) veriliyor ve Action
+     * once dogrulayip sonra acikca yaziyor (N1).
      *
      * @var array<string, string>
      */
@@ -79,6 +85,17 @@ final class StoreRsvpRequest extends FormRequest
             'menuPreference' => ['sometimes', 'nullable', 'string', 'max:60'],
             'message' => ['sometimes', 'nullable', 'string', 'max:1000'],
 
+            // 🔴 Faz 6: misafirin yukledigi medyanin KIMLIGI (URL degil).
+            // 'ulid' kurali BICIMI dogrular, VARLIGI degil. 'exists:media,id'
+            // yazmiyoruz cunku:
+            //   1) Varlik zaten yabanci anahtar kisitiyla garanti (6.17, E2),
+            //   2) Asil soru "var mi" degil "BU DAVETIYEYE AIT MI" — bunu bir
+            //      dogrulama kurali cevaplayamaz, Action cevaplar (N1),
+            //   3) 'exists' bir SORGU acar; bicimsiz kimlik veritabanina hic
+            //      gitmemeli (O6'nin ayni gerekcesi).
+            'photoMediaId' => ['sometimes', 'nullable', 'string', 'ulid'],
+            'videoMediaId' => ['sometimes', 'nullable', 'string', 'ulid'],
+
             // Honeypot BILEREK kuralsiz: bir kural koysaydik 422 doner ve bota
             // "yakalandin" derdik. Sessizlik bir savunmadir (5.7).
         ];
@@ -106,6 +123,32 @@ final class StoreRsvpRequest extends FormRequest
         }
 
         return $attributes;
+    }
+
+    /**
+     * Misafirin ilistirdigi medya kimlikleri — DOGRULANMAMIS.
+     *
+     * 🔴 Donen degerler yalnizca BICIMSEL olarak gecerlidir (ULID). Hangi
+     * davetiyeye ait olduklari burada BILINMIYOR ve bilinemez: FormRequest
+     * bicim bilir, is bilmez (H10 ailesi). Aidiyeti SubmitRsvpAction sorar.
+     *
+     * Ayri bir erisimci olmasinin sebebi rsvpAttributes()'tan uzak tutmak:
+     * o dizi toplu atamaya gidiyor ve toplu atama dogrulamayi atlar.
+     *
+     * @return array{photo: ?string, video: ?string}
+     */
+    public function mediaIds(): array
+    {
+        /** @var array<string, mixed> $data */
+        $data = $this->validated();
+
+        $photo = $data['photoMediaId'] ?? null;
+        $video = $data['videoMediaId'] ?? null;
+
+        return [
+            'photo' => is_string($photo) ? $photo : null,
+            'video' => is_string($video) ? $video : null,
+        ];
     }
 
     /**
