@@ -38,6 +38,11 @@ final class PublicRsvpController extends Controller
             $request->mediaIds(),
         );
 
+        // 🔴 Iliskiler acikca yukleniyor: RsvpResource onlara dokunacak ve
+        // preventLazyLoading acik. loadMissing() honeypot yolunda da guvenli —
+        // kaydedilmemis modelde iliski sorgusu acilmaz, null kalir.
+        $rsvp->loadMissing(['photoMedia', 'videoMedia']);
+
         // 201 hem gercek kayitta hem honeypot yutmasinda doner — ayirt
         // edilebilir olsaydi savunma bir kez kullanilip olurdu (5.7).
         return (new RsvpResource($rsvp))

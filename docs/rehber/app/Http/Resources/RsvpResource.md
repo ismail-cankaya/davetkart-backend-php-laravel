@@ -174,3 +174,82 @@ davetiyeden geliyor ve **P1** gereği kural kopyalanmayacak.
 |---|---|
 | Model | [`../../Models/Rsvp.md`](../../Models/Rsvp.md) |
 | Kardeş Resource | [`PublicInvitationResource.md`](PublicInvitationResource.md) |
+
+---
+
+## 🆕 Faz 6 eklemesi — `photoUrl` / `videoUrl`
+
+```php
+'photoUrl' => $this->whenNotNull($this->photoMedia?->url()),
+'videoUrl' => $this->whenNotNull($this->videoMedia?->url()),
+```
+
+### 🔴 Şemada kimlik, sözleşmede URL
+
+| Katman | Ne tutuyor |
+|---|---|
+| `rsvps.photo_media_id` | ULID — `media` satırının kimliği |
+| API yanıtı | `photoUrl` — kullanılabilir bir adres |
+
+Bu bir tutarsızlık değil, **E1**'in (*türetilebilen veri saklanmaz*) doğal
+sonucu. URL üç parçadan hesaplanıyor: `media.disk` + `media.path` + o diskin
+`url` yapılandırması.
+
+Ham URL saklasaydık `APP_URL` veritabanına gömülür, alan adı değişimi ve S3
+göçü **her satırı** kırardı. Kimlik saklayıp URL türetmek, depolama kararını
+sözleşmeden **tamamen** ayırıyor: yarın S3'e geçtiğimizde `types.ts` bir
+karakter bile değişmeyecek.
+
+### `?->` ve `whenNotNull` birlikte ne yapıyor?
+
+```php
+$this->photoMedia?->url()
+```
+
+`?->` **null-safe operatörü**: `photoMedia` `null` ise `url()` **hiç çağrılmaz**
+ve ifade `null` olur. `$this->photoMedia->url()` yazsaydık fotoğrafsız her LCV
+`Call to a member function url() on null` ile patlardı.
+
+`whenNotNull()` ise sonucu sözleşmeye çevirir: değer `null` ise **anahtar hiç
+gönderilmez**.
+
+**C7**: *sözleşmede zorunlu alan her zaman gider; opsiyonel alan yoksa hiç
+gitmez.* `types.ts` `photoUrl?: string` diyor — yani `string | undefined`.
+`null` göndermek o tip sözleşmesini **kırar**.
+
+```json
+// fotoğraflı
+{ "data": { "id": "...", "guestName": "Melis", "photoUrl": "http://.../x.jpg" } }
+
+// fotoğrafsız — anahtar YOK
+{ "data": { "id": "...", "guestName": "Can" } }
+```
+
+### 🔴 Eager loading borcu — iki uçta iki farklı çözüm
+
+Bu Resource artık **ilişkilere dokunuyor** ve `Model::preventLazyLoading()`
+geliştirmede açık. Yani ilişkiler önceden yüklenmezse yerelde exception,
+üretimde N+1.
+
+| Uç | Çözüm | Neden bu |
+|---|---|---|
+| `RsvpController::index` (liste) | `->with(['photoMedia', 'videoMedia'])` | 50 LCV = **101 sorgu** olurdu |
+| `PublicRsvpController::store` (tek kayıt) | `->loadMissing([...])` | Tek model; sorgu zaten açılmış |
+
+`loadMissing()` honeypot yolunda da güvenli: orada dönen model **kaydedilmemiş**
+bir `Rsvp` ve ilişki kimliği `null` — Eloquent sorgu açmaz, ilişki `null` kalır.
+Yani bot yanıtı gerçek bir yanıttan ayırt edilemez olmaya devam eder (**L2**).
+
+Yükleme kararının Resource'ta değil **çağıranda** olması Faz 3'ün 3.9
+kararıydı: *maliyeti görünür kılmak.* Resource sessizce sorgu açan bir sınıf
+olsaydı N+1 bir listede fark edilmeden çoğalırdı.
+
+### `ip_hash` hâlâ yok — ve bu kural genişledi
+
+Faz 5'te `ip_hash` sözleşme dışında bırakılmıştı (**L4**: *kişisel veri
+hash'lenerek saklanır ve türevi de yayılmaz*).
+
+Faz 6 aynı ilkeyi medya tarafında uyguluyor: `photo_media_id` de yanıta
+**girmiyor**. Sahip için kimliğin bir anlamı yok — göreceği şey fotoğrafın
+kendisi. Kimliği vermek, `media` tablosunun iç kimlik uzayını sözleşmeye
+sızdırmak olurdu (**C1**: Resource bir beyaz listedir).

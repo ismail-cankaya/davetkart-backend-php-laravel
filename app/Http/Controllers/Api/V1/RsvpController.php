@@ -33,7 +33,13 @@ final class RsvpController extends Controller
         Gate::authorize('view', $invitation);
 
         return RsvpResource::collection(
-            $invitation->rsvps()->latest()->get(),
+            // 🔴 with() SART: RsvpResource photoMedia/videoMedia iliskilerine
+            // dokunuyor ve preventLazyLoading acik. Olmadan 50 LCV = 101 sorgu
+            // (N+1) ve yerelde LazyLoadingViolationException (Faz 3, 3.9).
+            $invitation->rsvps()
+                ->with(['photoMedia', 'videoMedia'])
+                ->latest()
+                ->get(),
         );
     }
 
