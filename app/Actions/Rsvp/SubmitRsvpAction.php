@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Actions\Rsvp;
 
-use App\Actions\Invitation\ResolvePublicInvitationAction;
 use App\Contracts\RsvpQuotaResolver;
 use App\Enums\RsvpStatus;
 use App\Exceptions\RsvpDeadlinePassedException;
@@ -23,19 +22,23 @@ use Illuminate\Support\Facades\DB;
  *
  *   0. Hiz siniri      -> rota katmani (5.8), bu Action'a hic gelmez
  *   1. Honeypot        -> bot sessizce yutulur, VERITABANINA HIC GIDILMEZ
- *   2. Gorunurluk      -> yayinda degilse / modul kapaliysa 404
- *   3. Son tarih       -> gectiyse 403
- *   4. Kota            -> dolduysa 403 (kilitli transaction icinde)
- *   5. KVKK            -> ham IP yerine hash
+ *   2. Hedef acik mi   -> ResolveOpenRsvpInvitationAction (yayin + modul + son tarih)
+ *   3. Kota            -> dolduysa 403 (kilitli transaction icinde)
+ *   4. KVKK            -> ham IP yerine hash
  *
  * Sira tesadufi degil: en ucuz kontrol en basta. Bot trafigi tek bir sorgu
  * bile actirmadan elenir.
+ *
+ * 🔴 6.13 (Faz 6): 2. katman BU DOSYADAN CIKARILDI. Gorunurluk + modul + son
+ * tarih ucusu artik ResolveOpenRsvpInvitationAction'da; cunku misafirin MEDYA
+ * yukleme ucu de tam olarak ayni uc kosulu istiyor ve kural iki yerde
+ * duramaz (C3). Davranis birebir ayni kaldi — kaniti RsvpTest'in 29 testi.
  * Ayrintili aciklama: docs/rehber/app/Actions/Rsvp/SubmitRsvpAction.md
  */
 final class SubmitRsvpAction
 {
     public function __construct(
-        private readonly ResolvePublicInvitationAction $resolveInvitation,
+        private readonly ResolveOpenRsvpInvitationAction $resolveOpenInvitation,
         private readonly RsvpQuotaResolver $quota,
     ) {}
 
@@ -61,18 +64,10 @@ final class SubmitRsvpAction
             return $this->silentlyDiscard($attributes);
         }
 
-        // 2. KATMAN — gorunurluk. Yayinda olmayan davetiye sorgudan HIC cikmaz
-        // (P3 ailesi); kural ResolvePublicInvitationAction'da TEK yerde durur.
-        $invitation = $this->resolveInvitation->handle($invitationId);
-
-        // Modul kapaliysa uc "yok" sayilir. Bos yanit degil 404: kapali modulun
-        // varligi da bir bilgidir ve misafir onu zaten gormedi (C6).
-        if (! $invitation->show_rsvp) {
-            throw (new ModelNotFoundException)->setModel(Invitation::class, [$invitationId]);
-        }
-
-        // 3. KATMAN — zaman.
-        $this->assertDeadlineNotPassed($invitation);
+        // 2. KATMAN — hedef acik mi? Uc kosul (yayinda + modul acik + son tarih
+        // gecmemis) TEK yerde soruluyor; ayni uculu misafirin medya yukleme
+        // ucunda da gecerli (C3).
+        $invitation = $this->resolveOpenInvitation->handle($invitationId);
 
         $rsvp = $invitation->rsvps()->make($attributes);
 
@@ -80,7 +75,7 @@ final class SubmitRsvpAction
         // kodu tarafindan atanir (E7'nin ayni gerekcesi).
         $rsvp->ip_hash = $this->hashIp($ip);
 
-        // 4. KATMAN — kota. Kontrol ve yazma AYNI transaction icinde:
+        // 3. KATMAN — kota. Kontrol ve yazma AYNI transaction icinde:
         // aralarinda baska bir istek araya girerse ikisi birden kotayi asardi.
         DB::transaction(function () use ($invitation, $rsvp): void {
             $this->assertQuotaAvailable($invitation, $rsvp->guest_count);
@@ -112,27 +107,6 @@ final class SubmitRsvpAction
         $rsvp->updated_at = now();
 
         return $rsvp;
-    }
-
-    /**
-     * `rsvp_deadline` bir TARIHTIR (saat tasimaz) ve son gun DAHILDIR.
-     *
-     * 🔴 `$deadline->isPast()` YAZILAMAZ: tarih kolonu gunun 00:00'ina denk
-     * gelir, dolayisiyla son gun boyunca isPast() true doner ve misafirler bir
-     * gun erken kapida kalirdi. Karsilastirma gunun BASLANGICIYLA yapilir.
-     */
-    private function assertDeadlineNotPassed(Invitation $invitation): void
-    {
-        $deadline = $invitation->rsvp_deadline;
-
-        // Son tarih belirtilmemisse sinir yok — sahip bilerek acik birakti.
-        if ($deadline === null) {
-            return;
-        }
-
-        if ($deadline->lessThan(now()->startOfDay())) {
-            throw new RsvpDeadlinePassedException;
-        }
     }
 
     /**

@@ -30,11 +30,19 @@ katman dizisi var.**
 ```
 0. Hız sınırı      → rota katmanı (5.8) — Action'a hiç gelmez
 1. Honeypot        → bot sessizce yutulur, VERİTABANINA HİÇ GİDİLMEZ
-2. Görünürlük      → yayında değilse / modül kapalıysa 404
-3. Son tarih       → geçtiyse 403
-4. Kota            → dolduysa 403 (kilitli transaction içinde)
-5. KVKK            → ham IP yerine hash
+2. Hedef açık mı   → ResolveOpenRsvpInvitationAction  ⟵ 6.13'te ÇIKARILDI
+                     ├─ yayında değil / modül kapalı → 404
+                     └─ son tarih geçti              → 403
+3. Kota            → dolduysa 403 (kilitli transaction içinde)
+4. KVKK            → ham IP yerine hash
 ```
+
+> 🔴 **6.13 (Faz 6) değişikliği:** eski 2. ve 3. katmanlar (görünürlük, modül,
+> son tarih) bu dosyadan çıkarılıp
+> [`ResolveOpenRsvpInvitationAction`](ResolveOpenRsvpInvitationAction.md)'a
+> taşındı. Sebep: misafirin **medya yükleme** ucu tam olarak aynı üç koşulu
+> istiyor ve aynı kural iki yerde duramaz (**C3**). Davranış birebir aynı
+> kaldı — kanıtı `RsvpTest`'in 29 testi. Ayrıntı: §4.
 
 **"Defense in depth" ne demek?** Hiçbir katman tek başına yeterli değildir;
 her biri diğerinin kaçırdığını yakalar:
@@ -114,111 +122,67 @@ ULID gönderse bile `201` alır ve tek bir `SELECT` bile açılmaz.
 
 ---
 
-## 4. Katman 2 — Görünürlük: kural neden burada tekrarlanmıyor?
+## 4. Katman 2 — "Hedef açık mı?" (6.13'te bu dosyadan çıktı)
 
 ```php
-$invitation = $this->resolveInvitation->handle($invitationId);
+$invitation = $this->resolveOpenInvitation->handle($invitationId);
 ```
 
-Faz 4'te yazılan `ResolvePublicInvitationAction` yeniden kullanılıyor. Kopyala
-yapıştır bir sorgu yazabilirdik:
+Tek satır, üç kontrol:
 
-```php
-Invitation::where('status', InvitationStatus::Published)->findOrFail($id);   // ❌
-```
+| Kontrol | Sonuç |
+|---|---|
+| Davetiye yayında mı | değilse **404** |
+| `show_rsvp` açık mı | değilse **404** (**C6**: kapalı modülün varlığı da bilgidir) |
+| `rsvp_deadline` geçmiş mi | geçmişse **403** (gizlenecek bir şey yok) |
 
-Yazmıyoruz. **P3**'ün ruhu: *görünürlük bir `if` değil, sorgunun kapsamıdır* —
-ve o kapsam **tek yerde** tanımlı olmalı. Yarın "askıya alınmış davetiye" diye
-bir durum eklenirse, tek dosya değişir; iki kopya olsaydı biri unutulur ve
-askıya alınmış davetiyeye LCV yazılmaya devam ederdi.
+### Neden çıkarıldı?
 
-> **B6 — bu tercihin bedeli:** `ResolvePublicInvitationAction`
-> `with('timelineEvents')` yapıyor, yani LCV gönderiminde işimize yaramayan bir
-> ek sorgu daha açılıyor. LCV gönderimi okumaya göre çok seyrek olduğu için bu
-> maliyet bilinçli olarak kabul edildi. Ölçüm bir gün aksini söylerse,
-> `ResolvePublicInvitationAction`'a bir "ilişkisiz" varyant eklemek doğru
-> çözümdür — sorguyu buraya kopyalamak değil.
+Faz 5'te bu üçü **bu Action'ın gövdesindeydi** ve o zaman doğruydu: soruyu
+soran tek bir uç vardı.
 
-### Modül kapalıysa neden 404?
+Faz 6 ikinci bir uç getirdi — misafirin LCV foto/videosunu yüklediği uç. O da
+aynı üç koşulu istiyor. Kopyalasaydık iki somut sonuç doğardı:
 
-```php
-if (! $invitation->show_rsvp) {
-    throw (new ModelNotFoundException)->setModel(Invitation::class, [$invitationId]);
-}
-```
+1. 🔴 **Disk doldurma yolu.** Kopyalarken en kolay unutulan üçüncüsü: son
+   tarih. Süresi dolmuş bir davetiyeye LCV gönderilemezken medya
+   yüklenebilseydi, davetiye başına ~2.4 GB süresiz yükleme açılırdı.
+2. **Kayma.** **P1**: *beş kopyanın dördünü doğru yazıp birini unutmak, tek
+   yeri yazmaktan daha olasıdır.*
 
-**C6** Faz 4'te şunu kurmuştu: *kapalı modülün verisi gövdeye hiç girmez.* Yani
-LCV modülü kapalıyken misafir `rsvpDeadline` alanını bile **görmedi**. Onun
-dünyasında bu davetiyenin LCV'si yok.
+**C3**: *aynı sözleşmeyi üreten iki uç tek yerden üretir.*
 
-O hâlde uç da yok: `404` tutarlı olan cevap. `403` deseydik "bu davetiyenin bir
-LCV modülü var ama kapalı" bilgisini vermiş olurduk — sahibin yapılandırmasını
-ifşa etmek.
+> 🔴 Bu refactor sırasında `CLAUDE.md` §1'in *"controller'da `if` bulunamaz"*
+> kuralı gevşetilmişti — yani üç kontrolü `PublicMediaController`'a yazmak
+> **serbest** hâle gelmişti. Yine de yazılmadı, çünkü bu kararın gerekçesi
+> `if` yasağı değil **C3/P1**'di. **Ders 42**: bir kuralı uygulamak,
+> gerekçesini kontrol etmeden kopyalamak değildir.
 
-`ModelNotFoundException` fırlatmak `abort(404)`'ten iyidir: **H10** gereği
-Action HTTP yanıtı üretmez; `ApiExceptionRenderer` bu exception'ı zaten
-`RESOURCE_NOT_FOUND`'a eşliyor (Faz 1).
+### Bu bölümün eski içeriği nereye gitti?
+
+`isPast()` tuzağı (**E8** / ders 43), `null` deadline kararı (ders 45), modül
+reddinin neden 404 olduğu ve `ResolvePublicInvitationAction`'ın
+`with('timelineEvents')` maliyeti (**B6**) — hepsi artık
+[`ResolveOpenRsvpInvitationAction.md`](ResolveOpenRsvpInvitationAction.md)
+§4-§8'de.
+
+Burada tekrarlanmıyor: bir kılavuz da bir doğruluk kaynağıdır.
+
+### 🔴 Refactor'ü ne korudu?
+
+Hiçbir davranış değişmedi — ama bunu **iddia etmek** ile **bilmek** farklı.
+
+Bu, Faz 5 koduna dokunan ilk değişiklikti ve `RsvpTest`'in 29 testi ilk kez
+gerçek işlerini yaptı: *değişimi güvenli kılmak.* Testler Faz 5'te yazıldı ama
+Faz 6'ya kadar **hiç koşmamıştı**; ilk koştukları hafta ilk faydalarını
+verdiler.
+
+> Bir refactor'ün tanımı budur: **davranış sabit, yapı farklı.** Testler
+> yeşil kalmıyorsa yaptığın şey refactor değil, değişikliktir.
 
 ---
 
-## 5. Katman 3 — Son tarih: bir günlük hata
-
-```php
-if ($deadline->lessThan(now()->startOfDay())) {
-    throw new RsvpDeadlinePassedException;
-}
-```
-
-🔴 **En sık yapılan hata burada `isPast()` yazmaktır.**
-
-`rsvp_deadline` kolonu bir **`date`**'tir; saat taşımaz. Eloquent onu
-`immutable_date` olarak okuduğunda elimize günün **00:00**'ı gelir:
-
-```
-rsvp_deadline = 2026-09-01  →  CarbonImmutable('2026-09-01 00:00:00')
-```
-
-Bugün 1 Eylül, saat 14:00 olsun:
-
-```php
-$deadline->isPast();    // true!   ← 00:00 gerçekten geçti
-```
-
-Yani **son gün boyunca** herkes kapıda kalırdı. Kullanıcı "1 Eylül'e kadar"
-yazdığında 1 Eylül'ü **dâhil** kastediyor.
-
-Doğrusu: bugünün başlangıcıyla karşılaştır.
-
-```
-deadline = 2026-09-01, bugün 2026-09-01 → 00:00 < 00:00 değil → GEÇER ✅
-deadline = 2026-09-01, bugün 2026-09-02 → 00:00 < 00:00 değil... 09-01 < 09-02 → REDDEDİLİR ✅
-```
-
-**Ders:** *tarih* ile *zaman damgası* farklı şeylerdir. Birini diğerinin
-metotlarıyla sorgulamak bir gün kayması üretir — ve bu tür hatalar üretimde
-"bazı kullanıcılar şikâyet ediyor" olarak görünür.
-
-> ⚠️ **Açık konu (Faz 4'ten devredildi):** `now()` uygulamanın saat dilimini
-> kullanır (`config('app.timezone')`, şu an `UTC`). Türkiye'deki bir misafir
-> için 1 Eylül 02:00'de gün hâlâ 31 Ağustos'tur (UTC). Doğru çözüm
-> `invitations.timezone` kolonudur ve `event_at` sorunuyla **aynı** çözümü
-> paylaşır. `FAZ-5.md` §9'da açık madde olarak duruyor.
-
-### `null` deadline
-
-```php
-if ($deadline === null) {
-    return;
-}
-```
-
-Son tarih girilmemişse sınır yoktur. **N4**'ün akrabası: *`null` ile bir değer
-farklı bilgilerdir.* `null` "sahip bunu bilerek boş bıraktı" demek; "bugün"
-varsaymak kullanıcının kararını uydurmak olurdu.
-
----
-
-## 6. Katman 4 — Kota: `SUM` ve yarış koşulu
+## 5. Katman 3 — Kota: `SUM` ve yarış koşulu
 
 ### Neden `SUM(guest_count)`, `COUNT(*)` değil?
 
@@ -288,7 +252,7 @@ daha hızlı hem de sahibin autosave'ini hiç bloklamıyor.
 
 ---
 
-## 7. Katman 5 — KVKK: `ip_hash`
+## 6. Katman 4 — KVKK: `ip_hash`
 
 ```php
 $rsvp->ip_hash = $this->hashIp($ip);
@@ -324,7 +288,7 @@ burada doğrudan bir güvenlik özelliğini koruyor.
 
 ---
 
-## 8. Action'ın bilmediği şeyler
+## 7. Action'ın bilmediği şeyler
 
 `CLAUDE.md` §1'in kuralları burada da geçerli:
 
@@ -341,26 +305,26 @@ sınamak için istek göndermek gerekmez.
 
 ---
 
-## 9. Sık yapılan hatalar
+## 8. Sık yapılan hatalar
 
 | # | Hata | Ne olur |
 |---|---|---|
 | 1 | Honeypot'ta `403` dönmek | Bota yakalandığını söylersin; savunma bir kez kullanılıp ölür |
 | 2 | Honeypot'u sorgudan sonra kontrol etmek | Bot trafiği veritabanını meşgul eder |
-| 3 | `$deadline->isPast()` | Son gün boyunca herkes reddedilir |
+| 3 | ~~`$deadline->isPast()`~~ | 6.13'te taşındı → [`ResolveOpenRsvpInvitationAction.md`](ResolveOpenRsvpInvitationAction.md) §9 |
 | 4 | Kotayı `COUNT(*)` ile ölçmek | 100 kayıt × 4 kişi = 400 misafir geçer |
 | 5 | Kota kontrolünü transaction dışında yapmak | Eşzamanlı istekler kotayı birlikte aşar |
 | 6 | `lockForUpdate()` koymamak | Aynı sorun; transaction tek başına yetmez (READ COMMITTED) |
 | 7 | `ip_hash`'i `#[Fillable]`'a eklemek | İstemci kendi hash'ini uydurur |
 | 8 | Ham IP saklamak | KVKK ihlali |
-| 9 | Görünürlük sorgusunu buraya kopyalamak | Kural iki yere düşer (P3/C3) |
-| 10 | Modül kapalıyken `403` dönmek | Sahibin yapılandırması ifşa olur (C6) |
+| 9 | 🔴 Üç açıklık kontrolünü buraya **geri** yazmak | Kural iki yere düşer; misafirin medya ucuyla ayrışır (**C3**) |
+| 10 | ~~Modül kapalıyken `403` dönmek~~ | 6.13'te taşındı → [`ResolveOpenRsvpInvitationAction.md`](ResolveOpenRsvpInvitationAction.md) §4 |
 | 11 | `env('APP_KEY')` kullanmak | `config:cache` sonrası pepper'sız hash |
 | 12 | Kaydedilmemiş modeli `save()` sanmak | Honeypot testi `201` görüp yeşil yanar (T14) |
 
 ---
 
-## 10. Kendin dene
+## 9. Kendin dene
 
 ### Mutasyon tablosu (kural 14)
 
@@ -371,8 +335,7 @@ süs demektir.
 |---|---|
 | `if ($honeypotTripped)` bloğu silinir | `honeypot_submission_is_not_persisted` |
 | `silentlyDiscard()` içine `$rsvp->save()` eklenir | aynı test (T14 sayesinde) |
-| `show_rsvp` kontrolü silinir | `rsvp_is_rejected_when_module_is_closed` |
-| `lessThan(now()->startOfDay())` → `isPast()` | `rsvp_is_accepted_on_the_deadline_day` |
+| `resolveOpenInvitation->handle()` çağrısı `resolvePublic`'e döndürülür | `rsvp_is_rejected_when_module_is_closed` **ve** `rsvp_is_accepted_on_the_deadline_day` — 🔴 bu iki test 6.13 refactor'ünün **koruyucusu**; kırılırlarsa taşıma davranışı değiştirmiş demektir |
 | `quotaConsumingValues()` → `values()` | `declined_rsvps_do_not_consume_quota` |
 | `sum('guest_count')` → `count()` | `quota_counts_guests_not_rows` |
 | `$rsvp->ip_hash = ...` silinir | veritabanı `NOT NULL` ihlali → tüm gönderim testleri |
@@ -388,7 +351,7 @@ php artisan tinker --execute="App\Models\Invitation::factory()->published()->cre
 
 ---
 
-## 11. Terim sözlüğü
+## 10. Terim sözlüğü
 
 | Terim | Anlamı |
 |---|---|
@@ -405,14 +368,23 @@ php artisan tinker --execute="App\Models\Invitation::factory()->published()->cre
 
 ---
 
-## 12. Sırada ne var?
+## 11. Sırada ne var?
 
-**5.8 — `RsvpResource` ve `RsvpPolicy`.** Sahibin gördüğü sözleşme ve
-`ip_hash`'in oraya **hiç** girmemesi (C1).
+> Bu bölüm Faz 5'te *"5.8 — `RsvpResource` ve `RsvpPolicy`"* diyordu; o adım
+> tamamlandı. 6.13 refactor'ünden sonraki halka aşağıda.
+
+**6.14 — `StoreGuestMediaAction`.** Misafirin medya yüklemesi, bu Action'ın
+2. katmanını (`ResolveOpenRsvpInvitationAction`) **paylaşarak** kullanacak.
+Refactor'ün amacı tam olarak oydu: aynı üç koşul, tek yerde.
+
+Aradaki tek fark kota metriğinde: LCV `SUM(guest_count)` sayar (kaç **misafir**),
+medya `COUNT(*)` sayar (kaç **dosya**). İkisi ortaklaşmadı — çünkü ortaklaşacak
+bir şey yok; sınırların **tanımı** farklı (**ders 42**).
 
 | İlgili | Nerede |
 |---|---|
 | Kota arayüzü | [`../../Contracts/RsvpQuotaResolver.md`](../../Contracts/RsvpQuotaResolver.md) |
 | Exception'lar | [`../../Exceptions/RsvpQuotaExceededException.md`](../../Exceptions/RsvpQuotaExceededException.md) · [`../../Exceptions/RsvpDeadlinePassedException.md`](../../Exceptions/RsvpDeadlinePassedException.md) |
+| 🔴 Açıklık kuralı (6.13'te buradan çıktı) | [`ResolveOpenRsvpInvitationAction.md`](ResolveOpenRsvpInvitationAction.md) |
 | Görünürlük | [`../Invitation/ResolvePublicInvitationAction.md`](../Invitation/ResolvePublicInvitationAction.md) |
 | Tablo | [`../../../database/migrations/2026_08_28_120000_create_rsvps_table.md`](../../../database/migrations/2026_08_28_120000_create_rsvps_table.md) |
