@@ -714,3 +714,74 @@ beri açık madde).
 Sıra önemli: `ForceJsonResponse` **prepend** ile başta duruyor, `throttleApi()`
 gruba **eklendiği** için ondan sonra çalışıyor. Böylece `429` yanıtı da JSON
 zarfıyla dönüyor (**M3**: koruyucu middleware zincirin başına konur).
+
+---
+
+## 🆕 Faz 6 eklemeleri — iki medya ucu ve `throttle:media`
+
+### İki yeni rota
+
+| Method | Path | Grup | Throttle |
+|---|---|---|---|
+| POST | `/api/invitations/{invitation}/media` | `auth:sanctum` | `throttle:api` (grup tavanı) |
+| POST | `/api/public/invitations/{invitation}/media` | `/api/public/` (**K12**) | 🔴 `throttle:media` |
+
+Uç noktalar bir **kaynak listesi** değil, iki farklı **kapı**: aynı işi
+(dosya kaydetme) yapıyorlar ama farklı tehdit modelleri altında.
+
+### 🔴 `docs/09`'un `/media/upload` notu geçersiz kılındı
+
+Plan şöyle diyordu:
+
+> `POST /api/media/upload` — ⚠️ Plan `/api/media` diyordu; **frontend
+> kazanır**, o böyle çağırıyor.
+
+O not misafirin medya yüklemesini **hesaba katmadan** yazılmıştı. Düz bir
+`/media/upload` ucunda davetiye kimliği **gövdeden** gelirdi — yani istemcinin
+sözüne kalırdı. **N1**: *aidiyet, doğrulanacak bir girdi olmaktan çıkıp yapısal
+garanti olmalıdır.*
+
+İç içe kaynakta aidiyet URL'nin **yapısında** durur ve `whereUlid()` biçimsiz
+kimliği veritabanına hiç ulaştırmaz (**O6**).
+
+Sonuç: `davetkart-frontent/src/services/media.ts` uyarlanacak (Faz 6 §8).
+Faz 3 ve Faz 5'te de aynı sınıftan bir frontend borcu doğmuştu.
+
+### `throttle:media` neden `throttle:rsvp`'den dar?
+
+| | `throttle:rsvp` | `throttle:media` |
+|---|---|---|
+| IP başına | 10 / dakika | **5 / dakika** |
+| Davetiye başına | 60 / saat | **40 / saat** |
+
+İki sebep:
+
+1. 🔴 **Honeypot yok.** Faz 5'te bot, görünmez alanı doldurduğu anda tek bir
+   sorgu bile açtırmadan eleniyordu. Dosya yüklemede görünmez alan diye bir şey
+   yok — bu limiter, orada honeypot'un yaptığı işi de üstlenmek zorunda.
+2. **İstek başına maliyet on kat.** Bir LCV satırı birkaç yüz bayt; bir video
+   20 MB + MIME analizi + kuyrukta yeniden kodlama.
+
+Kova kalıbı `rsvp` ile aynı (IP + davetiye), çünkü iki saldırı şekli aynı: tek
+kaynaktan seri gönderim, ve botnet'ten tek davetiyeye yağmur.
+
+### Sahibin ucunda neden ayrı throttle yok?
+
+Çünkü tehdit modeli farklı: uç `auth:sanctum` arkasında, yani istek yapan
+kişinin bir hesabı ve bir token'ı var. Grubun `throttle:api` tavanı (dakikada
+60/IP) yeterli. Sınırsız yükleme yine mümkün değil — `max_per_invitation = 30`
+kotası onu kapatıyor (**L3**: limit ≠ kota).
+
+### `SetEtag` misafir ucunda ne yapıyor?
+
+**Hiçbir şey.** `/api/public/` grubuna takılı olduğu için istek onun içinden
+geçiyor, ama:
+
+```php
+if (! $request->isMethodCacheable() || $response->getStatusCode() !== Response::HTTP_OK) {
+    return $response;
+}
+```
+
+`POST` cacheable değil ve yanıt `201`. İki koşuldan ikisi de eleniyor, middleware
+erken dönüyor. Faz 5'te aynı durum LCV gönderimi için de vardı.

@@ -533,3 +533,56 @@ kullanıcıyı özellikte tutuyor ve `setRequest()` onu temizlemiyor).
 
 Kullanıcı bazlı bir tavan gerekirse, doğru yer **rota seviyesinde** ayrı bir
 limiter'dır — `auth:sanctum`'dan sonra çalışacağı yerde.
+
+---
+
+## 🆕 Faz 6 eklemesi — `media` limiter'ı
+
+```php
+RateLimiter::for('media', $this->guestMediaLimits(...));
+```
+
+Üçüncü adlandırılmış limiter. Kalıp `rsvpLimits()` ile **birebir aynı** (bir IP
+kovası + bir davetiye kovası), sayılar farklı:
+
+| | `rsvp` | `media` |
+|---|---|---|
+| IP başına | 10 / dakika | **5 / dakika** |
+| Davetiye başına | 60 / saat | **40 / saat** |
+
+### Neden ayrı bir limiter, neden aynısı değil?
+
+Çünkü iki uç **aynı tehdide karşı aynı yükü taşımıyor**:
+
+1. 🔴 **Honeypot yok.** Faz 5'te LCV gönderiminde bot, görünmez alanı
+   doldurduğu anda tek bir sorgu bile açtırmadan eleniyordu — hız sınırının
+   önünde bedava bir filtre vardı. Dosya yüklemede öyle bir katman **yok**
+   (görünmez bir dosya alanı diye bir şey yok). Bu limiter, orada honeypot'un
+   yaptığı işi de üstlenmek zorunda.
+2. **İstek başına maliyet on kat.** LCV satırı birkaç yüz bayt; bir video
+   20 MB + `finfo` analizi + kuyrukta GD ile yeniden kodlama.
+
+Aynı `throttle:rsvp` kovasını paylaşsalardı, ucuz LCV gönderimleri pahalı
+yüklemelerin kovasını tüketirdi — ya da tersi. **Farklı tehdit modeli = farklı
+kova** (Faz 2, ders 25).
+
+### Sayılar neden config'te?
+
+`Config::integer('davetkart.media.rate_limit.guest_per_ip_per_minute')`
+
+Bir hız sınırı bir **iş tercihidir** (**E6**), kod değişikliği gerektirmemeli.
+Üretimde trafiğe bakıp ayarlanacak — ve o gün `.env`/`config` yeterli olmalı,
+deploy değil.
+
+### Anahtar öneki neden `media-ip|` / `media-inv|`?
+
+```php
+Limit::perMinute(...)->by('media-ip|'.$request->ip());
+```
+
+`rsvp` limiter'ı `rsvp-ip|` kullanıyor. Önek olmasaydı iki limiter **aynı cache
+anahtarını** paylaşırdı: LCV gönderen biri medya kovasını da tüketirdi ve
+sınırlar sessizce birbirine karışırdı.
+
+🔴 Bu, **O2**'nin (*cache anahtarı tek bir yerde üretilir*) hız sınırındaki
+karşılığı: anahtar çakışması hata vermez, **yanlış davranır**.

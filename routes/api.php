@@ -5,7 +5,9 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\PublicInvitationController;
+use App\Http\Controllers\Api\V1\PublicMediaController;
 use App\Http\Controllers\Api\V1\PublicRsvpController;
 use App\Http\Controllers\Api\V1\RsvpController;
 use App\Http\Middleware\SetEtag;
@@ -81,6 +83,23 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/rsvps/{rsvp}', [RsvpController::class, 'destroy'])
         ->whereUlid('rsvp')
         ->name('rsvps.destroy');
+
+    /*
+    | Galeri yuklemesi (Faz 6) — davetiye SAHIBI.
+    |
+    | Ic ice kaynak: bir dosya her zaman bir davetiyeye aittir ve bu aidiyet
+    | URL'nin YAPISINDA durur. Duz bir /media/upload ucu olsaydi davetiye
+    | kimligi govdeden gelirdi — yani istemcinin sozune kalirdi (N1).
+    |
+    | ⚠️ docs/09 "frontend kazanir, POST /media/upload" diyordu; o not misafir
+    | yuklemesini hesaba katmadan yazilmisti. Frontend uyarlanacak (Faz 6 §8).
+    |
+    | Ayri bir throttle YOK: uc auth arkasinda ve grubun throttle:api tavani
+    | zaten gecerli. Tehdit modeli misafir ucundakiyle ayni degil.
+    */
+    Route::post('/invitations/{invitation}/media', [MediaController::class, 'store'])
+        ->whereUlid('invitation')
+        ->name('invitations.media.store');
 });
 
 /*
@@ -113,4 +132,20 @@ Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(func
         ->whereUlid('invitation')
         ->middleware('throttle:rsvp')
         ->name('invitations.rsvps.store');
+
+    /*
+    | 🔴 Sistemin IKINCI auth'suz yazma yolu (Faz 6) — ve daha pahalisi.
+    |
+    | LCV metni birkac yuz bayt yazar; bu uc onlarca MEGABAYT dosya yazar.
+    | Ustelik Faz 5'in en ucuz katmani olan HONEYPOT burada YOK: gorunmez bir
+    | dosya alani diye bir sey yok. Bu yuzden throttle:media, throttle:rsvp'den
+    | DAHA DAR (dakikada 5 / saatte 40).
+    |
+    | SetEtag bu ucta anlamsiz ama zararsiz: grup middleware'i olarak geliyor,
+    | POST yanitlarinda ETag uretimi 304 dongusune girmez.
+    */
+    Route::post('/invitations/{invitation}/media', [PublicMediaController::class, 'store'])
+        ->whereUlid('invitation')
+        ->middleware('throttle:media')
+        ->name('invitations.media.store');
 });

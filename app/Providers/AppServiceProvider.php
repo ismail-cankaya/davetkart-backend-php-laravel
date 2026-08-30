@@ -56,6 +56,7 @@ class AppServiceProvider extends ServiceProvider
     {
         RateLimiter::for('auth', $this->authLimits(...));
         RateLimiter::for('rsvp', $this->rsvpLimits(...));
+        RateLimiter::for('media', $this->guestMediaLimits(...));
         RateLimiter::for('api', $this->apiLimits(...));
     }
 
@@ -88,6 +89,37 @@ class AppServiceProvider extends ServiceProvider
 
             Limit::perHour(Config::integer('davetkart.rsvp.rate_limit.per_invitation_per_hour'))
                 ->by('rsvp-inv|'.$invitation),
+        ];
+    }
+
+    /**
+     * 🔴 Misafirin MEDYA yuklemesi — sistemin IKINCI auth'suz yazma yolu (Faz 6).
+     *
+     * Kalip rsvpLimits() ile ayni (IP kovasi + davetiye kovasi) ama sayilar
+     * DAHA DAR, iki sebeple:
+     *
+     *   1. Honeypot YOK. Faz 5'te bot, tek sorgu bile actirmadan eleniyordu;
+     *      dosya yuklemede gorunmez alan diye bir sey yok. Bu limiter, orada
+     *      honeypot'un yaptigi isi de ustlenmek zorunda.
+     *   2. Istek basina maliyet on kat. Bir LCV satiri birkac yuz bayt; bir
+     *      video 20 MB + MIME analizi + kuyrukta yeniden kodlama.
+     *
+     * Kota bu limitin YERINE GECMEZ (L3): limit "ne siklikta"ya, kota "kac
+     * dosya"ya bakar. Suresiz bir saldirgan yavaslar ama kotayi yine doldurur.
+     *
+     * @return list<Limit>
+     */
+    private function guestMediaLimits(Request $request): array
+    {
+        $invitation = $request->route('invitation');
+        $invitation = is_string($invitation) ? $invitation : 'bilinmeyen';
+
+        return [
+            Limit::perMinute(Config::integer('davetkart.media.rate_limit.guest_per_ip_per_minute'))
+                ->by('media-ip|'.$request->ip()),
+
+            Limit::perHour(Config::integer('davetkart.media.rate_limit.guest_per_invitation_per_hour'))
+                ->by('media-inv|'.$invitation),
         ];
     }
 

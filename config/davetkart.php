@@ -44,6 +44,15 @@ return [
     'media' => [
         'disk' => env('DAVETKART_MEDIA_DISK', 'public'),
 
+        // 🔴 Misafirin yukleme ucu icin hiz siniri (6.16). LCV metninden AYRI
+        // ve daha DAR: orada honeypot ilk savunmaydi, dosya yuklemede oyle bir
+        // katman YOK (bkz. StoreGuestMediaAction kilavuzu §2). Ustelik bir
+        // istek yuzlerce KB degil onlarca MB tasiyor.
+        'rate_limit' => [
+            'guest_per_ip_per_minute' => 5,
+            'guest_per_invitation_per_hour' => 40,
+        ],
+
         // Kuyruktaki OptimizeUploadedImage isinin ayarlari. Telefon kameralari
         // 4000+ piksel uretiyor; galeride 2000 fazlasiyla yeterli.
         'optimize' => [
