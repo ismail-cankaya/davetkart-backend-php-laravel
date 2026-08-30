@@ -138,16 +138,28 @@ yanıt zarfı) katman-katman sırada 12 resource'a kopyalanmış olarak keşfedi
 Özellik-özellik giderken bazen henüz var olmayan bir tabloya FK gerekir.
 Somut örnek: `rsvps.photo_media_id` → `media` tablosu (RSVP Faz 5, Media Faz 6).
 
-Çözüm: kolon Faz 5'te **nullable ve kısıtsız** açılır, kısıt Faz 6'da küçük bir
-migration ile eklenir:
+> 🔴 **BU BÖLÜM GÜNCELLENDİ (29 Ağustos 2026).** Plandaki çözüm uygulanmadı ve
+> uygulanmaması doğruydu.
+
+**Plandaki çözüm:** kolon Faz 5'te nullable ve kısıtsız açılır, kısıt Faz 6'da
+eklenir.
+
+**Gerçekte yapılan:** kolon Faz 5'te **hiç açılmadı**; kolonlar, FK'leri,
+yazanı ve okuyanı **Faz 6'da birlikte** geldi (6.17–6.21).
+
+**Neden:** bir faz boyunca hiçbir kodun yazmadığı, hiçbir testin doğrulamadığı
+bir kolon, **doğru olduğu varsayılan** bir kolondur — ders 26'nın şema sürümü ve
+Faz 4'te `InvitationPublished`'ın `InvitationChanged`'e dönüşme sebebiyle (K48)
+aynı aile. Ayrıca "kolon var ama kısıtı yok" ara durumu hiç oluşmadı.
 
 ```php
-Schema::table('rsvps', function (Blueprint $table) {
-    $table->foreign('photo_media_id')->references('id')->on('media')->nullOnDelete();
-});
+// ..._add_media_columns_to_rsvps_table.php — 6.17
+$table->foreignUlid('photo_media_id')->nullable()->constrained('media')->nullOnDelete();
+$table->foreignUlid('video_media_id')->nullable()->constrained('media')->nullOnDelete();
 ```
 
-Bu bir kirlilik değil; şema zamanla evrilir, her migration bir adımdır.
+**Genel kural:** özellikler arası bir FK, **hedef tablo ve yazan kod hazır
+olduğunda** eklenir. Erken açılan kolon evrim değil borçtur.
 
 > **Yazdığımız config ve enum boşa gitmedi.** İkisi de yerinde duruyor,
 > ilgili fazlarda kullanılacak. Yalnızca sıraları erkendi.
@@ -523,20 +535,36 @@ nedeniyle bu fazda öğrenilmedi).
 
 ### FAZ 6 — Media modülü
 
-| # | Dosya |
-|---|---|
-| 6.1 | `app/Enums/MediaKind.php` |
-| 6.2 | `..._create_media_table.php` |
-| 6.3 | `app/Models/Media.php` |
-| 6.4 | `StoreUploadedMediaAction` — MIME içerikten doğrulama, rastgele ad |
-| 6.5 | `MediaController` → ⚠️ rota `/api/media/upload` (frontend böyle çağırıyor) |
-| 6.6 | `Jobs/OptimizeUploadedImage` |
-| 6.7 | `tests/Feature/MediaTest.php` |
-| 6.8 | `..._add_media_columns_to_rsvps_table.php` — 🔴 Faz 5 medya kolonlarını **hiç açmadı** (ders 26); kolonlar ve FK burada birlikte gelir. Ayrıntı: `docs/09` §FAZ 6 |
+> 🔴 **DURUM (29 Ağustos 2026): 24/24 adım yazıldı ve commit'lendi.**
+> 6.1–6.14 `composer check` ile doğrulandı; 6.15–6.24 **doğrulanmadı**.
+> Kapanış ölçütü: `docs/rehber/fazlar/FAZ-6-ELLE-DOGRULAMA.md` (18 adım).
+> Tam liste ve gerekçeler: `docs/09` §FAZ 6 · `docs/rehber/fazlar/FAZ-6.md`.
 
-**Bitti ölçütü:** Editörden galeri fotoğrafı yükleniyor, önizlemede görünüyor.
+Plan **8 adımdı, 24 oldu.** Eksik olan iki şey vardı: misafirin LCV
+foto/videosu (yoksa `MediaKind`'ın iki türü ölü kalırdı) ve medyanın LCV'ye
+bağlanması (yoksa `rsvps` kolonlarının yazanı olmazdı).
 
-**Öğrenilecek:** Dosya güvenliği, disk soyutlaması, 15 saniye kuralı ve kuyruk.
+| # | Dosya | Durum |
+|---|---|---|
+| 6.1–6.8 | `MediaKind` · `media` tablosu · `Media` · `MediaFactory` · `MEDIA_QUOTA_EXCEEDED` + exception · `MediaRequest` ailesi · `OptimizeUploadedImage` · `StoreUploadedMediaAction` | ✅ |
+| 6.9 | Eksik kılavuz + 🔴 kalite kapısı düzeltmeleri (PHPStan 8, flaky test) | ✅ |
+| 6.10–6.11 | `MediaResource` · `MediaController` | ✅ |
+| 6.12–6.13 | `ResolveOpenRsvpInvitationAction` 🆕 · `SubmitRsvpAction` refactor | ✅ |
+| 6.14–6.16 | `StoreGuestMediaAction` 🆕 · `PublicMediaController` 🆕 · rotalar + `throttle:media` | ✅ |
+| 6.17–6.21 | `rsvps` medya kolonları · `Rsvp` ilişkileri · `StoreRsvpRequest` · 🔴 sahiplik doğrulaması · `RsvpResource` | ✅ |
+| 6.22 | `tests/Feature/MediaTest.php` — 28 test + mutasyon tablosu | ✅ |
+| 6.23–6.24 | `FAZ-6.md` · `FAZ-6-ELLE-DOGRULAMA.md` | ✅ |
+
+⚠️ **Rota planı değişti:** `/api/media/upload` **geçersiz**. Uçlar iç içe
+kaynak oldu (`/api/invitations/{id}/media` ve
+`/api/public/invitations/{id}/media`), çünkü düz bir uçta aidiyet gövdeden
+gelirdi (**N1**). Frontend uyarlanacak — liste: `FAZ-6.md` §8.
+
+**Bitti ölçütü:** Editörden galeri fotoğrafı yükleniyor, önizlemede görünüyor
+**ve** misafir LCV formuna fotoğraf ekleyip gönderebiliyor.
+
+**Öğrenilecek:** Dosya güvenliği, disk soyutlaması, 15 saniye kuralı, kuyruk,
+ve bir kuralı ikinci bir uç istediğinde **kopyalamak yerine çıkarmak**.
 
 ---
 
@@ -606,7 +634,8 @@ kısıtıyla race condition önleme.
 | **2** ✅ | **Auth (özellik dilimi)** | **Giriş / kayıt** ✅ | 10 planlandı → **17 oldu** |
 | **3** ✅ | **Invitation CRUD** | **Dashboard + editör autosave** ✅ | 12 + 8 FE |
 | **4** ✅ | **Public davetiye** | **`/invite/{id}` sayfası** ✅ | 6 planlandı → **8 + 2 FE** |
-| **5** ⚠️ | **RSVP** — 17/17 adım ✅, **doğrulama bekliyor** | LCV gönderimi + canlı panel ⬜ | 10 planlandı → **16** |
+| **5** ⚠️ | **RSVP** — 17/17 adım ✅; `composer check` **Faz 6'da koştu ve yeşil bitti**, elle doğrulama hâlâ açık | LCV gönderimi + canlı panel ⬜ | 10 planlandı → **16** |
+| **6** ⚠️ | **Media** — 24/24 adım ✅, **6.15+ doğrulanmadı** | Galeri + LCV medyası ⬜ (frontend borcu) | 8 planlandı → **24** |
 | 6 | Media | Galeri yüklemesi | 7 |
 | 7 | Ödeme + paywall | Yayınlama akışı | 12 |
 | 8 | AI + iletişim + i18n | Asistan, iletişim formu | 6 |
@@ -694,7 +723,7 @@ kısıtıyla race condition önleme.
 | ✅ | `RsvpTest` 29 test + 18 satırlık mutasyon tablosu · **K22**: PHPStan 6 → **8** |
 | ✅ | **K49–K53** kararları · **L1–L4 · E8–E9 · C7 · P5 · T16 · B7** kuralları |
 | 🔴 | **Frontend uyarlaması BEKLİYOR** — 7 dosya, honeypot alanı dâhil (`FAZ-5.md` §8) |
-| ⬜ | **SIRADAKİ: Faz 5'i doğrula, sonra Faz 6 — Media** |
+| ⬜ | **SIRADAKİ: `FAZ-6-ELLE-DOGRULAMA.md`'yi koştur, sonra Faz 7 — Ödeme ve paywall** |
 
 ### ⚠️ Faz 2'nin kapsamı da büyüdü (K35 · K36 · H10-H11)
 

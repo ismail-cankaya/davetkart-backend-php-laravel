@@ -469,74 +469,115 @@ exception → HTTP kodu eşlemesi · kuyruk.
 
 ---
 
-## FAZ 6 — Media
+## FAZ 6 — Media ⚠️ KOD YAZILDI (24/24), DOĞRULAMA BEKLİYOR
 
 **Amaç:** Dosya kabul etmenin güvenlik yükü ve 15 saniye kuralı.
 
-### Dosyalar
+> 🔴 **Durum (29 Ağustos 2026):** 24 geliştirme adımı tamamlandı ve commit'lendi.
+> 6.1–6.14 arası `composer check` ile **doğrulandı**; 6.15–6.24 arası PHP'siz
+> bir ortamda yazıldı ve **hiç koşmadı**. Kapanış ölçütü:
+> `docs/rehber/fazlar/FAZ-6-ELLE-DOGRULAMA.md` (18 adım).
+> Faz kaydı: `docs/rehber/fazlar/FAZ-6.md`.
 
-| # | Dosya |
-|---|---|
-| 6.1 | `app/Enums/MediaKind.php` — `gallery \| rsvp_photo \| rsvp_video` |
-| 6.2 | `..._create_media_table.php` |
-| 6.3 | `app/Models/Media.php` |
-| 6.4 | `StoreUploadedMediaAction` — MIME içerikten doğrulama, rastgele ad |
-| 6.5 | `MediaController` |
-| 6.6 | `Jobs/OptimizeUploadedImage` |
-| 6.7 | `tests/Feature/MediaTest.php` |
-| 6.8 | `..._add_media_columns_to_rsvps_table.php` — 🔴 **düzeltildi**, aşağıya bak |
+### 🔴 Plan 8 adımdı, 24 oldu — neden?
 
-### Endpoint'ler
+Orijinal plan **yalnızca sahibin galerisini** hesaba katıyordu. İki şey
+eksikti:
 
-| Method | Path | Not |
+1. **Misafirin LCV foto/videosu.** `MediaKind` üç tür tanımlıyordu ama ikisinin
+   ucu yoktu. Yazılmasaydı `StorePublicMediaRequest`,
+   `MediaQuotaExceededException::forGuest()` ve `guestUploadableValues()` ölü
+   kod olarak kalırdı (ders 26).
+2. **LCV'ye bağlama.** `rsvps` medya kolonlarının bir **yazanı** ve bir
+   **okuyanı** olmadan açılması, Faz 5'te o kolonları açmama gerekçemizin
+   aynısına düşmek olurdu.
+
+### Dosyalar (gerçekleşen)
+
+| # | Dosya | Durum |
 |---|---|---|
-| POST | `/api/media/upload` | ⚠️ Plan `/api/media` diyordu; **frontend kazanır**, o böyle çağırıyor. Yanıt `{url}` |
-| POST | `/api/public/media` | LCV foto/video — sıkı limitli |
+| 6.1 | `app/Enums/MediaKind.php` | ✅ |
+| 6.2 | `..._create_media_table.php` | ✅ |
+| 6.3 | `app/Models/Media.php` | ✅ |
+| 6.4 | `database/factories/MediaFactory.php` | ✅ |
+| 6.5 | `Exceptions/MediaQuotaExceededException.php` + `ErrorCode` | ✅ |
+| 6.6 | `Requests/Media/{MediaRequest, StoreMediaRequest, StorePublicMediaRequest}.php` | ✅ |
+| 6.7 | `app/Jobs/OptimizeUploadedImage.php` | ✅ |
+| 6.8 | `Actions/Media/StoreUploadedMediaAction.php` | ✅ |
+| 6.9 | Eksik kılavuz + kalite kapısı düzeltmeleri | ✅ |
+| 6.10 | `app/Http/Resources/MediaResource.php` | ✅ |
+| 6.11 | `Controllers/Api/V1/MediaController.php` | ✅ |
+| 6.12 | `Actions/Rsvp/ResolveOpenRsvpInvitationAction.php` 🆕 | ✅ |
+| 6.13 | `SubmitRsvpAction` refactor (üç kontrol devredildi) | ✅ |
+| 6.14 | `Actions/Media/StoreGuestMediaAction.php` 🆕 | ✅ |
+| 6.15 | `Controllers/Api/V1/PublicMediaController.php` 🆕 | ✅ |
+| 6.16 | `routes/api.php` + `throttle:media` limiter | ✅ |
+| 6.17 | `..._add_media_columns_to_rsvps_table.php` | ✅ |
+| 6.18 | `Rsvp` modeli: `photoMedia()` / `videoMedia()` | ✅ |
+| 6.19 | `StoreRsvpRequest`: `photoMediaId` / `videoMediaId` | ✅ |
+| 6.20 | `SubmitRsvpAction`: 🔴 medya **sahiplik doğrulaması** | ✅ |
+| 6.21 | `RsvpResource`: `photoUrl` / `videoUrl` + eager loading | ✅ |
+| 6.22 | `tests/Feature/MediaTest.php` — **28 test** + 20 satırlık mutasyon tablosu | ✅ |
+| 6.23 | `docs/rehber/fazlar/FAZ-6.md` | ✅ |
+| 6.24 | `docs/rehber/fazlar/FAZ-6-ELLE-DOGRULAMA.md` | ✅ |
 
-### 🔴 Dosya güvenliği kuralları
+### Endpoint'ler (gerçekleşen)
 
-| Kural | Sebep |
-|---|---|
-| MIME **içerikten** doğrulanır | Uzantı kullanıcı girdisidir; `.jpg` adlı PHP dosyası yüklenebilir |
-| Dosya adı **rastgele** üretilir | Orijinal ad path traversal veya üzerine yazma taşıyabilir |
-| Yüklenenler **çalıştırılabilir dizinde durmaz** | Yüklenen kodun sunucuda çalışmasını yapısal olarak engeller |
-| Optimizasyon **kuyruğa** gider | `api.ts` timeout'u 15 saniye |
+| Method | Path | Auth | Not |
+|---|---|:---:|---|
+| POST | `/api/invitations/{invitation}/media` | ✅ | Sahibin galerisi · yalnızca `gallery` |
+| POST | `/api/public/invitations/{invitation}/media` | — | Misafirin LCV medyası · `throttle:media` |
 
-### 🔴 Şema evrimi notu — DÜZELTİLDİ (28 Ağustos 2026)
+> ⚠️ **ESKİ PLAN GEÇERSİZ.** Plan `POST /api/media/upload` diyordu ve gerekçesi
+> *"frontend böyle çağırıyor"*du. O not misafir yüklemesini hesaba katmadan
+> yazılmıştı: düz bir uçta davetiye kimliği **gövdeden** gelirdi, yani
+> istemcinin sözüne kalırdı (**N1**). İç içe kaynakta aidiyet URL'nin
+> **yapısında** durur ve `whereUlid()` biçimsiz kimliği veritabanına hiç
+> ulaştırmaz (**O6**).
+>
+> `POST /api/public/media` de geçersiz — aynı gerekçe.
+>
+> 🔴 Sonuç: `davetkart-frontent/src/services/media.ts` uyarlanacak.
+> Frontend listesi: `FAZ-6.md` §8.
 
-**Eski varsayım (yanlış):** *"Faz 5'te `rsvps.photo_media_id` kolonu nullable ve
-kısıtsız açılmıştı; kısıt burada eklenir."*
+### Yanıt sözleşmesi
 
-**Gerçek:** Faz 5 medya kolonlarını **hiç açmadı**. Gerekçe **ders 26**:
-*çalıştırılmayan kod, doğru olduğu varsayılan koddur.* Bir faz boyunca hiçbir
-kodun yazmadığı, hiçbir testin doğrulamadığı iki kolon açmak, Faz 4'te
-`InvitationPublished` olayının `InvitationChanged`'e dönüşme sebebiyle (K48)
-aynı hatadır.
-
-Bu yüzden **6.8 artık kolonları VE yabancı anahtarı birlikte ekler**:
-
-```php
-// ..._add_media_columns_to_rsvps_table.php
-Schema::table('rsvps', function (Blueprint $table) {
-    $table->foreignUlid('photo_media_id')->nullable()
-          ->constrained('media')->nullOnDelete();
-    $table->foreignUlid('video_media_id')->nullable()
-          ->constrained('media')->nullOnDelete();
-});
+```json
+{ "data": { "id": "01k3n8…q7", "url": "http://localhost:8000/storage/media/gallery/aB3x…q7.jpg" } }
 ```
 
-İki ayrı migration yerine tek tutarlı şema değişikliği — hem daha temiz hem de
-"kolon var ama kısıtı yok" ara durumu hiç oluşmuyor.
+Plan `{url}` diyordu; `id` eklendi (**süperset**, frontend kırılmaz). Kimlik
+olmadan misafir yüklediği dosyayı LCV'ye bağlayamaz.
 
-> ⚠️ `media.id` tipi 6.2'de kararlaştırılacak. URL'de geçecekse **K40/K52**
-> gereği ULID olmalı; yukarıdaki `foreignUlid` bu varsayıma dayanıyor.
+### 🔴 Dosya güvenliği kuralları (hepsi uygulandı)
 
-Şema zamanla evrilir, her migration bir adımdır — ama **ileriyi tahmin ederek
-boş kolon açmak** evrim değil, borçtur.
+| Kural | Nerede | Serisi |
+|---|---|---|
+| MIME **içerikten** doğrulanır | `MediaRequest` → `mimetypes:` | **F1** |
+| Dosya adı **rastgele** üretilir | `store()` → `hashName()` | **F2** |
+| Diske yazma **transaction dışıdır**, elle telafi edilir | `StoreUploadedMediaAction` | **F3** |
+| Depolama konumu **satırda** saklanır | `media.disk` | **F4** |
+| Sözleşme URL taşır, şema **kimlik** tutar | `MediaResource`, `RsvpResource` | **F5** |
+| Optimizasyon **kuyruğa** gider | `OptimizeUploadedImage` | 15 sn kuralı |
+
+⚠️ *"Yüklenenler çalıştırılabilir dizinde durmaz"* kuralı **bugün karşılanmıyor**:
+`disk = public` ve `storage:link` dosyaları web kökü altına koyuyor. Bugünkü
+savunma MIME beyaz listesi — yani **kurala bağlı, yapısal değil**. Karar **K55**
+(kapsam), borç Faz 9'a yazıldı.
+
+### Şema evrimi notu — çözüldü
+
+Faz 5 medya kolonlarını hiç açmadı (ders 26). 6.17 kolonları **ve** FK'leri
+birlikte ekledi; 6.19–6.21 aynı fazda **yazanını ve okuyanını** getirdi.
+
+FK'ler `nullOnDelete` (**K60**): dosya silinince LCV yanıtı **silinmemeli**.
 
 ### Bitti ölçütü
 
-Editörden galeri fotoğrafı yükleniyor, önizlemede görünüyor.
+Editörden galeri fotoğrafı yükleniyor, önizlemede görünüyor **ve** misafir
+LCV formuna fotoğraf ekleyip gönderebiliyor.
+
+⚠️ İkincisi frontend uyarlaması olmadan çalışmaz (`FAZ-6.md` §8).
 
 ---
 
