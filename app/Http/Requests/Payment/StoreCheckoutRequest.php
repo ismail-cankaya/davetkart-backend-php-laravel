@@ -6,7 +6,6 @@ namespace App\Http\Requests\Payment;
 
 use App\Enums\SubscriptionTier;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 /**
  * Odeme baslatma govdesinin dogrulanmasi — TEK ALAN: `tier`.
@@ -33,7 +32,7 @@ final class StoreCheckoutRequest extends FormRequest
     }
 
     /**
-     * @return array<string, list<mixed>>
+     * @return array<string, list<string>>
      */
     public function rules(): array
     {
@@ -41,7 +40,14 @@ final class StoreCheckoutRequest extends FormRequest
             // Gecerli plan listesi ENUM'DAN turetilir (K39 ailesi): elle
             // yazilsaydi enum'a yeni bir plan eklendiginde kural sessizce
             // eskirdi.
-            'tier' => ['required', Rule::enum(SubscriptionTier::class)],
+            //
+            // 🔴 D6: Rule::enum(SubscriptionTier::class) DEGIL, duz 'in:' kurali.
+            // Kural NESNESI kullanildiginda $validator->failed() anahtari
+            // SINIF ADI olur ve hata zarfina
+            //   {"rule":"illuminate\\validation\\rules\\enum"}
+            // diye sizar — Faz 3'te Password::min(8) tam olarak bu yuzden
+            // 'min:8' string'ine cevrilmisti. Kural ADI sozlesmenin parcasidir.
+            'tier' => ['required', 'string', 'in:'.implode(',', SubscriptionTier::values())],
         ];
     }
 

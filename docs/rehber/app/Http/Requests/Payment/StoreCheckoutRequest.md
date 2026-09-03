@@ -45,28 +45,55 @@ edilmez, değer sunucudan okunur (`StartCheckoutAction` §4. katman).
 
 ---
 
-## 3. `Rule::enum()` — geçerli plan listesi enum'dan
+## 3. 🔴 Geçerli plan listesi enum'dan — ama `Rule::enum` ile DEĞİL
 
 ```php
-'tier' => ['required', Rule::enum(SubscriptionTier::class)],
+'tier' => ['required', 'string', 'in:'.implode(',', SubscriptionTier::values())],
 ```
 
-Elle `'in:standart,gold,elit'` yazılabilirdi. Yazılmadı: enum'a bir plan
-eklendiğinde kural **sessizce eskirdi** — K39'un migration'daki CHECK
-kısıtlarında kurduğu aynı ilke, doğrulama katmanında.
+İki karar var, ikisi de bilinçli.
 
-> ⚠️ **D6** (Faz 3): *"kural **adı** sözleşmenin parçasıdır."* `Password::min(8)`
-> kural nesnesi sınıf adı sızdırdığı için `'min:8'` string'ine çevrilmişti.
-> `Rule::enum` neden sorun değil? Çünkü ürettiği kural adı `Illuminate\…\Enum`
-> değil **`enum`**'dur — hata zarfına `{"rule": "enum"}` diye çıkar, sınıf adı
-> sızmaz. Kuralı kopyalamadan önce gerekçesini kontrol etmek (ders 42) burada
-> "hayır, bu güvenli" cevabını verdi.
+### 3.1 Liste elle yazılmıyor
 
-`Rule::enum` değeri enum'a **çevirmez**; `validated()` hâlâ string döndürür.
-Dönüşüm `tier()` metodunda açıkça yapılıyor — Action enum bekler, sihirli
-string değil.
+`'in:standart,gold,elit'` düz metin olarak yazılabilirdi. Yazılmadı: enum'a bir
+plan eklendiğinde kural **sessizce eskirdi** — K39'un migration'daki CHECK
+kısıtlarında kurduğu aynı ilke, doğrulama katmanında. `MediaKind::
+guestUploadableValues()` Faz 6'da aynı kalıbı kurmuştu.
 
----
+### 3.2 🔴 `Rule::enum()` neden kullanılmadı? (D6)
+
+Laravel'in `Rule::enum(SubscriptionTier::class)` yardımcısı daha temiz
+görünüyor. **Kullanılamaz** — ve gerekçe Faz 3'te zaten yazılmıştı.
+
+**D6:** *"Kural **adı** sözleşmenin parçasıdır; kural nesnesi değil, string
+kural."*
+
+`ApiExceptionRenderer::fields()` ihlal edilen kuralların adını
+`$e->validator->failed()`'ten okur (Faz 1, **ders 16**). Bir **kural nesnesi**
+kullanıldığında bu dizinin anahtarı kuralın **sınıf adıdır**:
+
+```json
+{ "error": { "code": "VALIDATION_FAILED",
+  "fields": { "tier": [{ "rule": "illuminate\validation\rules\enum" }] } } }
+```
+
+Üç şey birden bozulur:
+
+| Bozulan | Nasıl |
+|---|---|
+| Sözleşme | Frontend'in çeviri anahtarı bir framework sınıf adı olur |
+| Bilgi ifşası | Yanıt hangi framework'ü ve sürümü kullandığımızı söyler (`docs/08` §3.3) |
+| Kararlılık | Laravel sınıfı taşırsa sözleşme **sessizce** kırılır |
+
+Faz 2'de `RegisterRequest`'teki `Password::min(8)` tam olarak bu yüzden
+`'min:8'` string'ine çevrilmişti. Aynı tuzak, yeni kılıkta.
+
+`'in:'` kuralı ise `{"rule":"in","params":{"values":["standart","gold","elit"]}}`
+üretir — frontend `t('validation.in')` diyebilir.
+
+> **Ders 42 tersten:** bir kuralı uygulamadan önce gerekçesini kontrol et.
+> `Rule::enum` "modern Laravel" göründüğü için cazipti; gerekçe kontrolü onu
+> eledi.
 
 ## 4. 🔴 Davetiye kimliği neden gövdede değil?
 
@@ -135,7 +162,8 @@ Controller'ın `$request->validated()['tier']` yazması gerekseydi:
 | # | Hata | Ne olur |
 |---|---|---|
 | 1 | Gövdeye `price`/`amount` eklemek | Kullanıcı kendi fiyatını yazar |
-| 2 | `'in:standart,gold,elit'` yazmak | Enum değişince kural sessizce eskir |
+| 2 | `'in:standart,gold,elit'`i elle yazmak | Enum değişince kural sessizce eskir |
+| 2b | `Rule::enum()` kullanmak | Sınıf adı hata zarfına sızar (D6) |
 | 3 | Davetiye kimliğini gövdeye taşımak | Aidiyet istemcinin sözüne kalır (N1) |
 | 4 | Kimlik gövdedeyken `exists` eklemek | Kimlik uzayı taranabilir olur |
 | 5 | `authorize()` içine sahiplik yazmak | Reddi 403 olur; H7 404 istiyor |
@@ -150,7 +178,8 @@ Controller'ın `$request->validated()['tier']` yazması gerekseydi:
 curl -X POST http://127.0.0.1:8000/api/payments/checkout \
   -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
   -d '{"tier":"platinum"}'
-# 422  {"error":{"code":"VALIDATION_FAILED","fields":{"tier":[{"rule":"enum"}]}}}
+# 422  {"error":{"code":"VALIDATION_FAILED",
+#        "fields":{"tier":[{"rule":"in","params":{"values":["standart","gold","elit"]}}]}}}
 
 # 🔴 Biçimsiz kimlik ROTAYA HİÇ ULAŞMAZ (whereUlid)
 curl -X POST http://127.0.0.1:8000/api/invitations/abc/checkout ... -d '{"tier":"gold"}'
