@@ -98,7 +98,13 @@ enum ErrorCode: string
     public function allowedParams(): array
     {
         return match ($this) {
-            self::PaywallTierInsufficient => ['requiredTier'],
+            // 🔴 Faz 7: IKI kod da 'requiredTier' tasir. Ayrim kullanicinin
+            // onundeki EYLEMDE: PAYMENT_REQUIRED "once bir plan al",
+            // PAYWALL_TIER_INSUFFICIENT "planin yetmiyor, yukselt". Ikisinde
+            // de frontend hangi plani gosterecegini bilmek zorunda.
+            // Sizinti degil: plan fiyat sayfasi zaten herkese acik (08 §3.4).
+            self::PaywallTierInsufficient,
+            self::PaymentRequired => ['requiredTier'],
             self::RsvpQuotaExceeded => ['remaining', 'limit'],
 
             // 🔴 'remaining' YOK, yalnizca 'limit'. Kalan sayi kac dosyanin

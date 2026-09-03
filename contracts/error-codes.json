@@ -43,7 +43,9 @@
         },
         "PAYMENT_REQUIRED": {
             "status": 402,
-            "params": [],
+            "params": [
+                "requiredTier"
+            ],
             "retryable": false
         },
         "PAYWALL_TIER_INSUFFICIENT": {
