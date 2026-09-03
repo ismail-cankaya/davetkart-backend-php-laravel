@@ -11,11 +11,15 @@ Bu projede "Repository Pattern" ve "Fat Service" kalıpları KESİNLİKLE YASAKT
   2. Action sınıfları içerisine asla HTTP doğrulama (Validation) yazılmaz; doğrulama işi `FormRequest`'lere aittir. Action'a gelen veri saf ve güvenilir kabul edilir.
   3. Action sınıfları asla `return response()->json(...)` gibi HTTP yanıtları dönmez; sadece saf veri/Model döner (Yanıt dönme işi Controller'ındır).
   4. Veritabanı kaydı (DB) ve işle ilişkili ek görevler (Mail, Log vb.) bu sınıfın içinde birleşik olarak yazılır.
-- **`app/Http/Controllers/Api/V1/`:** Controller'lar sadece gelen isteği ilgili Action'a yönlendirmekten ve Resource dönmekten sorumludur (Maksimum 3-8 satır olmalıdır). İçerisinde `if` blokları veya iş mantığı bulunamaz.
+- **`app/Http/Controllers/Api/V1/`:** Controller'lar sadece gelen isteği ilgili Action'a yönlendirmekten ve Resource dönmekten sorumludur (Maksimum 3-8 satır olmalıdır). İçerisinde **iş mantığı** bulunamaz.
+  - 🔴 **Faz 6'da gevşetildi (İsmail'in kararı, Faz 7'de dosyaya işlendi):** `if` bloğu kategorik olarak yasak değildir. Yasak olan **iş kuralının** controller'a taşınmasıdır. Bir `if` ancak *yönlendirme* kararıysa serbesttir (örn. isteğe bağlı bir parametrenin varlığına göre farklı Action çağırmak). Ayırt edici soru: *"bu `if` silinirse bozulan şey bir iş kuralı mı, yoksa yalnızca hangi kodun çağrıldığı mı?"*
+  - Faz 7'de bu esneklik **kullanılmadı**: `PaymentController` iki koldan her birini ayrı bir metoda ayırdı (`forInvitation` / `forAccount`), çünkü ayrım rota seviyesinde zaten yapılmıştı (N1).
 - **`app/Http/Requests/`:** Kullanıcı girdilerinin doğrulaması (validation) ve yetki kontrolleri (authorization) burada yapılmalıdır.
 - **`app/Http/Resources/`:** Veritabanındaki `snake_case` alan adlarının, Frontend için `camelCase` formatına dönüştürüldüğü TEK yerdir. Dönüşümler "sihirli" fonksiyonlarla değil, açıkça yazılmalıdır.
 - **`app/Policies/`:** Sahiplik ve erişim kontrolleri (IDOR önlemleri) mutlaka policyler ile yapılmalıdır.
-- **`app/Services/`:** Dış servislerle (Ödeme, AI, Depolama) olan iletişim arayüzler (Interfaces) üzerinden burada yapılır. Tüm API anahtarları sadece bu sınıfların erişiminde olmalıdır.
+- **`app/Services/`:** Dış servislerle (Ödeme, AI, Depolama) olan iletişim arayüzler (Interfaces) üzerinden burada yapılır. Tüm API anahtarları sadece bu sınıfların erişiminde olmalıdır. Alt klasörler alan adına göre bölünür: `app/Services/Payment/`, `app/Services/Pricing/`, `app/Services/Rsvp/`.
+- **`app/Contracts/`:** Uygulamanın **kendi** soyutlamaları — değiştirilebilir bir sağlayıcının arkasına saklanan sorular (`RsvpQuotaResolver`, `PublishEntitlementResolver`). Laravel'in kendi konvansiyonuyla aynı (`Illuminate\Contracts\*`). Dış servis arayüzleri (`PaymentGateway`) uygulamalarıyla birlikte `app/Services/<Alan>/` altında durur.
+  - Ayrım: **arayüz nerede duruyor** değil, **kimin sorusunu soyutluyor**. Kendi veritabanımıza bakan bir soru `Contracts/`, dış bir servise giden bir çağrı `Services/`.
 - **`app/Enums/`:** Uygulama içinde kesinlikle "sihirli string" (magic string) kullanılmamalıdır. Durumlar (status) ve tipler için mutlaka PHP 8 Backed Enum kullanılmalıdır.
 
 ## 2. API Sözleşmesi (Routing & Naming)
@@ -32,6 +36,9 @@ Bu projede "Repository Pattern" ve "Fat Service" kalıpları KESİNLİKLE YASAKT
 - **Paywall / Abonelik Sınırları:** Sınır ve yetki kısıtlamaları kesinlikle Frontend'den gelen isteklere güvenilerek yapılamaz. Sunucu tarafında `TierResolver` vb. sınıflar ile zorunlu paket (tier) hesaplaması backend'de doğrulanmalıdır.
 - **KVKK (Veri Gizliliği):** IP adresleri gibi kişisel veriler ham haliyle kaydedilemez. Mutlaka hash'lenerek (`hash(ip + app_key)`) saklanmalıdır.
 - **Idempotency (Ödeme İşlemleri):** Ödeme webhook ve callback işlemlerinde aynı ödemenin mükerrer çalışmaması için veritabanında `provider_ref` vb. UNIQUE kısıtlamalar bulunmalıdır.
+  - 🔴 **Faz 7 eklemesi:** UNIQUE kısıt **yalnızca ikinci bir satırın oluşmasını** engeller; var olan bir satırın iki kez güncellenmesini engellemez. İkincisi için durum makinesi (`OrderStatus::canTransitionTo()`) + `lockForUpdate()` gerekir. İki katman, iki farklı yarış.
+- **Ödeme tutarı:** Fiyat **asla** istek gövdesinden okunamaz; `config/davetkart.php`'den okunur. Bir fiyat alanı doğrulanabilir bir şey değildir — biçimsel olarak her zaman geçerlidir.
+- **Para birimi:** Para **en küçük birimde tam sayı** olarak saklanır (`amount_minor`, kuruş). Kayan noktalı sayı kullanılamaz.
 
 ## 4. Performans (Performance)
 
