@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Contracts\PublishEntitlementResolver;
 use App\Contracts\RsvpQuotaResolver;
 use App\Exceptions\PaymentProviderException;
 use App\Services\Payment\FakeGateway;
 use App\Services\Payment\PaymentGateway;
+use App\Services\Pricing\OrderEntitlementResolver;
 use App\Services\Rsvp\TierRsvpQuotaResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -34,6 +36,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(RsvpQuotaResolver::class, TierRsvpQuotaResolver::class);
 
         $this->app->bind(PaymentGateway::class, $this->resolvePaymentGateway(...));
+
+        // K42: yayin hakki iki kaynaktan (tekil + paket) ama tek arayuzden.
+        $this->app->bind(PublishEntitlementResolver::class, OrderEntitlementResolver::class);
     }
 
     /**
