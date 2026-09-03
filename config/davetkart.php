@@ -20,6 +20,10 @@ return [
 
     'currency' => 'TRY',
 
+    // Saat dilimi belirtmemis davetiyelerin varsayilani (K63).
+    // Bir IS TERCIHIDIR (E6): pazar degisirse kod degismemeli.
+    'default_timezone' => env('DAVETKART_DEFAULT_TIMEZONE', 'Europe/Istanbul'),
+
     // Modül → gereken plan. TierResolver bu haritayı okur; listelenmeyen modül 'standart' sayılır.
     'module_tiers' => [
         'show_gallery' => 'elit',

@@ -7,7 +7,9 @@ namespace App\Actions\Rsvp;
 use App\Actions\Invitation\ResolvePublicInvitationAction;
 use App\Exceptions\RsvpDeadlinePassedException;
 use App\Models\Invitation;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Config;
 
 /**
  * "Kimligi bilinmeyen biri bu davetiyeye LCV YAZABILIR MI?" — tek cevap yeri.
@@ -66,11 +68,17 @@ final class ResolveOpenRsvpInvitationAction
      *
      * 🔴 E8 / ders 43: `$deadline->isPast()` YAZILAMAZ. Tarih kolonu gunun
      * 00:00'ina denk gelir; isPast() son gun boyunca true doner ve misafirler
-     * BIR GUN ERKEN kapida kalirdi. Karsilastirma gunun BASLANGICIYLA yapilir.
+     * BIR GUN ERKEN kapida kalirdi.
      *
-     * ⚠️ Bu karsilastirma SUNUCUNUN saat diliminde yapiliyor. invitations.timezone
-     * kolonu Faz 7'ye ertelendi; o gune kadar farkli saat dilimindeki misafir
-     * icin sinir bir gun kayabilir (B6: neyi kapatmadigimiz da yazilir).
+     * 🔴 K63 (Faz 7): karsilastirma artik SUNUCUNUN degil DAVETIYENIN saat
+     * diliminde yapiliyor. Faz 6'da B6 geregi acikca yazilmisti:
+     * "farkli saat dilimindeki misafir icin sinir bir gun kayabilir". O borc
+     * burada kapandi.
+     *
+     * Karsilastirma TARIH DIZESI uzerinden: iki tarafi da 'Y-m-d' yapip
+     * kiyaslamak, tarih-tipli bir degeri saat dilimi donusumune sokmaktan
+     * daha dogrudur. Bir tarihin saat dilimi yoktur — "21 Agustos" her yerde
+     * 21 Agustos'tur; degisen, O ANDA hangi gunde OLUNDUGUDUR.
      */
     private function assertDeadlineNotPassed(Invitation $invitation): void
     {
@@ -81,7 +89,12 @@ final class ResolveOpenRsvpInvitationAction
             return;
         }
 
-        if ($deadline->lessThan(now()->startOfDay())) {
+        $timezone = $invitation->timezone ?? Config::string('davetkart.default_timezone');
+
+        // Davetiyenin bulundugu yerde BUGUN hangi gun?
+        $today = CarbonImmutable::now($timezone)->toDateString();
+
+        if ($deadline->toDateString() < $today) {
             throw new RsvpDeadlinePassedException;
         }
     }

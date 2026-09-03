@@ -6,6 +6,7 @@ namespace App\Http\Resources;
 
 use App\Models\Invitation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
@@ -43,9 +44,19 @@ final class PublicInvitationResource extends JsonResource
             'subtitle' => $this->subtitle ?? '',
             'names' => $this->names ?? '',
 
-            // Duvar saati: '2026-08-21T19:00', saat dilimi TASIMAZ. Acik soru
-            // olarak duruyor — kilavuz §6.
+            // Duvar saati: '2026-08-21T19:00'.
             'date' => $this->event_at?->format('Y-m-d\TH:i') ?? '',
+
+            // 🔴 K63 (Faz 7): duvar saatinin hangi dilimde okunacagi.
+            // Faz 4'te acik soru olarak birakilmisti — sayac, misafirin KENDI
+            // cihazinin dilimini varsayiyordu ve Berlin'deki misafir dugunu
+            // bir saat once saniyordu.
+            //
+            // Bu alan ZORUNLU gider (C7): sayac onsuz dogru hesaplayamaz,
+            // dolayisiyla opsiyonel olamaz. Davetiyede yoksa config
+            // varsayilani gonderilir — misafire "bilmiyorum" demek, ona
+            // sessizce yanlis saati gostermekten daha kotudur.
+            'timezone' => $this->timezone ?? Config::string('davetkart.default_timezone'),
 
             'venue' => $this->venue ?? '',
             'mapUrl' => $this->map_url ?? '',

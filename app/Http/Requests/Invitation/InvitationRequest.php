@@ -35,6 +35,7 @@ abstract class InvitationRequest extends FormRequest
         'venue' => 'venue',
         'mapUrl' => 'map_url',
         'date' => 'event_at',
+        'timezone' => 'timezone',
         'showEnvelope' => 'show_envelope',
         'showTimer' => 'show_timer',
         'showTimeline' => 'show_timeline',
@@ -79,6 +80,12 @@ abstract class InvitationRequest extends FormRequest
             'invitation.venue' => ['sometimes', 'nullable', 'string', 'max:180'],
             'invitation.mapUrl' => ['sometimes', 'nullable', 'string', 'url', 'max:2048'],
             'invitation.date' => ['sometimes', 'nullable', 'date'],
+
+            // K63: IANA saat dilimi kimligi. 'timezone' kurali degeri PHP'nin
+            // kayitli listesine karsi dogrular — uydurma bir deger ('TR+3')
+            // veritabanina hic ulasmaz. Kural ADI sozlesmenin parcasidir (D6):
+            // hata zarfina {"rule":"timezone"} diye cikar, sinif adi sizmaz.
+            'invitation.timezone' => ['sometimes', 'nullable', 'string', 'timezone', 'max:64'],
 
             'invitation.showEnvelope' => ['sometimes', 'boolean'],
             'invitation.showTimer' => ['sometimes', 'boolean'],

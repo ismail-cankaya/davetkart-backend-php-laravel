@@ -44,6 +44,7 @@ class InvitationFactory extends Factory
             'venue' => fake()->company(),
             'map_url' => null,
             'event_at' => now()->addMonths(3),
+            'timezone' => 'Europe/Istanbul',
 
             // Hepsi KAPALI: modul acikligi paywall'in konusu, varsayilan olamaz.
             'show_envelope' => false,

@@ -36,6 +36,11 @@ final class InvitationPayloadResource extends JsonResource
             // ISO-8601 (saat dilimli) gonderirsek input degeri REDDEDER.
             'date' => $this->event_at?->format('Y-m-d\TH:i') ?? '',
 
+            // K63: duvar saatinin HANGI saat diliminde oldugu. Bos string,
+            // "sahip henuz secmedi" demektir; editor o zaman tarayicinin
+            // dilimini onerebilir.
+            'timezone' => $this->timezone ?? '',
+
             'venue' => $this->venue ?? '',
             'mapUrl' => $this->map_url ?? '',
 

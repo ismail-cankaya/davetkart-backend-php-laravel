@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Config;
  */
 #[Fillable([
     'category_id', 'preset_id', 'palette',
-    'title', 'subtitle', 'names', 'venue', 'map_url', 'event_at',
+    'title', 'subtitle', 'names', 'venue', 'map_url', 'event_at', 'timezone',
     'show_envelope', 'show_timer', 'show_timeline',
     'show_gallery', 'show_gift', 'show_rsvp',
     'bank_name', 'account_holder', 'iban', 'gift_options',
