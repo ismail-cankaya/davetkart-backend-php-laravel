@@ -785,3 +785,133 @@ if (! $request->isMethodCacheable() || $response->getStatusCode() !== Response::
 
 `POST` cacheable değil ve yanıt `201`. İki koşuldan ikisi de eleniyor, middleware
 erken dönüyor. Faz 5'te aynı durum LCV gönderimi için de vardı.
+
+---
+
+## 🆕 Faz 7 eklemeleri — yayın, ödeme ve webhook
+
+Dört yeni uç; üçü auth'lu, biri sistemin **üçüncü auth'suz yazma yolu**.
+
+| Method | Path | Auth | Ne yapar |
+|---|---|:---:|---|
+| POST | `/api/invitations/{invitation}/publish` | ✅ | 🔴 Paywall kapısı |
+| POST | `/api/invitations/{invitation}/checkout` | ✅ | Tekil alım (K42) |
+| POST | `/api/payments/checkout` | ✅ | Paket alım (K42) |
+| POST | `/api/public/payments/webhook` | — | 🔴 Sağlayıcı bildirimi |
+
+---
+
+### 1. 🔴 `publish` — üç faz sonra açılan rota
+
+Bu rota Faz 3'te açılmadı ve gerekçesi **K47** olarak kaydedildi:
+
+> *"Şimdi yazılırsa paywall'sız bir 'bedava yayın' yolu açılır ve K42/K43
+> bozulur."*
+
+`docs/09` §Faz 3'ün uç tablosunda satır hâlâ duruyor: *"⚠️ **AÇILMADI — Faz
+7'ye taşındı**."* Kapıyı kilitleyecek anahtarlar (`TierResolver`,
+`PublishEntitlementResolver`) ancak bugün var; rota da bugün açılıyor.
+
+**Ders:** bir rotayı erken açmak, onu korumasız açmaktır. Boş bir
+`PublishInvitationAction` iskeleti üç faz boyunca kimseyi yanıltmadı; açık bir
+rota yanıltırdı.
+
+#### `POST`, `PUT` değil — neden?
+
+Yayın bir **durum geçişidir**, bir alan güncellemesi değil. `PUT` semantik
+olarak **idempotan** olmalıdır (aynı istek aynı sonucu vermeli); ikinci yayın
+isteği ise bilerek **409** döner (7.12 §4).
+
+`PATCH /invitations/{id}` ile `{status: 'published'}` göndermek de bir seçenekti
+ve reddedildi: `status`, `Invitation`'ın `#[Fillable]` listesinde **bilerek**
+yok. Sunucunun sahibi olduğu bir alanı istek gövdesinden okumak, K42/K43'ün
+tamamını atlatırdı.
+
+---
+
+### 2. İç içe checkout — N1'in üçüncü uygulaması
+
+```php
+Route::post('/invitations/{invitation}/checkout', …)   // tekil
+Route::post('/payments/checkout', …)                   // paket
+```
+
+`docs/09` düz bir `POST /api/payments/checkout` öngörmüştü ve davetiye kimliği
+gövdede taşınacaktı. Değiştirildi — **N1** (Faz 3):
+
+> *"Alt kayıt her zaman üst kaydın ilişkisinden oluşturulur."*
+
+Faz 6 bu kararı medya uçlarında bir kez vermiş ve `docs/09`'un `POST
+/media/upload` önerisini geçersiz kılmıştı. Aynı gerekçe:
+
+| | Gövdede kimlik | URL'de kimlik ✅ |
+|---|---|---|
+| Var olmayan kayıt | Elle sorgu + `firstOrFail` | **Rota bağlaması** → 404 |
+| Biçimsiz kimlik | `'ulid'` doğrulama kuralı | **`whereUlid()`** → hiç eşleşmez (O6) |
+| Aidiyet | Controller'da elle | `Gate::authorize('publish', …)` |
+| `exists` kuralı cazibesi | Var → kimlik uzayı taranabilir (A1) | Yok |
+
+#### Çakışma riski var mı?
+
+`apiResource('invitations')` `{invitation}` parametresini kullanıyor ama onun
+ürettiği rotaların hiçbiri **iki segment** taşımıyor
+(`/invitations/{invitation}` ≠ `/invitations/{invitation}/publish`). Faz 6'nın
+medya rotası da aynı kalıpta ve sorunsuz çalışıyor.
+
+`/payments/checkout` ise farklı bir önek altında — `{invitation}` onu yutamaz.
+
+---
+
+### 3. 🔴 Webhook `/api/public/` altında — K12 planı ezdi
+
+`docs/09` bu ucu `POST /api/payments/webhook` diye planlamıştı. **K12**:
+
+> *"Auth gerektirmeyen rotalar `/api/public/` öneki altında gruplanır. Bu
+> **fail-safe** tasarımdır: `auth:sanctum` unutulursa bir kaynak herkese
+> açılır. Önek, 'açık olmak'ı bir UNUTMANIN sonucu olmaktan çıkarıp AÇIKÇA
+> İŞARETLENMİŞ bir istisna yapar."*
+
+Sağlayıcı bu URL'yi bir kez yapılandırır; hangi yolda olduğu onun için
+farksızdır. Bizim için ise auth'suz uçların **tek yerde** toplanması demek —
+`routes/api.php`'yi okuyan biri internete açık yüzeyin tamamını tek bakışta
+görür.
+
+#### Üç auth'suz yazma yolu, üç farklı savunma
+
+| Faz | Uç | Yazan | Savunma |
+|---|---|---|---|
+| 5 | LCV | Anonim misafir | honeypot + `throttle:rsvp` + son tarih + kota |
+| 6 | Medya | Anonim misafir | `throttle:media` + MIME + tür izni + kota |
+| **7** | **Webhook** | **Bilinen makine** | 🔴 **yalnızca imza** |
+
+Tek katman bir zayıflık değil, doğru katman olmasının sonucu: imza gönderenin
+kim olduğunu **kriptografik olarak** kanıtlar; diğer ikisinde böyle bir kanıt
+hiç yoktu.
+
+#### Neden özel bir `throttle` kovası yok?
+
+Meşru bildirim hacmi **öngörülemez**: bir kampanya gününde yüzlerce bildirim
+gelebilir ve dar bir limit **gerçek ödemeleri** düşürürdü. `throttleApi`
+tavanı (60/dk, IP başına) geçerli.
+
+> ⚠️ **B6 — bunun kapatmadığı şey:** sağlayıcı tek bir çıkış IP'sinden yoğun
+> gönderirse bu tavana çarpar ve 429 alır. Sağlayıcılar 429'da retry ettiği
+> için veri kaybolmaz, ama üretimde sağlayıcı IP'lerini muaf tutmak gerekecek.
+> **Faz 9 borcu.**
+
+#### CSRF muafiyeti: yazılacak satır yok
+
+Laravel 11+ iskeletinde `VerifyCsrfToken` **yalnızca `web` grubunda** kayıtlı;
+`api` grubu onu hiç taşımaz. `docs/09`'un *"CSRF muaf"* notu **zaten
+sağlanmış** durumda.
+
+🔴 `$middleware->validateCsrfTokens(except: [...])` yazmak gereksiz **ve
+zararlıdır**: var olmayan bir muafiyet, okuyucuya CSRF korumasının burada
+geçerli olduğunu düşündürür.
+
+---
+
+### 4. `SetEtag` webhook ucunda ne yapıyor?
+
+Hiçbir şey — `POST` cacheable değil ve yanıt `204`. Faz 5 ve 6'daki aynı
+durum. Grup middleware'i olarak geliyor, erken dönüyor.

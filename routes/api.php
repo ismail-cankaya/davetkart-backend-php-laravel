@@ -7,7 +7,9 @@ use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\PublicInvitationController;
+use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PublicMediaController;
+use App\Http\Controllers\Api\V1\PublicPaymentWebhookController;
 use App\Http\Controllers\Api\V1\PublicRsvpController;
 use App\Http\Controllers\Api\V1\RsvpController;
 use App\Http\Middleware\SetEtag;
@@ -100,6 +102,42 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/invitations/{invitation}/media', [MediaController::class, 'store'])
         ->whereUlid('invitation')
         ->name('invitations.media.store');
+
+    /*
+    | Yayinlama (Faz 7) — PAYWALL KAPISI.
+    |
+    | 🔴 Bu rota Faz 3'te acilmadi ve gerekcesi K47 olarak kaydedildi:
+    | "simdi yazilirsa paywall'siz bir bedava yayin yolu acilir". Kapiyi
+    | kilitleyecek anahtarlar (TierResolver, PublishEntitlementResolver) ancak
+    | bugun var — rota da bugun aciliyor.
+    |
+    | POST, PUT degil: yayin bir DURUM GECISIDIR, bir alan guncellemesi degil.
+    | PUT idempotan olmali (ayni istek ayni sonucu vermeli) ama ikinci yayin
+    | istegi bilerek 409 doner (7.12 §4).
+    */
+    Route::post('/invitations/{invitation}/publish', [InvitationController::class, 'publish'])
+        ->whereUlid('invitation')
+        ->name('invitations.publish');
+
+    /*
+    | Odeme baslatma (Faz 7) — K42'nin iki kolu, iki rota.
+    |
+    | 🔴 Ic ice kaynak: TEKIL alimda davetiye kimligi URL'nin YAPISINDA durur.
+    | docs/09 duz bir POST /api/payments/checkout ongormustu ve govdede
+    | invitationId tasiyacakti; Faz 6 ayni karari medya uclarinda zaten
+    | degistirmisti (N1) — kimlik govdeden gelseydi aidiyet ISTEMCININ SOZUNE
+    | kalirdi. whereUlid ayrica bicimsiz kimligi veritabanina hic ulastirmaz (O6).
+    |
+    | ⚠️ Sabit segmentli /payments/checkout, apiResource'un {invitation}
+    | parametresiyle CAKISMAZ: farkli onek altinda.
+    */
+    Route::post('/invitations/{invitation}/checkout', [PaymentController::class, 'forInvitation'])
+        ->whereUlid('invitation')
+        ->name('invitations.checkout');
+
+    // PAKET alim: hesabin tamami icin plan. Davetiye kimligi YOK (K42).
+    Route::post('/payments/checkout', [PaymentController::class, 'forAccount'])
+        ->name('payments.checkout');
 });
 
 /*
@@ -148,4 +186,32 @@ Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(func
         ->whereUlid('invitation')
         ->middleware('throttle:media')
         ->name('invitations.media.store');
+
+    /*
+    | 🔴 Sistemin UCUNCU auth'suz yazma yolu (Faz 7) — ve tehdit modeli
+    | oncekilerden farkli: yazan anonim bir MISAFIR degil, bilinen bir MAKINE.
+    |
+    | Savunma TEK KATMAN: imza dogrulamasi (FakeGateway::parseNotification).
+    | Honeypot YOK (gorunmez alan diye bir sey yok), kota YOK (mesru bildirim
+    | sayisi onceden bilinemez). Bu bir eksiklik degil: imza, gonderenin kim
+    | oldugunu kriptografik olarak kanitlar — digerlerinde boyle bir kanit
+    | hic yoktu.
+    |
+    | 🔴 docs/09 bu ucu /api/payments/webhook diye planlamisti; K12 onu buraya
+    | tasidi. Auth'suz her rota TEK yerde toplanir ki 'auth:sanctum unutuldu mu'
+    | sorusu bir hatirlama meselesi olmasin (fail-safe).
+    |
+    | 🔴 CSRF muafiyeti icin YAZILACAK BIR SATIR YOK: Laravel 11+ iskeletinde
+    | VerifyCsrfToken yalnizca 'web' grubunda. Muafiyet yapisal.
+    |
+    | Ozel bir throttle kovasi YOK: mesru bildirim hacmi ongorulemez ve dar bir
+    | limit GERCEK odemeleri dusururdu. Grubun throttle:api tavani (60/dk, IP)
+    | gecerli — saglayici tek IP'den yogun gonderirse 429 alir ve retry eder
+    | (Faz 9: saglayici IP'leri muaf tutulacak).
+    |
+    | SetEtag bu ucta anlamsiz ama zararsiz: POST yanitlarinda 304 dongusune
+    | girmez; 204 yanitinin govdesi zaten yok.
+    */
+    Route::post('/payments/webhook', PublicPaymentWebhookController::class)
+        ->name('payments.webhook');
 });
