@@ -391,3 +391,55 @@ yeniler).
 | **Encapsulation** | Veri ile onun üzerindeki davranışın bir arada tutulması |
 | **DRY** | Aynı bilginin tek yerde tutulması ilkesi |
 | **Single Source of Truth** | Bir bilginin tek yetkili kaynağının olması |
+
+---
+
+## 🆕 Faz 7 — enum nihayet kullanıldı
+
+Bu enum **Faz 0'da** yazıldı ve `docs/09` şöyle demişti:
+
+> *"Faz 7 — Ödeme ve paywall. Faz 0'da yazılan `SubscriptionTier` enum'u nihayet
+> burada kullanılır."*
+
+Yedi faz boyunca hiç çağrılmayan metotlar bugün çağrıldı:
+
+| Metot | İlk gerçek çağıran |
+|---|---|
+| `rank()` | `TierResolver::requiredFor()` · `OrderEntitlementResolver` |
+| `covers()` | 🔴 `PublishInvitationAction` — **paywall kapısının kendisi** |
+| `price()` | `StartCheckoutAction` (sunucu fiyatı) · `OrderFactory` |
+| `rsvpLimit()` | `SubscriptionRsvpQuotaResolver` |
+| `lowest()` | `TierResolver` (başlangıç değeri) · kota fallback'i |
+
+### Yeni: `values()`
+
+```php
+public static function values(): array
+{
+    return array_column(self::cases(), 'value');
+}
+```
+
+İki yerde kullanılıyor ve ikisi de **K39**'un uygulamasıdır — geçerli değer
+listesi elle yazılmaz, enum'dan türetilir:
+
+| Kullanan | Neden |
+|---|---|
+| `create_orders_table` → `orders_tier_check` | Enum değişince kısıt sessizce eskimesin |
+| `StoreCheckoutRequest` → `'in:'` kuralı | Aynı; ayrıca **D6** gereği kural nesnesi değil string |
+
+`InvitationStatus::values()` (Faz 3), `MediaKind::values()` (Faz 6) ile aynı
+kalıp — üçüncü kez.
+
+### `label()` neden burada var ama `OrderStatus`'te yok?
+
+| Enum | Değeri kim görür | `label()` |
+|---|---|---|
+| `SubscriptionTier` | Kullanıcı plan seçim ekranında görür; ad ticari ("Gold") | ✅ |
+| `OrderStatus` | Değer yalnızca makineler arasında dolaşır | ❌ (K21) |
+
+> ⚠️ `label()` bugün **hâlâ hiçbir yerden çağrılmıyor**: plan adları frontend'in
+> kataloğunda (`data.ts`). Faz 8'de bir e-posta/fatura metni doğarsa ilk
+> çağıranı orası olacak. Bu bir **açık borç** olarak `FAZ-7.md` §9'da kayıtlı —
+> ders 26 (*"yazılsaydı hiç çağrılmayan bir metot olurdu"*) bu metot için hâlâ
+> geçerli.

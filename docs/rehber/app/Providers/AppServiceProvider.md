@@ -586,3 +586,90 @@ sınırlar sessizce birbirine karışırdı.
 
 🔴 Bu, **O2**'nin (*cache anahtarı tek bir yerde üretilir*) hız sınırındaki
 karşılığı: anahtar çakışması hata vermez, **yanlış davranır**.
+
+---
+
+## 🆕 Faz 7 eklemeleri — üç bağlama ve bir sürücü seçimi
+
+`register()` artık üç bağlama taşıyor:
+
+```php
+$this->app->bind(RsvpQuotaResolver::class, SubscriptionRsvpQuotaResolver::class);
+$this->app->bind(PaymentGateway::class, $this->resolvePaymentGateway(...));
+$this->app->bind(PublishEntitlementResolver::class, OrderEntitlementResolver::class);
+```
+
+### 1. 🔴 Faz 5'in sözü tutuldu
+
+```diff
+- $this->app->bind(RsvpQuotaResolver::class, TierRsvpQuotaResolver::class);
++ $this->app->bind(RsvpQuotaResolver::class, SubscriptionRsvpQuotaResolver::class);
+```
+
+Faz 5'in kılavuzu *"Faz 7'de değişecek TEK satır"* demişti. Gerçekten tek satır
+oldu: `SubmitRsvpAction`, `RsvpTest`'in kota testleri,
+`RsvpQuotaExceededException` ve `docs/08` hiç değişmedi. `TierRsvpQuotaResolver`
+silindi (**C3**: iki yol ayrışır).
+
+Ayrıntı: [`../Services/Rsvp/SubscriptionRsvpQuotaResolver.md`](../Services/Rsvp/SubscriptionRsvpQuotaResolver.md)
+
+### 2. Sürücü seçimi: `resolvePaymentGateway()`
+
+```php
+private function resolvePaymentGateway(Application $app): PaymentGateway
+{
+    $default = Config::string('payment.default');
+    $driver = Config::get("payment.providers.{$default}.driver");
+
+    return match ($driver) {
+        'fake' => $app->make(FakeGateway::class),
+        default => throw PaymentProviderException::unavailable($default),
+    };
+}
+```
+
+Diğer ikisi sınıf adı bağlarken bu bir **closure** bağlıyor. Sebep: hangi
+sürücünün kullanılacağı **config'e** bağlı ve karar **çözüm anında**
+verilmelidir.
+
+#### 🔴 Neden kayıt anında değil?
+
+Sürücü seçimi doğrudan `register()` gövdesine yazılsaydı, hatalı bir
+`PAYMENT_PROVIDER` değeri **uygulamanın açılışını** kırardı. Oysa kırması
+gereken yalnızca ödeme uçlarıdır: `/api/ping`, davetiye okuma ve LCV
+çalışmaya devam etmelidir.
+
+**Hata yarıçapını (blast radius) daraltmak:** bir yapılandırma hatası, ona
+bağımlı olmayan uçları düşürmemeli.
+
+#### 🔴 Neden sessiz bir varsayılan yok?
+
+Cazip alternatif: *"bulamazsan `fake` kullan."* Reddedildi — üretimde
+`IYZICO_API_KEY` eksik olduğu gün sistem her ödemeyi **sahte olarak başarılı**
+sayardı. Bir yapılandırma hatası sessizce **bedava yayına** dönüşürdü.
+
+Aynı refleks Faz 5'te `TierRsvpQuotaResolver`'da da vardı: *"kota okunamıyorsa
+kotasız devam etmek, ödemeli bir sınırın sessizce kalkması demektir."*
+Güvenlikte varsayılan **kapalı** olmalıdır (fail-safe, K12'nin aynı fikri).
+
+### 3. `$this->method(...)` — first-class callable
+
+PHP 8.1 sözdizimi: metodu çağırmadan closure'a çevirir.
+`configureRateLimiting()` bunu Faz 5'ten beri kullanıyor
+(`RateLimiter::for('rsvp', $this->rsvpLimits(...))`).
+
+### 4. Neden hiçbiri `singleton` değil?
+
+Üçü de **durumsuz** (stateless). `singleton` olsalardı istek içinde bayat veri
+tutma riski doğardı: bir ödeme kaydedildikten sonra aynı istekte sorulan hak,
+eski cevabı verebilirdi.
+
+### 5. Faz 7'de hız sınırı **değişmedi**
+
+`configureRateLimiting()`'e yeni kova eklenmedi. Webhook ucu grubun
+`throttleApi` tavanını (60/dk, IP) kullanıyor — meşru bildirim hacmi
+öngörülemez ve dar bir limit **gerçek ödemeleri** düşürürdü.
+
+> ⚠️ **B6:** sağlayıcı tek çıkış IP'sinden yoğun gönderirse bu tavana çarpar ve
+> 429 alır. Sağlayıcılar 429'da retry ettiği için veri kaybolmaz, ama üretimde
+> sağlayıcı IP'lerini muaf tutmak gerekecek — **Faz 9 borcu**.
