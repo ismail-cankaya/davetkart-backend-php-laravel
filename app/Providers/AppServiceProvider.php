@@ -10,7 +10,7 @@ use App\Exceptions\PaymentProviderException;
 use App\Services\Payment\FakeGateway;
 use App\Services\Payment\PaymentGateway;
 use App\Services\Pricing\OrderEntitlementResolver;
-use App\Services\Rsvp\TierRsvpQuotaResolver;
+use App\Services\Rsvp\SubscriptionRsvpQuotaResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
@@ -28,12 +28,15 @@ class AppServiceProvider extends ServiceProvider
      * Register any application services.
      *
      * Konteyner baglamalari burada yapilir: "bu arayuz istendiginde su sinifi
-     * ver". Faz 7'de LCV kotasi gercek abonelik kayitlarindan okunacak (K42);
-     * o gun degisecek TEK satir asagidakidir — SubmitRsvpAction'a dokunulmaz.
+     * ver".
+     *
+     * 🔴 Faz 5'in sozu tutuldu: kota artik gercek siparis kayitlarindan
+     * okunuyor (K42/K51) ve degisen TEK sey asagidaki satir oldu —
+     * SubmitRsvpAction'a, testlerine ve hata sozlesmesine dokunulmadi.
      */
     public function register(): void
     {
-        $this->app->bind(RsvpQuotaResolver::class, TierRsvpQuotaResolver::class);
+        $this->app->bind(RsvpQuotaResolver::class, SubscriptionRsvpQuotaResolver::class);
 
         $this->app->bind(PaymentGateway::class, $this->resolvePaymentGateway(...));
 

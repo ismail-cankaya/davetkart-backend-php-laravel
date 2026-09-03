@@ -2,7 +2,8 @@
 
 > **Kod dosyası:** `app/Contracts/RsvpQuotaResolver.php`
 > **Faz:** 5 — RSVP/LCV dilimi, dosya 5.6
-> **Uygulaması:** [`../Services/Rsvp/TierRsvpQuotaResolver.md`](../Services/Rsvp/TierRsvpQuotaResolver.md)
+> **Uygulaması:** ~~`TierRsvpQuotaResolver`~~ (Faz 5, **silindi**) →
+> [`../Services/Rsvp/SubscriptionRsvpQuotaResolver.md`](../Services/Rsvp/SubscriptionRsvpQuotaResolver.md) (Faz 7)
 > **Bağlama yeri:** `app/Providers/AppServiceProvider.php` → `register()`
 
 ---
@@ -133,14 +134,19 @@ yazılan `configureModels()`, `configureRateLimiting()` ise gerçek iş yapar �
 
 ---
 
-## 5. Faz 7'de ne değişecek?
+## 5. ✅ Faz 7'de ne değişti? (söz tutuldu)
 
-Tek satır:
+Tek satır — **ve gerçekten tek satır oldu:**
 
 ```php
 - $this->app->bind(RsvpQuotaResolver::class, TierRsvpQuotaResolver::class);
 + $this->app->bind(RsvpQuotaResolver::class, SubscriptionRsvpQuotaResolver::class);
 ```
+
+> 🔴 Bu bölüm Faz 5'te bir **tahmin** olarak yazılmıştı. Faz 7'de doğrulandı:
+> `SubmitRsvpAction`, `RsvpTest`'in kota testleri, `RsvpQuotaExceededException`
+> ve `docs/08` **hiç değişmedi**. Ayrıntı:
+> [`../Services/Rsvp/SubscriptionRsvpQuotaResolver.md`](../Services/Rsvp/SubscriptionRsvpQuotaResolver.md) §1.
 
 Değişmeyecekler: `SubmitRsvpAction`, `RsvpTest`'teki kota testleri, hata
 sözleşmesi, `RsvpQuotaExceededException`.
