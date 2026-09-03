@@ -45,6 +45,21 @@ enum OrderStatus: string
         return $this === self::Paid;
     }
 
+    /**
+     * Bu duruma gelmis bir siparis icin PARA GERCEKTEN ALINDI mi?
+     *
+     * `refunded` de true doner: iade edilmis bir siparis bir zamanlar
+     * odenmisti ve `paid_at` damgasi silinmez — muhasebe gecmisi geri
+     * yazilamaz. Bu ayrimi grantsPublishRight() ile karistirma: para alindi
+     * olmasi HAK verildigi anlamina gelmez (iade hakki geri alir).
+     *
+     * Kullanildigi yer: orders_paid_at_check kisiti (7.2).
+     */
+    public function hasBeenPaid(): bool
+    {
+        return $this === self::Paid || $this === self::Refunded;
+    }
+
     /** Durum bir daha degisebilir mi? `pending` disindaki her sey durulmustur. */
     public function isFinal(): bool
     {
@@ -72,6 +87,27 @@ enum OrderStatus: string
             self::Paid => $next === self::Refunded,
             self::Failed, self::Refunded => false,
         };
+    }
+
+    /**
+     * `paid_at` damgasi ZORUNLU olan durumlar — CHECK kisitini besler.
+     *
+     * hasBeenPaid()'ten TURETILIR: liste elle yazilsaydi enum degisince
+     * kisit sessizce eskirdi (K39, MediaKind::guestUploadableValues() deseni).
+     *
+     * @return list<string>
+     */
+    public static function paidValues(): array
+    {
+        $values = [];
+
+        foreach (self::cases() as $case) {
+            if ($case->hasBeenPaid()) {
+                $values[] = $case->value;
+            }
+        }
+
+        return $values;
     }
 
     /** Yeni bir siparisin baslangic durumu. */

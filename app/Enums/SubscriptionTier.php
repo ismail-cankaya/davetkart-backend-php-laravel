@@ -53,6 +53,18 @@ enum SubscriptionTier: string
         };
     }
 
+    /**
+     * Veritabani CHECK kisiti ve dogrulama kurallari icin ham degerler (7.2).
+     *
+     * Elle yazilmaz: enum degisince kisit sessizce eskimesin (K39).
+     *
+     * @return list<string>
+     */
+    public static function values(): array
+    {
+        return array_column(self::cases(), 'value');
+    }
+
     /** Rank sırasına göre en düşük plan — karşılaştırmalarda başlangıç değeri. */
     public static function lowest(): self
     {
