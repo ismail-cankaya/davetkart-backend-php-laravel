@@ -325,3 +325,45 @@ Cache oraya girecek — ve cache'lenen şey Eloquent modeli değil, bu sınıfı
 ürettiği **dizi** olacak. Sebebi 4.1'de konuşmuştuk: cache'te serileştirilmiş
 model tutmak, model şeması değişince bayat bir nesneyi canlandırır. Dizi
 tutmak ayrıca ETag'i (4.5) doğrudan aynı veriden hesaplanabilir kılar.
+
+---
+
+## 🆕 Faz 7 eklemesi — `timezone` (K63)
+
+```php
+'timezone' => $this->timezone ?? Config::string('davetkart.default_timezone'),
+```
+
+### 1. Faz 4'ün açık sorusu kapandı
+
+Bu kılavuzun §6'sı `date` alanı için şöyle diyordu: *"duvar saati, saat dilimi
+TAŞIMAZ. Açık soru olarak duruyor."* Artık taşıyor — ayrı bir alanda.
+
+### 2. 🔴 Neden **her zaman** dolu? (C7)
+
+`InvitationPayloadResource` (sahibin sürümü) `null` gelince `''` gönderiyor;
+burada **config varsayılanı** gönderiliyor. İki farklı okuyucu, iki farklı
+karar (**C4**):
+
+| Okuyucu | `null` gelince | Neden |
+|---|---|---|
+| Sahip (editör) | `''` | "Seçilmemiş" bir durumdur; editör tarayıcının dilimini önerebilir |
+| Misafir (sayaç) | config varsayılanı | 🔴 Sayaç boş dizeyle **hesaplayamaz** |
+
+**C7** (Faz 5): *"sözleşmede zorunlu alan her zaman gider."* Boş gönderseydik
+frontend cihazın dilimini varsayardı — yani **sorun geri gelirdi**.
+
+> Misafire "bilmiyorum" demek, ona sessizce **yanlış saati** göstermekten
+> kötüdür. Varsayılan bir tahmindir ama **açıklanabilir** bir tahmindir.
+
+### 3. Neden `show_*` bayrağına bağlı değil?
+
+`timezone` bir **modül verisi değil**, tarihin okunma biçimidir. `date` alanı
+her zaman gidiyorsa onu yorumlayan alan da her zaman gitmeli — **C6** (kapalı
+modülün verisi gövdeye hiç girmez) burada geçerli değil, çünkü kapalı bir
+modüle ait değil.
+
+### 4. Frontend'e düşen
+
+`types.ts` → `Invitation`'a `timezone: string` eklenmeli ve geri sayım bu
+dilimde hesaplanmalı. Ayrıntı: `FAZ-7.md` §8.

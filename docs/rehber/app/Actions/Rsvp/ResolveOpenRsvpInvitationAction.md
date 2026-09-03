@@ -366,3 +366,53 @@ edecek: *değişimi güvenli kılmak.*
 | Son tarih exception'ı | [`../../Exceptions/RsvpDeadlinePassedException.md`](../../Exceptions/RsvpDeadlinePassedException.md) |
 | Hata sözleşmesi | `docs/08-HATA-SOZLESMESI.md` §3.2 |
 | Faz özeti | [`../../../fazlar/FAZ-6.md`](../../../fazlar/FAZ-6.md) |
+
+---
+
+## 🆕 Faz 7 — K63 borcu kapandı
+
+Faz 6'da bu dosyanın kılavuzunda **B6** gereği bir uyarı vardı:
+
+> *"⚠️ Bu karşılaştırma SUNUCUNUN saat diliminde yapılıyor.
+> `invitations.timezone` kolonu Faz 7'ye ertelendi; o güne kadar farklı saat
+> dilimindeki misafir için sınır bir gün kayabilir."*
+
+Kapandı.
+
+### Önce / sonra
+
+```php
+// Faz 5-6
+if ($deadline->lessThan(now()->startOfDay())) { … }
+
+// Faz 7
+$timezone = $invitation->timezone ?? Config::string('davetkart.default_timezone');
+$today = CarbonImmutable::now($timezone)->toDateString();
+
+if ($deadline->toDateString() < $today) { … }
+```
+
+### 🔴 Neden tarih **dizesi** karşılaştırılıyor?
+
+**Bir tarihin saat dilimi yoktur.** "21 Ağustos" her yerde 21 Ağustos'tur;
+değişen şey **o anda hangi günde olunduğudur**.
+
+`$deadline` bir `date` kolonundan geliyor ve Carbon onu `00:00`'a
+yerleştiriyor. O nesneyi bir saat dilimine çevirmek (`setTimezone()`) tarihi
+**bir gün kaydırabilir** — tam olarak kaçınmaya çalıştığımız hata.
+
+Doğru soru: *"Davetiyenin bulunduğu yerde bugün hangi gün?"* Cevap bir **takvim
+günüdür**; `Y-m-d` dizeleri sözlük sırasında karşılaştırıldığında takvim
+sırasıyla aynıdır (ISO 8601'in tasarım amacı).
+
+### E8 değişmedi, kapsamı genişledi
+
+**E8** (Faz 5): *"`date` kolonu, zaman damgası metotlarıyla sorgulanmaz."*
+`isPast()` yasağı tarih/zaman damgası farkı içindi; şimdi araya bir de saat
+dilimi girdi. Kural aynı, **kapsam** büyük.
+
+### Kanıt
+
+`PaywallTest::the_rsvp_deadline_is_evaluated_in_the_invitation_timezone`:
+zaman donduruluyor, aynı son tarih iki farklı dilimde iki farklı sonuç
+veriyor (UTC+14 → 403, UTC−11 → 201).

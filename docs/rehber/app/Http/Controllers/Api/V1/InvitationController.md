@@ -366,3 +366,61 @@ Fazın son dosyası ve kanıtı:
 - Senkronizasyonun üç yolu: ekle / güncelle / sil
 - `null` ile `[]` ayrımı
 - Sözleşme testleri: `date` biçimi, `id` metin, `sortOrder` sızmıyor
+
+---
+
+## 🆕 Faz 7 eklemesi — `publish()`
+
+```php
+public function publish(Invitation $invitation, PublishInvitationAction $action): InvitationResource
+{
+    Gate::authorize('publish', $invitation);
+
+    return new InvitationResource(
+        $action->handle($invitation)->load('timelineEvents'),
+    );
+}
+```
+
+Üç satır — `CLAUDE.md` §1'in "3-8 satır" kuralı içinde. Paywall'ın tamamı
+Action'da (K3).
+
+### 1. 🔴 `->load('timelineEvents')` neden şart?
+
+`PublishInvitationAction` satırı **kilitleyip yeniden okuyor**
+(`lockForUpdate()->firstOrFail()`), yani dönen örnek rota bağlamasının
+yüklediği ilişkileri **taşımıyor**.
+
+`InvitationPayloadResource` `timelineEvents`'e `whenLoaded` olmadan erişir
+(Faz 3, 3.9: *"sözleşme bu anahtarı zorunlu kılar"*). Yüklenmezse:
+
+- **Yerelde:** `LazyLoadingViolationException` (katı kip)
+- **Üretimde:** sessiz bir N+1
+
+Faz 3'ün `index()` metodundaki `with('timelineEvents')` ile aynı kural, farklı
+sebep: orada N+1'i önlemek içindi, burada **kilidin yan etkisini** onarmak için.
+
+### 2. Yanıt neden 200 ve tam kayıt?
+
+Frontend'in editörü aynı `InvitationResource`'u okuyup durumu `published`
+olarak gösterebilsin diye. Ayrı bir "yayınlandı" zarfı **ikinci bir sözleşme**
+olurdu — **C2**: zarf istisnaları ad ad tanımlıdır ve bu onlardan biri değil.
+
+201 değil: yeni bir kaynak yaratılmıyor, var olanın **durumu** değişiyor.
+
+### 3. `publish` ability'si — `update` değil
+
+Ayrıntı: [`../../../Policies/InvitationPolicy.md`](../../../Policies/InvitationPolicy.md)
+§ Faz 7 eklemesi. Özet: bugün aynı cevabı veriyorlar ama `INVITATION_LOCKED`
+kuralı geldiğinde `update` kilitlenecek, `publish` kilitlenmemeli.
+
+### 4. Bu metodun fırlattığı üç exception
+
+| Exception | Kod | Nereden |
+|---|---|---|
+| `AuthorizationException` | `RESOURCE_NOT_FOUND` (404) | `Gate::authorize` (H7) |
+| `InvitationAlreadyPublishedException` | 409 | Action |
+| `PaywallViolationException` | 402 | Action |
+
+Üçü de **H10**'a uyuyor: controller hata **yanıtı** üretmiyor, exception
+fırlıyor ve biçim kararı `ApiExceptionRenderer`'da tek yerde veriliyor.
