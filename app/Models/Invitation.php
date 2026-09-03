@@ -128,6 +128,22 @@ class Invitation extends Model
     }
 
     /**
+     * Bu davetiye ICIN alinmis siparisler — yalnizca TEKIL alimlar (K42).
+     *
+     * 🔴 Paket alimlar (invitation_id = NULL) bu iliskiden GORUNMEZ ve bu bir
+     * eksiklik degil: iliski bir yabanci anahtari izler, "hesabin her
+     * davetiyesi" gibi bir kurali izleyemez. Yayin hakki bu iliskiden DEGIL,
+     * PublishEntitlementResolver arayuzunden sorulur (7.9) — iki kaynagi tek
+     * cevaba indiren yer orasidir.
+     *
+     * @return HasMany<Order, $this>
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    /**
      * Bu davetiyeye yuklenmis dosyalarin KAYITLARI.
      *
      * Siralama yok: galeri sirasi bu tabloda degil, `gallery_images` dizisinde

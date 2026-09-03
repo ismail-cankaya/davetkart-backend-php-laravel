@@ -51,6 +51,20 @@ class User extends Authenticatable
     }
 
     /**
+     * Kullanicinin satin alma kayitlari (Faz 7).
+     *
+     * Siralama BILEREK yok: yayin hakki sorgusu hic siralamaz, bir
+     * "siparislerim" ekrani en yeniyi ustte ister. Karar cagirana ait
+     * (invitations() ile ayni gerekce).
+     *
+     * @return HasMany<Order, $this>
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    /**
      * Kullanicinin davetiyeleri — sahipligi kuran tek dogru yol.
      *
      * Siralama BILEREK yok: davetiye sirasi bir sunum tercihidir, cagiran
