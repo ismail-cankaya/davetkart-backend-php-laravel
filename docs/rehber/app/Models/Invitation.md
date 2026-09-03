@@ -623,3 +623,71 @@ Karşı taraf. Orada:
 - `#[Fillable]` — `invitation_id` **listede olmayacak** (aynı gerekçe: sahiplik
   ilişkiden gelir)
 - `User` modeline `invitations()` ilişkisinin eklenmesi
+
+---
+
+## 🆕 Faz 7 eklemeleri — `orders()` ilişkisi ve `timezone` kolonu
+
+### 1. `orders()` — K42'nin **yalnızca bir** kolu
+
+```php
+public function orders(): HasMany
+{
+    return $this->hasMany(Order::class);
+}
+```
+
+🔴 Bu ilişki **paket alımları görmez** (`orders.invitation_id IS NULL`) — ve bu
+bir eksiklik değil, bir **sınırdır**: bir Eloquent ilişkisi bir yabancı
+anahtarı izler, *"hesabın her davetiyesi"* gibi bir **iş kuralını** izleyemez.
+
+Bu yüzden hiçbir yerde şu yazılmaz:
+
+```php
+// ❌ Paket alımı görmezden gelir; ödeyen kullanıcı 402 alır
+$invitation->orders()->grantingPublishRight()->exists();
+```
+
+İki kaynağı tek cevaba indiren yer `PublishEntitlementResolver` arayüzüdür
+(7.9). İlişki yalnızca "bu davetiye için doğrudan alınmış siparişler" sorusuna
+cevap verir — muhasebe ve ileride bir "sipariş geçmişi" ekranı için.
+
+Sıralama bilerek yok: `rsvps()` ve `media()` ile aynı gerekçe — sıra bir sunum
+tercihidir, çağıran belirler.
+
+### 2. `timezone` — K63, Faz 4'ten beri üçüncü erteleme
+
+```php
+#[Fillable([… 'event_at', 'timezone', …])]
+```
+
+`event_at` bir **duvar saati** saklar (`2026-08-21 19:00`); bu kolon onun hangi
+IANA saat diliminde okunacağını söyler.
+
+**Cast yok** — bilerek: değer bir tarih/sayı değil, bir **kimliktir**
+(`'Europe/Istanbul'`). Doğrulama `InvitationRequest`'teki `'timezone'` kuralında
+yapılır; kolon sadece taşır.
+
+**`nullable`** — Faz 3'ten beri var olan kayıtların saat dilimi bilinmiyor ve
+uydurmak bir veri yalanı olurdu (**N4**: `null` bir bilgidir). Okuma tarafında
+iki farklı karar veriliyor:
+
+| Okuyucu | `null` gelince |
+|---|---|
+| `InvitationPayloadResource` (sahip) | `''` — "seçilmemiş" |
+| `PublicInvitationResource` (misafir) | config varsayılanı — **her zaman dolu** (C7) |
+
+Ayrıntı: [`../../database/migrations/2026_09_03_110000_add_timezone_to_invitations_table.md`](../../database/migrations/2026_09_03_110000_add_timezone_to_invitations_table.md)
+
+### 3. `$dispatchesEvents` — K48 karşılığını verdi
+
+Faz 4'te olay Action'lardan değil **modelden** fırlatılmıştı, gerekçe:
+
+> *"Yeni bir yazma yolu eklendiğinde kimsenin hatırlaması gerekmesin."*
+
+Faz 7'de gerçekten yeni bir yazma yolu eklendi: `PublishInvitationAction`.
+O Action `Cache::forget()` **çağırmıyor** — `save()` → `updated` →
+`InvitationChanged` → `ClearInvitationCache` zinciri kendiliğinden çalışıyor.
+
+Faz 4'ün **41. dersi**: *doğru katmanda alınmış bir karar umulmadık bir yerde
+ikinci kez işe yarar.*

@@ -400,3 +400,69 @@ Doğrulama katmanı. Orada:
 - K44'ün sözleşmesi: `id` alanı `nullable`, ve gelen id'nin **bu davetiyeye**
   ait olduğunun doğrulanması
 - Autosave gerçeği: neredeyse hiçbir alan `required` olamaz (D3'ün biçimi)
+
+---
+
+## 🆕 Faz 7 eklemesi — `publish()`
+
+```php
+public function publish(User $user, Invitation $invitation): bool
+{
+    return $this->owns($user, $invitation);
+}
+```
+
+### 1. Neden `update` yeniden kullanılmadı?
+
+İkisi bugün **aynı** cevabı veriyor (`owns()`). Yine de ayrı, çünkü
+**niyetleri** farklı.
+
+`docs/08`'in kod kataloğunda kullanılmayan bir kod duruyor:
+`INVITATION_LOCKED` (403). O kod bir gün *"yayınlanmış davetiye
+düzenlenemez"* kuralı için kullanılacak. O gün `update` kilitlenecek ama
+`publish` kilitlenmemeli — aynı ability'yi paylaşıyor olsalardı ikisi
+**birlikte** kilitlenirdi.
+
+> **Ders:** iki kuralın bugün aynı cevabı vermesi, aynı kural oldukları
+> anlamına gelmez.
+
+### 2. 🔴 Plan yeterliliği neden burada değil?
+
+Policy'ye koymak cazipti. Reddedildi — **çünkü Policy'nin cevabı bir `bool`dur**
+ve `bool` bilgi taşıyamaz:
+
+| Katman | Sorusu | Reddin karşılığı | Taşıdığı bilgi |
+|---|---|---|---|
+| **Policy** | "Bu kayıt senin mi?" | **404** (H7) | Hiçbiri — kaynak gizlenir |
+| **Action** | "Planın yetiyor mu?" | **402** | `requiredTier` |
+
+Policy'ye konsaydı paywall reddi 404'e dönüşür ve kullanıcı *"davetiyem
+kayboldu"* derdi. Kural iki katmana **doğru yerlerinden** bölündü.
+
+### 3. Aynı yetenek iki uçta
+
+```php
+POST /api/invitations/{invitation}/publish    → Gate::authorize('publish', …)
+POST /api/invitations/{invitation}/checkout   → Gate::authorize('publish', …)
+```
+
+Bir davetiye için plan satın almak, yalnızca **yayınlayabileceğin** davetiye
+için anlamlıdır. İkinci bir ability (`purchase`) tanımlamak aynı kuralın
+(`owns()`) ikinci kopyası olurdu — **P1**: sahiplik kuralı tek yerde.
+
+### 4. `create()`'teki not hâlâ açık
+
+```php
+/** Faz 7: plan kotasi kontrolu (K43) buraya gelecek. */
+public function create(User $user): bool
+{
+    return true;
+}
+```
+
+🔴 **K43 bu fazda uygulanmadı** ve not bilerek duruyor. K43 *"plan kotası
+yayınlananı sayar, taslağı değil"* diyor — yani davetiye **oluşturmak**
+zaten serbest olmalı. Sınırlanması gereken şey **kaç yayın** yapılabildiği ve
+o karar (paket alımın kaç yayın açtığı) bugün **verilmedi**.
+
+Açık ticari karar olarak `FAZ-7.md` §9'da kayıtlı.
