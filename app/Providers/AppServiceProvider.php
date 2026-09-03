@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Contracts\RsvpQuotaResolver;
+use App\Exceptions\PaymentProviderException;
+use App\Services\Payment\FakeGateway;
+use App\Services\Payment\PaymentGateway;
 use App\Services\Rsvp\TierRsvpQuotaResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
@@ -28,6 +32,37 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(RsvpQuotaResolver::class, TierRsvpQuotaResolver::class);
+
+        $this->app->bind(PaymentGateway::class, $this->resolvePaymentGateway(...));
+    }
+
+    /**
+     * Aktif odeme surucusunu config'ten secer — Strategy Pattern'in
+     * "hangi strateji?" karari (K8).
+     *
+     * 🔴 Bu closure KAYIT aninda degil COZUM aninda calisir. Aksi halde
+     * config henuz yuklenmemis olabilirdi ve bir yapilandirma hatasi
+     * uygulamanin ACILISINI kirardi — oysa yalnizca ODEME uclarini kirmasi
+     * gerekir (saglik sondasi, davetiye okuma, LCV calismaya devam etmeli).
+     *
+     * 🔴 Bilinmeyen surucu SESSIZCE null donmez, PROVIDER_UNAVAILABLE (503)
+     * firlatir. Sessiz bir varsayilan ("bulamazsan fake kullan") uretimde
+     * IYZICO_API_KEY eksik oldugu gun her odemeyi sahte olarak BASARILI
+     * sayardi — bir yapilandirma hatasinin sessizce bedava yayina donusmesi.
+     */
+    private function resolvePaymentGateway(Application $app): PaymentGateway
+    {
+        $default = Config::string('payment.default');
+
+        /** @var mixed $driver */
+        $driver = Config::get("payment.providers.{$default}.driver");
+
+        return match ($driver) {
+            'fake' => $app->make(FakeGateway::class),
+
+            // Faz 9: 'iyzico' => $app->make(IyzicoGateway::class),
+            default => throw PaymentProviderException::unavailable($default),
+        };
     }
 
     /**
