@@ -414,3 +414,65 @@ Yanıt tarafı. Orada:
 - `whenLoaded('timelineEvents')` ile N+1 önleme
 - Üç sınıf: `InvitationResource` (üstveri) · `InvitationPayloadResource` (tasarım)
   · `TimelineEventResource`
+
+---
+
+## 🆕 Faz 7 eklemesi — `timezone` (K63)
+
+İki satır eklendi:
+
+```php
+private const COLUMN_MAP = [
+    …
+    'timezone' => 'timezone',      // camelCase = snake_case, ama listede AÇIKÇA
+];
+
+'invitation.timezone' => ['sometimes', 'nullable', 'string', 'timezone', 'max:64'],
+```
+
+### 1. Adı aynı olsa bile haritaya yazılıyor
+
+`'timezone' => 'timezone'` gereksiz görünüyor. Değil: **`COLUMN_MAP` bir beyaz
+listedir** (C1). `invitationAttributes()` yalnızca bu haritadaki alanları
+geçirir; listede olmayan alan (`phoneBackground`, `galleryImages`) **sessizce
+düşer**.
+
+Yazılmasaydı doğrulamadan geçen değer Action'a hiç ulaşmaz ve kullanıcı
+"kaydettim ama kaydolmuyor" derdi — hata ayıklaması sinir bozucu bir sessiz
+başarısızlık.
+
+### 2. `'timezone'` doğrulama kuralı
+
+Laravel'in `timezone` kuralı değeri PHP'nin **kayıtlı IANA listesine** karşı
+doğrular:
+
+```
+'Europe/Istanbul'  ✅
+'GMT+3'            ❌
+'TR'               ❌
+'europe/istanbul'  ❌ (büyük/küçük harf duyarlı)
+```
+
+Uydurma bir değer veritabanına **hiç ulaşmaz** — ve ulaşsaydı sayaç sessizce
+bozulurdu, çünkü `CarbonImmutable::now('TR+3')` bir exception fırlatır ve LCV
+ucu 500 verirdi.
+
+**D6** kontrolü: bu bir **string kuraldır**, kural nesnesi değil. Hata zarfına
+`{"rule": "timezone"}` diye çıkar; sınıf adı sızmaz.
+
+> ⚠️ Faz 7'de aynı tuzağa `StoreCheckoutRequest`'te bir kez daha düşülmek
+> üzereydi: `Rule::enum(SubscriptionTier::class)` yazılmıştı ve
+> `{"rule":"illuminate\\validation\\rules\\enum"}` sızdıracaktı. Düz `'in:'`
+> kuralına çevrildi (7.18).
+
+### 3. `max:64` neden var?
+
+Kolon `varchar(64)`. Doğrulama ile şema **aynı şeyi** söylemeli; yoksa uzun bir
+değer veritabanı hatasına, o da bir **500**'e dönüşürdü. En uzun kayıtlı IANA
+kimliği 32 karakterin altında, yani sınır rahat.
+
+### 4. `nullable` — `null` bir bilgidir (N4)
+
+`null` = *"sahip henüz saat dilimi seçmedi"*. `array_key_exists` kullanımı
+sayesinde kullanıcı alanı **temizleyebiliyor** (`isset` kullanılsaydı `null`
+gönderimi sessizce yok sayılırdı — bu kılavuzun ana bölümündeki aynı tuzak).

@@ -344,3 +344,39 @@ composer check
 
 [`TimelineEventResource.md`](TimelineEventResource.md) — ailenin son üyesi ve
 `sort_order`'ın neden yanıta **girmediği**.
+
+---
+
+## 🆕 Faz 7 eklemesi — `timezone` (K63)
+
+```php
+'timezone' => $this->timezone ?? '',
+```
+
+### `''` neden `null` değil?
+
+Bu Resource'un **tüm** metin alanları aynı kalıbı izliyor (`title`, `venue`,
+`mapUrl`…): `null` yerine boş string. Sebep frontend'in `Invitation` tipinde
+alanların `string` olması — `null` göndermek `string | null` demek olurdu ve
+editördeki her `<input>` bir null kontrolü isterdi.
+
+### 🔴 Misafir sürümünde farklı davranıyor — bilerek
+
+| Resource | `null` gelince | Neden |
+|---|---|---|
+| **Bu dosya** (sahip) | `''` | "Seçilmemiş" gerçek bir durum; editör tarayıcının dilimini önerebilir |
+| `PublicInvitationResource` (misafir) | **config varsayılanı** | 🔴 Sayaç boş dizeyle hesaplayamaz (C7) |
+
+**C4**: *aynı veri, farklı okuyucular için farklı Resource.* Aynı kolon, iki
+farklı doğru cevap.
+
+### Frontend'e düşen
+
+`types.ts` → `Invitation`'a `timezone: string` eklenmeli; editörde bir saat
+dilimi seçici ve boşken öneri:
+
+```ts
+Intl.DateTimeFormat().resolvedOptions().timeZone   // 'Europe/Istanbul'
+```
+
+Ayrıntı: `FAZ-7.md` §8.

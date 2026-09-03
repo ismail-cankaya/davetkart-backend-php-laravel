@@ -449,3 +449,59 @@ durumu yakalaması budur. Sonra geri ekle.
 | **RFC 9110** | Güncel HTTP semantiği standardı |
 | **RFC 9457** | HTTP hata gövdesi standardı (Problem Details) — kullanmıyoruz |
 | **User enumeration** | Hata farkından kayıtlı hesapları tespit etme açığı |
+
+---
+
+## 🆕 Faz 7 değişikliği — `PAYMENT_REQUIRED` artık `requiredTier` taşıyor
+
+```diff
+- self::PaywallTierInsufficient => ['requiredTier'],
++ self::PaywallTierInsufficient,
++ self::PaymentRequired => ['requiredTier'],
+```
+
+### Neden?
+
+İki kod da **402** döner ama kullanıcının önündeki eylem farklıdır:
+
+| Kod | Durum | Frontend'in çizeceği ekran |
+|---|---|---|
+| `PAYMENT_REQUIRED` | Hiç ödeme yok | Üç plan kartı, önerilen vurgulu |
+| `PAYWALL_TIER_INSUFFICIENT` | Ödeme var, plan yetmiyor | Yükseltme akışı |
+
+İkisinde de frontend **hangi planı** göstereceğini bilmek zorunda.
+Göndermemek işlevsel bir zarar verirdi: kullanıcı hangi planı alacağını
+bilemezse ödeme yapamaz.
+
+Sızıntı mı? Hayır — `docs/08` §3.4 `requiredTier`'ı zaten **"herkese"**
+sınıfına koymuştu: *"fiyat sayfası zaten herkese açık."*
+
+### 🔴 Katalog yeniden üretilmeli
+
+```powershell
+php artisan errors:export
+```
+
+`composer check` zincirindeki `errors:export --check` (K34) bunu **zorluyor**:
+katalog güncel değilse **testler hiç koşmaz** (fail fast). `contracts/error-codes.json`
+repoya işlenir (K33).
+
+### Faz 7'de kullanılmaya başlayan kodlar
+
+| Kod | Durum | Nereden fırlıyor | Faz 1'den beri bekliyordu |
+|---|---|---|---|
+| `PAYMENT_REQUIRED` | 402 | `PaywallViolationException::noPurchase()` | ✅ |
+| `PAYWALL_TIER_INSUFFICIENT` | 402 | `…::insufficientTier()` | ✅ |
+| `INVITATION_ALREADY_PUBLISHED` | 409 | `InvitationAlreadyPublishedException` | ✅ |
+| `PAYMENT_PROVIDER_ERROR` | 502 | `PaymentProviderException::rejected()` | ✅ |
+| `PROVIDER_UNAVAILABLE` | 503 | `…::unavailable()` | ✅ |
+
+Faz 1'de yazılan 19 kodun beşi bugün ilk kez gerçek bir çağıran buldu.
+
+### Hâlâ kullanılmayan iki kod
+
+| Kod | Neden duruyor |
+|---|---|
+| `SLUG_TAKEN` (409) | 🔴 **K40 onu geçersiz kıldı**: `invitations.id` zaten ULID ve paylaşılan linkin kendisi; ayrı bir slug ikinci bir kimlik olurdu. Silinmedi — bir kod adı yayınlandıktan sonra **sözleşmedir** (`docs/08` §5.1) ve frontend'in çeviri anahtarı kırılır |
+| `INVITATION_LOCKED` (403) | *"Yayınlanmış davetiye düzenlenemez"* kuralı için ayrılmış; o kural henüz **verilmedi** |
+| `TOKEN_EXPIRED` (401) | Sanctum süresiz token üretiyor; Faz 9'da süre gelirse |
