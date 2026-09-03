@@ -545,16 +545,26 @@ final class MediaTest extends TestCase
 
         $this->postJson($this->guestUrl($inv), [
             'kind' => MediaKind::RsvpVideo->value,
-            // 🔴 create() DEGIL createWithContent(): FileFactory::create()
-            // `new File($name, tmpfile())` ile BOS bir gecici dosya uretir ve
-            // yalnizca `sizeToReport`'u ayarlar. $file->getSize() 512 KB der
-            // ama DISKTEKI dosya 0 bayttir — ve Action boyutu diskten okuyor
-            // (F4 ailesi), yani CHECK (size_bytes > 0) ihlal edilirdi.
+            // 🔴 IKI ayri tuzak, iki ayri cozum — ikisi de vendor'dan okundu:
             //
-            // Bu, 6.8'de `$file->getSize()` yerine `Storage::size()` secme
-            // gerekcesinin canli kaniti: "ikisi normalde ayni, ama tek dogru
-            // kaynak disktir." Test sahtesi ikisini AYRISTIRDI.
-            'file' => UploadedFile::fake()->createWithContent('klip.mp4', str_repeat("\0", 4096)),
+            // 1) createWithContent(), create() DEGIL. FileFactory::create()
+            //    `new File($name, tmpfile())` ile BOS bir dosya uretir ve
+            //    yalnizca `sizeToReport`'u ayarlar: getSize() 512 KB der ama
+            //    DISKTEKI dosya 0 bayttir. Action boyutu diskten okuyor,
+            //    yani CHECK (size_bytes > 0) ihlal edilirdi.
+            //
+            // 2) mimeType() acikca veriliyor. createWithContent()
+            //    `mimeTypeToReport`'u BOS birakir, o zaman
+            //    File::getMimeType() -> MimeType::from('klip.mp4') ->
+            //    Arr::first(MimeTypes::getMimeTypes('mp4')) calisir. Ve
+            //    symfony/mime'da o liste soyle basliyor:
+            //      'mp4' => ['application/mp4', 'video/mp4', ...]
+            //    Yani ILK eleman 'application/mp4' — bizim beyaz listemizde
+            //    olmayan bir tip. Uzantidan tip tahmin etmek, dogru cevabin
+            //    LISTEDE OLMASINA degil BASINDA OLMASINA bagli.
+            'file' => UploadedFile::fake()
+                ->createWithContent('klip.mp4', str_repeat("\0", 4096))
+                ->mimeType('video/mp4'),
         ])->assertCreated();
 
         Queue::assertNotPushed(OptimizeUploadedImage::class);

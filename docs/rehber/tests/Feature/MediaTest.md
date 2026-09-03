@@ -208,6 +208,41 @@ Düzeltme: `createWithContent()` gerçek bayt yazar.
 > `fake()->image()` bu sorunu yaşamaz: GD ile **gerçek** bir görsel üretiyor.
 > Yalnızca `create()` boş.
 
+#### 🔴 …ve düzeltme ikinci bir tuzağa düştü
+
+`createWithContent()` boyutu çözdü ama test bu sefer **422** döndü:
+
+```php
+// Illuminate\Http\Testing\File::getMimeType()
+return $this->mimeTypeToReport ?: MimeType::from($this->name);
+
+// Illuminate\Http\Testing\MimeType::get()
+return Arr::first(self::getMimeTypes()->getMimeTypes($extension)) ?? 'application/octet-stream';
+```
+
+`createWithContent()` `mimeTypeToReport`'u **boş bırakıyor**, yani tip uzantıdan
+tahmin ediliyor. Ve `symfony/mime`'ın haritası şöyle:
+
+```php
+// vendor/symfony/mime/MimeTypes.php:2898
+'mp4' => ['application/mp4', 'video/mp4', 'video/mp4v-es', 'video/x-m4v'],
+```
+
+`Arr::first()` **ilk** elemanı alıyor: `application/mp4`. Bizim beyaz listemiz
+`['video/mp4', 'video/quicktime']` — liste doğru, ama `mp4` uzantısının
+"birincil" tipi Symfony'ye göre `application/mp4`.
+
+🔴 Ders: **uzantıdan tip tahmin etmek, doğru cevabın listede olmasına değil
+listenin BAŞINDA olmasına bağlıdır.** Bir uzantı birden çok MIME'e karşılık
+gelir ve sıralama bir başkasının kararıdır.
+
+Düzeltme: `->mimeType('video/mp4')` ile açıkça ver — sahte dosyada MIME zaten
+her zaman beyandan geliyor (§5.1), o yüzden bu testin dürüstlüğünü
+değiştirmiyor.
+
+> Bu, üretimde bir sorun değil: gerçek `UploadedFile` uzantıya değil
+> **içeriğe** bakıyor ve gerçek bir MP4'ün `ftyp` kutusu `video/mp4` verir.
+
 ### 🔴 5.4 `create()` `#[Fillable]`'a tabidir, fabrikalar değil
 
 Üçüncü kırılan test `$inv->rsvps()->create([... 'ip_hash' => ...])` yazıyordu.
@@ -300,6 +335,7 @@ bir savunmanın neyi kapatmadığı da yazılır.
 | 8 | 🔴 `fake()->create()` ile dosya yüklemek | Diskteki dosya **0 bayt**; `CHECK (size_bytes > 0)` patlar (§5.3) |
 | 9 | 🔴 Sahte dosyayla içerikten-MIME test ettiğini sanmak | Sahte sınıf finfo'ya hiç gitmez (§5.1) |
 | 10 | Testte `create()` ile fillable dışı alan yazmak | Alan sessizce düşer; `NOT NULL` ihlali (§5.4) |
+| 11 | 🔴 Sahte dosyada MIME'i uzantıdan gelmesine bırakmak | `mp4` → `application/mp4` (Symfony listesinin ilki); doğrulama eler (§5.3) |
 
 ---
 
