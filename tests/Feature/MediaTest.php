@@ -118,21 +118,38 @@ final class MediaTest extends TestCase
 
     // ------------------------------------------------- DOSYA GUVENLIGI
 
-    /** 🔴 MIME ICERIKTEN okunur; uzanti kullanici girdisidir. */
+    /**
+     * 🔴 Dogrulama UZANTIYA DEGIL MIME'e bakiyor.
+     *
+     * Dosyanin adi '.jpg', bildirdigi tip 'application/x-php'. `mimes:` kurali
+     * (uzantiya bakan) bunu GECIRIRDI; `mimetypes:` eliyor. Yani bu test
+     * 'mimetypes:' -> 'mimes:' mutasyonunu oldurur.
+     *
+     * ⚠️ Ne KANITLAMAZ: MIME'in dosya ICERIGINDEN okundugunu. Sebep
+     * Illuminate\Http\Testing\File::getMimeType():
+     *
+     *     return $this->mimeTypeToReport ?: MimeType::from($this->name);
+     *
+     * Sahte dosya finfo'ya HIC gitmiyor — tipi ya rapor edilen degerden ya
+     * DOSYA ADINDAN uretiyor. Uretimde ise Symfony\...\UploadedFile
+     * MimeTypes::guessMimeType() ile gercek baytlara bakiyor.
+     *
+     * 🔴 Yani icerikten-MIME dogrulamasi bu test altyapisiyla DOGRULANAMAZ
+     * (T15). Gercek kaniti FAZ-6-ELLE-DOGRULAMA.md adim 9'da: diske gercek
+     * bir PHP dosyasi '.jpg' adiyla yuklenmeye calisiliyor.
+     */
     #[Test]
-    public function a_php_file_disguised_as_an_image_is_rejected(): void
+    public function the_upload_is_validated_by_mime_not_extension(): void
     {
         [$user, $inv] = $this->ownedInvitation();
 
         $this->withToken($this->tokenFor($user))
             ->postJson($this->ownerUrl($inv), [
                 'kind' => MediaKind::Gallery->value,
-                'file' => UploadedFile::fake()->createWithContent(
-                    'kotu.jpg',
-                    '<?php echo shell_exec($_GET["c"]); ?>',
-                ),
+                'file' => UploadedFile::fake()->create('kotu.jpg', 10, 'application/x-php'),
             ])
-            ->assertStatus(422);
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', ErrorCode::ValidationFailed->value);
 
         $this->assertDatabaseCount('media', 0);
     }
@@ -467,7 +484,12 @@ final class MediaTest extends TestCase
         [$user, $inv] = $this->ownedInvitation(['show_rsvp' => true]);
         $media = Media::factory()->rsvpPhoto()->create(['invitation_id' => $inv->id]);
 
-        $inv->rsvps()->create([
+        // 🔴 create() DEGIL forceCreate(): `ip_hash` ve `photo_media_id`
+        // #[Fillable] listesinde YOK (6.18) — bilerek. create() onlari sessizce
+        // duserdi ve `ip_hash` NOT NULL ihlaliyle patlardi.
+        // Fabrikalar Model::unguarded() icinde calistigi icin bu sorunu
+        // yasamaz; ELLE create() cagiran testler yasar.
+        $inv->rsvps()->forceCreate([
             'guest_name' => 'Melis',
             'guest_count' => 1,
             'status' => RsvpStatus::Attending,
@@ -523,7 +545,16 @@ final class MediaTest extends TestCase
 
         $this->postJson($this->guestUrl($inv), [
             'kind' => MediaKind::RsvpVideo->value,
-            'file' => UploadedFile::fake()->create('klip.mp4', 512, 'video/mp4'),
+            // 🔴 create() DEGIL createWithContent(): FileFactory::create()
+            // `new File($name, tmpfile())` ile BOS bir gecici dosya uretir ve
+            // yalnizca `sizeToReport`'u ayarlar. $file->getSize() 512 KB der
+            // ama DISKTEKI dosya 0 bayttir — ve Action boyutu diskten okuyor
+            // (F4 ailesi), yani CHECK (size_bytes > 0) ihlal edilirdi.
+            //
+            // Bu, 6.8'de `$file->getSize()` yerine `Storage::size()` secme
+            // gerekcesinin canli kaniti: "ikisi normalde ayni, ama tek dogru
+            // kaynak disktir." Test sahtesi ikisini AYRISTIRDI.
+            'file' => UploadedFile::fake()->createWithContent('klip.mp4', str_repeat("\0", 4096)),
         ])->assertCreated();
 
         Queue::assertNotPushed(OptimizeUploadedImage::class);

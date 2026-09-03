@@ -115,17 +115,48 @@ yükleme.
 
 ## 5. Dosya güvenliği testleri
 
-### `a_php_file_disguised_as_an_image_is_rejected`
+### 🔴 5.1 Sahte dosyanın MIME'i finfo'dan gelmez — ilk koşuda öğrenildi
+
+İlk yazılan test şuydu ve **kırıldı**:
 
 ```php
 UploadedFile::fake()->createWithContent('kotu.jpg', '<?php echo shell_exec($_GET["c"]); ?>')
+// beklenen 422, gelen 201
 ```
 
-Uzantı `.jpg`, **içerik** PHP. `mimetypes:` kuralı `finfo` ile içeriğe baktığı
-için elenir. `mimes:` kullansaydık (uzantıya bakan kural) bu test **geçerdi** ve
-sunucuya kod yüklenirdi.
+Sebep `vendor/`'da:
 
-### `the_stored_filename_is_random`
+```php
+// Illuminate\Http\Testing\File::getMimeType()
+return $this->mimeTypeToReport ?: MimeType::from($this->name);
+```
+
+Sahte dosya **`finfo`'ya hiç gitmiyor**: tipi ya açıkça rapor edilen değerden
+ya da **dosya adından** üretiyor. `kotu.jpg` → `image/jpeg` → doğrulama geçti.
+
+Üretimde ise `Illuminate\Http\UploadedFile` (Symfony türevi) devrede ve
+`MimeTypes::guessMimeType()` gerçek baytlara bakıyor. Yani **kod doğru, test
+altyapısı farklı bir sınıf kullanıyordu.**
+
+🔴 Sonuç: **içerikten-MIME doğrulaması bu test altyapısıyla kanıtlanamaz**
+(**T15**). Test, kanıtlayabildiği şeye göre yeniden yazıldı:
+
+```php
+UploadedFile::fake()->create('kotu.jpg', 10, 'application/x-php')
+```
+
+Ad `.jpg`, bildirilen tip `application/x-php`. Artık test **`mimetypes:` →
+`mimes:` mutasyonunu öldürüyor** (uzantıya bakan kural bunu geçirirdi) — ama
+finfo'nun çalıştığını iddia etmiyor.
+
+Gerçek kanıt `FAZ-6-ELLE-DOGRULAMA.md` adım 9'da: diske gerçek bir PHP dosyası
+`.jpg` adıyla yüklenmeye çalışılıyor.
+
+**Ders 50**: *bir testin sahtesi, ürünün gerçeğinden farklı bir sınıf
+kullanıyor olabilir. O zaman test, iddia ettiği şeyi değil sahtenin izin
+verdiğini kanıtlar.*
+
+### 5.2 `the_stored_filename_is_random`
 
 ```php
 UploadedFile::fake()->image('../../gizli.jpg', 100, 100)
@@ -135,6 +166,66 @@ UploadedFile::fake()->image('../../gizli.jpg', 100, 100)
 Üç iddia: ad orijinali **taşımıyor**, `..` **yok**, ve yol beklenen klasörde.
 `store()` içeride `Str::random(40)` + içerikten türetilen uzantı kullanıyor
 (6.8 §9).
+
+---
+
+### 🔴 5.3 `fake()->create()` BOŞ bir dosya üretir
+
+İkinci kırılan test:
+
+```
+SQLSTATE[23514]: new row for relation "media" violates check constraint "media_size_bytes_check"
+Failing row contains (..., video/mp4, 0, ...)
+```
+
+Yine `vendor/`:
+
+```php
+// Illuminate\Http\Testing\FileFactory::create()
+return tap(new File($name, tmpfile()), function ($file) use ($kilobytes, $mimeType) {
+    $file->sizeToReport = $kilobytes * 1024;    // ← yalnızca RAPOR
+});
+```
+
+`tmpfile()` **boş** bir geçici dosya. `$file->getSize()` 512 KB der ama
+**diskteki dosya 0 bayt**.
+
+🔴 Ve `StoreUploadedMediaAction` boyutu **diskten** okuyor:
+
+```php
+$media->size_bytes = Storage::disk($disk)->size($path);
+```
+
+6.9'daki gerekçe şuydu: *"`$file->getSize()` taşıma öncesi değeri verirdi;
+ikisi normalde aynı ama **tek doğru kaynak disktir**."*
+
+Test sahtesi o "normalde aynı"yı **ayrıştırdı** ve karar canlı bir kanıt
+kazandı. `getSize()` kullansaydık test geçerdi — ve gerçek bir yarım kopyalama
+sessizce `size_bytes = 512000` yazardı.
+
+Düzeltme: `createWithContent()` gerçek bayt yazar.
+
+> `fake()->image()` bu sorunu yaşamaz: GD ile **gerçek** bir görsel üretiyor.
+> Yalnızca `create()` boş.
+
+### 🔴 5.4 `create()` `#[Fillable]`'a tabidir, fabrikalar değil
+
+Üçüncü kırılan test `$inv->rsvps()->create([... 'ip_hash' => ...])` yazıyordu.
+`ip_hash` ve `photo_media_id` **bilerek** fillable değil (6.18) → sessizce
+düştüler → `ip_hash` `NOT NULL` ihlali.
+
+Fabrikalar bu sorunu yaşamaz:
+
+```php
+// Illuminate\Database\Eloquent\Factories\Factory::makeInstance()
+return Model::unguarded(fn () => ...);
+```
+
+Yani `Media::factory()->create(['invitation_id' => ...])` çalışır ama **elle**
+`create()` çağıran test çalışmaz. Düzeltme: `forceCreate()`.
+
+**Ders 51**: *bir beyaz liste testte de geçerlidir. Fabrikanın çalışması,
+`create()`'in çalışacağı anlamına gelmez.*
 
 ---
 
@@ -163,7 +254,7 @@ demektir.
 | # | Mutasyon | Kırılması gereken test |
 |---|---|---|
 | 1 | `MediaController`'daki `Gate::authorize()` sil | `owner_cannot_upload_to_someone_elses_invitation` |
-| 2 | `MediaRequest`'te `mimetypes:` → `mimes:` | `a_php_file_disguised_as_an_image_is_rejected` |
+| 2 | `MediaRequest`'te `mimetypes:` → `mimes:` | `the_upload_is_validated_by_mime_not_extension` · ⚠️ finfo'nun çalıştığını **kanıtlamaz** (§5.1) |
 | 3 | `$file->store(...)` → `storeAs(..., getClientOriginalName())` | `the_stored_filename_is_random` |
 | 4 | `MediaRequest`'te `max:` kuralını sil | `an_oversized_file_is_rejected` |
 | 5 | `assertQuotaAvailable()` (kilitli olan) sil | `the_gallery_quota_is_enforced` |
@@ -206,6 +297,9 @@ bir savunmanın neyi kapatmadığı da yazılır.
 | 5 | `actingAs()` kullanmak | Guard atlanır, token yolu test edilmez (**T10**) |
 | 6 | Kota testinde gerçek dosya yüklemek | Yavaş; `Media::factory()` satırı yeterli |
 | 7 | `Queue::fake()` unutup optimizasyonu gerçekten çalıştırmak | GD'ye bağımlı, kırılgan test |
+| 8 | 🔴 `fake()->create()` ile dosya yüklemek | Diskteki dosya **0 bayt**; `CHECK (size_bytes > 0)` patlar (§5.3) |
+| 9 | 🔴 Sahte dosyayla içerikten-MIME test ettiğini sanmak | Sahte sınıf finfo'ya hiç gitmez (§5.1) |
+| 10 | Testte `create()` ile fillable dışı alan yazmak | Alan sessizce düşer; `NOT NULL` ihlali (§5.4) |
 
 ---
 
