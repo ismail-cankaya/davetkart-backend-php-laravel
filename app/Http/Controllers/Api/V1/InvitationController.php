@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Invitation\CreateInvitationAction;
+use App\Actions\Invitation\PublishInvitationAction;
 use App\Actions\Invitation\UpdateInvitationAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Invitation\StoreInvitationRequest;
@@ -84,6 +85,30 @@ final class InvitationController extends Controller
             $request->invitationAttributes(),
             $request->timelineEvents(),
         ));
+    }
+
+    /**
+     * Davetiyeyi yayina alir — PAYWALL KAPISI (Faz 7).
+     *
+     * 🔴 Yetenek 'publish', 'update' DEGIL: sahiplik ayni olsa da niyet ayri.
+     * Bir gun "yayinlanmis davetiye duzenlenemez" kurali gelirse (docs/08'in
+     * INVITATION_LOCKED kodu tam olarak bunun icin duruyor) update ile publish
+     * ayni yetenegi paylasiyor olsaydi ikisi birlikte kilitlenirdi.
+     *
+     * Yanit 200 ve tam kayit doner: frontend'in editoru ayni Resource'u
+     * okuyup durumu 'published' olarak gosterebilsin (ayri bir "yayinlandi"
+     * zarfi ikinci bir sozlesme olurdu).
+     */
+    public function publish(Invitation $invitation, PublishInvitationAction $action): InvitationResource
+    {
+        Gate::authorize('publish', $invitation);
+
+        // 🔴 load() ZORUNLU: Action kilitli bir YENIDEN OKUMA yapiyor ve o
+        // ornek iliskileri tasimiyor. Kati kip yerelde LazyLoadingViolation
+        // firlatir (3.9); uretimde ise sessiz bir N+1 olurdu.
+        return new InvitationResource(
+            $action->handle($invitation)->load('timelineEvents'),
+        );
     }
 
     /** Soft delete: satir kalir, deleted_at damgalanir (3.2). */
