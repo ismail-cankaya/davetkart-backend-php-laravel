@@ -38,6 +38,26 @@ final class InvitationPolicy
         return $this->owns($user, $invitation);
     }
 
+    /**
+     * Yayinlama ve o davetiye icin odeme baslatma yetkisi (Faz 7).
+     *
+     * 🔴 YALNIZCA SAHIPLIK sorar — plan yeterliligi BURADA sorulmaz.
+     * Gerekce: Policy'nin cevabi bir BOOL'dur ve reddi H7 geregi 404'e
+     * cevrilir. Paywall reddi ise 402 olmali ve `requiredTier` tasimali;
+     * bir bool bu bilgiyi tasiyamaz.
+     *
+     * Kural boylece iki katmana dogru yerlerinden bolundu:
+     *   Policy -> "bu kayit senin mi?"        (yoksa 404, kaynak gizlenir)
+     *   Action -> "planin yetiyor mu?"        (yoksa 402, ne almasi gerektigi soylenir)
+     *
+     * Ayni yetenek CHECKOUT ucunda da kullanilir: bir davetiye icin plan
+     * satin almak, yalnizca yayinlayabilecegin davetiye icin anlamlidir.
+     */
+    public function publish(User $user, Invitation $invitation): bool
+    {
+        return $this->owns($user, $invitation);
+    }
+
     public function delete(User $user, Invitation $invitation): bool
     {
         return $this->owns($user, $invitation);
