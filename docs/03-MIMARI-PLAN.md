@@ -214,14 +214,15 @@ users
 invitations
   id
   user_id            FK → users, INDEX
-  public_slug        UUID/ULID, UNIQUE, INDEX        ← /invite/{slug}
-  status             ENUM(draft, saved, published), INDEX
+  ⚠️ public_slug     GEÇERSİZ — K40: `id` zaten ULID ve linkin kendisi (K66)
+  status             VARCHAR(16)+CHECK (saved|published)  ← K38/K39: `draft` YOK
   category_id        VARCHAR(32)      dugun|kina|nisan|sunnet|dogum-gunu|mezuniyet|baby-shower|parti
   preset_id          VARCHAR(48)      frontend'deki imageTheme
-  palette            ENUM(midnight, stone)
+  palette            VARCHAR(16)      ← kısıtlanmadı: frontend kataloğunun anahtarı (E6)
   title, subtitle, names, venue      VARCHAR
   map_url            TEXT NULL
   event_at           DATETIME NULL
+  timezone           VARCHAR(64) NULL ← 🆕 Faz 7 (K63/K71): duvar saatinin IANA dilimi
   show_envelope, show_timer, show_timeline,
   show_gallery, show_gift, show_rsvp  BOOLEAN DEFAULT 0
   bank_name, account_holder, iban     VARCHAR NULL
@@ -254,14 +255,23 @@ rsvps
   timestamps
   INDEX (invitation_id, status)       ← kota hesabı: SUM(guest_count)
 
-orders
-  id, user_id FK, invitation_id FK NULL,
-  tier ENUM(standart, gold, elit),
-  amount DECIMAL(10,2), currency CHAR(3) DEFAULT 'TRY',
-  status ENUM(pending, paid, failed, refunded),
-  provider VARCHAR(32), provider_ref VARCHAR(128) UNIQUE NULL,   ← idempotans
-  paid_at DATETIME NULL, timestamps
-  INDEX (user_id, status)
+orders                                ← ✅ Faz 7'de OLUŞTURULDU (aşağıdaki şema GERÇEKLEŞEN)
+  id ULID PK,                         ← K40/K52/K56 ailesi (planda belirtilmemişti)
+  user_id FK CASCADE,
+  invitation_id FK NULL ON DELETE SET NULL,   ← K42: NULL = paket alımı
+                                              ← nullOnDelete: satış kaydı kaybolmaz
+  tier VARCHAR(16) + CHECK,           ← K39: ENUM değil, değerler enum'dan
+  status VARCHAR(16) + CHECK,
+  amount_minor INTEGER + CHECK(>0),   ← 🔴 DECIMAL DEĞİL: para KURUŞTA tam sayı (M5)
+  currency CHAR(3),                   ← DEFAULT yok: satırda saklanır (F4/M7)
+  provider VARCHAR(32),               ← sürücü kendi adını söyler
+  provider_ref VARCHAR(191) UNIQUE NULL,      ← idempotansın VERİTABANI yarısı
+  paid_at TIMESTAMP NULL, expires_at TIMESTAMP NULL, timestamps
+  CHECK ((status IN ('paid','refunded')) = (paid_at IS NOT NULL))   ← E11
+  INDEX (user_id, status) · INDEX (invitation_id, status)
+
+  🔴 UNIQUE kısıt "ikinci SATIR olamaz" der, "bir satır iki kez İLERLEYEMEZ"
+     demez. İkincisi OrderStatus::canTransitionTo() + lockForUpdate() (M8).
 
 contact_messages
   id, name, email, subject ENUM(...), message TEXT,
@@ -360,15 +370,16 @@ return InvitationResource::collection($invitations);   // {"data": [...]}
 | 7 | GET | `/api/invitations/{id}` | ✅ | Sahibin düzenleme için okuması |
 | 8 | PUT | `/api/invitations/{id}` | ✅ | Güncelle (debounce'lu autosave) |
 | 9 | DELETE | `/api/invitations/{id}` | ✅ | Soft delete |
-| 10 | POST | `/api/invitations/{id}/publish` | ✅ | 🔴 Paywall doğrula → yayınla |
-| 11 | **GET** | **`/api/public/invitations/{slug}`** | **—** | 🔥 Misafir sayfası, cache'li |
-| 12 | POST | `/api/public/invitations/{slug}/rsvps` | — | 🔴 Rate limit + kota + deadline |
+| 10 | POST | `/api/invitations/{id}/publish` | ✅ | 🔴 Paywall doğrula → yayınla — ✅ **Faz 7** |
+| 11 | **GET** | **`/api/public/invitations/{id}`** | **—** | 🔥 Misafir sayfası, cache'li. ⚠️ `{slug}` **yok**: `id` zaten ULID (**K40/K66**) |
+| 12 | POST | `/api/public/invitations/{id}/rsvps` | — | 🔴 Rate limit + kota + deadline |
 | 13 | GET | `/api/invitations/{id}/rsvps` | ✅ | Sahibin listesi (ETag → polling) |
 | 14 | DELETE | `/api/rsvps/{id}` | ✅ | Sahibi siler |
-| 15 | POST | `/api/media` | ✅ | Galeri yüklemesi |
-| 16 | POST | `/api/public/media` | — | LCV foto/video (sıkı limitli) |
-| 17 | POST | `/api/payments/checkout` | ✅ | Order oluştur → ödeme URL'i |
-| 18 | POST | `/api/payments/webhook` | — | 🔒 İmza doğrulamalı, CSRF muaf |
+| 15 | ~~POST~~ | ~~`/api/media`~~ → **`/api/invitations/{id}/media`** | ✅ | Galeri yüklemesi — **Faz 6'da iç içe kaynak oldu (N1)** |
+| 16 | ~~POST~~ | ~~`/api/public/media`~~ → **`/api/public/invitations/{id}/media`** | — | LCV foto/video — aynı gerekçe |
+| 17 | POST | `/api/payments/checkout` | ✅ | **PAKET** alım — Order oluştur → ödeme URL'i (✅ Faz 7) |
+| 17b | POST | **`/api/invitations/{id}/checkout`** | ✅ | 🆕 **TEKİL** alım — kimlik URL'de (**K64**, N1) |
+| 18 | ~~POST~~ | ~~`/api/payments/webhook`~~ → **`/api/public/payments/webhook`** | — | 🔒 İmza doğrulamalı; CSRF muafiyeti **yapısal**. **K12/K65** ile `/api/public/` altına taşındı |
 | 19 | POST | `/api/assistant/chat` | ✅ | AI proxy, kotalı |
 | 20 | POST | `/api/contact` | — | İletişim formu |
 

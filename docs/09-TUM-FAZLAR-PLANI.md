@@ -167,7 +167,7 @@ merkezi exception handling · PHP 8 backed enum ile sihirli string'i yok etme.
 |---|---|---|
 | 1 | `bootstrap/app.php` zaten `shouldRenderJsonWhen()` içeriyor — `ForceJsonResponse` gerekli mi? | **Gerekli.** `shouldRenderJsonWhen` yalnızca exception render'ını etkiler; `Accept` başlığı olmadan `ValidationException` hâlâ redirect üretmeye çalışır ve `wantsJson()` false döner |
 | 2 | `ErrorCode` tam katalog (~18 case) mı, minimal (5 case) mı? | **Tam katalog.** H5: "kod adı yayınlandıktan sonra sözleşmedir" — adları tek oturumda tutarlı düşünmek, parça parça eklerken isim tutarsızlığı üretmekten iyidir |
-| 3 | Boş `app/Actions/Invitation/PublishInvitationAction.php` iskeleti | Karar bekliyor — silinip Faz 7'de `make:class` ile yeniden üretilebilir |
+| 3 | ~~Boş `app/Actions/Invitation/PublishInvitationAction.php` iskeleti~~ | ✅ **Faz 7'de dolduruldu.** Silinmedi — üç faz boyunca "burada bir şey olacak" diye durdu ve kimseyi yanıltmadı (K47) |
 
 ---
 
@@ -277,11 +277,16 @@ en büyük fazı ve veri modelinin kalbi.
 | GET | `/api/invitations/{id}` | Sahibin okuması; başkasınınkinde **404** | ✅ |
 | PUT | `/api/invitations/{id}` | Güncelle (debounce'lu autosave) | ✅ |
 | DELETE | `/api/invitations/{id}` | Soft delete — `204` | ✅ |
-| POST | `/api/invitations/{id}/publish` | ⚠️ **AÇILMADI — Faz 7'ye taşındı** | ⬜ |
+| POST | `/api/invitations/{id}/publish` | ✅ **Faz 7'de AÇILDI** — paywall kapısı | ✅ |
 
 ⚠️ Plan bu rotanın Faz 3'te açılmasını, iş kuralının Faz 7'de yazılmasını
-öngörüyordu. Açılmadı: çağıracak bir iş kuralı yokken sözleşmeye uç nokta
-eklemek, tutulamayan bir söz olurdu (B4).
+öngörüyordu. **Açılmadı** — çağıracak bir iş kuralı yoktu ve boş bir uç nokta
+sözleşmede yalan bir söz olurdu (B4). Gerekçe **K47** olarak kaydedildi:
+*"şimdi yazılırsa paywall'sız bir bedava yayın yolu açılır."*
+
+✅ **Faz 7'de açıldı** (3 Eylül 2026) — kapıyı kilitleyecek anahtarlar
+(`TierResolver`, `PublishEntitlementResolver`) ancak o gün vardı.
+**Ders:** bir rotayı erken açmak, onu korumasız açmaktır.
 
 ### 🔴 Hibrit veri modeli — uygulanan hâli
 

@@ -427,9 +427,10 @@ parçası oldu.
 | PUT | `/api/invitations/{id}` | ✅ | `200` · program senkronize edilir |
 | DELETE | `/api/invitations/{id}` | ✅ | `204` · soft delete |
 
-⚠️ **`POST /api/invitations/{id}/publish` AÇILMADI.** Plan "rota burada açılsın,
-iş kuralı Faz 7'de" diyordu; açılmadı çünkü çağıracak bir iş kuralı yok ve boş
-bir uç nokta sözleşmede yalan bir söz olurdu (B4). **Faz 7'ye taşındı.**
+⚠️ **`POST /api/invitations/{id}/publish` Faz 3'te AÇILMADI.** Plan "rota burada
+açılsın, iş kuralı Faz 7'de" diyordu; açılmadı çünkü çağıracak bir iş kuralı yok
+ve boş bir uç nokta sözleşmede yalan bir söz olurdu (B4). Gerekçe **K47**.
+✅ **Faz 7'de açıldı** — kapıyı kilitleyecek anahtarlar ancak o gün vardı.
 
 **🔴 İki plan sapması — gerekçeleriyle:**
 
@@ -712,14 +713,27 @@ kısıtıyla race condition önleme, HMAC imza doğrulaması, para aritmetiği.
 
 ## 7. Şu an neredeyiz?
 
-> **Son güncelleme:** 6 Ağustos 2026
+> **Son güncelleme:** 4 Eylül 2026
+>
+> 🔴 **Özet:** Faz 0-4 tamamlandı ve doğrulandı. **Faz 5, 6 ve 7'nin kodu
+> yazıldı ama üçü de KAPANMADI** — kapanış ölçütleri (elle doğrulama betikleri)
+> işaretlenmedi. Sıradaki iş Faz 8 değil, **Faz 7'yi kapatmak**:
+> `docs/rehber/fazlar/FAZ-7-ELLE-DOGRULAMA.md` (20 adım, Adım 0 = Faz 6'nın
+> listesi).
+>
+> | Faz | Kod | `composer check` | Elle doğrulama |
+> |---|:---:|:---:|:---:|
+> | 0-4 | ✅ | ✅ | ✅ |
+> | 5 | ✅ (17 adım) | ✅ (Faz 6'da koştu) | ⬜ 16 adım |
+> | 6 | ✅ (24 adım) | ✅ (3 hata bulup düzeltti) | ⬜ 18 adım |
+> | **7** | ✅ (25 adım / 30 commit) | ⚠️ **1 kez koştu, 7 hata bulundu ve düzeltildi (7.30) — testler henüz çalışmadı** | ⬜ 20 adım |
 
 | Durum | İş |
 |---|---|
 | ✅ | Laravel 13 kurulumu, Sanctum tablosu |
 | ✅ | `config/davetkart.php`, `payment.php`, `ai.php` + kılavuzları |
 | ✅ | Laravel varsayılan config'lerinin 11 kılavuzu |
-| ✅ | `app/Enums/SubscriptionTier.php` + kılavuzu (Faz 7'de kullanılacak) |
+| ✅ | `app/Enums/SubscriptionTier.php` + kılavuzu — ✅ **Faz 7'de nihayet kullanıldı** (`covers()`, `rank()`, `price()`, `rsvpLimit()` ilk çağıranlarını buldu) |
 | ✅ | **FAZ 0 TAMAMLANDI** — özet: `docs/rehber/fazlar/FAZ-0.md` |
 | ✅ | PostgreSQL 18 · `davetkart` + `davetkart_test` |
 | ✅ | `.env` / `.env.example` · `pint.json` · `phpstan.neon` · `phpunit.xml` |
