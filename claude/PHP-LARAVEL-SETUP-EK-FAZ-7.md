@@ -3,8 +3,13 @@
 > **Bu bir yama dosyasıdır.** Aşağıdaki bloklar master
 > `claude/PHP-LARAVEL-SETUP.md` dosyasının ilgili bölümlerine **elle** eklenecek.
 >
-> 🔴 `PHP-LARAVEL-SETUP-EK-FAZ-5.md` ve `-EK-FAZ-6.md` de hâlâ işlenmemiş
-> olabilir — üç ek dosya **birlikte** işlenmeli.
+> ✅ **Bu dosyanın A/B/C/D/E/F bölümleri 4 Eylül 2026'da master'a İŞLENDİ.**
+> Dosya, kararların gerekçelerini tam metinle taşıdığı için **kaynak olarak
+> duruyor**; master'da tabloya sığmayan ayrıntılar burada.
+>
+> 🔴 `PHP-LARAVEL-SETUP-EK-FAZ-5.md` ve `-EK-FAZ-6.md` **hâlâ işlenmedi** —
+> Faz 5 ve 6'nın kararları (K49-K63), kuralları ve dersleri (42-49) yalnızca
+> o dosyalarda ve kendi faz özetlerinde duruyor.
 
 ---
 

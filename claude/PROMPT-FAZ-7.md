@@ -1,3 +1,13 @@
+> ⚠️ **BU DOSYA ESKİDİ — Faz 7 geliştirmesi 3-4 Eylül 2026'da TAMAMLANDI.**
+> Kodun tamamı yazıldı ve commit'lendi (30 commit, `7.1`–`7.30`).
+> Sıradaki oturumun prompt'u: [`PROMPT-FAZ-7-KAPANIS.md`](PROMPT-FAZ-7-KAPANIS.md)
+> Güncel durum: [`FAZ-7-DEVIR.md`](FAZ-7-DEVIR.md)
+>
+> Bu dosya **tarihsel kayıt** olarak duruyor: Faz 7'ye başlarken ne
+> planlandığını gösteriyor. Planla gerçek arasındaki üç fark `FAZ-7.md` §10'da.
+
+---
+
 # Faz 7 için AI asistanı başlangıç mesajı
 
 > **Kullanım:** Aşağıdaki iki `═══` çizgisi arasındaki metni **olduğu gibi**
