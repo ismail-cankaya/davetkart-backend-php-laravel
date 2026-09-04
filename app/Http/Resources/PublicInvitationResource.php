@@ -6,8 +6,8 @@ namespace App\Http\Resources;
 
 use App\Models\Invitation;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Config;
 
 /**
  * Davetiyenin MISAFIRE acik surumu — types.ts -> Invitation.

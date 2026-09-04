@@ -276,3 +276,77 @@ git diff contracts/error-codes.json     # PAYMENT_REQUIRED params dolmuş olmal�
 **7.6 — `app/Services/Payment/PaymentGateway.php`.** Sağlayıcıyı arayüzün
 arkasına almak (K8, Strategy Pattern) ve iki saf veri kabı: `CheckoutSession`,
 `PaymentNotification`.
+
+---
+
+## 10. 🔴 İlk `composer check` koşusunun bulduğu hata — `Exception::$code`
+
+Faz 7 PHP'siz bir ortamda yazıldı; ilk gerçek koşuda PHPStan bu iki sınıfta
+**altı hata** buldu. Hepsi tek bir sebepten:
+
+```php
+private function __construct(
+    private readonly ErrorCode $code,   // ❌
+    …
+)
+```
+
+`Exception` sınıfının **zaten** bir `$code` özelliği var:
+
+```php
+class Exception implements Throwable
+{
+    protected $message;
+    protected $code;      // ← PHP'nin kendi hata kodu (int)
+    protected string $file;
+    protected int $line;
+}
+```
+
+Aynı adı kullanmak onu **gölgeler** ve üç ayrı ihlal doğurur:
+
+| PHPStan kuralı | Ne diyor |
+|---|---|
+| `property.visibility` | `private` < `protected` — alt sınıf görünürlüğü **daraltamaz** |
+| `property.extraNativeType` | Üst sınıftaki **tipsiz** özelliğe native tip (`ErrorCode`) eklenemez |
+| `property.readOnly` | `readwrite` bir özellik `readonly` yapılamaz |
+
+Üçü de aynı ilkenin görüntüleri: **Liskov Substitution Principle (LSP)** —
+SOLID'in **L**'si. Alt sınıf, üst sınıfın verdiği sözü **daraltamaz**. Bir kod
+`Exception` bekliyorsa `$e->code`'u okuyabilmeli ve yazabilmelidir; bizim
+sınıfımız o sözü üç ayrı yerden bozuyordu.
+
+### Çözüm: adı değiştir
+
+```php
+private readonly ErrorCode $errorCode;      // ✅
+```
+
+`errorCode()` **metodu** ile aynı ad — PHP'de sorun değil, özellik ve metot ad
+alanları ayrıdır.
+
+### Neden bu tuzağa düşmek kolay?
+
+Çünkü `$code` bizim alan dilimizde **doğru** kelime: `ErrorCode`, `error.code`,
+`code` — sözleşmenin her yerinde geçiyor. Alan dilinin doğru kelimesi,
+framework'ün ayırdığı bir ad olabilir.
+
+### 🔴 Ders
+
+**Bir sınıftan türerken, üst sınıfın **özelliklerini** de miras aldığını
+unutma.** Metot çakışması gürültülüdür (imza uyuşmazlığı, fatal error); özellik
+çakışması **sessizdir** — kod çalışır, yalnızca statik analiz yakalar.
+
+`RuntimeException`'dan türeyen diğer exception'larımız (`RsvpQuotaExceeded`,
+`MediaQuotaExceeded`, `RegistrationFailed`, `InvalidCredentials`) bu tuzağa
+düşmedi: hiçbiri `$code`, `$message`, `$file` veya `$line` adında bir özellik
+tanımlamıyor. Yeni bir exception yazarken **bu dört ad yasaklıdır.**
+
+### Kendin dene
+
+```php
+// php artisan tinker
+$r = new ReflectionClass(Exception::class);
+array_map(fn ($p) => $p->getName(), $r->getProperties());
+// ['message', 'string', 'code', 'file', 'line']   ← ad alan bunlar
+```

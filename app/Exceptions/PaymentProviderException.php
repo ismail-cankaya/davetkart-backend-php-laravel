@@ -41,8 +41,12 @@ final class PaymentProviderException extends RuntimeException implements HasErro
      */
     private const RETRY_AFTER_SECONDS = 60;
 
+    /**
+     * 🔴 Ozellik adi `$errorCode`, `$code` DEGIL — `Exception::$code` ile
+     * cakisirdi. Gerekce: PaywallViolationException'daki ayni not.
+     */
     private function __construct(
-        private readonly ErrorCode $code,
+        private readonly ErrorCode $errorCode,
         string $message,
         ?Throwable $previous = null,
     ) {
@@ -71,7 +75,7 @@ final class PaymentProviderException extends RuntimeException implements HasErro
 
     public function errorCode(): ErrorCode
     {
-        return $this->code;
+        return $this->errorCode;
     }
 
     /**

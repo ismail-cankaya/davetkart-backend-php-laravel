@@ -206,12 +206,28 @@ Dokuz katman, hiçbiri istemciden gelen bir değere güvenmiyor.
 | Migration'ların gerçekten koşması | PostgreSQL yok |
 | CHECK kısıtlarının PostgreSQL'de kabul edilmesi | Aynı |
 
-🔴 **En riskli üç nokta** (elle doğrulamada önce buraya bakılmalı):
+### ✅ İlk koşunun sonucu (4 Eylül 2026)
 
-1. **`contracts/error-codes.json`** — `PAYMENT_REQUIRED` bloğu elle düzenlendi.
-   `php artisan errors:export` çıktısıyla bayt bayt aynı olmayabilir;
-   `composer check` **testlerden önce** kırılır (K34). Çözüm:
-   `php artisan errors:export` çalıştırıp diff'e bakmak.
+`composer check` ilk kez koştu ve **7 hata** buldu — 6'sı gerçek bir LSP
+ihlali, 1'i eksik jenerik bildirim:
+
+| Bulgu | Dosya | Düzeltme |
+|---|---|---|
+| `$code` özelliği `Exception::$code`'u gölgeliyor (3 kural × 2 sınıf) | `PaywallViolationException` · `PaymentProviderException` | `$code` → `$errorCode` (**ders 55**) |
+| `TestResponse` jenerik parametresi eksik | `PaywallTest::signedWebhook()` | `@return TestResponse<JsonResponse>` |
+
+Ayrıca Pint **2 stil hatası** düzeltti (`ordered_imports`) ve migration'lar ile
+`errors:export` sorunsuz koştu — katalog elle düzenlenmişti ve **`generatedAt`
+dışında hiçbir fark çıkmadı**.
+
+🔴 **Faz 5'in 47. dersi bir kez daha doğrulandı:** *"doğrulanmamış bir faz
+kapatılamaz — ama bunu bilerek yazmak, bilmeden yazmaktan iyidir."* Faz 6'nın
+ilk koşusu üç hata bulmuştu, Faz 7'ninki yedi.
+
+🔴 **Kalan riskli iki nokta** (elle doğrulamada önce buraya bakılmalı):
+
+1. ~~`contracts/error-codes.json` elle düzenlendi~~ → ✅ **doğrulandı**,
+   `generatedAt` dışında fark yok.
 2. **`orders_paid_at_check`** — `(status IN ('paid','refunded')) = (paid_at IS NOT NULL)`
    PostgreSQL'de geçerli bir boolean karşılaştırmasıdır, ama `OrderFactory`
    ile birlikte ilk kez sınanacak.
@@ -298,6 +314,16 @@ bölerken ayırt edici soru şu: *"bu red bir bilgi taşımak zorunda mı?"*
 `illuminate\validation\rules\enum` diye sızardı. Faz 3'ün **D6** kuralı
 (`Password::min(8)` → `'min:8'`) tam olarak bunu yasaklamıştı. Aynı tuzak,
 yeni kılıkta — ve bu kez **kod yazılmadan önce** yakalandı.
+
+**55. 🔴 Bir sınıftan türerken üst sınıfın ÖZELLİKLERİNİ de miras alırsın — ve
+alan dilinin doğru kelimesi, framework'ün ayırdığı bir ad olabilir.**
+`private readonly ErrorCode $code` iki exception'da da yazıldı; `Exception`
+sınıfının zaten `protected $code`'u var. PHPStan **altı hata** verdi ve üçü de
+aynı ilkenin görüntüsüydü: **LSP** — alt sınıf, üst sınıfın verdiği sözü
+(görünürlük, tip, yazılabilirlik) daraltamaz. Metot çakışması gürültülüdür;
+**özellik çakışması sessizdir** — kod çalışır, yalnızca statik analiz yakalar.
+Yeni exception yazarken `$code`, `$message`, `$file`, `$line` **yasaklı
+adlardır**.
 
 ---
 

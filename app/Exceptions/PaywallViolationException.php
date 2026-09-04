@@ -34,8 +34,18 @@ use RuntimeException;
  */
 final class PaywallViolationException extends RuntimeException implements HasErrorCode
 {
+    /**
+     * 🔴 Ozellik adi `$errorCode`, `$code` DEGIL.
+     *
+     * `Exception` sinifinin zaten `protected int $code` ozelligi var (PHP'nin
+     * kendi hata kodu). Ayni adi kullanmak onu GOLGELER ve PHPStan uc ayri
+     * ihlal bildirir: gorunurluk daraltma (private < protected), ust siniftaki
+     * tipsiz ozellige native tip ekleme, ve readwrite bir ozelligi readonly
+     * yapma. Ucu de LSP (Liskov) ihlalidir: alt sinif ust sinifin sozunu
+     * daraltamaz.
+     */
     private function __construct(
-        private readonly ErrorCode $code,
+        private readonly ErrorCode $errorCode,
         private readonly SubscriptionTier $requiredTier,
         string $message,
     ) {
@@ -64,7 +74,7 @@ final class PaywallViolationException extends RuntimeException implements HasErr
 
     public function errorCode(): ErrorCode
     {
-        return $this->code;
+        return $this->errorCode;
     }
 
     /**

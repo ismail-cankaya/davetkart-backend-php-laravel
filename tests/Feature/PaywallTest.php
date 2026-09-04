@@ -20,6 +20,7 @@ use App\Services\Payment\PaymentNotification;
 use App\Services\Pricing\TierResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
@@ -734,6 +735,9 @@ final class PaywallTest extends TestCase
      * hesaplandiysa dogrulama da onun uzerinden yapilir.
      *
      * @param  array<string, mixed>  $payload
+     *
+     * @return TestResponse<JsonResponse> postJson()'in dondugu tip; jenerik
+     *                                    parametre PHPStan level 8'de zorunlu
      */
     private function signedWebhook(array $payload): TestResponse
     {
