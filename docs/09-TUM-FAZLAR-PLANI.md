@@ -342,8 +342,8 @@ N+1 önleme · **sahipliğin bir `if` değil sorgunun kapsamı olduğu** ·
 | **K37** | `/api/invitations` REST koleksiyonu (upsert değil) |
 | **K40** | ULID birincil anahtar; `timeline_events.id` bigint kalır |
 | **K41** | `phone_background` türetilir, saklanmaz |
-| **K42** | Yayın hakkı iki kaynaktan, tek arayüzden sorulur (Faz 7) |
-| **K43** | Plan kotası **yayınlananı** sayar, taslağı değil (Faz 7) |
+| **K42** | Yayın hakkı iki kaynaktan, tek arayüzden sorulur — ✅ **Faz 7'de uygulandı** (`PublishEntitlementResolver`) |
+| **K43** | Plan kotası **yayınlananı** sayar, taslağı değil — ⚠️ **Faz 7'de UYGULANMADI**: paket alımın kaç yayın açtığı hâlâ sınırsız (açık ticari karar, `FAZ-7.md` §9) |
 | **K44** | Kimliği backend üretir; `id: null` = yeni satır |
 
 ---
@@ -581,64 +581,107 @@ LCV formuna fotoğraf ekleyip gönderebiliyor.
 
 ---
 
-## FAZ 7 — Ödeme ve paywall 🔴
+## FAZ 7 — Ödeme ve paywall 🔴 ⚠️ KOD TAMAMLANDI · DOĞRULAMA BEKLİYOR
+
+> 🔴 **DURUM (3 Eylül 2026):** 25/25 adım yazıldı ve commit'lendi; `composer
+> check` **hiç koşmadı**. Kapanış ölçütü:
+> `docs/rehber/fazlar/FAZ-7-ELLE-DOGRULAMA.md` (20 adım).
+> Tam kayıt, 10 kural ve 8 karar: `docs/rehber/fazlar/FAZ-7.md`.
 
 **Amaç:** Projenin **ticari çekirdeği**. Faz 0'da yazılan `SubscriptionTier`
-enum'u nihayet burada kullanılır.
+enum'u nihayet burada kullanıldı — `covers()`, `rank()`, `price()` ve
+`rsvpLimit()` metotlarının ilk gerçek çağıranları bu fazda doğdu.
 
-### Dosyalar
+### Gerçekleşen dosyalar (25 adım)
 
 | # | Dosya | Not |
 |---|---|---|
-| 7.1 | `app/Enums/OrderStatus.php` | `pending \| paid \| failed \| refunded` |
-| 7.2 | `..._create_orders_table.php` | 🔴 `provider_ref` **UNIQUE** |
-| 7.3 | `app/Models/Order.php` | `tier` cast'i → `SubscriptionTier` |
-| 7.4 | `app/Services/Payment/PaymentGateway.php` | interface — Strategy Pattern |
-| 7.5 | `app/Services/Payment/FakeGateway.php` | Sağlayıcı anlaşması beklenmez |
-| 7.6 | `AppServiceProvider` | Arayüz → sürücü bağlama |
-| 7.7 | `app/Services/Pricing/TierResolver.php` | 🔴 `getRequiredTier()`'ın sunucu ikizi |
-| 7.8 | `app/Exceptions/PaywallViolationException.php` | → 402 + `requiredTier` |
-| 7.9 | `StartCheckoutAction` + `HandlePaymentCallbackAction` | |
-| 7.10 | `PublishInvitationAction` | Policy → tier → order → yayınla |
-| 7.11 | `PaymentController` + webhook rotası | |
-| 7.12 | `tests/Feature/PaywallTest.php` | 🔴 Yetersiz plan reddedilir, webhook idempotan |
+| 7.1 | `app/Enums/OrderStatus.php` | `pending \| paid \| failed \| refunded` + **durum makinesi** |
+| 7.2 | `..._create_orders_table.php` | 🔴 `provider_ref` UNIQUE + 4 CHECK · `invitation_id` nullable (K42) |
+| 7.3 | `app/Models/Order.php` | Boş `#[Fillable]` · `tier`/`status` cast · `scopeGrantingPublishRight` |
+| 7.4 | `database/factories/OrderFactory.php` | Tutar **plandan** türetilir |
+| 7.5 | 4 exception + `ErrorCode` | `PaywallViolation` · `InvitationAlreadyPublished` · `InvalidWebhookSignature` · `PaymentProvider` — **hepsi `HasErrorCode`** |
+| 7.6 | `Services/Payment/PaymentGateway.php` + `CheckoutSession` + `PaymentNotification` | Strategy Pattern (K8) |
+| 7.7 | `Services/Payment/FakeGateway.php` + `AppServiceProvider` | 🔴 **Gerçek HMAC**, sahte para |
+| 7.8 | `Services/Pricing/TierResolver.php` | `getRequiredTier()`'ın sunucu ikizi |
+| 7.9 | `Contracts/PublishEntitlementResolver.php` + `OrderEntitlementResolver` | 🔴 **K42** — iki kaynak, tek arayüz |
+| 7.10 | `Actions/Payment/StartCheckoutAction.php` + `CheckoutResult` | Sunucu fiyatı + F3 telafisi |
+| 7.11 | `Actions/Payment/HandlePaymentCallbackAction.php` | 🔴 İdempotans (kilit + durum makinesi) |
+| 7.12 | `Actions/Invitation/PublishInvitationAction.php` | 🔴 **Paywall kapısı** — Faz 3'ten beri boştu |
+| 7.13 | `StoreCheckoutRequest` + `OrderResource` | Tek alan / üç alan |
+| 7.14 | `PaymentController` + `PublicPaymentWebhookController` + `InvitationController::publish` | İki tehdit modeli |
+| 7.15 | `routes/api.php` | 4 yeni uç |
+| 7.16 | `Services/Rsvp/SubscriptionRsvpQuotaResolver.php` | 🔴 K51 dikiş yeri kapandı; `TierRsvpQuotaResolver` **silindi** |
+| 7.17 | `..._add_timezone_to_invitations_table.php` + 6 dosya | 🔴 **K63** — Faz 4'ten beri üçüncü erteleme |
+| 7.18 | (düzeltme) `'in:'` kuralı | **D6** ihlali önlendi |
+| 7.19 | `tests/Feature/PaywallTest.php` | **33 test** + 33 satırlık mutasyon tablosu (T16) |
+| 7.20–7.26 | Kılavuzlar · `CLAUDE.md` · `FAZ-7.md` · `FAZ-7-ELLE-DOGRULAMA.md` | K18 · Faz 6'nın B4 borcu |
 
-### Endpoint'ler
+### Endpoint'ler (gerçekleşen)
 
 | Method | Path | Auth | Not |
 |---|---|:---:|---|
-| POST | `/api/payments/checkout` | ✅ | Order oluştur → ödeme URL'i |
-| POST | `/api/payments/webhook` | — | 🔒 İmza doğrulamalı, CSRF muaf |
+| POST | `/api/invitations/{id}/publish` | ✅ | 🔴 Paywall kapısı · 200/402/409 |
+| POST | `/api/invitations/{id}/checkout` | ✅ | **Tekil** alım (K42) |
+| POST | `/api/payments/checkout` | ✅ | **Paket** alım (K42) |
+| POST | `/api/public/payments/webhook` | — | 🔒 İmza doğrulamalı, CSRF **yapısal olarak** muaf |
 
-### `PublishInvitationAction` akışı
+⚠️ **Bu planın üç maddesi değişti** — üçü de **daha eski ve daha güçlü** bir
+kararın uygulaması, keyfî sapma değil (`docs/09` Faz 3'ten önce yazılmıştı):
+
+| Plan | Gerçek | Neden |
+|---|---|---|
+| Tek `POST /api/payments/checkout`, gövdede kimlik | İki uç, kimlik **URL'de** | **N1** — aidiyet gövdeden gelseydi istemcinin sözüne kalırdı. Faz 6 aynı kararı medya uçlarında zaten vermişti (**K64**) |
+| `POST /api/payments/webhook` | `/api/public/payments/webhook` | **K12** — auth'suz her rota tek yerde, fail-safe (**K65**) |
+| Akışta *"`public_slug` üret"* | Üretilmiyor | **K40** — `invitations.id` zaten ULID ve paylaşılan linkin kendisi (**K66**) |
+
+### `PublishInvitationAction` akışı (gerçekleşen)
 
 ```
-1. Policy: bu davetiye bu kullanıcının mı?          → değilse 404 (403 değil — H7)
-2. TierResolver::requiredFor($invitation)            → SUNUCUDA hesapla
-3. Kullanıcının paid order'ı bu tier'ı kapsıyor mu?  → değilse 402 PAYWALL_TIER_INSUFFICIENT
-4. public_slug üret, status = published, published_at = now()
-5. InvitationPublished event → cache temizle
+1. Policy: bu davetiye bu kullanıcının mı?          → değilse 404 (H7)
+2. Satırı KİLİTLE ve yeniden oku                    → E9 (eşzamanlı iki yayın)
+3. Zaten yayında mı?                                → 409 INVITATION_ALREADY_PUBLISHED
+4. TierResolver::requiredFor()                      → SUNUCUDA hesapla (K6)
+5. PublishEntitlementResolver::highestTierFor()     → K42: tekil + paket, tek arayüz
+     ├─ null            → 402 PAYMENT_REQUIRED
+     └─ !covers()       → 402 PAYWALL_TIER_INSUFFICIENT
+6. status = published, published_at = now()
+7. save() → InvitationChanged → ClearInvitationCache (K48 — Action hatırlamıyor)
 ```
 
-🔴 **İstemciden gelen `tier` bilgisi asla kullanılmaz.** Frontend'in `activeTier`'ı
-yalnızca arayüz kararıdır ve DevTools'tan değiştirilebilir.
+🔴 **İstemciden gelen `tier` bilgisi hiçbir adımda kullanılmaz.**
 
-### Neden `provider_ref` UNIQUE?
+### 🔴 `provider_ref` UNIQUE tek başına yetmiyor (M8 / B6)
 
-Ödeme sağlayıcıları webhook'u **birden fazla kez** gönderir (ağ hatası, retry).
-UNIQUE kısıt, aynı ödemenin iki kez işlenmesini **veritabanı seviyesinde** imkânsız
-kılar. Uygulama kodundaki `if (already_processed)` kontrolü eşzamanlı iki webhook'ta
-yarış koşuluna girer; veritabanı kısıtı girmez.
+Bu planın *"UNIQUE kısıtı idempotansın tek garantisi"* cümlesi **yarım
+doğrudur**:
+
+| Katman | Neyi imkânsız kılar | Neyi kılmaz |
+|---|---|---|
+| `provider_ref` UNIQUE | Aynı ödeme için **ikinci satır** | Var olan satırın iki kez **güncellenmesi** |
+| `OrderStatus::canTransitionTo()` + `lockForUpdate()` | Bir satırın iki kez ilerlemesi | — |
+
+İkisi **farklı yarışları** kapatır. Ayrıntı:
+`docs/rehber/app/Enums/OrderStatus.md` §4.
 
 ### Bitti ölçütü
 
-Standart planla galeri açık davetiye yayınlanamıyor (**402**); sahte ödeme sonrası
-yayınlanabiliyor. Aynı webhook iki kez gelince **tek** order.
+Standart planla galeri açık davetiye yayınlanamıyor (**402**); sahte ödeme
+sonrası yayınlanabiliyor. Aynı webhook iki kez gelince **tek** order ve
+`paid_at` **değişmiyor**.
 
 ### Öğrenilecek
 
-Strategy Pattern · Dependency Inversion · idempotans · veritabanı kısıtıyla race
-condition önleme.
+Strategy Pattern · Dependency Inversion · idempotans · veritabanı kısıtıyla
+race condition önleme · HMAC imza doğrulaması · para aritmetiği (minor unit) ·
+duvar saati vs. `timestamptz`.
+
+### 🔴 Açık ticari karar
+
+**Paket alımın kaç yayın açtığı sınırlanmadı.** Bugünkü hâliyle tek bir 399 ₺'lik
+paket **sınırsız** davetiye yayınlatır. Önerilen çözüm `orders.publish_quota`
+(int) + `PublishInvitationAction`'da sayaç. K43 ancak o zaman tam uygulanmış
+olur. Ayrıntı: `docs/rehber/fazlar/FAZ-7.md` §9.
 
 ---
 

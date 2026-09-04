@@ -568,30 +568,63 @@ ve bir kuralı ikinci bir uç istediğinde **kopyalamak yerine çıkarmak**.
 
 ---
 
-### FAZ 7 — Ödeme ve paywall 🔴
+### FAZ 7 — Ödeme ve paywall 🔴 ⚠️ KOD TAMAMLANDI · DOĞRULAMA BEKLİYOR
+
+> 🔴 **DURUM (3 Eylül 2026): 25/25 adım yazıldı ve commit'lendi — ama
+> `composer check` HİÇ KOŞMADI** (ortamda PHP/Composer yoktu).
+> Kapanış ölçütü: `docs/rehber/fazlar/FAZ-7-ELLE-DOGRULAMA.md` (20 adım).
+> ⚠️ **Adım 0 = Faz 6'nın kapanış listesi** (`FAZ-6.md` §11, özellikle
+> `php artisan storage:link`).
+> Tam kayıt: `docs/rehber/fazlar/FAZ-7.md`.
 
 **Amaç:** Projenin ticari çekirdeği. Sunucu tarafı yetki doğrulaması.
 
-| # | Dosya |
-|---|---|
-| 7.1 | `app/Enums/OrderStatus.php` |
-| 7.2 | `..._create_orders_table.php` — `provider_ref` **UNIQUE** |
-| 7.3 | `app/Models/Order.php` — `tier` cast'i → `SubscriptionTier` |
-| 7.4 | `app/Services/Payment/PaymentGateway.php` (interface) |
-| 7.5 | `app/Services/Payment/FakeGateway.php` |
-| 7.6 | `AppServiceProvider` — arayüz → sürücü bağlama |
-| 7.7 | `app/Services/Pricing/TierResolver.php` — 🔴 `getRequiredTier()`'ın sunucu ikizi |
-| 7.8 | `app/Exceptions/PaywallViolationException.php` |
-| 7.9 | `StartCheckoutAction` + `HandlePaymentCallbackAction` |
-| 7.10 | `PublishInvitationAction` — policy → tier → order → yayınla |
-| 7.11 | `PaymentController` + webhook rotası |
-| 7.12 | `tests/Feature/PaywallTest.php` — 🔴 yetersiz plan reddediliyor, webhook idempotan |
+Plan **12 adımdı, 25 oldu.** Büyümenin üç sebebi: dört ayrı exception (H11
+arayüzü sayesinde renderer'a hiç dokunulmadı), K42'nin arayüzü (`docs/09`
+onu bir dosya olarak saymamıştı) ve üç fazdır ertelenen `invitations.timezone`
+(**K63**).
+
+| # | Dosya | Durum |
+|---|---|---|
+| 7.1–7.4 | `OrderStatus` · `orders` tablosu · `Order` · `OrderFactory` | ✅ |
+| 7.5 | 4 exception (`Paywall` · `AlreadyPublished` · `InvalidWebhookSignature` · `PaymentProvider`) + `ErrorCode` beyaz listesi | ✅ |
+| 7.6–7.7 | `PaymentGateway` + 2 DTO · `FakeGateway` + sürücü bağlama | ✅ |
+| 7.8 | `TierResolver` — 🔴 `getRequiredTier()`'ın sunucu ikizi | ✅ |
+| 7.9 | `PublishEntitlementResolver` 🆕 + `OrderEntitlementResolver` — 🔴 **K42** | ✅ |
+| 7.10–7.11 | `StartCheckoutAction` + `CheckoutResult` · `HandlePaymentCallbackAction` | ✅ |
+| 7.12 | 🔴 `PublishInvitationAction` — Faz 3'ten beri boş iskeletti | ✅ |
+| 7.13–7.15 | `StoreCheckoutRequest` · `OrderResource` · 2 controller · rotalar | ✅ |
+| 7.16 | `SubscriptionRsvpQuotaResolver` 🆕 — 🔴 `TierRsvpQuotaResolver` **silindi** | ✅ |
+| 7.17 | 🔴 `invitations.timezone` (**K63**) + 6 dosya + son tarih artık davetiyenin diliminde | ✅ |
+| 7.18 | (düzeltme) `Rule::enum` → `'in:'` — **D6** ihlali önlendi | ✅ |
+| 7.19 | `tests/Feature/PaywallTest.php` — **33 test** + 33 satırlık mutasyon tablosu | ✅ |
+| 7.20–7.26 | Kılavuzlar · `CLAUDE.md` (Faz 6'nın B4 borcu) · `FAZ-7.md` · elle doğrulama | ✅ |
+
+⚠️ **Rota planı değişti (üç sapma, üçü de daha eski bir kararın uygulaması):**
+
+| `docs/09` ne diyordu | Ne yapıldı | Neden |
+|---|---|---|
+| `POST /api/payments/checkout` (tek uç) | **İki uç**: `/invitations/{id}/checkout` (tekil) + `/payments/checkout` (paket) | **N1** — aidiyet URL'nin yapısında (K64) |
+| `POST /api/payments/webhook` | `/api/public/payments/webhook` | **K12** fail-safe grubu (K65) |
+| `public_slug` üret | Üretilmiyor | **K40** — `invitations.id` zaten ULID (K66) |
+
+**Çalışan uçlar (4 yeni, toplam 19):**
+
+| Method | Path | Auth |
+|---|---|:---:|
+| POST | `/api/invitations/{id}/publish` | ✅ |
+| POST | `/api/invitations/{id}/checkout` | ✅ |
+| POST | `/api/payments/checkout` | ✅ |
+| POST | `/api/public/payments/webhook` | — |
 
 **Bitti ölçütü:** Standart planla galeri açık davetiye yayınlanamıyor (402);
 sahte ödeme sonrası yayınlanabiliyor. Aynı webhook iki kez gelince tek order.
 
 **Öğrenilecek:** Strategy Pattern, Dependency Inversion, idempotans, veritabanı
-kısıtıyla race condition önleme.
+kısıtıyla race condition önleme, HMAC imza doğrulaması, para aritmetiği.
+
+🔴 **Açık ticari karar:** paket alımın **kaç yayın** açtığı sınırlanmadı
+(`FAZ-7.md` §9). Bugünkü hâliyle tek bir 399 ₺'lik paket sınırsız yayın açıyor.
 
 ---
 
@@ -637,7 +670,7 @@ kısıtıyla race condition önleme.
 | **5** ⚠️ | **RSVP** — 17/17 adım ✅; `composer check` **Faz 6'da koştu ve yeşil bitti**, elle doğrulama hâlâ açık | LCV gönderimi + canlı panel ⬜ | 10 planlandı → **16** |
 | **6** ⚠️ | **Media** — 24/24 adım ✅, **6.15+ doğrulanmadı** | Galeri + LCV medyası ⬜ (frontend borcu) | 8 planlandı → **24** |
 | 6 | Media | Galeri yüklemesi | 7 |
-| 7 | Ödeme + paywall | Yayınlama akışı | 12 |
+| **7** ⚠️ | **Ödeme + paywall** — 25/25 adım ✅, `composer check` **hiç koşmadı** | Yayınlama akışı ⬜ (frontend borcu) | 12 planlandı → **25** |
 | 8 | AI + iletişim + i18n | Asistan, iletişim formu | 6 |
 | 9 | Üretim | — | — |
 
@@ -667,7 +700,12 @@ kısıtıyla race condition önleme.
 | Action'da `validated()`, `all()` değil | Enjekte alan savunması |
 | Sırlar `.env` → `config/` → Service | Frontend'e asla |
 | IP'ler hash'lenir | KVKK |
-| `provider_ref` **UNIQUE** | Webhook idempotansı |
+| `provider_ref` **UNIQUE** | Webhook idempotansı — 🔴 ama **yalnızca ikinci satırı** engeller (M8) |
+| Durum geçişi + satır kilidi | Bir satırın iki kez ilerlemesini engeller (M8) |
+| Fiyat **asla** gövdeden okunmaz | `{"price":1}` biçimsel olarak geçerlidir (M6) |
+| Para **kuruşta tam sayı** | Kayan noktada toplamlar kuruş kaçırır (M5) |
+| İmza **ham gövde** + `hash_equals()` | Yeniden serileştirme imzayı bozar (W1) · zamanlama saldırısı (W2) |
+| Webhook ucu **her zaman 2xx** | 404 sonsuz retry + bilgi sızıntısı (W3) |
 | Kod içinde `env()` **çağrılmaz** | `config:cache` sonrası `null` |
 
 ---
