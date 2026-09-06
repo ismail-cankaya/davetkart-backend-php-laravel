@@ -100,6 +100,28 @@ return [
     'assistant' => [
         'daily_message_limit_per_user' => 30,
         'max_prompt_chars' => 2000,
+
+        // 🔴 Hız sınırı kotanın YERİNE GEÇMEZ (L3). Kota "bugün kaç mesaj"a
+        // bakar ve veritabanında sayılır (cache silinse bile durur); bu kova
+        // "ne sıklıkta"ya bakar ve en ucuz katman olarak en başta durur (L1).
+        // Kotasız bir dakikada 30 çağrı, günlük bütçeyi tek seferde yakardı.
+        'rate_limit' => [
+            'per_user_per_minute' => 6,
+        ],
+    ],
+
+    // İletişim formu: sistemin DÖRDÜNCÜ auth'suz yazma yolu.
+    'contact' => [
+        'max_message_chars' => 2000,
+
+        // LCV'den (10/dk) daha DAR: meşru bir kullanıcı iletişim formunu
+        // günde bir kez doldurur, LCV gönderimi ise bir davetiye için onlarca
+        // misafirden gelir. Üst kaynak (davetiye) kovası YOK — bu formun
+        // bağlı olduğu bir davetiye yok; tek anahtar IP.
+        'rate_limit' => [
+            'per_ip_per_minute' => 3,
+            'per_ip_per_hour' => 10,
+        ],
     ],
 
 ];

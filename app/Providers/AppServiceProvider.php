@@ -6,7 +6,11 @@ namespace App\Providers;
 
 use App\Contracts\PublishEntitlementResolver;
 use App\Contracts\RsvpQuotaResolver;
+use App\Exceptions\AiProviderException;
 use App\Exceptions\PaymentProviderException;
+use App\Services\Ai\AiProvider;
+use App\Services\Ai\GeminiProvider;
+use App\Services\Ai\NullProvider;
 use App\Services\Payment\FakeGateway;
 use App\Services\Payment\PaymentGateway;
 use App\Services\Pricing\OrderEntitlementResolver;
@@ -42,6 +46,9 @@ class AppServiceProvider extends ServiceProvider
 
         // K42: yayin hakki iki kaynaktan (tekil + paket) ama tek arayuzden.
         $this->app->bind(PublishEntitlementResolver::class, OrderEntitlementResolver::class);
+
+        // K8'in ikinci uygulamasi: AI saglayicisi da bir arayuzun arkasinda.
+        $this->app->bind(AiProvider::class, $this->resolveAiProvider(...));
     }
 
     /**
@@ -74,6 +81,39 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
+     * Aktif AI surucusunu config'ten secer — resolvePaymentGateway()'in
+     * BIREBIR ikizi (K70).
+     *
+     * 🔴 Ayni gerekce, ayni sonuc: closure COZUM aninda calisir, boylece
+     * hatali bir AI_PROVIDER degeri yalnizca asistan ucunu kirar; giris,
+     * davetiye okuma, LCV ve odeme calismaya devam eder (blast radius).
+     *
+     * 🔴 Bilinmeyen surucu SESSIZCE NullProvider'a DUSMEZ. Cazip olan
+     * alternatif buydu ve tam olarak K70'in yasakladigi sey: uretimde
+     * AI_PROVIDER yanlis yazildigi gun asistan sahte cevaplar dondurur,
+     * kullanici bunu "kotu model" sanir ve hata aylarca gorunmez. Bir
+     * yapilandirma hatasi GURULTULU olmalidir.
+     *
+     * "Anahtar var mi?" sorusunu burada SORMUYORUZ: o, GeminiProvider'in
+     * kendi degismezidir (A8). Burasi yalnizca "HANGI surucu?" sorusunu
+     * cevaplar. Iki ayri soru, iki ayri yer.
+     */
+    private function resolveAiProvider(Application $app): AiProvider
+    {
+        $default = Config::string('ai.default');
+
+        /** @var mixed $driver */
+        $driver = Config::get("ai.providers.{$default}.driver");
+
+        return match ($driver) {
+            'gemini' => $app->make(GeminiProvider::class),
+            'null' => $app->make(NullProvider::class),
+
+            default => throw AiProviderException::unavailable($default),
+        };
+    }
+
+    /**
      * Bootstrap any application services.
      */
     public function boot(): void
@@ -100,6 +140,8 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('auth', $this->authLimits(...));
         RateLimiter::for('rsvp', $this->rsvpLimits(...));
         RateLimiter::for('media', $this->guestMediaLimits(...));
+        RateLimiter::for('assistant', $this->assistantLimits(...));
+        RateLimiter::for('contact', $this->contactLimits(...));
         RateLimiter::for('api', $this->apiLimits(...));
     }
 
@@ -163,6 +205,77 @@ class AppServiceProvider extends ServiceProvider
 
             Limit::perHour(Config::integer('davetkart.media.rate_limit.guest_per_invitation_per_hour'))
                 ->by('media-inv|'.$invitation),
+        ];
+    }
+
+    /**
+     * 🔴 Asistan — sistemin PARA HARCAYAN tek ucu (Faz 8).
+     *
+     * Anahtar KULLANICI, IP degil. Gerekce Faz 8'in en onemli kararidir:
+     * her cagri paradir ve bir maliyet kontrolu, harcamanin bir KIMLIGE
+     * yazilabilmesini gerektirir. IP anahtari iki yonde birden basarisiz
+     * olurdu: CGNAT arkasindaki on binlerce abone tek IP'dir (mesru
+     * kullanici kapida kalir), ve IP degistirmek saldirgan icin saatlik
+     * birkac kurustur (kacan hic engellenmez). Uc bu yuzden auth'ludur.
+     *
+     * 🔴 Kova TEK: dakikada N. Ikinci bir kova (davetiye/saat) yok cunku bu
+     * ucun bir UST KAYNAGI yok — sohbet bir davetiyeye ait degil.
+     *
+     * Kota bu limitin YERINE GECMEZ (L3): limit "ne siklikta"ya bakar ve
+     * cache'te durur; kota "bugun kac mesaj"a bakar ve VERITABANINDA durur.
+     * Cache silinirse limit sifirlanir — kota sifirlanmaz. Bir para
+     * kontrolu cache'e emanet edilmez.
+     *
+     * @return list<Limit>
+     */
+    private function assistantLimits(Request $request): array
+    {
+        // 🔴 Bu limiter ROTA seviyesindedir ve auth:sanctum'DAN SONRA calisir
+        // (Laravel'in middleware oncelik listesinde AuthenticatesRequests,
+        // ThrottleRequests'ten oncedir), dolayisiyla user() burada COZULMUS
+        // gelir. apiLimits() ise GRUP seviyesinde ve orada null doner.
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+
+        $identity = $user !== null
+            ? 'user|'.$user->id
+            : 'ip|'.$request->ip();   // savunma amacli yedek; normalde erisilmez
+
+        return [
+            Limit::perMinute(
+                Config::integer('davetkart.assistant.rate_limit.per_user_per_minute'),
+            )->by('assistant|'.$identity),
+        ];
+    }
+
+    /**
+     * 🔴 Iletisim formu — sistemin DORDUNCU auth'suz yazma yolu (Faz 8).
+     *
+     * Oncekiler: LCV (5), misafir medyasi (6), odeme webhook'u (7).
+     *
+     * LCV'den DAHA DAR (dakikada 3 · saatte 10): mesru bir kullanici
+     * iletisim formunu gunde bir kez doldurur, oysa tek bir davetiyenin LCV
+     * ucuna onlarca farkli misafir yazar. Ikinci kova (saatlik) olmasaydi
+     * dakikada 3'u asmayan sabit bir akis gunde 4320 mesaj birakirdi.
+     *
+     * Webhook'tan farki: orada kova YOKTU cunku mesru bildirim hacmi
+     * onceden bilinemez ve dar bir limit GERCEK odemeleri dusururdu.
+     * Burada mesru hacim gayet ongorulebilir.
+     *
+     * @return list<Limit>
+     */
+    private function contactLimits(Request $request): array
+    {
+        $ip = (string) $request->ip();
+
+        return [
+            Limit::perMinute(
+                Config::integer('davetkart.contact.rate_limit.per_ip_per_minute'),
+            )->by('contact-min|'.$ip),
+
+            Limit::perHour(
+                Config::integer('davetkart.contact.rate_limit.per_ip_per_hour'),
+            )->by('contact-hour|'.$ip),
         ];
     }
 
