@@ -11,8 +11,8 @@ use App\Exceptions\RsvpDeadlinePassedException;
 use App\Exceptions\RsvpQuotaExceededException;
 use App\Models\Invitation;
 use App\Models\Rsvp;
+use App\Support\IpHasher;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -77,7 +77,7 @@ final class SubmitRsvpAction
 
         // 🔴 ip_hash #[Fillable] listesinde YOK: toplu atamayla degil, sunucu
         // kodu tarafindan atanir (E7'nin ayni gerekcesi).
-        $rsvp->ip_hash = $this->hashIp($ip);
+        $rsvp->ip_hash = IpHasher::hash($ip);
 
         // 🔴 MEDYA BAGLAMA (Faz 6). Kimlik istemciden geldi ve BICIMSEL olarak
         // dogrulandi ('ulid'), ama MESRU oldugu bilinmiyor. Sahiplik burada
@@ -191,17 +191,5 @@ final class SubmitRsvpAction
             ->exists();
 
         return $belongs ? $mediaId : null;
-    }
-
-    /**
-     * KVKK veri minimizasyonu: ham IP asla saklanmaz (CLAUDE.md §3).
-     *
-     * APP_KEY bir "pepper"dir: yalnizca sha256(ip) yazsaydik saldirgan tum
-     * IPv4 uzayinin hash'ini onceden hesaplayip tabloyu geri cozebilirdi.
-     * Anahtar karisima girdiginde bu sozluk saldirisi imkansizlasir.
-     */
-    private function hashIp(string $ip): string
-    {
-        return hash('sha256', $ip.Config::string('app.key'));
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Rsvp;
 
 use App\Enums\RsvpStatus;
+use App\Http\Requests\Concerns\HasHoneypot;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Config;
 
@@ -19,14 +20,11 @@ use Illuminate\Support\Facades\Config;
  */
 final class StoreRsvpRequest extends FormRequest
 {
-    /**
-     * 🔴 Honeypot (bal kupu) alani.
-     *
-     * Formda insana GORUNMEZ bir alandir. Insan doldurmaz cunku goremez;
-     * otomatik doldurma yapan botlarin cogu her input'u doldurur. Adi bilerek
-     * masum ve cazip secildi — 'honeypot' deseydik bot da anlardi.
-     */
-    public const HONEYPOT_FIELD = 'website';
+    // 🔴 Honeypot alani ve okuyucusu Faz 8'de trait'e cikarildi: ayni tuzagi
+    // iletisim formu da kuruyor ve bir kural iki dosyada duramaz (C3).
+    // HONEYPOT_FIELD sabiti trait'ten geliyor; StoreRsvpRequest::HONEYPOT_FIELD
+    // erisimi (RsvpTest) aynen calisir.
+    use HasHoneypot;
 
     /**
      * Istek alani -> veritabani kolonu (D4).
@@ -149,24 +147,5 @@ final class StoreRsvpRequest extends FormRequest
             'photo' => is_string($photo) ? $photo : null,
             'video' => is_string($video) ? $video : null,
         ];
-    }
-
-    /**
-     * Gorunmez alan dolduruldu mu?
-     *
-     * KARARI VERMEZ, yalnizca OLGUYU bildirir: ne yapilacagi (sessizce basarili
-     * gorunmek) bir is kuralidir ve Action'a aittir.
-     *
-     * validated() yerine input() okunuyor cunku alanin dogrulama kurali yok —
-     * D2'nin tersi bir durum degil: burada okunan sey bir DEGER degil, bir
-     * VARLIK/YOKLUK sinyali; icerigine hicbir yerde guvenilmiyor.
-     */
-    public function isHoneypotTripped(): bool
-    {
-        $value = $this->input(self::HONEYPOT_FIELD);
-
-        // ConvertEmptyStringsToNull global middleware'i '' degerini null yapar,
-        // yani bos gonderen durustler burada da elenmez.
-        return $value !== null && $value !== [];
     }
 }
