@@ -45,8 +45,24 @@ enum ErrorCode: string
     case ValidationFailed = 'VALIDATION_FAILED';
     case RegistrationFailed = 'REGISTRATION_FAILED';
 
-    // 429 — hiz siniri
+    // 429 — hiz siniri VE zamana bagli kota
     case RateLimited = 'RATE_LIMITED';
+
+    /**
+     * 🔴 Asistanin GUNLUK mesaj butcesi doldu (Faz 8).
+     *
+     * Neden 403 degil 429? K28 LCV kotasini 403 yapmisti cunku o bir
+     * KAPASITE sinirdir: misafir bekleyerek asamaz, satin alinan planin
+     * kotasi neyse odur. Asistan kotasi ise ZAMANA BAGLI bir butcedir —
+     * gece yarisi yenilenir, yani kullanici bekleyerek GERCEKTEN asar.
+     * "Belirli bir zaman diliminde cok fazla istek" 429'un tanimidir ve
+     * Retry-After (RFC 9110 §10.2.3) burada yaniltici degil DOGRU bilgidir.
+     *
+     * Neden RATE_LIMITED yeniden kullanilmiyor? "Hizlisin, 30 sn bekle" ile
+     * "bugunluk hakkin bitti" frontend'de ayni metni gosteremez; kod, ince
+     * ayrimin tasiyicisidir (08 §4).
+     */
+    case AssistantQuotaExceeded = 'ASSISTANT_QUOTA_EXCEEDED';
 
     // 5xx — sunucu ve yukari akis (upstream)
     case ServerError = 'SERVER_ERROR';
@@ -81,7 +97,8 @@ enum ErrorCode: string
             self::ValidationFailed,
             self::RegistrationFailed => 422,
 
-            self::RateLimited => 429,
+            self::RateLimited,
+            self::AssistantQuotaExceeded => 429,
 
             self::ServerError => 500,
             self::PaymentProviderError => 502,
@@ -113,6 +130,12 @@ enum ErrorCode: string
             self::MediaQuotaExceeded => ['limit'],
             self::FileTooLarge => ['max'],
             self::RateLimited, self::ProviderUnavailable => ['retryAfter'],
+
+            // 🔴 'limit' SIZINTI DEGIL: kullanicinin KENDI gunluk hakki, tipki
+            // FILE_TOO_LARGE'in 'max'i gibi urun sabiti. 'remaining' YOK —
+            // kota doldugunda kalan zaten sifirdir, ikinci bir alan bilgi
+            // tasimaz (H9: beyaz liste, "her ihtimale karsi" degil).
+            self::AssistantQuotaExceeded => ['retryAfter', 'limit'],
             default => [],
         };
     }

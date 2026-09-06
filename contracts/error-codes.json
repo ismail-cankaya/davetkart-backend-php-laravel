@@ -1,7 +1,15 @@
 {
     "generatedAt": "2026-09-04T05:23:41+00:00",
-    "count": 20,
+    "count": 21,
     "codes": {
+        "ASSISTANT_QUOTA_EXCEEDED": {
+            "status": 429,
+            "params": [
+                "retryAfter",
+                "limit"
+            ],
+            "retryable": true
+        },
         "FILE_TOO_LARGE": {
             "status": 413,
             "params": [
