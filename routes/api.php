@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\PaymentController;
+use App\Http\Controllers\Api\V1\PublicContactController;
 use App\Http\Controllers\Api\V1\PublicInvitationController;
 use App\Http\Controllers\Api\V1\PublicMediaController;
 use App\Http\Controllers\Api\V1\PublicPaymentWebhookController;
@@ -239,4 +240,29 @@ Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(func
     */
     Route::post('/payments/webhook', PublicPaymentWebhookController::class)
         ->name('payments.webhook');
+
+    /*
+    | 🔴 Sistemin DORDUNCU auth'suz yazma yolu (Faz 8) — ve tehdit modeli
+    | LCV'ninkine en yakin olani: yazan, tarayicidaki bir insan (ya da onu
+    | taklit eden bir bot).
+    |
+    | Savunma UC katman, en ucuzdan pahaliya (L1):
+    |   1. throttle:contact  IP basina 3/dk ve 10/saat — LCV'den DAR, cunku
+    |                        mesru bir kullanici bu formu gunde bir kez doldurur
+    |   2. honeypot          gorunmez alan; bot SESSIZCE yutulur (L2)
+    |   3. bicim dogrulama   ContactRequest
+    | Webhook'ta honeypot MUMKUN DEGILDI (gonderen bir makineydi); burada
+    | mumkun ve kullaniliyor.
+    |
+    | 🔴 YOL FRONTEND'DEN FARKLI. `services/contact.ts` bugun `/api/contact`
+    | cagiriyor; uc `/api/public/contact` altinda acildi ve FRONTEND
+    | UYARLANACAK. Gerekce K12: auth gerektirmeyen rotalarin TAMAMI tek
+    | onekte toplanir ki "auth:sanctum unutuldu mu?" bir HATIRLAMA meselesi
+    | olmasin. Bu ucu disarida birakmak, o oneki bir kurala degil bir
+    | ALISKANLIGA cevirirdi — ve ilk istisna, ikincisinin gerekcesi olur.
+    | Faz 7'de webhook icin birebir ayni karar verilmisti (K65).
+    */
+    Route::post('/contact', PublicContactController::class)
+        ->middleware('throttle:contact')
+        ->name('contact.store');
 });
