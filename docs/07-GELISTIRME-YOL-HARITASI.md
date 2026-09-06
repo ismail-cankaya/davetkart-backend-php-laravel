@@ -659,19 +659,29 @@ kısıtıyla race condition önleme, HMAC imza doğrulaması, para aritmetiği.
 
 ---
 
-### FAZ 8 — AI asistan ve iletişim
+### FAZ 8 — AI asistan ve iletişim ⚠️ **kod bitti, doğrulama açık**
 
-| # | Dosya |
-|---|---|
-| 8.1 | `app/Services/Ai/AiProvider.php` (interface) + `GeminiProvider` + `NullProvider` |
-| 8.2 | `AssistantController` — kotalı proxy |
-| 8.3 | `app/Enums/ContactSubject.php` |
-| 8.4 | `..._create_contact_messages_table.php` + model |
-| 8.5 | `ContactRequest` + `ContactController` |
-| 8.6 | `SetLocaleFromHeader` middleware — 10 dil desteği |
+> 🔴 **Bu tablo Faz 3'ten önce yazılmıştı ve 6 satırlık hâli geçersizdir.**
+> Fazın gerçek kaydı: [`docs/rehber/fazlar/FAZ-8.md`](rehber/fazlar/FAZ-8.md)
+> (21 adım, K72–K79, kurallar Q1-Q4 / X1-X3 / L8 / C8 / B9).
 
-**Bitti ölçütü:** Asistan sohbeti gerçek yanıt veriyor; iletişim formu kaydediyor;
-`Accept-Language: de` gönderince doğrulama hataları Almanca dönüyor.
+| # | Dosya | Not |
+|---|---|---|
+| 8.1 | `ErrorCode` + `contracts/error-codes.json` | `ASSISTANT_QUOTA_EXCEEDED` (429) |
+| 8.2 | `AiProviderException` · `AssistantQuotaExceededException` | 503 · 429 |
+| 8.3–8.5 | `AiProvider` · `NullProvider` · `GeminiProvider` | K8'in üçüncü uygulaması |
+| 8.6 | `AppServiceProvider` | Sürücü seçimi (K70) + `throttle:assistant` · `throttle:contact` |
+| 8.7 | `app/Support/IpHasher` · `HasHoneypot` trait | C3 — iki refleks birleşti (K77) |
+| 8.8 | `assistant_usages` tablosu + model + factory | 🔴 Kota **veritabanında** (K73) |
+| 8.9–8.11 | `AskAssistantRequest` · `AskAssistantAction` · `AssistantController` | `POST /api/assistant/chat` **auth'lu** (K72) |
+| 8.12–8.15 | `ContactSubject` · `contact_messages` · `ContactRequest` · `SubmitContactAction` · `PublicContactController` | `POST /api/public/contact` → 204 (K76) |
+| 8.16–8.17 | `AssistantTest` (21) · `ContactTest` (14) | Mutasyon tabloları (T16) |
+| 8.18–8.23 | 20 kılavuz · `FAZ-8.md` · elle doğrulama · bu dosya | K18 |
+| ~~8.6~~ | ~~`SetLocaleFromHeader` middleware — 10 dil~~ | 🔴 **İPTAL (K21).** Backend tek dil konuşur; `Accept-Language` okunmaz. Aynı dosyanın §7 "Faz 8'den çıkarılan" bölümü ve `docs/09` bunu zaten söylüyordu — bu satır güncellenmemişti |
+
+**Bitti ölçütü:** Asistan sohbeti gerçek yanıt veriyor; iletişim formu
+kaydediyor; kota `cache:clear` sonrasında bile duruyor; sağlayıcı çökünce
+sistem 503 dönüp ayakta kalıyor. (Dil maddesi **kaldırıldı** — K21.)
 
 ---
 
@@ -702,7 +712,7 @@ kısıtıyla race condition önleme, HMAC imza doğrulaması, para aritmetiği.
 | **6** ⚠️ | **Media** — 24/24 adım ✅, **6.15+ doğrulanmadı** | Galeri + LCV medyası ⬜ (frontend borcu) | 8 planlandı → **24** |
 | 6 | Media | Galeri yüklemesi | 7 |
 | **7** ⚠️ | **Ödeme + paywall** — 25/25 adım ✅, `composer check` **hiç koşmadı** | Yayınlama akışı ⬜ (frontend borcu) | 12 planlandı → **25** |
-| 8 | AI + iletişim + i18n | Asistan, iletişim formu | 6 |
+| **8** ⚠️ | **AI asistan + iletişim** — 21/21 adım ✅, `composer check` **koşmadı** | Asistan + iletişim formu ⬜ (frontend borcu) | 6 planlandı → **21** |
 | 9 | Üretim | — | — |
 
 ---

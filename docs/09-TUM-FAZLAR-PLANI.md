@@ -731,22 +731,45 @@ olur. Ayrıntı: `docs/rehber/fazlar/FAZ-7.md` §9.
 
 ## FAZ 8 — AI asistan ve iletişim
 
-### Dosyalar
+> ⚠️ **Bu bölüm Faz 3'ten önce yazıldı. Uygulanan hâli 21 adımdır** —
+> tam kayıt: [`docs/rehber/fazlar/FAZ-8.md`](rehber/fazlar/FAZ-8.md).
+
+### Dosyalar (uygulanan)
 
 | # | Dosya |
 |---|---|
-| 8.1 | `app/Services/Ai/AiProvider.php` (interface) + `GeminiProvider` + `NullProvider` |
-| 8.2 | `AssistantController` — kotalı proxy |
-| 8.3 | `app/Enums/ContactSubject.php` |
-| 8.4 | `..._create_contact_messages_table.php` + model |
-| 8.5 | `ContactRequest` + `ContactController` |
+| 8.1–8.2 | `ErrorCode` (+`ASSISTANT_QUOTA_EXCEEDED`) · `AiProviderException` · `AssistantQuotaExceededException` |
+| 8.3–8.5 | `app/Services/Ai/`: `AiProvider` · `NullProvider` · `GeminiProvider` |
+| 8.6 | `AppServiceProvider` — sürücü seçimi (K70) + iki throttle kovası |
+| 8.7 | `app/Support/IpHasher` · `app/Http/Requests/Concerns/HasHoneypot` |
+| 8.8 | `assistant_usages` tablosu + `AssistantUsage` + factory |
+| 8.9–8.11 | `AskAssistantRequest` · `AskAssistantAction` · `AssistantController` |
+| 8.12–8.15 | `ContactSubject` · `contact_messages` + model + factory · `ContactRequest` · `SubmitContactAction` · `PublicContactController` |
+| 8.16–8.17 | `AssistantTest` (21 test) · `ContactTest` (14 test) |
+| 8.18–8.23 | 20 kılavuz · `FAZ-8.md` · `FAZ-8-ELLE-DOGRULAMA.md` · `docs/07` · `docs/09` · `PHP-LARAVEL-SETUP-EK-FAZ-8.md` |
 
 ### Endpoint'ler
 
-| Method | Path | Auth |
-|---|---|:---:|
-| POST | `/api/assistant/chat` | ✅ (kotalı) |
-| POST | `/api/contact` | — |
+| Method | Path | Auth | Yanıt |
+|---|---|:---:|---|
+| POST | `/api/assistant/chat` | ✅ (kotalı) | `200 {data:{reply}}` · 429 · 503 |
+| POST | `/api/public/contact` | — | `204` |
+
+> 🔴 **İki sapma.** (1) İletişim ucu `/api/contact` değil **`/api/public/`**
+> altında — K12 fail-safe grubu, Faz 7'nin webhook kararıyla (K65) aynı
+> gerekçe (**K76**). (2) Asistan ucu **auth'lu**: her çağrı paradır ve bir
+> maliyet kontrolü harcamanın bir kimliğe yazılabilmesini gerektirir; anonim
+> çağrıda tek anahtar IP olurdu ve IP hem çok geniş (CGNAT) hem çok dardır
+> (**K72**). Frontend'de `AssistantWidget` bu yüzden giriş duvarının
+> arkasına alınacak.
+
+### Kota nerede sayılıyor?
+
+🔴 **Veritabanında** (`assistant_usages`), `RateLimiter` kovasında değil
+(**K73**). Kova cache'tedir ve `cache:clear` / deploy / Redis restart bütün
+kotaları sıfırlar; bir **hız sınırı** için kabul edilebilir, bir **fatura
+kontrolü** için değil. Hız sınırı ayrıca duruyor — L3: ikisi birbirinin
+yerine geçmez.
 
 ### Sır yönetimi
 
@@ -768,7 +791,9 @@ kontrollerini gereksizleştirir.
 
 ### Bitti ölçütü
 
-Asistan sohbeti gerçek yanıt veriyor; iletişim formu kaydediyor.
+Asistan sohbeti gerçek yanıt veriyor; iletişim formu kaydediyor; kota
+`cache:clear` sonrasında bile duruyor; sağlayıcı çökünce uç 503 dönüp sistem
+ayakta kalıyor.
 
 ---
 
