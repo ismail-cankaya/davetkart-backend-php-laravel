@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\AssistantController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
@@ -138,6 +139,30 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // PAKET alim: hesabin tamami icin plan. Davetiye kimligi YOK (K42).
     Route::post('/payments/checkout', [PaymentController::class, 'forAccount'])
         ->name('payments.checkout');
+
+    /*
+    | AI asistan (Faz 8) — sistemin PARA HARCAYAN tek ucu.
+    |
+    | 🔴 Neden auth'lu? Frontend'de AssistantWidget her sayfada goruntuleniyor
+    | (AppLayout), yani giris yapmamis ziyaretcide de. Bu bir SOZLESME
+    | CELISKISIDIR ve bilincli olarak backend lehine cozuldu: her cagri
+    | paradir ve maliyet kontrolu harcamanin bir KIMLIGE yazilabilmesini
+    | gerektirir. Kimliksiz cagrida tek anahtar IP olurdu; IP hem cok genis
+    | (CGNAT: on binlerce abone tek IP) hem cok dardir (degistirmesi
+    | saldirgana saatlik birkac kurus). Duzeltme frontend'e dusuyor.
+    |
+    | 🔴 Ayri bir throttle kovasi VAR (grubun throttle:api tavani yetmez):
+    | 60/dk genel tavan, gunluk 30 mesajlik butceyi tek dakikada yakardi.
+    | Kova KULLANICI anahtarli — bu limiter rota seviyesinde ve
+    | auth:sanctum'dan SONRA calisir (Laravel'in middleware oncelik
+    | listesinde AuthenticatesRequests, ThrottleRequests'ten oncedir).
+    |
+    | Kota bu limitin YERINE GECMEZ (L3): limit cache'te "ne siklikta"ya,
+    | kota veritabaninda "bugun kac mesaj"a bakar.
+    */
+    Route::post('/assistant/chat', AssistantController::class)
+        ->middleware('throttle:assistant')
+        ->name('assistant.chat');
 });
 
 /*
