@@ -10,6 +10,7 @@ use App\Http\Requests\Rsvp\StoreRsvpRequest;
 use App\Models\Invitation;
 use App\Models\Rsvp;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
@@ -201,11 +202,23 @@ final class RsvpTest extends TestCase
 
     // -------------------------------------------------------- SON TARIH
 
-    /** 🔴 Son gun DAHIL: isPast() yazilsaydi bu test kirilirdi. */
+    /**
+     * 🔴 Son gun DAHIL: isPast() yazilsaydi bu test kirilirdi.
+     *
+     * 🔴 FAZ 7 BORCU (2026-09-06'da yakalandi). Once `now()->toDateString()`
+     * yaziyordu ve bu, K71'den SONRA yanlis hale geldi: sunucu UTC konusur,
+     * davetiye Europe/Istanbul'dur ve saat 21:00 UTC'yi gecince iki takvim
+     * gunu AYRISIR. Test gunun 21 saati yesil, 3 saati kirmizi yanardi —
+     * uretim kodu dogru oldugu halde. Zaman DONDURULUYOR: bir testin sonucu
+     * kostugu SAATE bagli olamaz.
+     */
     #[Test]
     public function rsvp_is_accepted_on_the_deadline_day(): void
     {
-        $inv = $this->published(['rsvp_deadline' => now()->toDateString()]);
+        // UTC 09:00 = Istanbul 12:00 — iki takvimde de ayni gun.
+        $this->travelTo(CarbonImmutable::parse('2026-06-15 09:00:00', 'UTC'));
+
+        $inv = $this->published(['rsvp_deadline' => '2026-06-15']);
 
         $this->postJson($this->url($inv), $this->payload())->assertCreated();
 

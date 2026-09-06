@@ -12,6 +12,7 @@ use App\Jobs\OptimizeUploadedImage;
 use App\Models\Invitation;
 use App\Models\Media;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
@@ -367,11 +368,20 @@ final class MediaTest extends TestCase
         $this->assertDatabaseCount('media', 0);
     }
 
-    /** E8 / ders 43: son GUN hala gecerli. */
+    /**
+     * E8 / ders 43: son GUN hala gecerli.
+     *
+     * 🔴 FAZ 7 BORCU: `now()` sunucunun (UTC) gunudur, kural ise davetiyenin
+     * saat diliminde isler (K71). 21:00 UTC'den sonra ikisi ayrisiyordu ve
+     * test saate gore kirmizi yaniyordu. Ayni duzeltme RsvpTest'te de var.
+     */
     #[Test]
     public function guest_can_upload_on_the_deadline_day(): void
     {
-        $inv = $this->openInvitation(['rsvp_deadline' => now()]);
+        // UTC 09:00 = Istanbul 12:00 — iki takvimde de ayni gun.
+        $this->travelTo(CarbonImmutable::parse('2026-06-15 09:00:00', 'UTC'));
+
+        $inv = $this->openInvitation(['rsvp_deadline' => '2026-06-15']);
 
         $this->postJson($this->guestUrl($inv), [
             'kind' => MediaKind::RsvpPhoto->value,
