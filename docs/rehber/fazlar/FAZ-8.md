@@ -1,34 +1,49 @@
 # FAZ 8 — AI Asistan ve İletişim
 
 > **Tarih:** 7 Eylül 2026
-> **Durum:** ⚠️ **21/21 GELİŞTİRME ADIMI TAMAMLANDI — DOĞRULAMA BEKLİYOR**
+> **Durum:** ✅ **`composer check` YEŞİL — 198 test, 560 assertion (7 Eylül 2026)**
+> ⬜ **Elle doğrulama açık** ([`FAZ-8-ELLE-DOGRULAMA.md`](FAZ-8-ELLE-DOGRULAMA.md), 18 adım)
 > **Önceki:** [`FAZ-7.md`](FAZ-7.md) · **Sonraki:** Faz 9 — Üretim hazırlığı
 > **Bu dosya:** fazın kaydı, alınan kararlar, kurulan kurallar ve devir
 
 ---
 
-## 0. 🔴 ÖNCE BUNU OKU — durum alanı ne diyor
+## 0. 🔴 ÖNCE BUNU OKU — durum alanı ne diyor, ne demiyor
 
-**Bu fazın kodu `composer check` ile doğrulanmadı.** Faz yine PHP ve
-Composer'ın kurulu olmadığı bir yardımcı ortamda yazıldı. **B7** gereği
-durum alanına "tamamlandı" değil **"doğrulama bekliyor"** yazıldı.
+**`composer check` koştu ve son satırı yeşil bitti** (7 Eylül 2026):
 
-Faz 1, 3 ve 4'te üç kez "yeşil" yazıldı ve değildi; Faz 5, 6 ve 7'de
-bilerek "doğrulanmadı" yazıldı ve üçü de haklı çıktı.
+```
+Pint     ✅ 159 dosya
+PHPStan  ✅ level 8 · 152 dosya · 0 hata
+errors:export --check  ✅ katalog güncel (21 kod)
+Tests:   ✅ 198 passed (560 assertions) · 16.58s
+```
 
-**Faz 8, [`FAZ-8-ELLE-DOGRULAMA.md`](FAZ-8-ELLE-DOGRULAMA.md) yeşil bitene
+Migration'lar koştu (`assistant_usages`, `contact_messages`) ve
+`php artisan errors:export` sonrası `git diff` **yalnızca `generatedAt`**
+farkı gösterdi — yani elle düzenlenen katalog enum ile birebir uyumluydu.
+
+🔴 **Bu, fazın kapandığı anlamına GELMEZ (B7).** Bir faz *çalışan bir
+çıktıyla* biter ve `composer check`'in göremediği şeyler var:
+gerçek Gemini sözleşmesi, `cache:clear` sonrası kotanın ayakta kalması,
+honeypot'un frontend'de var olması. **Faz 8,
+[`FAZ-8-ELLE-DOGRULAMA.md`](FAZ-8-ELLE-DOGRULAMA.md) (18 adım) yeşil bitene
 kadar KAPANMAMIŞTIR.**
 
-### 🔴 Faz 7 borcu — ayrı tutuldu
+### 🔴 Faz 7 borcu — ayrı tutuldu ve kapandı
 
-Faz 8'in ilk `composer check` koşusu (6 Eylül 2026) Faz 7'nin **hiç
-koşmamış** 33 testini de çalıştırdı. Sonuç:
+Faz 8'in **ilk** `composer check` koşusu (6 Eylül 2026, 8.1 yazılmadan
+önce) Faz 7'nin **hiç koşmamış** 33 testini de çalıştırdı. Sonuç:
 
 ```
 Pint  ✅ 137 dosya   ·  PHPStan level 8  ✅ 130 dosya, 0 hata
 errors:export --check ✅ katalog güncel
 Tests: 2 failed, 161 passed
 ```
+
+> Bu koşu **bilerek** Faz 8'in ilk satırı yazılmadan önce yapıldı: amaç,
+> kırmızı çıkarsa hangi fazdan geldiğini ayırt edebilmekti. Ayrım işe
+> yaradı — iki kırmızının ikisi de Faz 7'den geldi.
 
 İki kırmızı ve **ikisi de Faz 7 borcuydu, Faz 8 kodu değil**:
 
@@ -187,29 +202,31 @@ Dokuz katman ve **bedel dördüncü katmanda yazılıyor, beşincide harcanıyor
 
 ---
 
-## 7. 🔴 Doğrulanmamış olanlar (dürüst liste)
+## 7. Doğrulama durumu (dürüst liste)
 
-| Ne | Neden |
+### ✅ Doğrulandı (7 Eylül 2026)
+
+| Ne | Nasıl |
 |---|---|
-| Tüm PHP sözdizimi | Ortamda `php` yok |
-| PHPStan level 8 | Ortamda `composer` yok |
-| 35 yeni test | Aynı |
-| 2 migration'ın koşması | PostgreSQL yok |
-| CHECK kısıtlarının kabul edilmesi | Aynı |
-| `errors:export --check` | Katalog **elle** güncellendi 🔴 |
-| Gerçek Gemini sözleşmesi | `Http::fake()` bizim **varsayımımızı** sınar |
+| PHP sözdizimi · Pint stili | `composer lint` — 159 dosya |
+| PHPStan level 8 | 152 dosya, **0 hata** |
+| 35 yeni test (21 + 14) | `composer check` → 198 passed |
+| 2 migration + CHECK kısıtları | `php artisan migrate` |
+| Katalog senkronu | `errors:export` sonrası fark yalnızca `generatedAt` |
+| 🔴 `insertOrIgnore` + koşullu `increment` | PostgreSQL'de gerçekten koştu (kota testleri) |
+| 🔴 Trait sabiti (PHP 8.2+) | `RsvpTest:524` yeşil |
+| 🔴 `@phpstan-require-extends` | PHPStan hata vermedi |
 
-### 🔴 En riskli dört nokta (elle doğrulamada önce buraya bak)
+### ⬜ Hâlâ doğrulanmadı — `composer check` bunları GÖREMEZ
 
-1. **`contracts/error-codes.json` elle düzenlendi.** `php artisan
-   errors:export` sonrası `generatedAt` dışında fark **olmamalı**.
-2. **`insertOrIgnore` + koşullu `increment`.** Eloquent `Builder::increment`
-   etkilenen satır sayısını döndürür ve `updated_at`'i ekler (kaynak:
-   `vendor/.../Eloquent/Builder.php:1337`). PostgreSQL'de ilk kez koşacak.
-3. **Trait sabiti.** `StoreRsvpRequest::HONEYPOT_FIELD` artık trait'ten
-   geliyor (PHP 8.2+). `RsvpTest:524` bunu okuyor.
-4. **`@phpstan-require-extends`** `HasHoneypot` trait'inde. PHPStan 2.x
-   destekliyor; desteklemezse `$this->input()` çözülemez diye hata verir.
+| Ne | Neden test edilemez | Nerede kapanır |
+|---|---|---|
+| Gerçek Gemini sözleşmesi | `Http::fake()` bizim **varsayımımızı** sınar, Google'ın yanıtını değil | Elle doğrulama Adım 11 |
+| Kotanın `cache:clear`'a dayanması | Test cache'i `array`; fark görünmez | Adım 9 |
+| Sağlayıcı çökerken kotanın düşülmesi (gerçek ağda) | Sahte sürücüyle sınandı | Adım 12–13 |
+| Honeypot'un **formda var olması** | Backend testi frontend'i göremez (**B9**) | Frontend borcu |
+| Hız sınırının **kullanıcı** anahtarlı olması | Tek testte tüm istekler aynı IP'den | Kod incelemesi (`AssistantTest.md` §6) |
+| Eş zamanlı iki isteğin kotayı aşamaması | Tek süreçli PHPUnit | Koruma veritabanında (UNIQUE + atomik UPDATE) |
 
 ---
 
@@ -289,13 +306,13 @@ götürür**. Doğru boyutlandırma, kopyalamak değil **çıkarmaktır** (L8).
 
 ## 12. Faz 8 kapanış listesi
 
-- [ ] `php artisan migrate` başarılı (2 yeni migration)
-- [ ] 🔴 `php artisan errors:export` → `git diff contracts/error-codes.json` temiz
-- [ ] `composer lint` (Pint düzeltir)
-- [ ] `composer check` **son satırı** yeşil (fail-fast: ilk satıra bakma)
-- [ ] `php artisan test --filter=AssistantTest` → **21 test**
-- [ ] `php artisan test --filter=ContactTest` → **14 test**
-- [ ] `php artisan test` → **198 test** (163 + 35)
+- [x] `php artisan migrate` başarılı (2 yeni migration)
+- [x] 🔴 `php artisan errors:export` → `git diff` yalnızca `generatedAt`
+- [x] `composer lint` (159 dosya)
+- [x] `composer check` **son satırı** yeşil
+- [x] `php artisan test --filter=AssistantTest` → **21 test**
+- [x] `php artisan test --filter=ContactTest` → **14 test**
+- [x] `php artisan test` → **198 test** (163 + 35), 560 assertion
 - [ ] [`FAZ-8-ELLE-DOGRULAMA.md`](FAZ-8-ELLE-DOGRULAMA.md) tamamlandı
 - [ ] Mutasyon tablolarından en az 5 satır denendi (**T16**)
 - [ ] §9'daki 6 açık karar okundu ve cevaplandı
