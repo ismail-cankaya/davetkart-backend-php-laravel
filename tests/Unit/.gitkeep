@@ -1,0 +1,9 @@
+Bu dosya boş bir dizini git'te tutmak için var.
+
+Git boş dizin saklamaz; phpunit.xml ise <testsuite name="Unit"> için
+tests/Unit dizininin VAR OLMASINI şart koşar (PHPUnit 12 yoksa hata verir).
+Dizin sürümlenmediği sürece `composer check` yalnızca o dizinin yerelde
+kalmış olduğu makinelerde yeşil olur — temiz bir klonda, CI'da ve üretim
+sunucusunda kırılır. Faz 1, ders 15'in aynısı (storage/app/ tuzağı).
+
+İlk gerçek birim test (OrderScopeTest) buraya gelince bu dosya silinebilir.
