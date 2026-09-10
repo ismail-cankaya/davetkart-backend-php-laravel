@@ -15,7 +15,9 @@ use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
+        // web: YOK. Bu bir saf API backend'i; tek web rotasi olan '/' ->
+        // view('welcome') olu koddu ve silindi. Parametre kalkinca `web`
+        // middleware grubu (session, CSRF) hicbir istekte calismaz.
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
