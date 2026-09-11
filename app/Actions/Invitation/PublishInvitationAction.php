@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Invitation;
 
+use App\Actions\Payment\ClaimReleasedOrderAction;
 use App\Contracts\PublishEntitlementResolver;
 use App\Enums\InvitationStatus;
 use App\Exceptions\InvitationAlreadyPublishedException;
@@ -38,6 +39,7 @@ final class PublishInvitationAction
     public function __construct(
         private readonly TierResolver $tiers,
         private readonly PublishEntitlementResolver $entitlements,
+        private readonly ClaimReleasedOrderAction $claims,
     ) {}
 
     /**
@@ -74,6 +76,24 @@ final class PublishInvitationAction
             // 4. KATMAN — sahip olunan plan. Tekil ve paket alim tek arayuzden
             // soruluyor (K42); bu Action iki kaynagin varligini bile bilmiyor.
             $owned = $this->entitlements->highestTierFor($fresh);
+
+            // 4b. SERBEST HAKKI BAGLA (Faz 9).
+            //
+            // 🔴 Yalnizca eldeki hak YETMIYORSA denenir. Ters sirada yazsaydik
+            // (once bagla, sonra sor), paketi olan bir kullanici her yayinda
+            // serbest bir tekil siparisini de harcardi — sahip oldugu hak
+            // zaten yeterliyken. Bir tuketim adimi, tuketmeden once
+            // "gerekli mi" diye sorar.
+            //
+            // Kosullu calismasi bir OPTIMIZASYON DEGIL, bir IS KURALIDIR.
+            if ($owned === null || ! $owned->covers($required)) {
+                if ($this->claims->handle($fresh, $required)) {
+                    // Baglandi: hak tablosu degisti, cevabi YENIDEN sor.
+                    // Claim'in dondurdugu plani varsaymiyoruz — tek dogruluk
+                    // kaynagi resolver (C3).
+                    $owned = $this->entitlements->highestTierFor($fresh);
+                }
+            }
 
             // 🔴 IKI AYRI RED, IKI AYRI KOD. Kullanicinin onundeki eylem
             // farkli: "once bir plan al" ile "planini yukselt" ayni ekran

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Actions\Invitation\DeleteInvitationAction;
 use App\Contracts\PublishEntitlementResolver;
 use App\Contracts\RsvpQuotaResolver;
 use App\Enums\ErrorCode;
 use App\Enums\InvitationStatus;
+use App\Enums\OrderScope;
 use App\Enums\OrderStatus;
 use App\Enums\RsvpStatus;
 use App\Enums\SubscriptionTier;
@@ -679,6 +681,229 @@ final class PaywallTest extends TestCase
                 'data.invitation.timezone',
                 Config::string('davetkart.default_timezone'),
             );
+    }
+
+    // -------------------------- SERBEST BIRAKMA VE YENIDEN BAGLAMA (9.7 / 9.8)
+
+    /**
+     * 🔴 Faz 9'un kapattigi delik, okuma tarafindan gorunusu.
+     *
+     * Serbest birakilmis siparis (scope='invitation' + invitation_id=NULL)
+     * eskiden `whereNull('invitation_id')` koluna duser ve PAKET sanilirdi.
+     * Artik hicbir davetiyeyi acmaz — once baglanmasi gerekir.
+     */
+    #[Test]
+    public function a_released_order_grants_nothing_until_it_is_claimed(): void
+    {
+        $user = User::factory()->create();
+        $invitation = Invitation::factory()->create(['user_id' => $user->id]);
+
+        Order::factory()->paid()->tier(SubscriptionTier::Elit)->released()
+            ->create(['user_id' => $user->id]);
+
+        $this->assertNull($this->entitlements()->highestTierFor($invitation));
+    }
+
+    /** Pencere ACIK: yayindan 1 gun sonra silinirse hak geri alinir. */
+    #[Test]
+    public function deleting_within_the_window_releases_the_paid_order(): void
+    {
+        $invitation = Invitation::factory()->create([
+            'status' => InvitationStatus::Published,
+            'published_at' => now()->subDay(),
+        ]);
+
+        $order = Order::factory()->paid()->forInvitation($invitation)->create();
+
+        app(DeleteInvitationAction::class)->handle($invitation);
+
+        $order->refresh();
+
+        $this->assertNull($order->invitation_id);
+
+        // 🔴 Kapsam DEGISMEDI. Degisseydi siparis pakete donusur ve hesabin
+        // tum davetiyelerini acardi — kapatilan delik geri gelirdi.
+        $this->assertSame(OrderScope::Invitation, $order->scope);
+    }
+
+    /** Pencere KAPALI: yayindan 5 gun sonra silinirse hak yanar. */
+    #[Test]
+    public function deleting_after_the_window_burns_the_paid_order(): void
+    {
+        $invitation = Invitation::factory()->create([
+            'status' => InvitationStatus::Published,
+            'published_at' => now()->subDays(5),
+        ]);
+
+        $order = Order::factory()->paid()->forInvitation($invitation)->create();
+
+        app(DeleteInvitationAction::class)->handle($invitation);
+
+        $this->assertSame($invitation->id, $order->refresh()->invitation_id);
+    }
+
+    /** Hic yayinlanmamis davetiyede hak zaten harcanmamisti. */
+    #[Test]
+    public function deleting_an_unpublished_invitation_releases_the_paid_order(): void
+    {
+        $invitation = Invitation::factory()->create(['published_at' => null]);
+
+        $order = Order::factory()->paid()->forInvitation($invitation)->create();
+
+        app(DeleteInvitationAction::class)->handle($invitation);
+
+        $this->assertNull($order->refresh()->invitation_id);
+    }
+
+    /** Paket siparisi zaten bagli degil; silme ona dokunmaz (releasable()). */
+    #[Test]
+    public function deleting_an_invitation_does_not_touch_a_package_order(): void
+    {
+        $user = User::factory()->create();
+        $invitation = Invitation::factory()->create(['user_id' => $user->id]);
+        $other = Invitation::factory()->create(['user_id' => $user->id]);
+
+        $package = Order::factory()->paid()->tier(SubscriptionTier::Elit)->package()
+            ->create(['user_id' => $user->id]);
+
+        app(DeleteInvitationAction::class)->handle($invitation);
+
+        $package->refresh();
+
+        $this->assertSame(OrderScope::Account, $package->scope);
+        $this->assertSame(
+            SubscriptionTier::Elit,
+            $this->entitlements()->highestTierFor($other),
+        );
+    }
+
+    /** Uctan uca: serbest hak yeni bir davetiyede kullanilabiliyor mu? */
+    #[Test]
+    public function publishing_claims_a_released_order(): void
+    {
+        [$user, $invitation] = $this->ownedInvitation(['show_gallery' => true]);
+
+        $order = Order::factory()->paid()->tier(SubscriptionTier::Elit)->released()
+            ->create(['user_id' => $user->id]);
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('invitations.publish', $invitation))
+            ->assertOk();
+
+        $this->assertSame($invitation->id, $order->refresh()->invitation_id);
+    }
+
+    /**
+     * 🔴 BU FAZIN EN ONEMLI TESTI.
+     *
+     * Serbest birakilan hak TEK BIR davetiye acar. Delik tam olarak buydu:
+     * eski sorguda ayni siparis paket sayilir ve hesabin butun davetiyelerini
+     * SINIRSIZ acardi.
+     */
+    #[Test]
+    public function a_released_order_can_only_publish_one_invitation(): void
+    {
+        $user = User::factory()->create();
+        $first = Invitation::factory()->create(['user_id' => $user->id]);
+        $second = Invitation::factory()->create(['user_id' => $user->id]);
+
+        Order::factory()->paid()->tier(SubscriptionTier::Standart)->released()
+            ->create(['user_id' => $user->id]);
+
+        $token = $this->tokenFor($user);
+
+        $this->withToken($token)
+            ->postJson(route('invitations.publish', $first))
+            ->assertOk();
+
+        // T13: ikinci kimlikli istekten once guard sifirlanir.
+        $this->forgetAuthState();
+
+        $this->withToken($token)
+            ->postJson(route('invitations.publish', $second))
+            ->assertStatus(402)
+            ->assertJsonPath('error.code', ErrorCode::PaymentRequired->value);
+
+        $this->assertDatabaseHas('invitations', [
+            'id' => $second->id,
+            'status' => InvitationStatus::Saved->value,
+        ]);
+    }
+
+    /**
+     * Eldeki hak yetiyorsa serbest siparis HARCANMAZ.
+     *
+     * Ters sirada yazilsaydi (once bagla, sonra sor) paketi olan kullanici
+     * her yayinda bir tekil siparisini de yakardi.
+     */
+    #[Test]
+    public function publishing_does_not_claim_when_a_package_already_covers_it(): void
+    {
+        [$user, $invitation] = $this->ownedInvitation();
+
+        Order::factory()->paid()->tier(SubscriptionTier::Elit)->package()
+            ->create(['user_id' => $user->id]);
+
+        $released = Order::factory()->paid()->tier(SubscriptionTier::Standart)->released()
+            ->create(['user_id' => $user->id]);
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('invitations.publish', $invitation))
+            ->assertOk();
+
+        $this->assertNull($released->refresh()->invitation_id);
+    }
+
+    /** Yetmeyen bir serbest siparis baglanmaz — ve harcanmis da olmaz. */
+    #[Test]
+    public function a_released_order_that_is_too_cheap_is_not_claimed(): void
+    {
+        [$user, $invitation] = $this->ownedInvitation(['show_gallery' => true]);
+
+        $released = Order::factory()->paid()->tier(SubscriptionTier::Standart)->released()
+            ->create(['user_id' => $user->id]);
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('invitations.publish', $invitation))
+            ->assertStatus(402)
+            ->assertJsonPath('error.code', ErrorCode::PaymentRequired->value)
+            ->assertJsonPath('error.params.requiredTier', SubscriptionTier::Elit->value);
+
+        $this->assertNull($released->refresh()->invitation_id);
+    }
+
+    /** 🔴 Tuketimde dogru refleks TERSTIR: en yuksek degil, YETEN EN DUSUK. */
+    #[Test]
+    public function the_cheapest_covering_released_order_is_claimed(): void
+    {
+        [$user, $invitation] = $this->ownedInvitation();
+
+        $standart = Order::factory()->paid()->tier(SubscriptionTier::Standart)->released()
+            ->create(['user_id' => $user->id]);
+        $elit = Order::factory()->paid()->tier(SubscriptionTier::Elit)->released()
+            ->create(['user_id' => $user->id]);
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('invitations.publish', $invitation))
+            ->assertOk();
+
+        $this->assertSame($invitation->id, $standart->refresh()->invitation_id);
+        $this->assertNull($elit->refresh()->invitation_id);
+    }
+
+    /** IDOR'un serbest siparisteki hali: baskasinin hakki baglanmaz. */
+    #[Test]
+    public function another_users_released_order_is_never_claimed(): void
+    {
+        [$user, $invitation] = $this->ownedInvitation();
+
+        $foreign = Order::factory()->paid()->tier(SubscriptionTier::Elit)->released()->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('invitations.publish', $invitation))
+            ->assertStatus(402);
+
+        $this->assertNull($foreign->refresh()->invitation_id);
     }
 
     // -------------------------------------------------------- YARDIMCI

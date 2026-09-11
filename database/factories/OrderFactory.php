@@ -135,6 +135,24 @@ class OrderFactory extends Factory
         ]);
     }
 
+    /**
+     * SERBEST BIRAKILMIS tekil siparis (Faz 9).
+     *
+     * 🔴 Kapsam 'invitation' KALIR, yalnizca bag kopar. Bu ucuncu kombinasyon
+     * (scope='invitation' + invitation_id=NULL) Faz 9'un kapattigi deligin ta
+     * kendisidir: eski sorgu onu PAKET sanip hesap geneline hak veriyordu.
+     *
+     * forInvitation()'dan SONRA cagrilmali degil — tek basina kullanilir:
+     *   Order::factory()->paid()->released()->create(['user_id' => $u->id])
+     */
+    public function released(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'invitation_id' => null,
+            'scope' => OrderScope::Invitation,
+        ]);
+    }
+
     /** PAKET alim: hesabin tamamini acar (K42). Varsayilan zaten budur. */
     public function package(): static
     {
