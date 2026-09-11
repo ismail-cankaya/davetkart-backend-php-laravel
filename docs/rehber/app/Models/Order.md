@@ -222,3 +222,27 @@ deterministik üretimi: `paid()`, `pending()`, `forInvitation()` ve
 `package()` durumları. Fabrika olmadan `PaywallTest` yazılamaz — ve
 `orders_paid_at_check` kısıtı yüzünden `paid` durumu `paid_at` olmadan
 üretilemez.
+
+---
+
+## 🆕 Faz 9 eklemesi — `scope` cast'i
+
+```php
+'scope' => OrderScope::class,
+```
+
+Modele düşen pay bir satır, ama iki kolonun **rollerini ayırt etmek** gerekiyor:
+
+| Kolon | Soru | Değişir mi? |
+|---|---|---|
+| `scope` | Bu sipariş **ne satın aldı**? | 🔴 Hayır — satın alma anında yazılır |
+| `invitation_id` | Hak **şu an nerede duruyor**? | Evet — serbest bırakılınca `NULL` |
+
+Faz 7'de ikisi tek kolondaydı ve `invitation_id IS NULL` "paket alımı" demekti.
+`nullOnDelete` yüzünden aynı `NULL` "davetiyesi silindi" anlamına da gelince,
+silinen bir davetiyenin tekil siparişi sessizce hesap geneli bir pakete
+dönüşüyordu (**N4**). Tam gerekçe:
+[`../Enums/OrderScope.md`](../Enums/OrderScope.md) §1.
+
+`#[Fillable([])]` listesi **hâlâ boş** ve `scope` da oraya girmiyor: istemcinin
+"ben paket aldım" diyebilmesi, ödemeyi bedava yapmanın en kısa yolu olurdu.

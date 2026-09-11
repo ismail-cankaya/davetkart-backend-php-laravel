@@ -162,3 +162,28 @@ Order::factory()->create(['status' => OrderStatus::Paid]);  // QueryException: o
 **7.5 — `app/Services/Payment/PaymentGateway.php`.** Ödeme sağlayıcısını bir
 arayüzün arkasına almak (K8, **Strategy Pattern**): Iyzico anlaşması
 beklenmeden doğru akış kurulur ve testler ağa hiç çıkmaz.
+
+---
+
+## 🆕 Faz 9 eklemesi — `scope` üç yerde birden
+
+| Yer | Değer | Neden |
+|---|---|---|
+| `definition()` | `OrderScope::Account` | Varsayılan zaten paket (`invitation_id => null`) |
+| `forInvitation()` | `OrderScope::Invitation` | Davetiyeye bağlı sipariş tekil alımdır |
+| `package()` | `OrderScope::Account` | Açıkça yazıldı — durum ismini kendi doğrular |
+
+🔴 **`scope` ile `invitation_id` her zaman birlikte değişir.** `forInvitation()`
+kapsamı taşımasaydı fabrika `scope='account'` + dolu `invitation_id` üretir ve
+`orders_account_scope_has_no_invitation_check` **her testi** patlatırdı.
+
+Bu, `paid()`'in `status` + `paid_at` çiftiyle birebir aynı desendir: bir CHECK
+kısıtı fabrikada bir engel değil, bir **öğretmendir** — iki kolonun tek bir
+olguyu anlattığını fabrikaya da öğretir. Fabrika ile üretim kodu aynı kısıta
+tabidir; biri kısıtı bilmezse testler gerçekte olmayan bir dünyada yeşil yanar
+(**B4**'ün fabrika hâli).
+
+> **Henüz yok:** `released()` state'i (serbest bırakılmış tekil sipariş —
+> `scope='invitation'` + `invitation_id=null`). A2.7'de o durumu sınayan test
+> yazılınca eklenecek; bugün eklenirse çağıranı olmayan bir state olur
+> (ders 26).

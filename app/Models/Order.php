@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\OrderScope;
 use App\Enums\OrderStatus;
 use App\Enums\SubscriptionTier;
 use Database\Factories\OrderFactory;
@@ -49,6 +50,10 @@ class Order extends Model
 
             'tier' => SubscriptionTier::class,
             'status' => OrderStatus::class,
+
+            // 🔴 Siparisin NE SATIN ALDIGI. invitation_id ile karistirma:
+            // bu kolon DEGISMEZ, o kolon hakkin su an nerede durdugunu soyler.
+            'scope' => OrderScope::class,
 
             // PostgreSQL surucusu integer'i duruma gore string dondurebilir;
             // karsilastirma buna guvenemez (P4).

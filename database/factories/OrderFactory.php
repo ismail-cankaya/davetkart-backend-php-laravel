@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\OrderScope;
 use App\Enums\OrderStatus;
 use App\Enums\SubscriptionTier;
 use App\Models\Invitation;
@@ -45,6 +46,12 @@ class OrderFactory extends Factory
         return [
             'user_id' => User::factory(),
             'invitation_id' => null,
+
+            // Varsayilan PAKET oldugu icin kapsam da 'account'. Ikisi BIRLIKTE
+            // degisir — orders_account_scope_has_no_invitation_check aksini
+            // kabul etmez. paid()/paid_at ciftiyle ayni desen: kisit burada
+            // bir engel degil, bir OGRETMEN.
+            'scope' => OrderScope::Account,
 
             'tier' => $tier,
             'status' => OrderStatus::default(),
@@ -120,6 +127,11 @@ class OrderFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'invitation_id' => $invitation->id,
             'user_id' => $invitation->user_id,
+
+            // Kapsam da tasinir: davetiyeye bagli bir siparis TEKIL alimdir.
+            // Yazilmasaydi fabrika 'account' + dolu invitation_id uretir ve
+            // CHECK kisiti her testi patlatirdi.
+            'scope' => OrderScope::Invitation,
         ]);
     }
 
@@ -128,6 +140,7 @@ class OrderFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'invitation_id' => null,
+            'scope' => OrderScope::Account,
         ]);
     }
 

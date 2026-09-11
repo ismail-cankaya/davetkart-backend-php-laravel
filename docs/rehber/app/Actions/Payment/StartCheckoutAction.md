@@ -262,3 +262,40 @@ satırını `= 1;` yap. `php artisan test --filter=PaywallTest` çalıştır.
 **7.11 — `app/Actions/Payment/HandlePaymentCallbackAction.php`.** İdempotansın
 uygulama yarısı: kilitli transaction içinde durum geçişi, aynı webhook iki kez
 gelse de **tek** etki.
+
+---
+
+## 🆕 Faz 9 eklemesi — kapsam satın alma anında yazılır
+
+```php
+$order->scope = $invitation === null
+    ? OrderScope::Account
+    : OrderScope::Invitation;
+```
+
+Bu satır bir **türetme** gibi görünüyor ve az önce türetmenin yarattığı bir
+hatayı kapatıyoruz. Çelişki değil; ayırt edici soru **ne zaman** türetildiği:
+
+| | Faz 7 (hatalı) | Faz 9 (doğru) |
+|---|---|---|
+| Nerede | `OrderEntitlementResolver` | `StartCheckoutAction` |
+| Ne zaman | **Her okumada** | **Bir kez**, satın alma anında |
+| Kaynak | `invitation_id`'nin o anki değeri | Çağrı **yolu** (K64'ün iki ucu) |
+| Sonuç | Kolon değişince anlam sessizce değişti | Sonuç kolona **yazıldı**, bir daha değişmiyor |
+
+Sınırda bir kez türet ve sakla; her okumada yeniden türetme. Faz 3'ün
+**30. dersinin** (*"savunma kodu güven sınırına yazılır"*) veri katmanındaki
+hâli.
+
+### Neden `handle()`'a ayrı bir `scope` parametresi eklemedim?
+
+Controller'ın iki metodu (`forInvitation` / `forAccount`) kapsamı zaten biliyor,
+yani parametre olarak geçirilebilirdi. Geçirilmedi çünkü o zaman **iki bağımsız
+girdi** olurdu (`?Invitation` ve `OrderScope`) ve tutarsız bir çift göndermek
+mümkün hâle gelirdi: `Account` + dolu davetiye. Bir değişmezi, çağıranın doğru
+çift göndermesine bırakmak yerine tek kaynaktan türetmek **A8**'in kuralıdır
+(*bir sınıfın değişmezi doğrulama katmanına bırakılmaz*).
+
+Yedek savunma yine de var ve veritabanında:
+`orders_account_scope_has_no_invitation_check`. Kural iki katmanda birden duruyor
+— biri niyeti (`Action`), diğeri imkânı (`CHECK`) kapatıyor.

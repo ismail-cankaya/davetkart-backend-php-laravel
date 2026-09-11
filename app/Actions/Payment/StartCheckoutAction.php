@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Payment;
 
+use App\Enums\OrderScope;
 use App\Enums\OrderStatus;
 use App\Enums\SubscriptionTier;
 use App\Exceptions\PaymentProviderException;
@@ -117,6 +118,19 @@ final class StartCheckoutAction
 
         $order->user_id = $user->id;
         $order->invitation_id = $invitation?->getKey();
+
+        // 🔴 KAPSAM SATIN ALMA ANINDA YAZILIR, okuma aninda turetilmez.
+        // Faz 7'de bu bilgi hic saklanmadi; `invitation_id IS NULL` sorusuyla
+        // her okumada yeniden turetiliyordu. O turetme, davetiye silinip
+        // nullOnDelete atesledigi gun SESSIZCE yanlislaniyordu (N4).
+        //
+        // Buradaki turetme farklidir ve mesrudur: cagri YOLU hangi kapsamin
+        // alindigini kesin olarak biliyor (K64'un iki ucu) ve sonuc kolona
+        // YAZILIYOR. Sinirda bir kez turet, sakla; her okumada yeniden
+        // turetme (ders 30'un veri katmanindaki hali).
+        $order->scope = $invitation === null
+            ? OrderScope::Account
+            : OrderScope::Invitation;
 
         $order->tier = $tier;
         $order->status = OrderStatus::default();
