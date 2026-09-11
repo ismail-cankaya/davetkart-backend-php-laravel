@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Exceptions\ApiExceptionRenderer;
 use App\Http\Middleware\ForceJsonResponse;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -31,6 +32,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // AppServiceProvider::apiLimits(). Gruba EKLENIR, basa degil:
         // ForceJsonResponse once calismali ki 429 yaniti da JSON olsun (M3).
         $middleware->throttleApi();
+
+        // Sertlestirme basliklari GLOBAL yigina eklenir, 'api' grubuna degil:
+        // /up saglik sondasi ve rota eslesmeyen 404'ler de tarayiciya gider ve
+        // onlarin da nosniff/frame-options tasimasi gerekir. Yanit uretildikten
+        // SONRA calisan bir middleware oldugu icin append() dogru yer.
+        $middleware->append(SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // null donerse Laravel varsayilan akisina duser (web rotalari).
