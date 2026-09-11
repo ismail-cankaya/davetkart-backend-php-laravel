@@ -687,15 +687,38 @@ sistem 503 dönüp ayakta kalıyor. (Dil maddesi **kaldırıldı** — K21.)
 
 ### FAZ 9 — Üretim hazırlığı
 
-| # | İş |
-|---|---|
-| 9.1 | Üretim PostgreSQL kurulumu, yedekleme ve bağlantı havuzu (PgBouncer) |
-| 9.2 | `APP_DEBUG=false`, `config:cache`, `route:cache`, `view:cache` |
-| 9.3 | Redis'e geçiş (cache + queue), `queue:work` süpervizörü |
-| 9.4 | Gerçek ödeme sağlayıcısı (`IyzicoGateway`) + imza doğrulaması |
-| 9.5 | S3 uyumlu depolama, `storage:link` |
-| 9.6 | HTTPS, CORS, güvenlik başlıkları |
-| 9.7 | Yedekleme ve log rotasyonu |
+| # | İş | Durum |
+|---|---|---|
+| 9.1 | `routes/web.php` closure'ı **silindi** + `bootstrap/app.php` | ✅ |
+| 9.2 | `OrderScope` enum'u + sürümlenmemiş `tests/Unit` düzeltildi (**B10**) | ✅ |
+| 9.3 | `orders.scope` migration — nullable + 2 CHECK + geri doldurma (**genişlet**) | ✅ |
+| 9.4 | `Order` · `OrderFactory` · `StartCheckoutAction` — yazıcılar (**taşı**) | ✅ |
+| 9.5 | `SET NOT NULL` migration (**daralt**) | ✅ |
+| 9.6 | `OrderEntitlementResolver` — 🔴 deliği kapatan sorgu | ✅ |
+| 9.7 | `DeleteInvitationAction` + 3 günlük serbest bırakma penceresi (**K82**) | ✅ |
+| 9.8 | `ClaimReleasedOrderAction` + yayında yeniden bağlama (**K83**) | ✅ |
+| 9.9 | `orders:expire` — `expires_at` üç fazdır yazılıyordu, ilk kez okunuyor | ✅ |
+| 9.10 | `media:prune-orphans` — LCV'ye bağlanmamış misafir yüklemeleri | ✅ |
+| 9.11 | `routes/console.php` zamanlayıcı + `sanctum:prune-expired` | ✅ |
+| 9.12 | `config/cors.php` (🔴 `exposed_headers: ETag`) + `SecurityHeaders` | ✅ |
+| 9.13 | `.env.example` + `docs/10-URETIM-ENV-SABLONU.md` | ✅ |
+| 9.14 | `FAZ-9.md` + elle doğrulama + bu dosya | ✅ |
+| — | **Redis + S3 + kuyruk süpervizörü** | ⬜ **ertelendi (K80)** |
+| — | **`IyzicoGateway` + imza + replay penceresi** | ⬜ **ertelendi** — sandbox anahtarı yok |
+| — | **Argon2id ölçümü · log rotasyonu · yedekleme** | ⬜ sunucu tarafı |
+
+> ⚠️ **Bu liste Faz 3'ten önce yazılan 7 satırlık kaba planın yerini alır.**
+> Eski plan birikmiş borçları (9.9–9.11) ve `orders.scope` bulgusunu
+> içermiyordu. Fazın gerçek kaydı: `docs/rehber/fazlar/FAZ-9.md`.
+>
+> 🔴 `view:cache` **listeden çıkarıldı**: 9.1'de `welcome.blade.php` silindi,
+> derlenecek Blade kalmadı (`health-up.blade.php` vendor'da ve `View::file()`
+> ile render ediliyor). Çalıştırmak tören olurdu.
+>
+> 🔴 `route:cache`'in closure yüzünden kırılacağı uyarısı **geçersiz**:
+> Laravel 13 closure'ları `SerializableClosure` ile serileştiriyor
+> (`vendor/.../Routing/Route.php:1544`). K30 hâlâ doğru bir karardı, ama
+> gerekçesi artık "ölü kod" (ders 26).
 
 ---
 
@@ -713,7 +736,7 @@ sistem 503 dönüp ayakta kalıyor. (Dil maddesi **kaldırıldı** — K21.)
 | 6 | Media | Galeri yüklemesi | 7 |
 | **7** ⚠️ | **Ödeme + paywall** — 25/25 adım ✅, `composer check` **hiç koşmadı** | Yayınlama akışı ⬜ (frontend borcu) | 12 planlandı → **25** |
 | **8** ⚠️ | **AI asistan + iletişim** — 21/21 adım ✅, `composer check` **koşmadı** | Asistan + iletişim formu ⬜ (frontend borcu) | 6 planlandı → **21** |
-| 9 | Üretim | — | — |
+| **9** ⚠️ | **Üretim hazırlığı** — 14/14 adım ✅, `composer check` **koşmadı**; Redis/S3/Iyzico **ertelendi** | — | 7 planlandı → **14** |
 
 ---
 
