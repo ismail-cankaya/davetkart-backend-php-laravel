@@ -497,3 +497,37 @@ açtıysan (`config:cache`), değişiklik sonrası `php artisan config:clear`
 | **12-Factor App** | Modern uygulamalar için 12 maddelik tasarım metodolojisi |
 | **Open/Closed** | SOLID'in O'su: genişlemeye açık, değişikliğe kapalı tasarım |
 | **Ports & Adapters** | İş kodunun dış sistemleri somut tipleriyle değil arayüzle tanıması |
+
+---
+
+## 🆕 Faz 9 eklemesi — `orders.release_window_days`
+
+```php
+'orders' => [
+    'release_window_days' => 3,
+],
+```
+
+Yayınlanmış bir davetiye silindiğinde, o davetiye için ödenmiş **tekil**
+siparişin hakkı geri alınabilir mi? Pencere **yayın anından** itibaren sayılır;
+kapalıysa hak yanar. Kuralı uygulayan yer:
+[`../app/Actions/Invitation/DeleteInvitationAction.md`](../app/Actions/Invitation/DeleteInvitationAction.md).
+
+### 🔴 Neden `env()` yok?
+
+Bu dosyadaki `default_timezone` `env()` okuyor, bu okumuyor — ve fark bilinçli:
+
+| | `default_timezone` | `release_window_days` |
+|---|---|---|
+| Ne | Kurulumun bulunduğu **pazarın** varsayılanı | Kullanıcıya verilmiş **ticari söz** |
+| Ortama göre değişir mi | Evet (farklı pazar = farklı varsayılan) | **Hayır** |
+| `env()`'e bağlansaydı | Doğru davranış | 🔴 Staging'de 30, üretimde 3 olabilir ve ikisi sessizce ayrışır |
+
+"Kaç gün" sorusunun tek bir doğru cevabı var ve o cevap **repoda**, değişiklik
+geçmişiyle birlikte durmalı. `env()`'e bağlanan bir ticari söz, sunucudaki bir
+dosyada sessizce değişebilir ve hiçbir commit bunu göstermez.
+
+> **Y1** (*kod içinde `env()` çağrılmaz*) `env()`'in **nerede** çağrılacağını
+> söyler, **neyin** `env()` olacağını değil. İkincisi ayrı bir karardır:
+> ortamlar arasında farklılaşması **gereken** şey `env()`'e gider, ticari bir
+> sabit gitmez.

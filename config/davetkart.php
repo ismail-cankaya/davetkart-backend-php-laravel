@@ -85,6 +85,20 @@ return [
         ],
     ],
 
+    // Siparis politikasi.
+    'orders' => [
+        // 🔴 Yayinlanmis bir davetiye silinince, o davetiye icin odenmis TEKIL
+        // siparisin hakki geri alinabilir mi? Pencere YAYIN anindan itibaren
+        // sayilir; kapaliysa hak yanar (DeleteInvitationAction).
+        //
+        // env() BILEREK YOK — default_timezone'dan farkli olarak bu bir ORTAM
+        // farki degil, kullaniciya verilmis bir TICARI SOZ. env'e baglansaydi
+        // staging'de 30, uretimde 3 olabilir ve ikisi sessizce ayrisirdi;
+        // "kac gun" sorusunun tek bir dogru cevabi var ve o cevap repoda,
+        // degisiklik gecmisiyle birlikte durmali.
+        'release_window_days' => 3,
+    ],
+
     // Public davetiye cache'i. Tazelik TTL ile değil, event ile sağlanır.
     'cache' => [
         'public_invitation_ttl' => 60 * 60 * 6, // saniye

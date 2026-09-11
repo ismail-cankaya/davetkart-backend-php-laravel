@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Invitation\CreateInvitationAction;
+use App\Actions\Invitation\DeleteInvitationAction;
 use App\Actions\Invitation\PublishInvitationAction;
 use App\Actions\Invitation\UpdateInvitationAction;
 use App\Http\Controllers\Controller;
@@ -111,12 +112,18 @@ final class InvitationController extends Controller
         );
     }
 
-    /** Soft delete: satir kalir, deleted_at damgalanir (3.2). */
-    public function destroy(Invitation $invitation): Response
+    /**
+     * Davetiyeyi siler (soft delete) ve odenmis hakkin akibetine karar verir.
+     *
+     * Faz 9'a kadar govde tek satirdi: `$invitation->delete()`. Silmenin bir
+     * IS KURALI dogmasi (uc gunluk geri alma penceresi) onu bir Action'a
+     * tasidi — K3: is kurali controller'da durmaz.
+     */
+    public function destroy(Invitation $invitation, DeleteInvitationAction $action): Response
     {
         Gate::authorize('delete', $invitation);
 
-        $invitation->delete();
+        $action->handle($invitation);
 
         return response()->noContent();
     }

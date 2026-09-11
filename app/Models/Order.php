@@ -107,6 +107,26 @@ class Order extends Model
     }
 
     /**
+     * Hakki bir davetiyeden GERI ALINABILIR siparisler.
+     *
+     * Ucuncu kez ayni desen: kural enum'da (OrderScope::isReleasable()),
+     * bu kapsam yalnizca SQL'e ceviriyor. Paket siparisleri disarida kalir —
+     * zaten bir davetiyeye bagli degiller, dolayisiyla serbest birakilacak
+     * bir baglari da yok.
+     *
+     * @param  Builder<Order>  $query
+     */
+    public function scopeReleasable(Builder $query): void
+    {
+        $releasable = array_values(array_filter(
+            OrderScope::cases(),
+            static fn (OrderScope $scope): bool => $scope->isReleasable(),
+        ));
+
+        $query->whereIn('scope', array_column($releasable, 'value'));
+    }
+
+    /**
      * Siparis, odeme penceresi dolmus mu?
      *
      * `expires_at` NULL ise sure sinirsizdir (saglayici penceresi olmayan
