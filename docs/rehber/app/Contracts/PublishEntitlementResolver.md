@@ -256,3 +256,79 @@ satırını sil. `php artisan test --filter=PaywallTest` çalıştır.
 **7.10 — `app/Actions/Payment/StartCheckoutAction.php`.** Siparişin doğduğu
 yer: fiyat **sunucudan** okunur, plan yeterliliği **sunucuda** doğrulanır ve
 sağlayıcı oturumu ancak satır yazıldıktan sonra açılır.
+
+---
+
+## 🆕 Faz 9 — iki kolun ayrımı `invitation_id`'den `scope`'a taşındı
+
+### Ne değişti
+
+```diff
+- $query->whereNull('invitation_id')
++ $query->grantingAcrossAccount()
+        ->orWhere('invitation_id', $invitation->getKey());
+```
+
+Tek satır, ama anlamı bambaşka. Eski sorgu şunu diyordu:
+
+> *"Davetiyesi olmayan bir sipariş, pakettir."*
+
+Bu, tablo yazıldığı gün doğruydu: `invitation_id`'nin `NULL` olmasının tek yolu
+paket satın almaktı. Faz 9'da ikinci bir yol doğdu — **davetiyenin silinmesi**.
+`orders.invitation_id` üzerindeki `nullOnDelete`, kalıcı silmede o kolonu
+`NULL`'a düşürür ve sipariş, kimse bir şey yazmadan pakete dönüşürdü:
+
+```
+249 ₺ Standart (tek davetiye için)  →  orders(scope yok, invitation_id = X)
+Davetiye X kalıcı silindi           →  invitation_id = NULL
+Eski sorgu                          →  "paket" → hesabın TÜM davetiyeleri bedava
+```
+
+Yeni sorgu kapsamı **kolondan** okuyor, `invitation_id`'nin yokluğundan
+türetmiyor. Fark tam olarak üçüncü kombinasyonda görünür:
+
+| `scope` | `invitation_id` | Eski sorgu | Yeni sorgu |
+|---|---|---|---|
+| `account` | `NULL` | eşleşir ✅ | eşleşir ✅ |
+| `invitation` | dolu | eşleşir ✅ | eşleşir ✅ |
+| 🔴 `invitation` | `NULL` | **eşleşir** ❌ | **eşleşmez** ✅ |
+
+Üçüncü satır **serbest bırakılmış tekil sipariş**: sahibi onu yeni bir
+davetiyeye bağlayana kadar hiçbir hak vermiyor (A2.6/A2.7).
+
+### Kural neden `Order`'a taşındı?
+
+```php
+$query->grantingAcrossAccount()   // Order::scopeGrantingAcrossAccount()
+```
+
+`where('scope', 'account')` yazmak da çalışırdı. Yazılmadı çünkü bu, projenin
+zaten kurduğu bir desenin ikizi: `grantingPublishRight()` de "hangi durum hak
+verir" sorusunu SQL'e değil `OrderStatus::grantsPublishRight()`'a soruyor.
+Hangi kapsamın hesap genelini açtığı `OrderScope::grantsAcrossAccount()`'ta
+duruyor; sorgu yalnızca onu SQL'e çeviriyor. Üçüncü bir kapsam eklendiği gün
+(kampanya kodu, hediye çeki) **sorgu hiç değişmez** — Open/Closed (**C3**).
+
+### İç içe closure hâlâ zorunlu
+
+Parantez kalkarsa SQL şu hâle gelir:
+
+```sql
+... AND user_id = ? AND scope = ? OR invitation_id = ?
+```
+
+`AND`, `OR`'dan önce bağlar; son kol tek başına eşleşir ve **başkasının ödenmiş
+siparişi** bu davetiyeyi açar. Operatör önceliği burada bir güvenlik meselesi —
+Faz 7'de öğrenilen tuzak, kolon değişse de yerinde duruyor.
+
+### 🔴 §1'deki eski tablo geçersiz
+
+Bu dokümanın başındaki *"`orders.invitation_id IS NULL` → paket alım"* satırı
+artık **doğru değil** ve arayüzün docblock'u da güncellendi (**B4**: dokümanda
+verilen söz, kodda karşılığı yoksa yalandır). Geçerli ayrım:
+
+```
+scope = 'account'                                  →  paket
+scope = 'invitation' AND invitation_id = <id>      →  tekil, bağlı
+scope = 'invitation' AND invitation_id IS NULL     →  tekil, serbest (hak vermez)
+```

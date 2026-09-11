@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
  * Sorgu uc kosulu birden tasir ve ucu de SORGUNUN KAPSAMINDA (P3 ailesi):
  *   1. Siparis odenmis mi          -> grantingPublishRight() kapsami
  *   2. Siparis BU KULLANICININ mi  -> where('user_id', ...)
- *   3. Bu davetiyeyi kapsiyor mu   -> (invitation_id IS NULL OR = :id)
+ *   3. Bu davetiyeyi kapsiyor mu   -> (scope='account' OR invitation_id = :id)
  *
  * Ikinci kosul bir tekrar gibi gorunur (tekil siparis zaten davetiyeye bagli)
  * ama degil: PAKET siparisin davetiyeyle hicbir baglantisi yoktur — sahipligi
@@ -34,12 +34,21 @@ final class OrderEntitlementResolver implements PublishEntitlementResolver
             ->where('user_id', $invitation->user_id)
             ->where(function (Builder $query) use ($invitation): void {
                 // 🔴 Ic ice closure ZORUNLU: parantezsiz yazilsaydi SQL
-                //   ... AND user_id = ? AND invitation_id IS NULL OR invitation_id = ?
+                //   ... AND user_id = ? AND scope = ? OR invitation_id = ?
                 // olurdu ve OR'un onceligi yuzunden SON kol tek basina
                 // eslesirdi — yani BASKA birinin odenmis siparisi bu
                 // davetiyeyi acardi. Operator onceligi burada bir GUVENLIK
                 // meselesidir.
-                $query->whereNull('invitation_id')
+                //
+                // 🔴 whereNull('invitation_id') DEGIL, kapsam suzgeci. Eski
+                // hali "davetiyesi olmayan siparis = paket" diyordu; silinen
+                // bir davetiyenin tekil siparisi de davetiyesiz kaliyor ve
+                // ayni kola dusuyordu. Fark su satirda gorunur:
+                //
+                //   scope='invitation' + invitation_id=NULL  (serbest birakilmis)
+                //     eski sorgu -> ESLESIR  (hesap geneline bedava yayin)
+                //     yeni sorgu -> eslesmez (dogru: once baglanmali)
+                $query->grantingAcrossAccount()
                     ->orWhere('invitation_id', $invitation->getKey());
             })
             ->get();

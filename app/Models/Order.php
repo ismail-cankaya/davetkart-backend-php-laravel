@@ -86,6 +86,27 @@ class Order extends Model
     }
 
     /**
+     * Sahibinin HERHANGI bir davetiyesine hak veren siparisler (paket).
+     *
+     * 🔴 Yukaridakinin birebir ikizi: kural sorguda degil ENUM'da. Hangi
+     * kapsamin hesap genelini actigini OrderScope::grantsAcrossAccount()
+     * soyler; bu kapsam yalnizca onu SQL'e cevirir. `where('scope','account')`
+     * yazsaydik kural sorgunun icine gomulur ve ucuncu bir kapsam eklendigi
+     * gun (kampanya, hediye ceki) kopyalari uc dosyada aranirdi (C3).
+     *
+     * @param  Builder<Order>  $query
+     */
+    public function scopeGrantingAcrossAccount(Builder $query): void
+    {
+        $across = array_values(array_filter(
+            OrderScope::cases(),
+            static fn (OrderScope $scope): bool => $scope->grantsAcrossAccount(),
+        ));
+
+        $query->whereIn('scope', array_column($across, 'value'));
+    }
+
+    /**
      * Siparis, odeme penceresi dolmus mu?
      *
      * `expires_at` NULL ise sure sinirsizdir (saglayici penceresi olmayan

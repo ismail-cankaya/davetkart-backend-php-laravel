@@ -13,8 +13,19 @@ use App\Models\Invitation;
  * 🔴 K42'nin tam karsiligi: yayin hakki IKI KAYNAKTAN dogar ama TEK ARAYUZDEN
  * sorulur.
  *
- *   orders.invitation_id = <id>   ->  TEKIL alim (yalnizca o davetiye)
- *   orders.invitation_id IS NULL  ->  PAKET alim (hesabin tamami)
+ *   orders.scope = 'account'                        ->  PAKET alim (hesabin tamami)
+ *   orders.scope = 'invitation' AND invitation_id = <id>  ->  TEKIL alim
+ *
+ * 🔴 Faz 9'a kadar bu ayrim `invitation_id IS NULL` ile yapiliyordu ve o
+ * ifade IKI ayri olguyu birden anlatiyordu: "paket alindi" ve "tekil
+ * siparisin davetiyesi silindi" (nullOnDelete). Silinen bir davetiyenin
+ * siparisi bu yuzden SESSIZCE pakete donusup hesap geneline hak veriyordu.
+ * Kapsam artik satirda DURUYOR, okumada turetilmiyor (N4).
+ *
+ * Ucuncu bir durum da bu ayrimla mumkun oldu:
+ *   scope = 'invitation' AND invitation_id IS NULL  ->  SERBEST BIRAKILMIS
+ * Hicbir davetiyeye hak vermez; sahibi onu yeni bir davetiyeye baglayana
+ * kadar bekler (A2.6/A2.7).
  *
  * Arayuz olmasaydi bu iki kol, soruyu soran her yere kopyalanirdi:
  * PublishInvitationAction, SubscriptionRsvpQuotaResolver, ilerideki bir
