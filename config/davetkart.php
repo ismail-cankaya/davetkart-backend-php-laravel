@@ -57,6 +57,17 @@ return [
             'guest_per_invitation_per_hour' => 40,
         ],
 
+        // 🔴 Bir misafir yuklemesinin, hicbir LCV yanitina baglanmadan diskte
+        // bekleyebilecegi sure (saat). Suresi dolan yuklemeler
+        // `media:prune-orphans` tarafindan silinir.
+        //
+        // Neden 24? Misafir dosyayi yukler, sonra formu doldurur — arada
+        // dakikalar gecer, saatler degil. 24 saat comert bir tampon: bir
+        // sekmeyi acik unutan kullaniciyi bile korur. Kisaltmak disk kazandirir
+        // ama bir misafirin fotografini elinden alma riskini buyutur; bu
+        // takasta yanlis tarafa dusmek UCUZ olan taraftir.
+        'orphan_grace_hours' => 24,
+
         // Kuyruktaki OptimizeUploadedImage isinin ayarlari. Telefon kameralari
         // 4000+ piksel uretiyor; galeride 2000 fazlasiyla yeterli.
         'optimize' => [
