@@ -278,8 +278,24 @@ curl.exe -i -H "Origin: http://localhost:5173" http://127.0.0.1:8000/api/ping
 curl.exe -i -H "Origin: https://kotu-site.example" http://127.0.0.1:8000/api/ping
 ```
 
-🔴 `Access-Control-Allow-Origin` başlığı **GELMEMELİ**. Gelirse
-`allowed_origins` hâlâ `['*']` demektir.
+🔴 **Başlık gelir — ama değerine bak.** Görmen gereken:
+
+```
+Access-Control-Allow-Origin: http://localhost:5173
+```
+
+Yani **bizim** izinli origin'imiz; saldırganınki değil. İzinli origin sayısı
+bir olduğunda kütüphane başlığı isteğin `Origin`'ine bakmadan gönderir
+(`vendor/fruitcake/php-cors/src/CorsService.php:209`) ve bu güvenlidir:
+tarayıcı değeri kendi origin'iyle karşılaştırıp eşleşmediği için yanıtı
+okutmaz.
+
+🔴 **Alarm iki durumda çalar:**
+
+| Görürsen | Anlamı |
+|---|---|
+| `Access-Control-Allow-Origin: https://kotu-site.example` | İzin listesi genişletilmiş — yabancı origin yansıtılıyor |
+| `Access-Control-Allow-Origin: *` | `allowed_origins` yeniden `['*']` olmuş |
 
 ---
 

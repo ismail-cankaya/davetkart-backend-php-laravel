@@ -228,6 +228,17 @@ ama yetersiz — `*`, herhangi bir sitedeki JavaScript'in `/api/public/` uçlar�
 sürmesine izin verir. **L1** katmanların birbirinin yerine geçmediğini söyler;
 bu, aynı kuralın yapılandırma tarafındaki hâli.
 
+**64. Bir testin kırmızı yanması, kodun yanlış olduğu anlamına gelmez.**
+`HardeningTest`'in *"yabancı origin başlık almamalı"* testi kırmızı yandı ve
+ilk refleks CORS yapılandırmasını değiştirmekti. `vendor/fruitcake/php-cors`
+okununca görüldü ki izinli origin **sayısı bir** olduğunda kütüphane başlığı
+isteğin `Origin`'ine bakmadan, **sabit değerle** gönderiyor — kasıtlı ve
+güvenli bir optimizasyon. Kusur testin varsayımındaydı: korunan şey *"başlığın
+gelmemesi"* değil, **başlığın saldırganın origin'ini taşımamasıydı**. Ders
+33'ün (*"bir aracın kırılması, kırılan yerin hatalı olduğu anlamına gelmez"*)
+üçüncü örneği — ve kural 11'in (*tahmin yürütme, kaynağa bak*) karşılığını
+tek bir metot okumasında verdiği yer.
+
 ---
 
 ## 8. 🔴 Açık kararlar ve borçlar

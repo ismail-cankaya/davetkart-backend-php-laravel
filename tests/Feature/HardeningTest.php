@@ -34,14 +34,49 @@ final class HardeningTest extends TestCase
             ->assertHeader('Access-Control-Allow-Origin', $origin);
     }
 
-    /** 🔴 Varsayilan `['*']` olsaydi bu test gecmezdi — koruma tam burada. */
+    /**
+     * 🔴 Yabanci bir origin ASLA GERI YANSITILMAZ.
+     *
+     * Ilk yazilisinda bu test `assertHeaderMissing` diyordu ve KIRMIZI yandi —
+     * ama kusur kodda degil, testin VARSAYIMINDAYDI (ders 33). Kaynak:
+     * vendor/fruitcake/php-cors/src/CorsService.php:209
+     *
+     *     } elseif ($this->isSingleOriginAllowed()) {
+     *         // Single origins can be safely set
+     *         $response->headers->set('Access-Control-Allow-Origin', array_values($this->allowedOrigins)[0]);
+     *     }
+     *
+     * Izinli origin SAYISI birse kutuphane basligi KOSULSUZ gonderiyor —
+     * istegin Origin'ine hic bakmadan. Bu kasitli ve guvenli: yanit boylece
+     * onbelleklenebilir olur ve tarayici zaten degeri KENDI origin'iyle
+     * karsilastirip eslesmezse yaniti okutmaz.
+     *
+     * Yani korunan sey "baslik gelmemesi" degil, BASLIGIN SALDIRGANIN
+     * ORIGIN'INI TASIMAMASIDIR. Test artik dogru ozelligi sinar ve izin
+     * listesi coklu hale gelse de gecerli kalir.
+     */
     #[Test]
-    public function an_unknown_origin_receives_no_cors_header(): void
+    public function an_unknown_origin_is_never_echoed_back(): void
     {
-        $this->withHeader('Origin', 'https://kotu-site.example')
+        $attacker = 'https://kotu-site.example';
+
+        $allowed = $this->withHeader('Origin', $attacker)
             ->getJson(self::PROBE)
             ->assertOk()
-            ->assertHeaderMissing('Access-Control-Allow-Origin');
+            ->headers->get('Access-Control-Allow-Origin');
+
+        $this->assertNotSame(
+            $attacker,
+            $allowed,
+            'Yabanci origin geri yansitildi: allowed_origins listesi genisletilmis olabilir.',
+        );
+
+        // 🔴 Asil regresyon muhafizi: `['*']` varsayilanina donulurse burasi kirilir.
+        $this->assertNotSame(
+            '*',
+            $allowed,
+            "allowed_origins yeniden ['*'] olmus: her site API'yi cagirip yaniti okuyabilir.",
+        );
     }
 
     /**

@@ -93,6 +93,52 @@ CORS diye bir şey yoktur.
 
 ---
 
+## 3b. 🔴 Tek origin varsa başlık KOŞULSUZ gönderilir
+
+Bu, `HardeningTest`'in ilk koşusunda yakalandı ve kaynağa bakılarak açıklandı
+(`vendor/fruitcake/php-cors/src/CorsService.php:209`):
+
+```php
+} elseif ($this->isSingleOriginAllowed()) {
+    // Single origins can be safely set
+    $response->headers->set('Access-Control-Allow-Origin', array_values($this->allowedOrigins)[0]);
+}
+```
+
+```php
+private function isSingleOriginAllowed(): bool
+{
+    if ($this->allowAllOrigins === true || count($this->allowedOriginsPatterns) > 0) {
+        return false;
+    }
+    return count($this->allowedOrigins) === 1;
+}
+```
+
+İzinli origin **sayısı bir** ise kütüphane `Access-Control-Allow-Origin`'i
+isteğin `Origin`'ine **hiç bakmadan** gönderir. Yani yabancı bir origin'den
+gelen isteğe de başlık döner — ama değeri `http://localhost:5173`'tür,
+saldırganın origin'i değil.
+
+Bu **kasıtlı ve güvenli**:
+
+| | Tek origin | Çok origin |
+|---|---|---|
+| Başlık | Her zaman, sabit değer | Yalnızca izinliyse, istekten yansıtılır |
+| `Vary: Origin` | Gerekmez | Gerekir |
+| Önbelleklenebilir | ✅ | Origin'e göre |
+
+Tarayıcı değeri **kendi** origin'iyle karşılaştırır; eşleşmezse yanıtı JS'e
+okutmaz. Korunan şey *"başlığın gelmemesi"* değil, **başlığın saldırganın
+origin'ini taşımamasıdır**.
+
+> **Ders 33 yeniden:** *bir aracın kırılması, kırılan yerin hatalı olduğu
+> anlamına gelmez.* Test `assertHeaderMissing` diyordu ve kırmızı yandı; kusur
+> testin varsayımındaydı. Kural 11 (*tahmin yürütme, kaynağa bak*) `vendor/`
+> okunarak uygulandı ve mesele tek bir metotta çözüldü.
+
+---
+
 ## 4. `max_age` neden 0 değil?
 
 Varsayılan `0`, her gerçek istekten önce bir **preflight** (`OPTIONS`) isteği
@@ -140,6 +186,7 @@ hız sınırlarıdır.
 | # | Hata | Ne olur |
 |---|---|---|
 | 1 | `allowed_origins => ['*']` bırakmak | Her site API'yi çağırıp yanıtı okur |
+| 1b | *"Yabancı origin'de başlık hiç gelmemeli"* sanmak | Tek origin varsa **gelir**; önemli olan **değeridir** (§3b) |
 | 2 | `exposed_headers`'ı boş bırakmak | 🔴 ETag okunamaz; K7/K46 sessizce ölür (§3) |
 | 3 | `supports_credentials => true` | Kullanılmayan bir kimlik kanalı + CSRF yüzeyi |
 | 4 | Origin'i `config/` içine literal yazmak | Ortam farkı repoya gömülür (**E6**) |

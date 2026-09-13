@@ -26,6 +26,7 @@ final class ClaimReleasedOrderAction
 {
     /**
      * @param  SubscriptionTier  $required  Davetiyenin acik modullerinin gerektirdigi plan
+     *
      * @return bool Bir siparis baglandiysa true
      */
     public function handle(Invitation $invitation, SubscriptionTier $required): bool

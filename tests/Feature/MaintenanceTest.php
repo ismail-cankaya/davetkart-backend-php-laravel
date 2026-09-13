@@ -8,8 +8,10 @@ use App\Enums\OrderStatus;
 use App\Models\Media;
 use App\Models\Order;
 use App\Models\Rsvp;
+use Illuminate\Console\Command;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
@@ -45,6 +47,46 @@ final class MaintenanceTest extends TestCase
         Storage::fake(Config::string('davetkart.media.disk'));
     }
 
+    /**
+     * Bir artisan komutunu calistirir ve basarili bittigini dogrular.
+     *
+     * 🔴 Neden `$this->artisan(...)->assertSuccessful()` degil?
+     *
+     * O yardimcinin donus tipi `PendingCommand|int`:
+     *
+     *     public function artisan($command, $parameters = [])
+     *     {
+     *         if (! $this->mockConsoleOutput) {
+     *             return $this->app[Kernel::class]->call($command, $parameters);  // int
+     *         }
+     *         return new PendingCommand($this, $this->app, $command, $parameters);
+     *     }
+     *
+     * Yani `withoutMockingConsoleOutput()` cagrilirsa ham bir `int` doner ve
+     * uzerinde `assertSuccessful()` CAGRILAMAZ. Calisma aninda biz onu hic
+     * cagirmiyoruz, dolayisiyla her zaman PendingCommand geliyor — ama PHPStan
+     * level 8 bunu BILEMEZ ve bilmemekte hakli: bu bir SINIF DURUMUNA bagli
+     * dallanma ve gelecekteki bir setUp() onu degistirebilir.
+     *
+     * `Artisan::call()` ise kesin olarak `int` doner. Tipi daraltmak icin
+     * assertInstanceOf yazip PHPStan'in daraltmasina guvenmek yerine, BASTAN
+     * tek tipli bir API secildi.
+     *
+     * Ders 18'in ailesi: bir aracin hata mesaji BELIRTIYI soyler
+     * ("assertSuccessful cagrilamaz"), SEBEBI degil (donus tipi birlesimdir).
+     * Cozum mesaji susturmak degil, birlesimi hic uretmemek.
+     *
+     * @param  array<string, mixed>  $parameters
+     */
+    private function runCommand(string $command, array $parameters = []): void
+    {
+        $this->assertSame(
+            Command::SUCCESS,
+            Artisan::call($command, $parameters),
+            sprintf('Komut basarisiz bir cikis kodu dondurdu: %s', $command),
+        );
+    }
+
     // ------------------------------------------------- orders:expire (9.9)
 
     #[Test]
@@ -52,7 +94,7 @@ final class MaintenanceTest extends TestCase
     {
         $order = Order::factory()->create(['expires_at' => now()->subMinute()]);
 
-        $this->artisan('orders:expire')->assertSuccessful();
+        $this->runCommand('orders:expire');
 
         $this->assertSame(OrderStatus::Failed, $order->refresh()->status);
     }
@@ -62,7 +104,7 @@ final class MaintenanceTest extends TestCase
     {
         $order = Order::factory()->create(['expires_at' => now()->addMinutes(10)]);
 
-        $this->artisan('orders:expire')->assertSuccessful();
+        $this->runCommand('orders:expire');
 
         $this->assertSame(OrderStatus::Pending, $order->refresh()->status);
     }
@@ -80,7 +122,7 @@ final class MaintenanceTest extends TestCase
     {
         $order = Order::factory()->paid()->create(['expires_at' => now()->subDay()]);
 
-        $this->artisan('orders:expire')->assertSuccessful();
+        $this->runCommand('orders:expire');
 
         $order->refresh();
 
@@ -94,7 +136,7 @@ final class MaintenanceTest extends TestCase
     {
         $order = Order::factory()->create(['expires_at' => null]);
 
-        $this->artisan('orders:expire')->assertSuccessful();
+        $this->runCommand('orders:expire');
 
         $this->assertSame(OrderStatus::Pending, $order->refresh()->status);
     }
@@ -104,7 +146,7 @@ final class MaintenanceTest extends TestCase
     {
         $order = Order::factory()->create(['expires_at' => now()->subDay()]);
 
-        $this->artisan('orders:expire', ['--dry-run' => true])->assertSuccessful();
+        $this->runCommand('orders:expire', ['--dry-run' => true]);
 
         $this->assertSame(OrderStatus::Pending, $order->refresh()->status);
     }
@@ -117,7 +159,7 @@ final class MaintenanceTest extends TestCase
             'created_at' => now()->subDays(2),
         ]);
 
-        $this->artisan('media:prune-orphans')->assertSuccessful();
+        $this->runCommand('media:prune-orphans');
 
         $this->assertDatabaseMissing('media', ['id' => $media->id]);
     }
@@ -130,7 +172,7 @@ final class MaintenanceTest extends TestCase
             'created_at' => now()->subMinutes(5),
         ]);
 
-        $this->artisan('media:prune-orphans')->assertSuccessful();
+        $this->runCommand('media:prune-orphans');
 
         $this->assertDatabaseHas('media', ['id' => $media->id]);
     }
@@ -145,7 +187,7 @@ final class MaintenanceTest extends TestCase
             'photo_media_id' => $media->id,
         ]);
 
-        $this->artisan('media:prune-orphans')->assertSuccessful();
+        $this->runCommand('media:prune-orphans');
 
         $this->assertDatabaseHas('media', ['id' => $media->id]);
     }
@@ -161,7 +203,7 @@ final class MaintenanceTest extends TestCase
             'video_media_id' => $media->id,
         ]);
 
-        $this->artisan('media:prune-orphans')->assertSuccessful();
+        $this->runCommand('media:prune-orphans');
 
         $this->assertDatabaseHas('media', ['id' => $media->id]);
     }
@@ -178,7 +220,7 @@ final class MaintenanceTest extends TestCase
     {
         $media = Media::factory()->create(['created_at' => now()->subYear()]);
 
-        $this->artisan('media:prune-orphans')->assertSuccessful();
+        $this->runCommand('media:prune-orphans');
 
         $this->assertDatabaseHas('media', ['id' => $media->id]);
     }
@@ -194,7 +236,7 @@ final class MaintenanceTest extends TestCase
         Storage::disk($disk)->put($media->path, 'sahte-icerik');
         Storage::disk($disk)->assertExists($media->path);
 
-        $this->artisan('media:prune-orphans')->assertSuccessful();
+        $this->runCommand('media:prune-orphans');
 
         Storage::disk($disk)->assertMissing($media->path);
     }
@@ -204,7 +246,7 @@ final class MaintenanceTest extends TestCase
     {
         $media = Media::factory()->rsvpPhoto()->create(['created_at' => now()->subDays(2)]);
 
-        $this->artisan('media:prune-orphans', ['--dry-run' => true])->assertSuccessful();
+        $this->runCommand('media:prune-orphans', ['--dry-run' => true]);
 
         $this->assertDatabaseHas('media', ['id' => $media->id]);
     }
