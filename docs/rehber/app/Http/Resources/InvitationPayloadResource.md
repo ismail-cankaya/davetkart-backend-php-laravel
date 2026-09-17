@@ -197,7 +197,24 @@ saklamıyoruz, **üretiyoruz**.
 
 ---
 
-## 7. `galleryImages` neden sabit `[]`?
+## 7. `galleryImages` — Faz 3'te sabit `[]`, Faz 6 kapanışında gerçek liste
+
+> ✅ **Güncel hâl (Faz 6 kapanışı):**
+>
+> ```php
+> 'galleryImages' => MediaResource::collection($this->orderedGalleryMedia()),
+> ```
+>
+> Sahip galeriyi **kendi sırasıyla** (`gallery_media_ids`) ve her öğenin
+> **kimliğiyle** görür: `[{ "id": "01k…", "url": "http://…" }]`. Kimlik silme
+> ucu (`DELETE /invitations/{invitation}/media/{media}`) için gerekli. Misafir
+> sürümü kimliksizdir: [`PublicGalleryImageResource.md`](PublicGalleryImageResource.md).
+>
+> `timelineEvents` ile aynı sözleşme: `galleryMedia` ilişkisi **yüklü olmalı**.
+> Beş yükleme noktası güncellendi (index, show, publish, Create/Update Action);
+> biri unutulursa katı kip yerelde `LazyLoadingViolation` fırlatır.
+>
+> Aşağıdaki metin Faz 3'teki ilk hâlin gerekçesidir.
 
 ```php
 'galleryImages' => [],
@@ -209,6 +226,11 @@ olduğu için boş dizi dönüyoruz.
 Bu bir **yalan değil**: "bu davetiyenin galeri görseli yok" doğru bir ifade,
 çünkü gerçekten yok. Yalan olurdu eğer dokümanda "galeri çalışıyor" deseydik
 (B4). Kod yorumunda ve burada, Faz 6'da dolacağı açıkça yazılı.
+
+> ⚠️ Faz 6 yükleme uçlarını teslim etti ama bu satırı değiştirmedi; galeri
+> kapanışa kadar sahibe de misafire de hep boş göründü. Kodla yorumun aynı
+> şeyi söylemesi yetmez — yorumdaki "dolacak" sözünün bir takip maddesi de
+> olmalıydı (`docs/09` satırı ⬜ olarak kalmıştı).
 
 ---
 

@@ -29,7 +29,7 @@ final class ResolvePublicInvitationAction
             ->where('status', InvitationStatus::Published)
             // Faz 3 sapmasi surduruluyor: Resource iliskiye DOGRUDAN erisir.
             // Burada yuklenmezse yerelde LazyLoadingViolation firlar (3.9).
-            ->with('timelineEvents')
+            ->with(['timelineEvents', 'galleryMedia'])
             ->firstOrFail();
     }
 }

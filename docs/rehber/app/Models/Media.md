@@ -157,9 +157,13 @@ public function media(): HasMany
 `timelineEvents()` ilişkisinde `->orderBy('sort_order')` vardı, çünkü sıra
 **anlamın parçasıydı**. Burada yok — ve sebebi ilginç:
 
-> Galerinin sırası `media` tablosunda **tutulmuyor.** Kullanıcının sürükleyip
-> bıraktığı sıra `invitations.gallery_images` dizisinde (6.12). `media`
-> satırları sunucunun kaydı: kota sayımı ve temizlik için.
+> Galerinin sırası `media` tablosunda **tutulmuyor.** Kullanıcının gördüğü sıra
+> `invitations.gallery_media_ids` dizisinde (Faz 6 kapanışı; planda
+> `gallery_images` adıyla geçiyordu — kolon URL değil kimlik tuttuğu için adı
+> değişti). `media` satırları sunucunun kaydı: kota sayımı ve temizlik için.
+>
+> Galeriyi çizmek için `Invitation::galleryMedia()` (yalnızca `gallery` türü)
+> yüklenir ve `orderedGalleryMedia()` diziyi bu satırlarla eşler.
 
 Yani bu ilişki üzerinde anlamlı bir sıra **yok**. Olmayan bir sırayı uydurmak
 (`created_at`'e göre sıralamak) galeriyi yanlış gösterirdi.

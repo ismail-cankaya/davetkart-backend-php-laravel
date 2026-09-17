@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Media\DeleteGalleryMediaAction;
 use App\Actions\Media\StoreUploadedMediaAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Media\StoreMediaRequest;
 use App\Http\Resources\MediaResource;
 use App\Models\Invitation;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * Davetiye SAHIBININ galeri yuklemesi — auth:sanctum arkasinda.
+ * Davetiye SAHIBININ galeri yuklemesi ve silmesi — auth:sanctum arkasinda.
  *
  * 🔴 Yetki 'view' degil 'update' soruluyor: bir davetiyeye dosya eklemek onu
  * DEGISTIRMEKTIR. Bugun ikisi ayni sonucu veriyor (InvitationPolicy::owns),
@@ -49,5 +51,25 @@ final class MediaController extends Controller
         return (new MediaResource($media))
             ->response()
             ->setStatusCode(JsonResponse::HTTP_CREATED);
+    }
+
+    /**
+     * Galeriden bir fotografi kaldirir.
+     *
+     * Yetki yine 'update': dosya silmek de davetiyeyi DEGISTIRMEKTIR.
+     *
+     * 🔴 `$media` MODEL DEGIL metin: dosya Action'da davetiyenin galeri
+     * iliskisi uzerinden aranir (P3). Model baglamasi kullanilsaydi baska
+     * davetiyenin dosyasi da cozulur ve gorunurluk karari bir `if`e kalirdi.
+     *
+     * 204: silinen kaynagin anlatacak bir govdesi yok (InvitationController::destroy).
+     */
+    public function destroy(Invitation $invitation, string $media, DeleteGalleryMediaAction $action): Response
+    {
+        Gate::authorize('update', $invitation);
+
+        $action->handle($invitation, $media);
+
+        return response()->noContent();
     }
 }

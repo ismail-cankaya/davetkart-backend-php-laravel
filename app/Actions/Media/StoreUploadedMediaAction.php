@@ -27,6 +27,13 @@ use Throwable;
  *   4. Rastgele ad    -> orijinal ad kullanilmaz
  *   5. Icerikten MIME -> istemcinin beyani SAKLANMAZ
  *
+ * 🔴 Galeri dosyasi, satiriyla AYNI kilitli transaction'da galerinin sonuna
+ * eklenir (`gallery_media_ids`). Ayri bir adim olsaydi iki sey kirilirdi:
+ *   - es zamanli iki yukleme ayni diziyi okuyup birbirinin ekini EZERDI,
+ *   - yukleme ile sira kaydi arasinda sekme kapanirsa dosya kotayi yer ama
+ *     galeride hic gorunmezdi.
+ * Istemci sirayi GONDERMEZ; otomatik kaydetme bu diziye hic dokunmaz.
+ *
  * Gorunurluk ve yetki bu Action'in isi DEGIL: sahibin ucunda Gate, misafirin
  * ucunda ResolvePublicInvitationAction karar verir ve buraya COZULMUS bir
  * davetiye gelir.
@@ -72,10 +79,12 @@ final class StoreUploadedMediaAction
             $media = DB::transaction(function () use ($invitation, $kind, $disk, $path, $mimeType): Media {
                 // 3. KATMAN — kesin kota. Es zamanli iki yukleme ayni sayiyi
                 // okuyup ikisi de "yer var" diyebilirdi (check-then-act, E9).
-                $this->lockInvitation($invitation);
-                $this->assertQuotaAvailable($invitation, $kind);
+                // Kilitli satir YENIDEN OKUNUR: galeri dizisine eklerken
+                // elimizdeki (istek basinda okunan) ornegin dizisi bayat olabilir.
+                $locked = $this->lockInvitation($invitation);
+                $this->assertQuotaAvailable($locked, $kind);
 
-                $media = $invitation->media()->make();
+                $media = $locked->media()->make();
 
                 // #[Fillable] BOS: her alan acikca atanir (E7 ailesi).
                 $media->kind = $kind;
@@ -91,6 +100,14 @@ final class StoreUploadedMediaAction
                 $media->size_bytes = Storage::disk($disk)->size($path);
 
                 $media->save();
+
+                // 6. Galeri sirasi — ayni kilit altinda, sona. save() bir
+                // `updated` olayi uretir; misafir cache'i commit'ten sonra
+                // duser (ClearInvitationCache) ve yeni fotograf gorunur.
+                if ($kind->isGalleryItem()) {
+                    $locked->gallery_media_ids = [...$locked->galleryMediaIds(), $media->id];
+                    $locked->save();
+                }
 
                 return $media;
             });
@@ -137,15 +154,18 @@ final class StoreUploadedMediaAction
     }
 
     /**
-     * Ust kaydin satirini kilitler.
+     * Ust kaydin satirini kilitler ve kilitli, TAZE ornegi dondurur.
      *
      * PostgreSQL'in varsayilan READ COMMITTED seviyesinde SELECT'ler birbirini
      * beklemez; var olmayan satirlar da kilitlenemez (phantom read). Bu yuzden
      * kilitlenebilecek tek ortak nesne UST KAYITTIR — Faz 5'teki kota kilidiyle
      * ayni desen.
+     *
+     * firstOrFail: davetiye bu arada silinmisse 404 olur ve cagiran taraftaki
+     * telafi diske yazilan dosyayi siler.
      */
-    private function lockInvitation(Invitation $invitation): void
+    private function lockInvitation(Invitation $invitation): Invitation
     {
-        Invitation::query()->whereKey($invitation->getKey())->lockForUpdate()->first();
+        return Invitation::query()->whereKey($invitation->getKey())->lockForUpdate()->firstOrFail();
     }
 }

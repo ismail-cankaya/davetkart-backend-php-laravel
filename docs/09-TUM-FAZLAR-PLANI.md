@@ -297,7 +297,7 @@ sözleşmede yalan bir söz olurdu (B4). Gerekçe **K47** olarak kaydedildi:
 | `title`, `subtitle`, `names`, `venue`, `map_url`, `iban` | Kolon — **hepsi nullable** | ✅ |
 | `gift_options: number[]` | **`jsonb` kolon** | ✅ |
 | `timeline_events[]` | **Ayrı tablo** | ✅ |
-| `gallery_images[]` | Ayrı tablo (`media`) | ⬜ Faz 6 — Resource şimdilik `[]` döner |
+| `gallery_images[]` | Dosyalar `media` tablosunda, **sıra** `invitations.gallery_media_ids` (jsonb) | ✅ Faz 6 kapanışı — sahip `{id, url}`, misafir `{url}` alır; silme ucu var |
 | `phone_background` | ❌ **Kolon açılmadı** | ✅ K41 — `preset_id`'den türetilir |
 
 **⚠️ `public_slug` kolonu YOK.** Plan ayrı bir slug kolonu öngörüyordu; **K40**
@@ -569,7 +569,8 @@ eksikti:
 
 | Method | Path | Auth | Not |
 |---|---|:---:|---|
-| POST | `/api/invitations/{invitation}/media` | ✅ | Sahibin galerisi · yalnızca `gallery` |
+| POST | `/api/invitations/{invitation}/media` | ✅ | Sahibin galerisi · yalnızca `gallery` · galeri sırasının sonuna eklenir |
+| DELETE | `/api/invitations/{invitation}/media/{media}` | ✅ | Galeriden silme · 204 · başka davetiyenin ya da LCV'nin dosyası 404 (Faz 6 kapanışı) |
 | POST | `/api/public/invitations/{invitation}/media` | — | Misafirin LCV medyası · `throttle:media` |
 
 > ⚠️ **ESKİ PLAN GEÇERSİZ.** Plan `POST /api/media/upload` diyordu ve gerekçesi

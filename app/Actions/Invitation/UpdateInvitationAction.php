@@ -37,7 +37,9 @@ final class UpdateInvitationAction
                 $invitation->touch();
             }
 
-            return $invitation->load('timelineEvents');
+            // Galeri bu Action'da YAZILMAZ (sirasini medya Action'lari tutar),
+            // ama yanit onu da tasir.
+            return $invitation->load(['timelineEvents', 'galleryMedia']);
         });
     }
 }

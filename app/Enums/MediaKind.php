@@ -42,6 +42,24 @@ enum MediaKind: string
     }
 
     /**
+     * Bu dosya davetiyenin GALERISINE mi aittir?
+     *
+     * Galeri dosyasi `invitations.gallery_media_ids` sirasina girer ve sahibin
+     * galeri ucundan silinebilir. LCV medyasi bir misafirin YANITINA aittir;
+     * sahibin galeri ucundan silinmesi o yaniti sessizce bozardi.
+     *
+     * `match` ile yazildi: yeni bir tur eklendiginde derleyici bu soruyu
+     * cevaplamayi unutturmaz (isGuestUploadable ile ayni gerekce).
+     */
+    public function isGalleryItem(): bool
+    {
+        return match ($this) {
+            self::Gallery => true,
+            self::RsvpPhoto, self::RsvpVideo => false,
+        };
+    }
+
+    /**
      * Kuyruktaki optimizasyon bu turu isler mi?
      *
      * Video isleme (transcode) bambaska bir is: ffmpeg, dakikalar suren islem,

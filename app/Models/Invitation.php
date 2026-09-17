@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\InvitationStatus;
+use App\Enums\MediaKind;
 use App\Events\InvitationChanged;
 use Database\Factories\InvitationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
 
 /**
@@ -21,6 +23,10 @@ use Illuminate\Support\Facades\Config;
  *
  * 🔴 `user_id`, `status` ve `published_at` BILEREK doldurulabilir DEGIL:
  * sahiplik iliski uzerinden, durum ise yayin akisi tarafindan belirlenir.
+ *
+ * 🔴 `gallery_media_ids` de doldurulabilir DEGIL: galeri sirasini yalnizca
+ * medya Action'lari yazar (yukleme ekler, silme cikarir). Istek govdesinden
+ * gelen bir liste baska davetiyenin dosyasina isaret edebilirdi.
  * Ayrintili aciklama: docs/rehber/app/Models/Invitation.md
  */
 #[Fillable([
@@ -70,6 +76,9 @@ class Invitation extends Model
             'published_at' => 'immutable_datetime',
 
             'gift_options' => 'array',
+
+            // Galerinin sirasi: media ULID'leri (2026_09_17 migration'i).
+            'gallery_media_ids' => 'array',
 
             'show_envelope' => 'boolean',
             'show_timer' => 'boolean',
@@ -146,14 +155,73 @@ class Invitation extends Model
     /**
      * Bu davetiyeye yuklenmis dosyalarin KAYITLARI.
      *
-     * Siralama yok: galeri sirasi bu tabloda degil, `gallery_images` dizisinde
-     * tutuluyor (kullanicinin surukleyip biraktigi sira). Buradaki satirlar
-     * sunucunun kaydi — kota sayimi ve temizlik icin.
+     * Siralama yok: galeri sirasi bu tabloda degil, `gallery_media_ids`
+     * dizisinde tutuluyor. Buradaki satirlar sunucunun kaydi — kota sayimi ve
+     * temizlik icin.
      *
      * @return HasMany<Media, $this>
      */
     public function media(): HasMany
     {
         return $this->hasMany(Media::class);
+    }
+
+    /**
+     * Yalnizca galeri dosyalari — Resource'larin eager load ettigi iliski.
+     *
+     * `media()` LCV foto/videolarini da tasir; galeriyi cizmek icin misafirlerin
+     * yukledigi yuzlerce dosyayi bellege almak gereksiz olurdu. Siralama yine
+     * YOK: sira `orderedGalleryMedia()`'da, dizi uzerinden kurulur.
+     *
+     * @return HasMany<Media, $this>
+     */
+    public function galleryMedia(): HasMany
+    {
+        return $this->hasMany(Media::class)->where('kind', MediaKind::Gallery);
+    }
+
+    /**
+     * `gallery_media_ids` kolonunun TIPLI okumasi.
+     *
+     * Kolon JSON; cast bize `array` verir ama icerigini garanti etmez. Metin
+     * olmayan her oge atilir — bozuk bir oge galeriyi degil yalnizca kendisini
+     * dusurur.
+     *
+     * @return list<string>
+     */
+    public function galleryMediaIds(): array
+    {
+        $raw = $this->gallery_media_ids;
+
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter($raw, is_string(...)));
+    }
+
+    /**
+     * Galerideki dosyalar KULLANICININ SIRASIYLA.
+     *
+     * 🔴 `galleryMedia` iliskisi YUKLU olmali (kati kip, 3.9). Dizide olup
+     * satiri olmayan kimlik sessizce atlanir: misafire kirik bir gorsel
+     * gostermek, o ogeyi hic gostermemekten kotudur.
+     *
+     * @return Collection<int, Media>
+     */
+    public function orderedGalleryMedia(): Collection
+    {
+        $byId = $this->galleryMedia->keyBy('id');
+        $ordered = [];
+
+        foreach ($this->galleryMediaIds() as $id) {
+            $media = $byId->get($id);
+
+            if ($media instanceof Media) {
+                $ordered[] = $media;
+            }
+        }
+
+        return collect($ordered);
     }
 }

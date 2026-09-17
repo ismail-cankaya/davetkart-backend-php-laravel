@@ -117,6 +117,195 @@ final class MediaTest extends TestCase
         $this->assertDatabaseCount('media', 0);
     }
 
+    // ------------------------------------------------- GALERI SIRASI VE SILME
+
+    /**
+     * 🔴 Faz 6'nin acik maddesi: yuklenen fotograf davetiyenin GALERISINE girer.
+     *
+     * T14: yanit degil ETKI — kaniti davetiyenin kendi okumasi. Iki yukleme,
+     * yukleme sirasiyla ve kimlikleriyle geri gelmeli (silme ucu kimlik ister).
+     */
+    #[Test]
+    public function gallery_uploads_are_appended_to_the_invitation_gallery_in_order(): void
+    {
+        [$user, $inv] = $this->ownedInvitation();
+        $token = $this->tokenFor($user);
+
+        $first = $this->uploadGallery($token, $inv, 'ilk.jpg');
+        $second = $this->uploadGallery($token, $inv, 'ikinci.jpg');
+
+        $this->withToken($token)
+            ->getJson(route('invitations.show', $inv))
+            ->assertOk()
+            ->assertJsonCount(2, 'data.invitation.galleryImages')
+            ->assertJsonPath('data.invitation.galleryImages.0.id', $first)
+            ->assertJsonPath('data.invitation.galleryImages.1.id', $second)
+            ->assertJsonStructure(['data' => ['invitation' => ['galleryImages' => [['id', 'url']]]]]);
+
+        $this->assertSame([$first, $second], $inv->fresh()?->galleryMediaIds());
+    }
+
+    #[Test]
+    public function owner_can_delete_a_gallery_image(): void
+    {
+        [$user, $inv] = $this->ownedInvitation();
+        $token = $this->tokenFor($user);
+        $keep = $this->uploadGallery($token, $inv, 'kalsin.jpg');
+        $drop = $this->uploadGallery($token, $inv, 'silinsin.jpg');
+        $media = Media::query()->findOrFail($drop);
+
+        $this->withToken($token)
+            ->deleteJson($this->galleryDeleteUrl($inv, $drop))
+            ->assertNoContent();
+
+        // T14: uc etki birden — satir, diskteki dosya ve galeri sirasi.
+        $this->assertDatabaseMissing('media', ['id' => $drop]);
+        Storage::disk($media->disk)->assertMissing($media->path);
+        $this->assertSame([$keep], $inv->fresh()?->galleryMediaIds());
+    }
+
+    /** Silinen fotograf kotayi da birakir: sinirdaki kullanici yenisini yukleyebilmeli. */
+    #[Test]
+    public function deleting_a_gallery_image_frees_its_quota_slot(): void
+    {
+        Config::set('davetkart.media.gallery.max_per_invitation', 1);
+
+        [$user, $inv] = $this->ownedInvitation();
+        $token = $this->tokenFor($user);
+        $first = $this->uploadGallery($token, $inv);
+
+        $this->withToken($token)
+            ->deleteJson($this->galleryDeleteUrl($inv, $first))
+            ->assertNoContent();
+
+        $second = $this->uploadGallery($token, $inv, 'yenisi.jpg');
+
+        $this->assertSame([$second], $inv->fresh()?->galleryMediaIds());
+    }
+
+    /**
+     * 🔴 IDOR: baskasinin galerisinden silme. Satir ve sira YERINDE kalmali.
+     *
+     * ⚠️ Galeri ogesi ISTEKLE degil fabrikayla kurulur: ayni testte once sahibin
+     * token'iyla istek atilirsa uygulama ornegi dogrulanmis kullaniciyi
+     * onbellekte tutar ve ikinci istekteki token yok sayilir. Test o zaman
+     * davetsizi degil SAHIBI sinardi (tek istek, tek token — diger IDOR
+     * testleriyle ayni kalip).
+     */
+    #[Test]
+    public function owner_cannot_delete_media_from_someone_elses_invitation(): void
+    {
+        [, $inv] = $this->ownedInvitation();
+        $media = $this->galleryItem($inv);
+        $intruder = User::factory()->create();
+
+        $this->withToken($this->tokenFor($intruder))
+            ->deleteJson($this->galleryDeleteUrl($inv, $media->id))
+            ->assertNotFound()
+            ->assertJsonPath('error.code', ErrorCode::ResourceNotFound->value);
+
+        $this->assertDatabaseHas('media', ['id' => $media->id]);
+        $this->assertSame([$media->id], $inv->fresh()?->galleryMediaIds());
+    }
+
+    /**
+     * 🔴 Gorunurluk sorgunun kapsami (P3): kendi davetiyesinin dosyasi bile,
+     * BASKA bir davetiyenin URL'inden silinemez.
+     */
+    #[Test]
+    public function a_gallery_image_cannot_be_deleted_through_another_invitation(): void
+    {
+        [$user, $first] = $this->ownedInvitation();
+        $second = Invitation::factory()->published()->create(['user_id' => $user->id]);
+        $token = $this->tokenFor($user);
+        $mediaId = $this->uploadGallery($token, $first);
+
+        $this->withToken($token)
+            ->deleteJson($this->galleryDeleteUrl($second, $mediaId))
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('media', ['id' => $mediaId]);
+        $this->assertSame([$mediaId], $first->fresh()?->galleryMediaIds());
+    }
+
+    /** LCV fotografi bir misafirin yanitina aittir; galeri ucundan silinemez. */
+    #[Test]
+    public function rsvp_media_cannot_be_deleted_through_the_gallery_endpoint(): void
+    {
+        [$user, $inv] = $this->ownedInvitation();
+        $photo = Media::factory()->rsvpPhoto()->create(['invitation_id' => $inv->id]);
+
+        $this->withToken($this->tokenFor($user))
+            ->deleteJson($this->galleryDeleteUrl($inv, $photo->id))
+            ->assertNotFound()
+            ->assertJsonPath('error.code', ErrorCode::ResourceNotFound->value);
+
+        $this->assertDatabaseHas('media', ['id' => $photo->id]);
+    }
+
+    #[Test]
+    public function gallery_delete_requires_authentication(): void
+    {
+        [, $inv] = $this->ownedInvitation();
+        $media = Media::factory()->create(['invitation_id' => $inv->id]);
+
+        $this->deleteJson($this->galleryDeleteUrl($inv, $media->id))->assertUnauthorized();
+
+        $this->assertDatabaseHas('media', ['id' => $media->id]);
+    }
+
+    /**
+     * 🔴 Sira istemciden ALINMAZ. Otomatik kaydetme davetiyeyi surekli yeniden
+     * yaziyor; govdedeki bir galeri listesi kabul edilseydi yukleme ile kaydetme
+     * yarisinda yeni fotograf sessizce kaybolurdu.
+     */
+    #[Test]
+    public function an_invitation_update_cannot_rewrite_the_gallery(): void
+    {
+        [$user, $inv] = $this->ownedInvitation();
+        $token = $this->tokenFor($user);
+        $mediaId = $this->uploadGallery($token, $inv);
+
+        $this->withToken($token)
+            ->putJson(route('invitations.update', $inv), ['invitation' => [
+                'title' => 'Yeni baslik',
+                'galleryImages' => [],
+                'galleryMediaIds' => [],
+            ]])
+            ->assertOk()
+            ->assertJsonPath('data.invitation.title', 'Yeni baslik')
+            ->assertJsonPath('data.invitation.galleryImages.0.id', $mediaId);
+
+        $this->assertSame([$mediaId], $inv->fresh()?->galleryMediaIds());
+    }
+
+    /**
+     * 🔴 Misafir cache'i galeri degisikliginde duser (ClearInvitationCache).
+     * Olmasaydi yeni fotograf TTL dolana kadar (saatlerce) gorunmezdi.
+     */
+    #[Test]
+    public function gallery_changes_refresh_the_public_invitation(): void
+    {
+        [$user, $inv] = $this->ownedInvitation(['show_gallery' => true]);
+        $token = $this->tokenFor($user);
+        $publicUrl = route('public.invitations.show', $inv);
+
+        $this->getJson($publicUrl)->assertOk()->assertJsonCount(0, 'data.invitation.galleryImages');
+
+        $mediaId = $this->uploadGallery($token, $inv);
+
+        $this->getJson($publicUrl)
+            ->assertOk()
+            ->assertJsonCount(1, 'data.invitation.galleryImages')
+            ->assertJsonMissingPath('data.invitation.galleryImages.0.id');
+
+        $this->withToken($token)
+            ->deleteJson($this->galleryDeleteUrl($inv, $mediaId))
+            ->assertNoContent();
+
+        $this->getJson($publicUrl)->assertOk()->assertJsonCount(0, 'data.invitation.galleryImages');
+    }
+
     // ------------------------------------------------- DOSYA GUVENLIGI
 
     /**
@@ -621,6 +810,38 @@ final class MediaTest extends TestCase
     private function ownerUrl(Invitation $invitation): string
     {
         return route('invitations.media.store', $invitation);
+    }
+
+    private function galleryDeleteUrl(Invitation $invitation, string $mediaId): string
+    {
+        return route('invitations.media.destroy', ['invitation' => $invitation, 'media' => $mediaId]);
+    }
+
+    /** Diske yazmadan galeriye bir oge ekler — tek istekli yetki testleri icin. */
+    private function galleryItem(Invitation $invitation): Media
+    {
+        $media = Media::factory()->create(['invitation_id' => $invitation->id]);
+
+        $invitation->gallery_media_ids = [...$invitation->galleryMediaIds(), $media->id];
+        $invitation->save();
+
+        return $media;
+    }
+
+    /** Sahip olarak gercek bir galeri yuklemesi yapar ve olusan kimligi dondurur. */
+    private function uploadGallery(string $token, Invitation $invitation, string $name = 'foto.jpg'): string
+    {
+        $id = $this->withToken($token)
+            ->postJson($this->ownerUrl($invitation), [
+                'kind' => MediaKind::Gallery->value,
+                'file' => UploadedFile::fake()->image($name),
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->assertIsString($id);
+
+        return $id;
     }
 
     private function guestUrl(Invitation $invitation): string

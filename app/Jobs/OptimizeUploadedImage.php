@@ -38,6 +38,16 @@ final class OptimizeUploadedImage implements ShouldQueue
      */
     public int $tries = 3;
 
+    /**
+     * Dosya is kosmadan SILINMISSE is sessizce duser.
+     *
+     * Galeriden silme (DeleteGalleryMediaAction) yuklemeden saniyeler sonra
+     * gelebilir. Bu bayrak olmasaydi model yeniden okunamaz, is uc kez
+     * ModelNotFoundException firlatir ve failed_jobs'a gercek bir hata gibi
+     * yazilirdi — oysa ortada kucultulecek bir dosya kalmamistir.
+     */
+    public bool $deleteWhenMissingModels = true;
+
     /** Model kuyruga KIMLIGIYLE serilesir; is kostugunda taze okunur. */
     public function __construct(
         public readonly Media $media,

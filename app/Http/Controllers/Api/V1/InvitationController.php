@@ -41,7 +41,7 @@ final class InvitationController extends Controller
         // 3.9: Resource iliskinin YUKLU olmasini bekler. with() olmadan
         // her davetiye icin ayri sorgu acilirdi (N+1).
         $invitations = $user->invitations()
-            ->with('timelineEvents')
+            ->with(['timelineEvents', 'galleryMedia'])
             ->latest('updated_at')
             ->get();
 
@@ -71,7 +71,7 @@ final class InvitationController extends Controller
     {
         Gate::authorize('view', $invitation);
 
-        return new InvitationResource($invitation->load('timelineEvents'));
+        return new InvitationResource($invitation->load(['timelineEvents', 'galleryMedia']));
     }
 
     public function update(
@@ -108,7 +108,7 @@ final class InvitationController extends Controller
         // ornek iliskileri tasimiyor. Kati kip yerelde LazyLoadingViolation
         // firlatir (3.9); uretimde ise sessiz bir N+1 olurdu.
         return new InvitationResource(
-            $action->handle($invitation)->load('timelineEvents'),
+            $action->handle($invitation)->load(['timelineEvents', 'galleryMedia']),
         );
     }
 

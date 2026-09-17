@@ -8,6 +8,7 @@ use App\Enums\ErrorCode;
 use App\Events\InvitationChanged;
 use App\Listeners\ClearInvitationCache;
 use App\Models\Invitation;
+use App\Models\Media;
 use App\Models\User;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -160,6 +161,45 @@ final class PublicInvitationTest extends TestCase
             ->json('data.invitation.timelineEvents.0');
 
         $this->assertSame(['time', 'title', 'description'], array_keys($adim));
+    }
+
+    /**
+     * 🔴 Galeri DIZIDEKI sirayla gelir ve kimlik tasimaz (C5).
+     *
+     * Sira, kayitlarin olusma sirasinin TERSI verildi: galeriyi created_at'e
+     * gore siralayan bir mutasyon bu testi gecemez.
+     */
+    #[Test]
+    public function gallery_images_follow_the_stored_order_without_ids(): void
+    {
+        $inv = $this->published(['show_gallery' => true]);
+        $first = Media::factory()->create(['invitation_id' => $inv->id]);
+        $second = Media::factory()->create(['invitation_id' => $inv->id]);
+
+        $inv->gallery_media_ids = [$second->id, $first->id];
+        $inv->save();
+
+        $response = $this->getJson($this->url($inv))
+            ->assertOk()
+            ->assertJsonCount(2, 'data.invitation.galleryImages')
+            ->assertJsonPath('data.invitation.galleryImages.0.url', $second->url())
+            ->assertJsonPath('data.invitation.galleryImages.1.url', $first->url());
+
+        $this->assertSame(['url'], array_keys((array) $response->json('data.invitation.galleryImages.0')));
+    }
+
+    #[Test]
+    public function the_gallery_is_absent_when_the_module_is_off(): void
+    {
+        $inv = $this->published(['show_gallery' => false]);
+        $media = Media::factory()->create(['invitation_id' => $inv->id]);
+
+        $inv->gallery_media_ids = [$media->id];
+        $inv->save();
+
+        $this->getJson($this->url($inv))
+            ->assertOk()
+            ->assertJsonMissingPath('data.invitation.galleryImages');
     }
 
     /** C5: misafirin isine yaramayan sunucu ustverisi gonderilmez. */

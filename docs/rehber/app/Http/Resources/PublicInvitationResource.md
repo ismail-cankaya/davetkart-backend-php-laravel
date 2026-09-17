@@ -367,3 +367,24 @@ modüle ait değil.
 
 `types.ts` → `Invitation`'a `timezone: string` eklenmeli ve geri sayım bu
 dilimde hesaplanmalı. Ayrıntı: `FAZ-7.md` §8.
+
+---
+
+## 🆕 Faz 6 kapanışı — `galleryImages` artık gerçek
+
+```php
+if ($this->show_gallery) {
+    $design['galleryImages'] = PublicGalleryImageResource::collection($this->orderedGalleryMedia())
+        ->resolve($request);
+}
+```
+
+| Kural | Nasıl karşılanıyor |
+|---|---|
+| **C4** — kapalı modülün verisi gövdeye hiç girmez | `show_gallery` kapalıyken anahtar yok (`the_gallery_is_absent_when_the_module_is_off`) |
+| **C5** — gereksiz alan gönderilmez | Öğeler yalnızca `{url}`; sahibin `id`'si yok |
+| Sıra | `gallery_media_ids` dizisinden (`gallery_images_follow_the_stored_order_without_ids`) |
+| 4.3 — cache'e düz dizi | `->resolve($request)` |
+| Eager load | `ResolvePublicInvitationAction` → `with(['timelineEvents', 'galleryMedia'])` |
+
+Ayrıntı: [`PublicGalleryImageResource.md`](PublicGalleryImageResource.md).

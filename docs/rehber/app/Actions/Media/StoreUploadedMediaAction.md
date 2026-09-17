@@ -686,3 +686,48 @@ sözleşmeye nasıl çıkacağı. Orada iki soru var:
 | Kuyruk işi | [`../../Jobs/OptimizeUploadedImage.md`](../../Jobs/OptimizeUploadedImage.md) |
 | Kardeş Action | [`../Rsvp/SubmitRsvpAction.md`](../Rsvp/SubmitRsvpAction.md) |
 | Faz özeti | [`../../../fazlar/FAZ-6.md`](../../../fazlar/FAZ-6.md) |
+
+---
+
+## 🆕 Faz 6 kapanışı — galeri sırası
+
+> **İlgili:** [`DeleteGalleryMediaAction.md`](DeleteGalleryMediaAction.md),
+> [`../../../database/migrations/2026_09_17_100000_add_gallery_media_ids_to_invitations_table.md`](../../../database/migrations/2026_09_17_100000_add_gallery_media_ids_to_invitations_table.md)
+
+### 1. Ne değişti?
+
+Galeri yüklemesi artık satırıyla **aynı kilitli transaction'da**
+`invitations.gallery_media_ids` dizisinin sonuna eklenir:
+
+```php
+$locked = $this->lockInvitation($invitation);   // kilitli, TAZE okuma
+// ... kota, satır ...
+if ($kind->isGalleryItem()) {
+    $locked->gallery_media_ids = [...$locked->galleryMediaIds(), $media->id];
+    $locked->save();
+}
+```
+
+### 2. 🔴 Neden ayrı bir adım değil?
+
+| Alternatif | Ne kırılır |
+|---|---|
+| Controller yüklemeden sonra ayrı bir "galeriye ekle" Action'ı çağırır | Eşzamanlı iki yükleme aynı diziyi okur, biri diğerinin ekini **ezer** |
+| Frontend listeyi davetiye kaydıyla (PUT) gönderir | Yükleme ile otomatik kaydetme yarışında yeni fotoğraf **kaybolur**; sekme kapanırsa dosya kotayı yer ama galeride görünmez |
+
+Kilit zaten kota için alınıyordu (§7); diziyi aynı kilidin altında yazmak ek
+bir yarış penceresi açmaz.
+
+### 3. `lockInvitation()` artık bir değer döndürüyor
+
+Faz 6'da kilidin tek işi **beklemekti**; okunan satır atılıyordu. Şimdi dizi o
+satırdan okunuyor. Elimizdeki `$invitation` istek başında okunmuştu ve bu arada
+başka bir yükleme diziye eklemiş olabilir — bayat örnekten yazmak o eki silerdi.
+`first()` da `firstOrFail()` oldu: davetiye arada silinmişse 404 döner ve §8'deki
+telafi diske yazılan dosyayı siler.
+
+### 4. Önbellek
+
+`$locked->save()` bir `updated` olayı üretir → `ClearInvitationCache` commit'ten
+sonra misafir cache'ini düşürür. Yeni fotoğraf beklemeden görünür
+(`MediaTest::gallery_changes_refresh_the_public_invitation`).

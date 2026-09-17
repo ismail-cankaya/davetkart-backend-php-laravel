@@ -45,8 +45,9 @@ final class CreateInvitationAction
             }
 
             // Resource iliskinin YUKLU olmasini bekler (3.9); senkronizasyon
-            // sonrasi bellekteki koleksiyon bayattir.
-            return $invitation->load('timelineEvents');
+            // sonrasi bellekteki koleksiyon bayattir. Yeni davetiyenin galerisi
+            // bostur ama iliski yine yuklenir: sozlesme anahtari zorunlu.
+            return $invitation->load(['timelineEvents', 'galleryMedia']);
         });
     }
 }

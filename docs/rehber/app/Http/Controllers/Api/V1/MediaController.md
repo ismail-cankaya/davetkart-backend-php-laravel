@@ -348,3 +348,29 @@ diske dosya yazdırabiliyorsa, onu ne durdurur?**
 | Policy | [`../../../../Policies/InvitationPolicy.md`](../../../../Policies/InvitationPolicy.md) |
 | M1 kuralı | [`../../../Middleware/ForceJsonResponse.md`](../../../Middleware/ForceJsonResponse.md) |
 | Faz özeti | [`../../../../../fazlar/FAZ-6.md`](../../../../../fazlar/FAZ-6.md) |
+
+---
+
+## 🆕 Faz 6 kapanışı — `destroy()`
+
+```php
+public function destroy(Invitation $invitation, string $media, DeleteGalleryMediaAction $action): Response
+{
+    Gate::authorize('update', $invitation);
+
+    $action->handle($invitation, $media);
+
+    return response()->noContent();
+}
+```
+
+| Soru | Cevap | Gerekçe |
+|---|---|---|
+| Yetki | `update` | Dosya silmek de davetiyeyi **değiştirmektir** (§2 ile aynı) |
+| `{invitation}` | Model | Sahiplik sorusu — Policy cevaplar |
+| `{media}` | **Metin** | Görünürlük sorusu — Action'da **sorgunun kapsamı** (P3); model bağlama başka davetiyenin dosyasını da çözerdi |
+| Yanıt | `204` | Silinen kaynağın anlatacak bir gövdesi yok (`InvitationController::destroy`) |
+
+§3'teki "model mi string mi?" sorusunun cevabı burada **ikisi birden**: aynı
+rotada iki parametre iki farklı soruyu taşıyor. Ayrıntı:
+[`../../../../Actions/Media/DeleteGalleryMediaAction.md`](../../../../Actions/Media/DeleteGalleryMediaAction.md).

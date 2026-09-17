@@ -691,3 +691,27 @@ O Action `Cache::forget()` **çağırmıyor** — `save()` → `updated` →
 
 Faz 4'ün **41. dersi**: *doğru katmanda alınmış bir karar umulmadık bir yerde
 ikinci kez işe yarar.*
+
+---
+
+## 🆕 Faz 6 kapanışı — galeri
+
+### 1. `gallery_media_ids` — doldurulabilir DEĞİL
+
+Galeri sırasını yalnızca medya Action'ları yazar (yükleme ekler, silme çıkarır).
+`#[Fillable]` listesine eklenseydi istek gövdesinden gelen bir liste başka
+davetiyenin dosyasına işaret edebilirdi. Kolon `array` cast'iyle okunur.
+
+### 2. Üç yeni üye
+
+| Üye | Tür | İş |
+|---|---|---|
+| `galleryMedia()` | `HasMany<Media>` | Yalnızca `gallery` türü — Resource'ların **eager load** ettiği ilişki. `media()` LCV dosyalarını da taşır; galeriyi çizmek için onları belleğe almak gereksiz |
+| `galleryMediaIds()` | `list<string>` | Kolonun **tipli** okuması: JSON içeriği garanti değildir, metin olmayan öğe atılır |
+| `orderedGalleryMedia()` | `Collection<int, Media>` | Diziyi yüklü satırlarla eşler; satırı olmayan kimliği sessizce atlar (kırık görsel göstermek yerine) |
+
+### 3. Önbellek zinciri yine kendiliğinden çalışıyor
+
+Galeri yazan iki Action da `save()` çağırır → `updated` → `InvitationChanged` →
+`ClearInvitationCache`. §11'deki karar üçüncü kez karşılığını buldu: hiçbir
+medya Action'ı `Cache::forget()` çağırmıyor.

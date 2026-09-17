@@ -88,7 +88,10 @@ final class PublicInvitationResource extends JsonResource
         }
 
         if ($this->show_gallery) {
-            $design['galleryImages'] = [];   // Faz 6: media tablosundan dolacak
+            // Kullanicinin sirasiyla, KIMLIKSIZ (C5). ->resolve() ayni sebeple:
+            // cache'e Eloquent modeli degil duz dizi yazilir (4.3).
+            $design['galleryImages'] = PublicGalleryImageResource::collection($this->orderedGalleryMedia())
+                ->resolve($request);
         }
 
         if ($this->show_gift) {

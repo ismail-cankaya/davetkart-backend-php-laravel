@@ -106,6 +106,18 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('invitations.media.store');
 
     /*
+    | Galeriden fotograf silme — davetiye SAHIBI.
+    |
+    | Ayni ic ice yapi: dosya kimligi davetiyenin ALTINDA. `{media}` model
+    | baglamasi degil, metin — dosya DeleteGalleryMediaAction'da davetiyenin
+    | galeri iliskisi uzerinden aranir (P3). Baska davetiyenin dosyasi ve LCV
+    | medyasi ayni 404'u alir (H7).
+    */
+    Route::delete('/invitations/{invitation}/media/{media}', [MediaController::class, 'destroy'])
+        ->whereUlid(['invitation', 'media'])
+        ->name('invitations.media.destroy');
+
+    /*
     | Yayinlama (Faz 7) — PAYWALL KAPISI.
     |
     | 🔴 Bu rota Faz 3'te acilmadi ve gerekcesi K47 olarak kaydedildi:

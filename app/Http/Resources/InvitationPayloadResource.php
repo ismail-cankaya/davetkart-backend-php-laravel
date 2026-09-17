@@ -71,8 +71,11 @@ final class InvitationPayloadResource extends JsonResource
             // yanlis veri yerine gurultulu hata. Gerekcesi kilavuz §5'te.
             'timelineEvents' => TimelineEventResource::collection($this->timelineEvents),
 
-            // Faz 6: media tablosundan dolacak.
-            'galleryImages' => [],
+            // Galeri, KULLANICININ SIRASIYLA (`gallery_media_ids`). Sahip
+            // kimlikleri de gorur: silme ucu dosyayi kimligiyle ister. Misafir
+            // surumunde kimlik yok (PublicGalleryImageResource).
+            // timelineEvents ile ayni sozlesme: `galleryMedia` yuklu olmali.
+            'galleryImages' => MediaResource::collection($this->orderedGalleryMedia()),
         ];
     }
 }
