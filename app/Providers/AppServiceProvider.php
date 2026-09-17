@@ -19,6 +19,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Console\ServeCommand;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Date;
@@ -121,6 +122,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureModels();
         $this->configureDates();
         $this->configureCommands();
+        $this->configureLocalServer();
         $this->configureRateLimiting();
     }
 
@@ -342,5 +344,38 @@ class AppServiceProvider extends ServiceProvider
     private function configureCommands(): void
     {
         DB::prohibitDestructiveCommands($this->app->isProduction());
+    }
+
+    /**
+     * 🔴 `php artisan serve` altinda HER dosya yuklemesi dusuyordu (Windows).
+     *
+     * serve komutu, .env varken PHP'nin dahili sunucusunu (php -S) yalnizca
+     * izin listesindeki ortam degiskenleriyle baslatir; digerlerini SILER.
+     * TEMP ve TMP listede yok. Herd'in php.ini'sinde upload_tmp_dir bos, yani
+     * PHP gecici klasoru bu degiskenlerden bulur; bulamayinca Windows
+     * klasorune duser, oraya yazamaz ve dosyayi istek BASLARKEN atar:
+     *
+     *   PHP Warning: File upload error - unable to create a temporary file
+     *
+     * Dosya Laravel'e hic ulasmaz (`file` alani `uploaded` kuralina takilir)
+     * ve uyari JSON yanitin ONUNE basildigi icin frontend yaniti cozemez.
+     * Kod hatasi gibi gorunur, oysa sorun sunucunun ortamindadir.
+     *
+     * Yalnizca yerel gelistirme sunucusunu etkiler: uretim (nginx/php-fpm)
+     * bu komutu kullanmaz. TMPDIR, macOS/Linux'taki karsiligidir.
+     * Ayrintili aciklama: docs/rehber/app/Providers/AppServiceProvider.md
+     */
+    private function configureLocalServer(): void
+    {
+        if (! $this->app->runningInConsole()) {
+            return;
+        }
+
+        ServeCommand::$passthroughVariables = array_values(array_unique([
+            ...ServeCommand::$passthroughVariables,
+            'TEMP',
+            'TMP',
+            'TMPDIR',
+        ]));
     }
 }

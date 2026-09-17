@@ -254,6 +254,15 @@ oraya bağlanıyor. Herd'in `.test` adresi 80 portunda çalışır, uyuşmaz.
 | 10 | **sizin kodunuz** | 📁 proje (`app/`) |
 | 11 | SQLite | 📁 proje (`database/database.sqlite`) |
 
+> ⚠️ **Windows'ta dosya yüklemesi ve 5. adım.** `php artisan serve`, PHP
+> sunucusunu yalnızca izin listesindeki ortam değişkenleriyle başlatır. Liste
+> `TEMP`/`TMP` içermiyorsa PHP geçici klasör bulamaz ve her yükleme şu uyarıyla
+> düşer: `PHP Warning: File upload error - unable to create a temporary file`.
+> Proje bu değişkenleri `AppServiceProvider::configureLocalServer()` içinde
+> listeye ekler. Uyarıyı yine görürseniz `php artisan serve`'ü **yeniden
+> başlatın**: çalışan süreç eski listeyle açılmıştır. Ayrıntı:
+> `docs/rehber/app/Providers/AppServiceProvider.md`.
+
 ## Üretim (canlı sunucu) ortamı
 
 ```

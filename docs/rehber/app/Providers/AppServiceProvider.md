@@ -673,3 +673,91 @@ eski cevabı verebilirdi.
 > ⚠️ **B6:** sağlayıcı tek çıkış IP'sinden yoğun gönderirse bu tavana çarpar ve
 > 429 alır. Sağlayıcılar 429'da retry ettiği için veri kaybolmaz, ama üretimde
 > sağlayıcı IP'lerini muaf tutmak gerekecek — **Faz 9 borcu**.
+
+---
+
+## 🆕 Galeri kapanışı — `configureLocalServer()`: yerel sunucuda dosya yükleme
+
+```php
+private function configureLocalServer(): void
+{
+    if (! $this->app->runningInConsole()) {
+        return;
+    }
+
+    ServeCommand::$passthroughVariables = array_values(array_unique([
+        ...ServeCommand::$passthroughVariables,
+        'TEMP',
+        'TMP',
+        'TMPDIR',
+    ]));
+}
+```
+
+### Belirti
+
+Frontend'den seçilen her fotoğraf reddediliyordu. `php artisan serve`
+konsolunda her yükleme isteğinden önce şu uyarı çıkıyordu:
+
+```
+PHP Warning:  PHP Request Startup: File upload error - unable to create a temporary file in Unknown on line 0
+```
+
+Yanıtta `file` alanı `uploaded` kuralına takılıyordu. Uyarı `display_errors`
+açık olduğu için JSON'un **önüne** HTML olarak basılıyordu; frontend yanıtı
+JSON olarak da çözemiyordu.
+
+### 🔴 Kök neden: kod değil, sunucunun ortamı
+
+1. PHP, yüklenen dosyayı önce **geçici bir klasöre** yazar. Laravel dosyayı
+   ancak sonra görür.
+2. Herd'in `php.ini` dosyasında `upload_tmp_dir` boştur. PHP bu durumda
+   geçici klasörü işletim sisteminden ister. Windows bu soruyu `TMP`/`TEMP`
+   ortam değişkenleriyle cevaplar; ikisi de yoksa **Windows klasörüne** düşer.
+3. `php artisan serve`, `.env` varken PHP'nin dahili sunucusunu (`php -S`) bir
+   **alt süreç** olarak başlatır. Bu alt sürece yalnızca
+   `ServeCommand::$passthroughVariables` listesindeki değişkenleri aktarır,
+   geri kalan her şeyi siler. (Herd'deki `variables_order=EGPCS` yüzünden
+   `$_ENV` bütün sistem değişkenlerini içerir; hepsi silinmeye aday olur.)
+4. Laravel'in listesinde `PATH` ve `SYSTEMROOT` var, `TEMP`/`TMP` **yok**.
+   Alt süreç geçici klasörü bulamaz, Windows klasörüne yazamaz ve dosyayı
+   istek başlarken atar.
+
+### Nasıl kanıtlandı?
+
+Aynı istek (geçersiz `kind` ile, yani veritabanına hiçbir şey yazmadan) üç
+sunucuya gönderildi:
+
+| Sunucu | Sonuç |
+|---|---|
+| `php artisan serve` (düzeltmeden önce) | PHP uyarısı + `file: uploaded` hatası |
+| `php artisan serve --no-reload` (tüm ortam aktarılır) | Uyarı yok, dosya ulaştı |
+| `php artisan serve` (düzeltmeden sonra) | Uyarı yok, dosya ulaştı |
+
+Geriye yalnızca bilerek yanlış gönderilen `kind` hatası kaldı.
+
+### Neden `php.ini` değiştirilmedi?
+
+`upload_tmp_dir` ayarı da sorunu çözerdi. Ama o dosya bilgisayara aittir, depoya
+girmez; Herd güncellemesi onu ezebilir. Ekipteki her Windows geliştiricisi
+aynı hatayla yeniden karşılaşırdı. `--no-reload` bayrağı da çözer, ama `.env`
+değişince otomatik yeniden başlatmayı kapatır ve her seferinde hatırlanması
+gerekir.
+
+### Ayrıntılar
+
+- **`array_unique`:** Statik özellik süreç boyunca yaşar. Testler her testte
+  uygulamayı yeniden kurar; tekilleştirme olmasaydı liste her testte büyürdü.
+- **`runningInConsole()`:** Liste yalnızca `serve` komutunda okunur. HTTP
+  isteklerinde ayarlamak boş iştir.
+- **Üretim etkilenmez:** Canlı sunucu nginx/php-fpm ile çalışır, `artisan
+  serve` kullanmaz.
+- **`TMPDIR`:** macOS/Linux'taki karşılığıdır. Orada `/tmp`'ye düşüş zaten
+  yazılabilir olduğu için hata görülmez, ama liste platformlar arasında
+  tutarlı kalır.
+
+> ⚠️ **Çalışan sunucuyu yeniden başlatın.** Liste, `php artisan serve`
+> başlarken okunur. Düzeltmeden önce açılmış bir sunucu eski listeyle
+> çalışmaya devam eder.
+
+**Test:** `tests/Feature/LocalServerEnvironmentTest.php`
