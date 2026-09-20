@@ -90,6 +90,16 @@ final class GeminiProvider implements AiProvider
                     Config::integer('ai.request.retry_times'),
                     Config::integer('ai.request.retry_delay_ms'),
                     fn (Throwable $exception): bool => $exception instanceof ConnectionException,
+                    // 🔴 $throw = false. Varsayilan `true` ile Laravel, BASARISIZ her
+                    // yaniti RequestException'a cevirir (PendingRequest: `if
+                    // ($potentialTries > 1 && $this->retryThrow)`) ve asagidaki
+                    // `$response->failed()` dali HIC CALISMAZ. Bedeli 2026-09-20'de
+                    // odendi: model emekliye ayrilinca Gemini temiz bir 404 +
+                    // "no longer available" dondurdu, ama log'a yalnizca genel
+                    // istisna dustu; sebep 50 satirlik yigin izinin icinde
+                    // kirpilmis halde duruyordu. `false` ile yanit GERI DONER,
+                    // saglayicinin kendi hata metni tek satirda loglanir.
+                    false,
                 )
                 ->post($this->endpoint(), $this->payload($prompt));
         } catch (Throwable $exception) {
@@ -170,6 +180,15 @@ final class GeminiProvider implements AiProvider
             'generationConfig' => [
                 // Cikti uzunlugu dogrudan faturadir.
                 'maxOutputTokens' => Config::integer('ai.request.max_output_tokens'),
+
+                // 🔴 Dusunme jetonlari maxOutputTokens BUTCESINDEN yenir.
+                // Kapatilmazsa 800 jetonun 767'si dusunmeye gider ve geriye
+                // kesilmis bir cumle -- ya da hic metin -- kalir; ikincisinde
+                // yukaridaki `candidate yok` dali PROVIDER_UNAVAILABLE firlatir
+                // ve sebep hicbir yerde gorunmez. Hesabi config/ai.php'de.
+                'thinkingConfig' => [
+                    'thinkingBudget' => Config::integer('ai.request.thinking_budget'),
+                ],
             ],
         ];
     }

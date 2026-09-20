@@ -19,7 +19,7 @@ return [
         'gemini' => [
             'driver' => 'gemini',
             'api_key' => env('GEMINI_API_KEY'),
-            'model' => env('GEMINI_MODEL', 'gemini-2.0-flash'),
+            'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
             'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
         ],
 
@@ -63,6 +63,26 @@ return [
         // Çıktı uzunluğu doğrudan faturadır: token başına ödeniyor. Sohbet
         // balonuna sığacak bir yanıt için 800 fazlasıyla yeterli.
         'max_output_tokens' => 800,
+
+        /*
+         * 🔴 DÜŞÜNME BÜTÇESİ — 0 = kapalı. Gemini 2.5 ve sonrası "düşünen"
+         * modellerdir ve düşünme jetonları `max_output_tokens` BÜTÇESİNDEN
+         * yenir; ayrı bir hesap değildir.
+         *
+         * Ölçüldü (2026-09-20, gemini-2.5-flash, bütçe 800):
+         *   thinkingBudget yok  -> düşünme 767 · cevap  29 · finishReason MAX_TOKENS
+         *   thinkingBudget = 0  -> düşünme   0 · cevap 800 · kullanılabilir metin
+         *
+         * Yani varsayılan hâlde kullanıcı, kesilmiş bir cümle ya da HİÇ metin
+         * görür; ikincisinde GeminiProvider 'candidate yok' deyip
+         * PROVIDER_UNAVAILABLE fırlatır. Hata sağlayıcıda değil, bütçenin
+         * kimin tarafından yendiğindedir.
+         *
+         * Düşünme ayrıca SÜRE demektir: aynı ölçümde kapalıyken çağrı ~5 sn,
+         * açıkken 6 sn'lik timeout'a dayanıyordu. Davetiye metni yazmak
+         * muhakeme gerektiren bir iş değil — bütçe buraya harcanmaz.
+         */
+        'thinking_budget' => 0,
     ],
 
     // Modele gönderilen sistem talimatı. Konu dışına çıkmayı ve prompt injection'ı sınırlar.
