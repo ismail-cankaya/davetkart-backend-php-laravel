@@ -9,6 +9,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Sentry\Laravel\Integration;
 
 // Not: `use Throwable;` YOK. Bu dosyanin namespace'i yok, yani zaten global
 // isim alanindayiz; global bir sinifi global alana ithal etmek etkisizdir ve
@@ -40,6 +41,21 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Sentry'yi Laravel'in istisna akisina baglayan TEK satir (paketin
+        // kendi onerdigi kalip). Laravel 11+ ile app/Exceptions/Handler.php
+        // kaldirildi; kanca noktasi artik burasi.
+        //
+        // report ve render AYRI islerdir ve birbirini bastirmaz:
+        //   handles()  -> istisnayi Sentry'ye BILDIRIR (report tarafi)
+        //   render()   -> istemciye NE DONECEGINI secer (asagida)
+        // Bu yuzden ikisi yan yana durabiliyor; Sentry'yi eklemek mevcut
+        // ApiExceptionRenderer davranisini degistirmiyor.
+        //
+        // SENTRY_LARAVEL_DSN bos oldugunda SDK sessizce devre disi kalir
+        // (paketin ServiceProvider'i kaydi hasDsnSet() ardina aliyor), bu
+        // yuzden "yerelde kapat" diye ayrica bir kosul yazmiyoruz.
+        Integration::handles($exceptions);
+
         // null donerse Laravel varsayilan akisina duser (web rotalari).
         //
         // Iki kosul, iki farkli durumu kapsar:
