@@ -84,3 +84,12 @@ jobs:
         # zamanla birbirinden sapar ve "yerelde gecti ama CI'da patladi"
         # kafa karisikligina yol acar.
         run: composer check
+
+      - name: Composer güvenlik taraması
+        # Neden "check" script'ine gomulmedi de ayri adim oldu?
+        # "Kod kalitesi" ile "kullandigimiz paketlerde bilinen guvenlik acigi
+        # var mi" iki farkli kaygi. Ayri adim olunca CI ozetinde hangisinin
+        # patladigi tek bakista gorunur, biri digerini maskelemez ve ileride
+        # yalnizca audit'i farkli bir politikayla (orn. haftalik zamanlanmis
+        # kosu) calistirmak istersek adimi tasimak yeter.
+        run: composer audit
