@@ -1,0 +1,86 @@
+name: CI
+
+# Neden hem push hem pull_request?
+# - push (tum branch'ler): aktif gelistirme sirasinda her commit'te hemen
+#   geri bildirim alalim diye - feature branch'te calisirken bile kirmizi
+#   X'i gormek istiyoruz, sadece main'e birlestiginde degil.
+# - pull_request (main'e acilanlar): main'e girmeden once son bir kapi -
+#   push tetiklemesi feature branch'te zaten calismis olsa da, PR'in kendi
+#   "checks" sekmesinde gorunmesi icin ayrica gerekli.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    name: composer check (Pint + PHPStan + errors:export + testler)
+    runs-on: ubuntu-latest
+
+    # K19 (dev/prod parity) burada da geçerli: SQLite değil, gerçek
+    # PostgreSQL kullanıyoruz - phpunit.xml zaten bunu bekliyor
+    # (DB_CONNECTION=pgsql sabit). "services" bir Docker container'ı
+    # runner'ın yanında ayağa kaldırır, testler ona localhost:5432'den
+    # bağlanır.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: davetkart_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Kodu çek
+        uses: actions/checkout@v4
+
+      - name: PHP 8.3 kur
+        # shivammathur/setup-php: composer.json'daki "php": "^8.3" ile
+        # birebir eslesen bir PHP surumu ve gerekli extension'lari kurar.
+        # GitHub'in varsayilan runner'i hangi PHP surumunun geldigini
+        # garanti etmiyor, bu yuzden acikca belirtiyoruz.
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: exif, gd, pgsql, pdo_pgsql, mbstring, bcmath, curl, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Composer önbelleğini geri yükle
+        # composer.lock degismedigi surece vendor/ tekrar indirilmez -
+        # her CI kosusunda 1-2 dakika kazandirir.
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: composer install
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: .env oluştur ve CI veritabanına göre ayarla
+        # .env.example'daki DB_USERNAME=postgres zaten servis container'la
+        # eslesiyor; sadece bos birakilan DB_PASSWORD'u container'in
+        # sifresiyle eslestiriyoruz. DB_DATABASE burada onemsiz - test
+        # calisirken phpunit.xml onu "davetkart_test" ile eziyor.
+        run: |
+          cp .env.example .env
+          sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=postgres/" .env
+          php artisan key:generate
+
+      - name: composer check
+        # Yerelde calistirdigin ayni kalite kapisi: pint --test (kod stili)
+        # + phpstan analyse (statik analiz) + errors:export --check (hata
+        # katalogu guncel mi) + artisan test (Pest/PHPUnit). Ikinci bir
+        # "CI'a ozel" kontrol seti yazmiyoruz - iki ayri dogrulama mantigi
+        # zamanla birbirinden sapar ve "yerelde gecti ama CI'da patladi"
+        # kafa karisikligina yol acar.
+        run: composer check

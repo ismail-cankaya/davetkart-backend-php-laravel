@@ -188,3 +188,58 @@ php artisan storage:link           # yalnızca DAVETKART_MEDIA_DISK=public ise
 Bir değişkeni güncellediğinde `config:cache`'i **tekrar** çalıştır, yoksa
 değişiklik sessizce uygulanmaz — ve bu, üretimde en çok zaman kaybettiren
 hata sınıflarından biridir.
+
+---
+
+## 🆕 Faz 9 — `.env`'de olmayan üç ayar
+
+Aşağıdaki üç şey `.env`'de **yaşamaz** ama üretimde ayarlanmadığında fotoğraf
+yükleme çalışmaz. Sunucu kurulum kontrol listesinin parçasıdır.
+
+### 1. PHP yükleme sınırları (php-fpm)
+
+Uygulama tek fotoğraf için **15 MB**, LCV videosu için **20 MB** kabul ediyor
+(`config/davetkart.php` → `media`). PHP'nin varsayılanları bunun **altındadır**:
+
+| Ayar | PHP varsayılanı | Gereken |
+|---|---|---|
+| `upload_max_filesize` | 2M | **25M** |
+| `post_max_size` | 8M | **30M** |
+
+> 🔴 `upload_max_filesize` aşıldığında PHP dosyayı **istek başlarken atar**:
+> Laravel'e boş bir dosya nesnesi ulaşır, yanıt 422 *"dosya yüklenemedi"*
+> olur ve **sebebi hiçbir yerde görünmez**. Faz 9'da bu yüzden bir teşhis logu
+> eklendi: `MediaRequest` böyle bir istek gördüğünde php.ini değerlerini loga
+> yazar. Üretimde 422 `uploaded` hatası görürsen **ilk bakılacak yer burasıdır**.
+>
+> `post_max_size` (gövdenin tamamı) `upload_max_filesize`'dan büyük olmalı;
+> aşılırsa yanıt 413 `FILE_TOO_LARGE` olur.
+
+### 2. nginx gövde sınırı
+
+```nginx
+client_max_body_size 30m;   # nginx'in VARSAYILANI 1 MB'dir
+```
+
+Ayarlanmazsa nginx isteği PHP'ye **hiç vermez**: 413 döner ve Laravel logunda
+tek satır bile olmaz. Cloudflare arkasındaysan onun da sınırı geçerlidir
+(ücretsiz planda 100 MB).
+
+### 3. Kuyruk işçisinin belleği ve eklentiler
+
+- **Eklentiler:** `ext-gd` ve `ext-exif` artık `composer.json`'da **zorunlu**.
+  Eksikse `composer install` açık bir hatayla durur — küçültme işinin sessizce
+  hiçbir şey yapmadığı bir üretim ortamı yerine bunu tercih ediyoruz.
+- **Bellek:** İş, görseli çözerken `memory_limit`'i geçici olarak
+  `davetkart.media.optimize.memory_limit` (512M) değerine yükseltir ve bitince
+  eski değere döner. Barındırma bu yükseltmeye izin vermiyorsa (paylaşımlı
+  hostingde sıkça 256 MB'da durulur) config'te **iki değeri birlikte** indir:
+  `memory_limit` ve `max_dimension_px`. İkisi bağlıdır — piksel tavanı,
+  belleğin ne kadarının gerekeceğini belirler.
+- **Gecikmeli iş:** Optimizasyondan sonra eski dosyayı silen
+  `DeleteReplacedMediaFile` **24 saat gecikmeli** kuyruğa girer. Paylaşımlı
+  hostingdeki cron tabanlı işçi (`--stop-when-empty`) bunu da alır; ama kuyruk
+  hiç koşmazsa eski dosyalar diskte kalır.
+
+Ayrıntılar: [`rehber/app/Jobs/OptimizeUploadedImage.md`](rehber/app/Jobs/OptimizeUploadedImage.md),
+[`rehber/app/Jobs/DeleteReplacedMediaFile.md`](rehber/app/Jobs/DeleteReplacedMediaFile.md).

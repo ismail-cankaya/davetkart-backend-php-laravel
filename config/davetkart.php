@@ -68,15 +68,54 @@ return [
         // takasta yanlis tarafa dusmek UCUZ olan taraftir.
         'orphan_grace_hours' => 24,
 
-        // Kuyruktaki OptimizeUploadedImage isinin ayarlari. Telefon kameralari
-        // 4000+ piksel uretiyor; galeride 2000 fazlasiyla yeterli.
+        // Kuyruktaki OptimizeUploadedImage isinin ayarlari.
         'optimize' => [
-            'max_width_px' => 2000,
+            // 🔴 EN UZUN KENAR, genislik DEGIL. Genisligi sinirlamak dikey
+            // fotografi serbest birakiyordu: 3000x4000'lik bir kare 2000x2667
+            // olarak kaliyordu — 5,3 MP, yani hedeflenenin bir buçuk kati.
+            // 2000 nereden? Galeri en fazla 448 CSS px genisliginde gosteriliyor
+            // (frontend Gallery.tsx, max-w-md); 3x ekranda bile 1344 px yeter.
+            'max_edge_px' => 2000,
+
+            // 🔴 Cozme (decode) belleginin ust siniri BU SATIRDIR: GD piksel
+            // basina ~4 bayt ister, yani 8192x8192 ≈ 67 MP ≈ 270 MB. Dogrulama
+            // bunu asan dosyayi hic kabul etmez (MediaRequest) ve is de ikinci
+            // kez sorar. Kucuk bir dosyanin devasa piksel acmasi ("sikistirma
+            // bombasi") misafir ucunda bir DoS yolu olurdu.
+            'max_dimension_px' => 8192,
+
+            // Hedef cikti boyutu. Kalite bu degerin altina inene kadar
+            // basamak basamak dusurulur.
+            'target_kb' => 2048,
+
             'jpeg_quality' => 82,
+            'webp_quality' => 80,
+
+            // Kalitenin inebilecegi taban. Altinda gorunur bozulma basliyor;
+            // hedefe inilemezse dosya buyuk kalir, kalite feda edilmez.
+            'min_quality' => 60,
+
+            // 🔴 Is, gorseli cozerken bu bellegi ister ve isi bitince eski
+            // degeri geri yukler. CLI varsayilani 128M'dir; 24 MP'lik bir
+            // telefon fotografi (99 MB) isciyi oracikta cokertirdi.
+            'memory_limit' => '512M',
+
+            // 🔴 Optimize edilen dosya YENI bir yola yazilir; eski dosya hemen
+            // silinmez. Editorun elindeki eski URL bu sure boyunca calismaya
+            // devam eder — sayfa yenilenince yeni URL gelir.
+            'replaced_file_grace_hours' => 24,
         ],
 
         'gallery' => [
-            'max_size_kb' => 5120,
+            // 🔴 15 MB, "kullanicinin yukleyebilecegi en buyuk fotograf" degil
+            // "sunucunun kabul ettigi en buyuk dosya"dir. Tarayici dosyayi
+            // gondermeden once 2 MB'in altina indiriyor (frontend
+            // utils/compressImage.ts); bu sinir o katman atlandiginda devrede.
+            //
+            // ⚠️ PHP'nin upload_max_filesize ve post_max_size degerleri bu
+            // sinirdan BUYUK olmali, yoksa dosya Laravel'e hic ulasmaz
+            // (docs/06, docs/10).
+            'max_size_kb' => 15360,
             'mimes' => ['image/jpeg', 'image/png', 'image/webp'],
             'max_per_invitation' => 30,
         ],
@@ -85,7 +124,10 @@ return [
         // "ne kadar"a — ikisi birbirinin yerine gecmez (L3). Bu sinir olmasa
         // gonderim yapmadan yuklenen "yetim" dosyalarla disk doldurulabilirdi.
         'rsvp_photo' => [
-            'max_size_kb' => 2048,
+            // Galeriyle AYNI sinir: misafirin telefonu sahibin telefonundan
+            // daha kucuk fotograf uretmiyor. Kota (max_per_invitation) ve hiz
+            // siniri misafir tarafindaki farki zaten tasiyor.
+            'max_size_kb' => 15360,
             'mimes' => ['image/jpeg', 'image/png', 'image/webp'],
             'max_per_invitation' => 200,
         ],

@@ -263,6 +263,37 @@ oraya bağlanıyor. Herd'in `.test` adresi 80 portunda çalışır, uyuşmaz.
 > başlatın**: çalışan süreç eski listeyle açılmıştır. Ayrıntı:
 > `docs/rehber/app/Providers/AppServiceProvider.md`.
 
+> ⚠️ **Yükleme boyutu sınırı (Faz 9).** Herd'in `php.ini` dosyasında
+> `upload_max_filesize = 2M` ve `post_max_size = 8M` yazar. Uygulama ise tek
+> fotoğraf için **15 MB**, LCV videosu için 20 MB kabul ediyor. Ayarlar
+> yükseltilmezse 2 MB'ı aşan her fotoğraf **422 "dosya yüklenemedi"** ile
+> düşer — üstelik hata mesajı sebebi söylemez, çünkü dosya Laravel'e hiç
+> ulaşmaz.
+>
+> Düzeltme (Herd ayarlarından ya da doğrudan
+> `C:\Users\<kullanıcı>\.config\herd\bin\php85\php.ini` içinden):
+>
+> ```ini
+> upload_max_filesize = 25M
+> post_max_size = 30M
+> ```
+>
+> Sonra `php artisan serve` **yeniden başlatılır** ve kontrol edilir:
+> `php -r "echo ini_get('upload_max_filesize');"`.
+
+> 🔴 **Sadece `php artisan serve` çalıştırmak yetmez.** Görsel küçültme
+> (`OptimizeUploadedImage`) ve misafir önbelleği temizliği
+> (`ClearInvitationCache`) **kuyrukta** çalışır; `QUEUE_CONNECTION=database`
+> olduğu için bir **işçi** süreci gerekir. İşçi yoksa işler `jobs` tablosunda
+> birikir ve hiçbir hata görünmez — fotoğraflar küçülmemiş hâlleriyle kalır.
+> Doğru komut:
+>
+> ```powershell
+> composer run dev     # serve + queue:listen + pail + vite birlikte
+> ```
+>
+> ya da ayrı bir terminalde `php artisan queue:work`.
+
 ## Üretim (canlı sunucu) ortamı
 
 ```

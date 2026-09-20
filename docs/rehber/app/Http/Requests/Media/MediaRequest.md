@@ -245,3 +245,81 @@ gönderimi.
 | Tür enum'u | [`../../../Enums/MediaKind.md`](../../../Enums/MediaKind.md) |
 | Kota exception'ı | [`../../../Exceptions/MediaQuotaExceededException.md`](../../../Exceptions/MediaQuotaExceededException.md) |
 | Kardeş request | [`../Invitation/InvitationRequest.md`](../Invitation/InvitationRequest.md) |
+
+---
+
+## 🆕 Faz 9 — piksel sınırı ve PHP sınırının görünür kılınması
+
+### 1. `dimensions` — boyut sınırının **yanında** duran ikinci sınır
+
+```php
+'dimensions:max_width=8192,max_height=8192'   // yalnızca görsel türlerde
+```
+
+İkisi **ayrı şeyi** ölçüyor:
+
+| | `max:15360` | `dimensions:…8192` |
+|---|---|---|
+| Ölçtüğü | Kaç bayt | Kaç piksel |
+| Koruduğu | Disk, bant genişliği | 🔴 Kuyruk işçisinin **belleği** |
+
+50 KB'lık bir PNG 20000×20000 piksel açabilir: boyut kuralından rahatça geçer,
+ama kuyruktaki iş onu çözmeye kalktığında piksel başına 4 bayt ister — ~1,6 GB
+— ve işçiyi bellek hatasıyla öldürür. Buna **sıkıştırma bombası** deniyor ve
+misafirin yükleme ucu auth'suzdur, yani bu bir konfor ayarı değil bir
+**savunmadır**.
+
+Üç ayrıntı:
+
+- **Hazır kural kullanıldı.** `dimensions` dosyanın yalnızca başlığını okur
+  (`getimagesize`), yani ucuzdur.
+- **Kural nesnesi yazılmadı.** Metin kural olduğu için hata `dimensions` adıyla
+  raporlanır; sınıf adı sözleşmeye sızmaz — `Rule::enum()` yerine `in:`
+  kullanmakla (D6) aynı gerekçe.
+- 🔴 **Videoya eklenmez.** `getimagesize` bir mp4'ün boyutlarını okuyamaz ve
+  `false` döner: kural **her videoyu** reddederdi. Soru bu yüzden
+  `$kind->isOptimizable()` — "işin göreceği türler".
+
+Sınır, kuyruk işinin bellek bütçesiyle birlikte seçildi: 8192 × 8192 ≈ 67 MP ≈
+270 MB çözme belleği, bütçe ise 512 MB
+([`OptimizeUploadedImage.md`](../../../Jobs/OptimizeUploadedImage.md) §6).
+Panorama fotoğrafları (12000+ px genişlik) bu sınıra takılır; bilinen ve kabul
+edilmiş bir kenar durum.
+
+### 2. §4'teki not eksikti: PHP'nin iki sınırı aynı sonucu vermiyor
+
+Yukarıdaki §4 *"PHP'nin kendi sınırı aşılırsa `PostTooLargeException` → 413
+`FILE_TOO_LARGE`"* diyor. Bu yalnızca **`post_max_size`** için doğru:
+
+| Aşılan sınır | Ne olur | Yanıt |
+|---|---|---|
+| `post_max_size` | `ValidatePostSize` middleware'i isteği keser | **413** `FILE_TOO_LARGE` |
+| `upload_max_filesize` | PHP dosyayı atar, isteğin geri kalanı gelir; Laravel'e hata kodu taşıyan **boş** bir dosya nesnesi ulaşır | **422** `VALIDATION_FAILED`, kural `uploaded` |
+
+İkinci satır bu projeye bir gün kaybettirdi: uygulama 15 MB derken Herd'in
+`php.ini`'si 2 MB diyordu ve yanıttaki *"dosya yüklenemedi"* mesajı **sebebi
+söylemiyordu**.
+
+### 3. `prepareForValidation()` — teşhis logu
+
+```php
+if (in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+    Log::warning('Dosya PHP sinirina takildi: php.ini degeri uygulama sinirindan dusuk.', [...]);
+}
+```
+
+Yanıt sözleşmesi **değişmiyor** (hâlâ 422). Eklenen şey yalnızca teşhis:
+`php_upload_max_filesize`, `php_post_max_size` ve türün kendi sınırı loga
+yazılır. Bir yapılandırma hatasını kullanıcıya anlatmanın yolu yok, ama loga
+yazmanın maliyeti de yok.
+
+> **Neden 413'e çevirmedik?** Çünkü bu durum bir **sunucu yapılandırma
+> hatasıdır**, kullanıcının gönderdiği dosyayla ilgili değil. Frontend zaten
+> aynı 15 MB sınırını uyguluyor; buraya düşen bir istek, sunucunun yanlış
+> ayarlandığını söyler. Kullanıcıya "dosyan çok büyük" demek yanlış bilgi
+> olurdu.
+
+**Test:** `MediaTest::a_photo_above_the_pixel_limit_is_rejected`,
+`a_guest_photo_above_the_pixel_limit_is_rejected`,
+`a_video_is_not_subject_to_the_pixel_limit`,
+`a_file_dropped_by_the_php_limit_is_logged`.

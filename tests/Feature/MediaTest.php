@@ -16,9 +16,11 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use LogicException;
+use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -378,6 +380,106 @@ final class MediaTest extends TestCase
             ->assertStatus(422);
 
         $this->assertDatabaseCount('media', 0);
+    }
+
+    /**
+     * 🔴 Faz 9: boyut sinirinin YANINDA bir piksel siniri.
+     *
+     * Ikisi ayri seyi olcuyor. 50 KB'lik bir PNG 20000x20000 piksel acabilir:
+     * `max:15360` kuralindan rahatca gecer, ama kuyruktaki is onu cozmeye
+     * kalktiginda piksel basina 4 bayt ister — ~1,6 GB — ve isciyi cokertir.
+     */
+    #[Test]
+    public function a_photo_above_the_pixel_limit_is_rejected(): void
+    {
+        [$user, $inv] = $this->ownedInvitation();
+        $limit = Config::integer('davetkart.media.optimize.max_dimension_px');
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson($this->ownerUrl($inv), [
+                'kind' => MediaKind::Gallery->value,
+                'file' => UploadedFile::fake()->image('devasa.jpg', $limit + 1, 10),
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', ErrorCode::ValidationFailed->value)
+            ->assertJsonPath('error.fields.file.0.rule', 'dimensions');
+
+        $this->assertDatabaseCount('media', 0);
+    }
+
+    /** Ayni sinir MISAFIR ucunda da gecerli — sikistirma bombasi auth istemez. */
+    #[Test]
+    public function a_guest_photo_above_the_pixel_limit_is_rejected(): void
+    {
+        $inv = $this->openInvitation();
+        $limit = Config::integer('davetkart.media.optimize.max_dimension_px');
+
+        $this->postJson($this->guestUrl($inv), [
+            'kind' => MediaKind::RsvpPhoto->value,
+            'file' => UploadedFile::fake()->image('devasa.jpg', 10, $limit + 1),
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('error.fields.file.0.rule', 'dimensions');
+
+        $this->assertDatabaseCount('media', 0);
+    }
+
+    /**
+     * 🔴 T6: yoklugun testi. Piksel siniri VIDEOYA UYGULANMAZ.
+     *
+     * `dimensions` kurali getimagesize'a dayanir; bir mp4'un boyutlarini
+     * okuyamaz ve `false` doner — yani kural her videoyu reddederdi. Sinir,
+     * isin GORSELI cozecegi turler icin var (MediaKind::isOptimizable).
+     */
+    #[Test]
+    public function a_video_is_not_subject_to_the_pixel_limit(): void
+    {
+        $inv = $this->openInvitation();
+
+        $this->postJson($this->guestUrl($inv), [
+            'kind' => MediaKind::RsvpVideo->value,
+            'file' => UploadedFile::fake()
+                ->createWithContent('klip.mp4', str_repeat("\0", 4096))
+                ->mimeType('video/mp4'),
+        ])->assertCreated();
+    }
+
+    /**
+     * 🔴 PHP'nin sinirina takilan yukleme LOGA yazilir.
+     *
+     * `upload_max_filesize` asilirsa PHP dosyayi istek BASLARKEN atar; Laravel'e
+     * yalnizca hata kodu tasiyan bos bir nesne ulasir ve yanit 422 'uploaded'
+     * olur: "dosya yuklenemedi". Mesaj dogru ama SEBEBI soylemiyor. Bu proje
+     * tam olarak bu yuzden bir gun kaybetti: uygulama 15 MB derken php.ini
+     * 2 MB diyordu ve bunu hicbir yerde gorunmuyordu.
+     */
+    #[Test]
+    public function a_file_dropped_by_the_php_limit_is_logged(): void
+    {
+        $logger = Log::spy();
+
+        [$user, $inv] = $this->ownedInvitation();
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson($this->ownerUrl($inv), [
+                'kind' => MediaKind::Gallery->value,
+                'file' => new UploadedFile(
+                    UploadedFile::fake()->image('buyuk.jpg')->getPathname(),
+                    'buyuk.jpg',
+                    'image/jpeg',
+                    UPLOAD_ERR_INI_SIZE,
+                    test: true,
+                ),
+            ])
+            ->assertStatus(422);
+
+        // Eslesmeyen bir cagri dogrulamayi dusurur: `shouldHaveReceived`
+        // argumanlari da esler ve cagri hic olmadiysa oracikta patlar.
+        $logger->shouldHaveReceived('warning', [
+            Mockery::on(fn (string $message): bool => str_contains($message, 'PHP sinirina')),
+            Mockery::on(fn (array $context): bool => ($context['kind'] ?? null) === MediaKind::Gallery->value
+                && array_key_exists('php_upload_max_filesize', $context)),
+        ]);
     }
 
     // ------------------------------------------------------------ KOTA

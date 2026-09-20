@@ -369,3 +369,73 @@ listeye bakmaktan değerlidir.
 | **IDOR** | Başkasının kaynağına kimliği değiştirerek erişme |
 | **T14** | "Yapılmadığını test ediyorsan etkiyi doğrula" kuralı |
 | **T15** | "Uçtan uca doğrulanamayan zincir halkalara ayrılır" kuralı |
+
+---
+
+## 🆕 Faz 9 — dört yeni test
+
+| Test | Soru |
+|---|---|
+| `a_photo_above_the_pixel_limit_is_rejected` | Sıkıştırma bombası sahibin ucunda kesiliyor mu? |
+| `a_guest_photo_above_the_pixel_limit_is_rejected` | 🔴 Aynı sınır auth'suz uçta da geçerli mi? |
+| `a_video_is_not_subject_to_the_pixel_limit` | T6: kural videoya **uygulanmıyor** mu? |
+| `a_file_dropped_by_the_php_limit_is_logged` | PHP sınırına takılan yükleme loga yazılıyor mu? |
+
+### 1. Piksel sınırı neden iki uçta da sınanıyor?
+
+Kural tek yerde tanımlı (`MediaRequest`), yani teknik olarak bir test yeterdi.
+İkincisi **tehdit modeli** için var: sıkıştırma bombası gönderen kişinin token'ı
+olmak zorunda değil. Misafir ucu auth'suz olduğu için o uçtaki savunmanın
+kendine ait bir testi olmalı — birisi yarın `StorePublicMediaRequest`'i ayırıp
+kuralları elle yazarsa, sahibin testi hâlâ geçiyor olacaktı (C3).
+
+### 2. Videonun testi bir **yokluk** testi
+
+```php
+'file' => UploadedFile::fake()
+    ->createWithContent('klip.mp4', str_repeat("\0", 4096))
+    ->mimeType('video/mp4'),
+```
+
+`dimensions` kuralı `getimagesize`'a dayanır ve bir mp4'te `false` döner: kural
+videoya eklenirse **her video reddedilir**. Bu test, kuralın yanlış yere
+sızmadığını sınıyor (T6).
+
+Sahte dosyanın iki tuzağı Faz 6'da öğrenilmişti ve burada aynen geçerli:
+`createWithContent` (boş dosya değil) ve `mimeType()` (uzantıdan tahmin
+`application/mp4` verir) — ayrıntısı §5.3'te.
+
+### 3. Log nasıl sınanıyor?
+
+```php
+$logger = Log::spy();
+...
+$logger->shouldHaveReceived('warning', [
+    Mockery::on(fn (string $message): bool => str_contains($message, 'PHP sinirina')),
+    Mockery::on(fn (array $context): bool => ($context['kind'] ?? null) === 'gallery' && ...),
+]);
+```
+
+Üç ayrıntı:
+
+- `Log::spy()` **casus** kurar: çağrılar kaydedilir, gerçek log yazılmaz.
+- Argümanlar `shouldHaveReceived`'in **ikinci parametresiyle** eşleştiriliyor,
+  zincirlenen `->withArgs()` ile değil. Sebebi tip güvenliği:
+  `shouldHaveReceived()` arayüzde `LegacyMockInterface` döndüğü için PHPStan
+  zinciri çözemiyor ve level 8 hata veriyordu.
+- Yanıt yine **422** olarak doğrulanıyor: log eklendi diye sözleşme
+  değişmediğinin kanıtı.
+
+### 4. İstek nasıl "PHP sınırına takılmış" gibi gönderiliyor?
+
+```php
+'file' => new UploadedFile($path, 'buyuk.jpg', 'image/jpeg', UPLOAD_ERR_INI_SIZE, test: true),
+```
+
+Gerçekte bu nesneyi PHP üretir: `upload_max_filesize` aşıldığında `$_FILES`
+kaydı **hata koduyla ve boş geçici dosyayla** gelir. Testte aynı durumu elle
+kuruyoruz; `test: true` olmadan Symfony `is_uploaded_file()` kontrolüne takılır
+ve nesne kullanılamazdı.
+
+Küçültme işinin kendi testleri ayrı dosyada:
+[`OptimizeUploadedImageTest.md`](OptimizeUploadedImageTest.md).

@@ -7,6 +7,8 @@ namespace App\Http\Requests\Media;
 use App\Enums\MediaKind;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 use LogicException;
 
 /**
@@ -52,8 +54,76 @@ abstract class MediaRequest extends FormRequest
                 // mimetypes dosyanin ICERIGINDEN okunan tipe bakar (finfo).
                 // Uzantiyi kullanici belirler, icerigi belirleyemez.
                 'mimetypes:'.implode(',', $kind->allowedMimeTypes()),
+
+                ...$this->dimensionRules($kind),
             ],
         ];
+    }
+
+    /**
+     * 🔴 PHP'nin KENDI sinirini gorunur kilar.
+     *
+     * `upload_max_filesize` asilirsa PHP dosyayi istek BASLARKEN atar. Laravel'e
+     * yalnizca hata kodu tasiyan bos bir dosya nesnesi ulasir ve dogrulama
+     * 'uploaded' kuraliyla 422 doner: "dosya yuklenemedi". Mesaj dogru ama
+     * SEBEBI soylemiyor; sunucunun sinirinin uygulamanin sinirindan dusuk
+     * oldugu hicbir yerde gorunmuyor. Bu proje o hatayi bir kez yasadi.
+     *
+     * Yanit sozlesmesi DEGISMIYOR (hala 422): burada eklenen sey yalnizca
+     * teshis. Yapilandirma hatasini kullaniciya anlatmanin bir yolu yok, ama
+     * loga yazmanin maliyeti de yok.
+     */
+    protected function prepareForValidation(): void
+    {
+        $file = $this->file('file');
+
+        if (! $file instanceof UploadedFile) {
+            return;
+        }
+
+        if (! in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+            return;
+        }
+
+        $kind = $this->resolveKind();
+
+        Log::warning('Dosya PHP sinirina takildi: php.ini degeri uygulama sinirindan dusuk.', [
+            'kind' => $kind->value,
+            'app_max_size_kb' => $kind->maxSizeKb(),
+            'php_upload_max_filesize' => ini_get('upload_max_filesize'),
+            'php_post_max_size' => ini_get('post_max_size'),
+        ]);
+    }
+
+    /**
+     * Gorsel turlerde PIKSEL ust siniri.
+     *
+     * 🔴 Dosya boyutu sinirinin yerine gecmez; baska bir seyi olcer. 50 KB'lik
+     * bir PNG 20000x20000 piksel acabilir: `max:15360` kuralindan rahatca
+     * gecer, ama kuyruktaki is onu cozmeye kalktiginda ~1,6 GB bellek ister ve
+     * isciyi cokertir. Buna "sikistirma bombasi" deniyor ve misafirin yukleme
+     * ucu auth'suz — yani bu, kota ya da konfor ayari degil bir SAVUNMA.
+     *
+     * Hazir `dimensions` kurali kullaniliyor:
+     *   - dosyanin yalnizca BASLIGINI okur (getimagesize), yani ucuzdur;
+     *   - kural NESNESI degil metin oldugu icin hata `dimensions` adiyla
+     *     raporlanir, sozlesmeye sinif adi sizmaz (D6, 'in:' ile ayni gerekce).
+     *
+     * ⚠️ Videoya EKLENMEZ: getimagesize bir mp4'un boyutlarini okuyamaz ve
+     * kural her videoyu reddederdi. Sinir, isin GORSELI cozecegi turler icin
+     * var — bu yuzden soru `isOptimizable()`.
+     *
+     * @return list<string>
+     */
+    private function dimensionRules(MediaKind $kind): array
+    {
+        if (! $kind->isOptimizable()) {
+            return [];
+        }
+
+        $max = Config::integer('davetkart.media.optimize.max_dimension_px');
+
+        return ['dimensions:max_width='.$max.',max_height='.$max];
     }
 
     /** Dogrulanmis tur — Action bunu kullanir. */

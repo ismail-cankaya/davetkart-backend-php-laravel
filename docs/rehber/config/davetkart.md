@@ -531,3 +531,71 @@ dosyada sessizce değişebilir ve hiçbir commit bunu göstermez.
 > söyler, **neyin** `env()` olacağını değil. İkincisi ayrı bir karardır:
 > ortamlar arasında farklılaşması **gereken** şey `env()`'e gider, ticari bir
 > sabit gitmez.
+
+---
+
+## 🆕 Faz 9 eklemesi — `media.optimize` ve 15 MB'lık fotoğraflar
+
+### 1. Yeni sınırlar
+
+| Anahtar | Faz 6 | Faz 9 |
+|---|---|---|
+| `media.gallery.max_size_kb` | 5 120 (5 MB) | **15 360 (15 MB)** |
+| `media.rsvp_photo.max_size_kb` | 2 048 (2 MB) | **15 360 (15 MB)** |
+
+LCV fotoğrafı galeriyle aynı sınıra çıktı: misafirin telefonu sahibin
+telefonundan daha küçük fotoğraf üretmiyor. Misafir tarafındaki farkı **kota**
+(`max_per_invitation`) ve **hız sınırı** taşıyor; dosya boyutu o farkı taşıyan
+doğru araç değildi.
+
+> 🔴 **Bu sınır tek başına yeterli değil.** PHP'nin `upload_max_filesize` ve
+> `post_max_size` değerleri bundan büyük olmalı, yoksa dosya Laravel'e **hiç
+> ulaşmaz** — uygulama 15 MB der, PHP 2 MB'da keser ve yanıt "dosya
+> yüklenemedi" olur. Kurulum notları: `docs/06` (yerel) ve `docs/10` (üretim).
+
+### 2. `media.optimize` — yedi anahtar, hepsi bir ölçüme dayanıyor
+
+```php
+'optimize' => [
+    'max_edge_px' => 2000,
+    'max_dimension_px' => 8192,
+    'target_kb' => 2048,
+    'jpeg_quality' => 82,
+    'webp_quality' => 80,
+    'min_quality' => 60,
+    'memory_limit' => '512M',
+    'replaced_file_grace_hours' => 24,
+],
+```
+
+| Anahtar | Neyi belirler | Sayı nereden geliyor |
+|---|---|---|
+| `max_edge_px` | En uzun kenar sınırı | Galeri en fazla 448 CSS px genişlikte gösteriliyor (`Gallery.tsx`, `max-w-md`); 3× ekranda 1344 px yeter |
+| `max_dimension_px` | 🔴 Doğrulamanın **ve** işin piksel tavanı | 8192² ≈ 67 MP ≈ 270 MB çözme belleği — 512 MB'lık bütçenin altında |
+| `target_kb` | Hedef çıktı boyutu | Ürün kararı: davetiye sayfası mobilde açılacak |
+| `jpeg_quality` / `webp_quality` | Başlangıç kalitesi | 2000 px'de JPEG q82 ≈ 600 KB, WebP q80 ≈ 400 KB (ölçüldü) |
+| `min_quality` | Kalitenin inebileceği taban | Altında bozulma görünür hâle gelir; hedefe inmek için fotoğrafı harcamaya değmez |
+| `memory_limit` | İşin çözme bütçesi | GD megapiksel başına ~4 MB ister; 24 MP = 99 MB, 48 MP = 187 MB (ölçüldü) |
+| `replaced_file_grace_hours` | Eski dosyanın yaşama süresi | Editördeki açık sekme eski URL'i elinde tutuyor |
+
+### 3. 🔴 `max_width_px` neden `max_edge_px` oldu?
+
+Faz 6'daki anahtar yalnızca **genişliği** sınırlıyordu. 2000×3000'lik dikey bir
+fotoğraf *"genişliği 2000, sınır 2000"* diye hiç küçültülmüyordu — oysa 6 MP'lik
+bir dosyaydı ve telefonla çekilen fotoğrafların çoğunluğu dikeydir.
+
+Ad değişikliği bilinçli: `max_width_px` değeri korunup anlamı değiştirilseydi,
+config'i okuyan biri hâlâ "genişlik" okuyacaktı. **Birimi ve konusu adında
+taşımak** (`max_size_kb` kararıyla aynı ilke) bu yüzden ayrı bir isim istedi.
+
+### 4. `memory_limit` bir config anahtarı — neden `php.ini` değil?
+
+`php.ini` **makineye** aittir, depoya girmez. Ekipteki her geliştirici ve her
+sunucu aynı çökmeyle yeniden karşılaşırdı. İşin ihtiyacı koddan okunabilir
+olmalı; iş bu değeri **geçici olarak** yükseltir ve bitince eski sınırı geri
+yükler ([`../app/Jobs/OptimizeUploadedImage.md`](../app/Jobs/OptimizeUploadedImage.md) §6).
+
+> ⚠️ Barındırma bu kadar belleğe izin vermiyorsa (paylaşımlı hosting sıkça
+> 256 MB'da durur) doğru hamle `memory_limit`'i düşürmek **ve**
+> `max_dimension_px`'i onunla birlikte indirmektir. İkisi birbirine bağlı:
+> piksel tavanı, belleğin ne kadarının gerekeceğini belirliyor.
