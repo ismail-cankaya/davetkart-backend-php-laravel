@@ -1,289 +1,701 @@
 # `tests/Feature/RsvpTest.php`
 
 > **Kod dosyası:** `tests/Feature/RsvpTest.php`
-> **Faz:** 5 — RSVP/LCV dilimi, dosya 5.13
-> **29 test** · 8 tanesi güvenlik regresyonu
-> **Kardeş dosyalar:** [`InvitationTest.md`](InvitationTest.md) ·
-> [`PublicInvitationTest.md`](PublicInvitationTest.md)
+> **Faz:** 5 — RSVP/LCV dilimi (5.13) · **Yeniden yazım:** Test denetimi, dosya 1/14 (24 Eylül 2026)
+> **46 test metodu · 86 vaka** (7'si veri sağlayıcılı) · **79 yeşil · 7 kırmızı**
+> 🔴 **Kırmızılar bilerek bırakıldı:** her biri bir **KOD HATASI**'nı gösteriyor (§4).
+> Test gevşetilmedi — kod düzeltilince yeşile döner.
+> **Kardeş dosyalar:** [`MediaTest.md`](MediaTest.md) (LCV'ye medya iliştirme) ·
+> [`PaywallTest.md`](PaywallTest.md) (plan → kota bağlantısı)
 
 ---
 
-## 1. 🔴 Bu dosyanın merkezî fikri: yanıt hiçbir şey kanıtlamaz
+## 0. Bu sürüm neden yazıldı?
 
-Faz 5'in üç savunması **başarılı görünen** ya da **ayırt edilemeyen** yanıtlar
-üretiyor:
+Eski sürüm 29 testti ve **hepsi yeşildi**. Denetimde aynı 34 mutant iki sürüme
+de uygulandı (§3). Sonuç:
 
-| Savunma | Yanıt | Yanıt neyi kanıtlar |
+| | Eski `RsvpTest` | Yeni `RsvpTest` |
 |---|---|---|
-| Honeypot | `201 Created` | **Hiçbir şey** — gerçek kayıtla aynı |
-| Kota reddi | `403` + boş `params` | Sayı sızmadığını, ama kotanın doğru sayıldığını değil |
-| IDOR (başkasının LCV'si) | `404` | Kaynağın yokluğunu — silinmediğini değil |
+| Hayatta kalan mutant | **18 / 34** | **0 / 34** |
+| Satırı birden çok sütunla doğrulayan test | 1 (ad + kişi sayısı) | 9 |
+| Ödenmiş siparişle kurulan davetiye | **0** | hepsi |
+| Saat dilimi sınırında test | 0 | 9 vaka |
 
-**T14** bu yüzden bu dosyanın omurgası:
+Hayatta kalanların en tehlikeli sekizi — **eski test paketi bunların hiçbirinde
+kırılmıyordu**:
 
-> Bir işlemin **yapılmadığını** test ediyorsan yanıtı değil **etkiyi** doğrula.
+| Mutant | Üretimde ne olurdu |
+|---|---|
+| Herkes `attending` kaydedilir | "Katılamıyorum" diyen misafir katılıyor görünür, **kotayı da yer** |
+| `message` / `menuPreference` yazılmaz | Misafirin çifte yazdığı mesaj **sessizce kaybolur** |
+| Ham IP saklanır | **KVKK ihlali** — hiçbir test fark etmez |
+| Liste `Rsvp::query()` ile çekilir | Sahip, **başka çiftlerin misafirlerini** görür |
+| Silme, davetiyenin tüm yanıtlarını siler | Bir spam silinir, **tüm LCV listesi** gider |
+| Kota `>` yerine `>=` | 100 kişilik planda **100. misafir** kapıda kalır |
+| Davetiye başına saatlik kova kaldırılır | Botnet tek davetiyeyi çöpe boğar |
+| Honeypot davetiyeyi çözdükten sonra | Bot her istekte sorgu açtırır; taslakta 404 alıp **tuzağı öğrenir** |
 
-Somut olarak: `honeypot_submission_is_not_persisted` testinden
-`assertDatabaseCount('rsvps', 0)` satırı silinirse, `SubmitRsvpAction`'ın
-honeypot bloğu tamamen kaldırılsa bile test **yeşil kalır**. Faz 4'ün 34.
-dersinin (üç IDOR testi Policy'den değil eşleşmeyen rotadan 404 alıyordu) bu
-fazdaki karşılığı budur.
+### Kök neden: tek bir gövde
+
+Eski dosyadaki **her** gönderim aynıydı:
+
+```php
+['guestName' => 'Can Dogan', 'guestCount' => 2, 'status' => 'attending']
+```
+
+Tek bir gövde, tek bir davranış yolunu dener. `status` her zaman `attending`
+olunca "her şeyi `attending` yaz" mutantı **ayırt edilemez**; `message` hiç
+gönderilmeyince "mesajı yazma" mutantı **görünmez**. Test ne kadar T14'e uysa da
+(veritabanına bakıyordu) **baktığı sütunlar** mutantın dokunduğu sütunlar değildi.
+
+> **Ders:** T14 "veritabanına bak" der; **hangi satıra ve hangi sütuna** baktığını
+> söylemez. Bir etki testi, yalnızca test verisinin **çeşitlendiği** eksende
+> kanıt üretir.
+
+### Eski mutasyon tablosu yanlıştı
+
+Eski kılavuzun §3'ündeki T16 tablosu iki satırda **olmayan bir öldürmeyi**
+vaat ediyordu:
+
+| Satır | Tablonun iddiası | Gerçek |
+|---|---|---|
+| 3 — `silentlyDiscard()`'tan `created_at` silinir | `..._same_shape_...` kırılır | **Kırılmıyordu:** test yalnızca **anahtarları** karşılaştırıyordu; `createdAt: null` da bir anahtardır |
+| 14 — `$invitation->rsvps()` → `Rsvp::query()` | `another_user_cannot_list_rsvps` kırılır | **Kırılmıyordu:** o test Gate'ten 404 alır; sorgu kapsamı hiç sınanmıyordu. Sahip testinde tek davetiye vardı, sızacak başka satır yoktu |
+
+Yani tablo **elle yazılmış bir iddiaydı, koşturulmuş bir ölçüm değil**. Faz 4'ün
+34. dersinin (üç IDOR testi Policy'den değil eşleşmeyen rotadan 404 alıyordu)
+birebir tekrarı. Bu yüzden §3'teki tablo **koşturuldu** ve her satırın yanında
+onu öldüren testin adı yazıyor.
 
 ---
 
-## 2. Testler hangi soruyu soruyor?
+## 1. Fikstür tasarımı: neden "gerçek bir düğün"?
 
-### Görünürlük (5 test)
+### 1.1 Ödenmiş sipariş — en önemli değişiklik
+
+```php
+private function dugunDavetiyesi(array $overrides = [], SubscriptionTier $plan = SubscriptionTier::Standart, ?User $sahip = null): Invitation
+{
+    $davetiye = $this->yayindakiDavetiye($overrides, $sahip);
+    $this->planSat($davetiye, $plan);          // 🔴 Standart 249 ₺, ÖDENDİ
+
+    return $davetiye;
+}
+```
+
+Eski fikstür siparişsiz yayındaki davetiye kuruyordu. Oysa **gerçekte ödemesiz
+davetiye yayınlanamaz** (7.12). `SubscriptionRsvpQuotaResolver` siparişi
+bulamayınca "en dar plan" koluna düşer — koddaki yorumun deyişiyle bu kol
+*"pratikte ulaşılmaz"*. Eski kota testlerinin **tamamı** bu ulaşılmaz kolu
+sınıyordu ve `config(['davetkart.tiers.standart.rsvp_limit' => 5])` ile sayıyı
+yapay olarak küçültüyordu.
+
+Yeni testler gerçek 100 kişilik sınırla çalışır ve bu sayıyı ayrıca sabitler:
+
+```php
+$this->assertSame(100, SubscriptionTier::Standart->rsvpLimit());   // fiyat sayfasındaki söz
+```
+
+Config'te biri `100`'ü `150` yaparsa (M34) yedi test kırılır. Bu bir **ticari
+sözdür**: kullanıcı 249 ₺ öderken "100 kişi" okudu.
+
+Siparişsiz davetiye yalnızca bir senaryoda kullanılır: **iade** (`planSat(...,
+iadeEdildi: true)`). Hak düşer, kota en dar plana iner — ve bu kolun gerçek
+olduğu tek durum budur.
+
+### 1.2 Donmuş zaman
+
+```php
+protected function setUp(): void
+{
+    parent::setUp();
+    $this->travelTo(CarbonImmutable::parse('2026-09-20 12:00:00', 'UTC'));
+}
+```
+
+Fikstürdeki son tarih 10 Ekim 2026. Zaman dondurulmasaydı, bu dosyayı **11 Ekim'de**
+çalıştıran herkes 40 kırmızı test görürdü — kod hiç değişmeden. **T12**: sonucu
+koştuğu güne bağlı olan test, test değildir.
+
+Bir yan kazanç: `createdAt` artık **tam değeriyle** doğrulanabiliyor
+(`'2026-09-20T12:00:00+00:00'`). Honeypot testi de bu sayede bot yanıtını gerçek
+yanıtla **`id` dışında birebir** karşılaştırabiliyor (§2.4).
+
+### 1.3 Türkçe veri
+
+| Veri | Neden |
+|---|---|
+| `Şeyma Şen`, `Oğuz Ertürk`, `İsmail Çankaya`, `Zeynep Kılıç` | `ş ğ ı İ ç ö ü` — UTF-8'in çok baytlı yolu |
+| Çok satırlı mesaj + `💍👰🤵` + `"Evet"` + `Gülşah'ım` | Satır sonu, 4 baytlık emoji, çift tırnak, kesme işareti **tek alanda** |
+| `str_repeat('Ğ', 120)` | 120 **karakter** = 240 **bayt**. Bayt sayan bir sınır burada patlar |
+| `Europe/Berlin` düğünü | Gurbetçi düğünü — yaz saati sınırında son tarih |
+| `asdasd qweqwe` | Gerçek hayattaki spam böyle görünür |
+
+### 1.4 Gerçekçi IP'ler
+
+```php
+$this->withServerVariables(['REMOTE_ADDR' => '78.180.45.12'])->postJson(...);
+```
+
+Laravel'in test istekleri varsayılan olarak `127.0.0.1`'den gelir. Tek bir IP'yle
+**davetiye başına** kovayı (botnet senaryosu) test etmek imkânsızdır: IP kovası
+önce dolar. Farklı IP'ler (IPv4 + IPv6) KVKK testini de gerçekçi kılar.
+
+### 1.5 Aynı çiftin iki davetiyesi
+
+```php
+private ?User $gulsah = null;
+
+private function gulsah(): User
+{
+    return $this->gulsah ??= $this->kullanici('Gülşah', 'Yağız-Öztürk', '...');
+}
+```
+
+`??=` "soldaki `null` ise sağı ata ve döndür" demektir. Aynı testte `gulsah()` iki
+kez çağrılırsa **aynı kullanıcı** döner — düğün ve kına gecesi aynı çiftin olur.
+Bu, "sahip yalnızca **bu** davetiyenin yanıtlarını görür" testinin (M4) ön
+koşuludur: sızıntı, **aynı sahibin** iki davetiyesi arasında en zor fark edilir.
+
+PHPUnit her test metodu için sınıftan **yeni bir nesne** üretir; `$gulsah`
+özelliği testler arasında taşınmaz.
+
+---
+
+## 2. Bölüm bölüm
+
+### 2.1 Mutlu yol (7 test)
 
 | Test | Soru |
 |---|---|
-| `guest_can_submit_an_rsvp_to_a_published_invitation` | Mutlu yol çalışıyor mu? |
-| `rsvp_to_an_unpublished_invitation_is_rejected` | Taslağa yazılabiliyor mu? |
-| `rsvp_is_rejected_when_the_module_is_closed` | Kapalı modüle yazılabiliyor mu? |
-| `closed_module_and_missing_invitation_are_indistinguishable` | İkisi ayırt edilebiliyor mu? |
-| `a_malformed_invitation_id_never_reaches_the_database` | Çöp kimlik sorgu açtırıyor mu? |
+| `a_guest_reply_is_stored_and_echoed_exactly_as_submitted` | Gönderilen her alan **hem yanıtta hem satırda** birebir mi? |
+| `every_answer_is_recorded_as_the_guest_gave_it` (×3) | `attending` / `pending` / `declined` ayrı ayrı yazılıyor mu? |
+| `optional_fields_may_be_omitted_and_the_message_key_disappears` | Boş mesaj `null` olur ve **anahtar** yanıttan düşer mi (C7)? |
+| `server_owned_fields_in_the_body_are_ignored` | Gövdeye yazılan `invitation_id`, `ip_hash`, `id` yok sayılıyor mu (N1)? |
+| `the_guest_ip_is_stored_only_as_a_keyed_hmac` | Ham IP satırın **hiçbir** kolonunda yok mu? |
+| `text_limits_count_characters_not_bytes` | 120 'Ğ' kabul mü? |
+| `markup_and_sql_fragments_are_stored_as_inert_text` | `<script>` ve `'; DELETE ...` **bozulmadan** saklanıp tablo sağlam mı? |
 
-**T6** burada iş başında: bir davranışın hem **varlığı** hem **yokluğu** test
-ediliyor. Yalnızca "taslağa yazılamaz" testi olsaydı, LCV ucu tamamen bozulsa
-da (hiçbir şey yazamasa da) yeşil kalırdı.
-
-**T11** — `closed_module_and_missing_invitation_are_indistinguishable`
-`assertJsonPath` değil **ham gövde** karşılaştırması yapıyor:
+`every_answer_...` testinin veri sağlayıcısı enum'u **kendisi** dolaşır:
 
 ```php
-$this->assertSame($this->body($a), $this->body($b));
+foreach (RsvpStatus::cases() as $durum) {
+    yield $durum->value => [$durum, match ($durum) {
+        RsvpStatus::Attending => 'Kına gecesine de geliyoruz, hazır olun! 💃',
+        RsvpStatus::Pending   => 'İzin çıkarsa geleceğiz; ...',
+        RsvpStatus::Declined  => "Maalesef o hafta Almanya'dayız, ...",
+    }];
+}
 ```
 
-`assertJsonPath` yalnızca **baktığın yeri** kontrol eder. Bir gün gövdeye
-`"reason": "module_closed"` gibi bir alan eklense, path testi bunu görmezdi.
+Bir gün `RsvpStatus`'a dördüncü bir durum eklenirse `match` **kolu eksik** olduğu
+için `UnhandledMatchError` fırlar ve test paketi gürültüyle durur. Yeni durum
+sessizce test dışı kalamaz.
 
-### Doğrulama (4 test)
-
-`status_must_be_a_known_value` doğrudan **D6**'nın bekçisi:
+IP testi hash'i `IpHasher::hash()`'i **çağırmadan** hesaplar:
 
 ```php
-$this->assertSame('in', $response->json('error.fields.status.0.rule'));
+private function beklenenIpHash(string $ip): string
+{
+    return hash_hmac('sha256', $ip, Config::string('app.key'));
+}
 ```
 
-Biri `Rule::enum(RsvpStatus::class)` yazarsa kural adı
-`illuminate_validation_rules_enum` olur ve bu test kırılır. Faz 3'te
-`Password::min(8)` ile yaşanan sızıntının tekrarlanmasını **yapısal olarak**
-engelliyor.
+Beklenen değeri üretim koduyla hesaplasaydık, üretim kodu bozulduğunda beklenen
+değer de onunla birlikte bozulurdu — iki taraf da yanlış, test yeşil
+(**totoloji**). Formül testte ayrıca yazılıdır; M15 (anahtarsız `hash()`) bu
+yüzden ölür.
 
-`guest_count_is_capped_by_configuration` iki şeyi birden doğruluyor: kuralın adı
-(`max`) **ve** parametresinin dışarı verildiği (`params.max === 10`). İkincisi
-H9 beyaz listesinin çalıştığının kanıtı.
+`markup_...` testi bir şeyi **yapmadığını** da doğrular: backend metni temizlemez.
+`<script>` olduğu gibi saklanır ve JSON olarak döner; tarayıcıda kaçırma (escape)
+React'in işidir. Backend'in "temizlemesi" misafirin gerçek mesajını bozardı
+("Ayşe'nin" → "Ayşe&#039;nin").
 
-### Honeypot (3 test) 🔴
+### 2.2 Görünürlük (2 test, 9 vaka)
 
-Üçü birlikte anlam kazanıyor:
+`hidden_invitations_are_indistinguishable_from_missing_ones` dört durumu **ham
+gövdeyle** karşılaştırır (**T11**): hiç var olmayan ULID, taslak, LCV modülü
+kapalı, silinmiş. Dördü de tam olarak şu gövdeyi almalı:
 
-1. `honeypot_submission_looks_successful` → `201` dönüyor (bota "yakalandın"
-   demiyoruz)
-2. `honeypot_submission_is_not_persisted` → **satır yok** (T14)
-3. `honeypot_response_has_the_same_shape_as_a_real_one` → anahtar listeleri
-   aynı
+```json
+{"error":{"code":"RESOURCE_NOT_FOUND"}}
+```
 
-Üçüncüsü neden gerekli? Çünkü bot bir **fark** arar. Gerçek yanıtta `createdAt`
-varken sahte yanıtta olmasaydı, bot iki gönderim yapıp farkı ölçerek honeypot'un
-varlığını öğrenirdi.
+Beklenen gövde bir **sabit** olarak yazılıdır — yalnızca "ikisi aynı mı" diye
+değil, "ikisi **bu** mu" diye sorulur. İkisi de `debug` bloğu taşısa, "aynı"
+olurlardı ama sözleşmeyi (T4) ihlal ederlerdi.
 
-> Değerler karşılaştırılmıyor, **anahtarlar** karşılaştırılıyor: `id` ve
-> `createdAt` zaten her kayıtta farklı.
+`a_malformed_invitation_id_is_rejected_before_any_query` sekiz bozuk kimlikle
+koşar ve her birinde **sorgu günlüğünün boş** olduğunu doğrular (O6). Listedeki
+`81jbz...` ilk karakteri 7'den büyük bir ULID'dir: 128 biti taşar, ULID değildir.
 
-### Son tarih (3 test)
+> ⚠️ Bilinçli olarak listede **olmayan**: büyük harfli ULID. `whereUlid` onu
+> geçerli sayar (ULID spesifikasyonu harf duyarsızdır) ama `HasUlids` küçük harf
+> ürettiği için veritabanında eşleşmez: 404 döner ama **bir sorgu açılır**. Bu bir
+> hata değil, bir gözlem — denetim raporunda not edildi.
 
-`rsvp_is_accepted_on_the_deadline_day` bu fazın en sinsi hatasının bekçisi:
+### 2.3 Doğrulama ve tip bozulması (6 test, 31 vaka)
+
+`an_invalid_value_is_rejected_by_its_rule_and_nothing_is_written` 21 bozuk değeri
+dener. Her birinde **dört** şey doğrulanır:
 
 ```php
-$inv = $this->published(['rsvp_deadline' => now()->toDateString()]);
-$this->postJson(...)->assertCreated();
+$this->assertSame(['code', 'fields'], array_keys((array) $yanit->json('error')));  // K20: metin yok
+$this->assertSame([$alan], array_keys($this->hataAlanlari($yanit)));             // T6: yalnız bozuk alan
+$this->assertSame($kural, $yanit->json("error.fields.{$alan}.0.rule"));          // D6: kural ADI
+$this->assertDatabaseCount('rsvps', 0);                                          // T14
 ```
 
-`SubmitRsvpAction`'da `lessThan(now()->startOfDay())` yerine `isPast()` yazılsa
-bu test **kırılır** — çünkü tarih kolonu günün `00:00`'ına denk gelir ve son gün
-boyunca "geçmiş" görünür. Test olmasaydı hata üretimde "bazı kullanıcılar son
-gün gönderemiyor" olarak ortaya çıkardı.
+İkinci satır önemli: bozuk olmayan alanlar için hata **üretilmemeli**. Sadece
+"422 geldi" demek, formun geçerli alanlarını da reddeden bir mutantı yakalamaz.
 
-### Kota (5 test) 🔴
+Sağlayıcıdaki bazı satırların neden orada olduğu:
 
-`quota_counts_guests_not_rows` bu fazın **imza testidir**:
+| Satır | Gerçek hayattaki karşılığı |
+|---|---|
+| `isim yerine telefon (sayi)` → `5_329_998_877` | Misafir ad kutusuna telefonunu yazdı; JS bunu sayıya çevirdi |
+| `isim gorunmez karakter` → `\u{200B}\u{200B}\u{FEFF}` | Kopyala-yapıştırla gelen görünmez karakterler; Laravel'in `TrimStrings`'i bunları siler → `required` |
+| `durum Turkce etiket (K21)` → `'Katılıyor'` | Frontend çeviri etiketini yanlışlıkla değer olarak gönderdi |
+| `kisi yaziyla` → `'üç'` | "Kaç kişi?" kutusuna yazıyla cevap |
+
+`5_329_998_877` yazımı PHP 7.4'ten beri geçerli bir **sayı ayıracıdır**: `_`
+yalnızca okunurluk içindir, değer `5329998877`'dir.
+
+### 2.4 Honeypot (4 test)
 
 ```php
-config(['davetkart.tiers.standart.rsvp_limit' => 5]);
-Rsvp::factory()->for($inv)->guests(4)->create();
-$this->postJson(..., ['guestCount' => 2])->assertForbidden();
+$this->assertSame(
+    array_diff_key($gercek, ['id' => true]),
+    array_diff_key($bot, ['id' => true]),
+);
 ```
 
-| Ölçüm | Hesap | Sonuç |
+`array_diff_key` birinci diziden, ikincide **anahtarı** bulunan elemanları atar.
+Yani "`id` dışındaki her şey, **değerleriyle** aynı mı?" sorusu sorulur. Eski test
+yalnızca anahtar listelerini karşılaştırıyordu; bu yüzden bot yanıtında
+`createdAt: null` olmasına (M12) izin veriyordu — bir bot iki gönderimle bu farkı
+görüp tuzağı öğrenebilirdi (L2).
+
+`the_honeypot_is_the_first_layer_and_costs_no_query` **L1**'in (ucuzdan pahalıya)
+kanıtıdır: bot, bir **taslak** davetiyeye gönderse bile `201` alır ve **tek bir
+sorgu** açılmaz. İnsan aynı taslağa `404` alır. Neden bu doğru? Bot davetiyeye hiç
+ulaşmamalı — ulaşırsa (M13) hem veritabanına yük bindirir hem de taslak/yayında
+farkını öğrenir.
+
+`the_honeypot_field_name_is_part_of_the_frontend_contract` tek satırlık bir
+sözleşme testidir: frontend'in görünmez input'u `name="website"` ile çizilir.
+Sabit yeniden adlandırılırsa (M33) backend yeni adı bekler, frontend eski adı
+gönderir ve **tuzak sessizce ölür** — hiçbir istek hata vermez.
+
+### 2.5 Son tarih ve saat dilimi (4 test, 10 vaka)
+
+İki veri sağlayıcı, **aynı sınırın iki yüzü**:
+
+| Vaka | Son tarih | UTC an | Yerel an | Sonuç |
+|---|---|---|---|---|
+| İstanbul son gün | 10 Eki | 20:59:59 | **23:59:59** | 201 |
+| İstanbul gece yarısı | 10 Eki | 21:00:00 | **00:00 (11 Eki)** | 403 |
+| Artık yıl | 29 Şub 2028 | 20:59 / 21:00 | 23:59 / 00:00 | 201 / 403 |
+| Yılbaşı | 31 Ara | 20:59:59 / 21:00 | 23:59:59 / 00:00 | 201 / 403 |
+| Berlin (yaz saati) | 24 Eki | 21:59:59 / 22:00 | 23:59:59 / 00:00 CEST | 201 / 403 |
+
+"İstanbul gece yarısı" satırı **bu bölümün imza vakasıdır**: UTC'de hâlâ 10
+Ekim'dir, İstanbul'da 11 Ekim olmuştur. Sunucunun saatine (UTC) bakan bir kod
+(M3) bu misafiri **kabul eder** — üç saat boyunca süresi dolmuş davetiyeye LCV
+yazılır. Eski dosyada bu sınır hiç sınanmıyordu; `rsvp_is_accepted_on_the_deadline_day`
+UTC 09:00'da koşuyordu, iki takvimin **aynı** güne düştüğü saatte.
+
+Berlin satırı Türkiye'nin sabit UTC+3'ünün (2016'dan beri yaz saati yok) testi
+gizlemediğini kanıtlar: Berlin 25 Ekim 2026'da yaz saatinden çıkar, 24 Ekim'de
+hâlâ UTC+2'dir.
+
+### 2.6 Kota (9 test)
+
+| Test | Kurgu | Öldürdüğü |
 |---|---|---|
-| `COUNT(*)` | 1 kayıt + 1 = 2 ≤ 5 | ✅ geçerdi — **test kırılırdı** |
-| `SUM(guest_count)` | 4 + 2 = 6 > 5 | ❌ reddedilir — **test geçer** |
+| `the_plans_promise_the_published_rsvp_limits` | Standart = 100, Gold/Elit = `null` | M34 |
+| `..._up_to_the_exact_limit_and_not_one_more` | 97 + 3 = **100 kabul**, 100 + 1 red | M2 (`>=`) |
+| `the_quota_counts_guests_not_rows` | 25 aile × 4 kişi | M19 (`COUNT`) |
+| `declined_guests_do_not_take_seats` | 100 "katılamıyoruz" + 10 | M20 |
+| `undecided_guests_take_seats` | 100 "kararsız" + 1 | K50 |
+| `a_gold_plan_has_no_rsvp_quota` | 250 + 10 | M6 |
+| `a_refunded_plan_falls_back_to_the_narrowest_quota` | İade edilmiş Gold, 100 + 1 | M32 |
+| `a_quota_rejection_reveals_no_counters` | Gövde **tam olarak** `{"error":{"code":"RSVP_QUOTA_EXCEEDED"}}` | M26 |
+| `removing_a_spam_reply_frees_its_seats` | 96 + 4 spam → sil → 4 yeni kabul | M2, M14, M19 |
 
-Yani sayılar, `COUNT(*)` mutasyonunu **öldürecek** şekilde seçildi. `guests(4)`
-yerine `guests(1)` yazsaydık test iki uygulamada da yeşil yanardı ve hiçbir şey
-kanıtlamazdı.
+"Tam sınır" testi neden 97 + 3? Çünkü **eşitlik** sınırın tanımıdır. 98 + 1 de
+olurdu; önemli olan toplamın **tam 100** olması. 99'da kalsaydık `>=` mutantı
+hayatta kalırdı.
 
-`declined_rsvps_do_not_consume_quota` ve `pending_rsvps_consume_quota` ikilisi
-K50'nin iki yönünü de kapatıyor — biri olmadan enum'daki `match` kolunu
-değiştirmek fark edilmezdi.
+`mevcutMisafirler()` kalabalığı `fake('tr_TR')->name()` ile üretir: Faker'ın Türkçe
+sağlayıcısı. **Ama** bu isimlere hiçbir testte güvenilmez — Faker rastgele
+"Zeynep Kılıç" da üretebilir ve isim üzerinden yapılan bir `assertDatabaseMissing`
+yılda bir kez kırmızı yanardı (**T12**). Bu testler sayıya ve toplama bakar.
 
-`quota_rejection_does_not_leak_counters` bir **sızıntı testidir**:
-`assertJsonMissingPath('error.params')` + ham gövdede `remaining`/`limit`
-kelimelerinin geçmediğini doğrular.
+### 2.7 Hız sınırı (3 test)
 
-### Sahibin paneli (5 test)
+`one_invitation_is_protected_against_many_ips_without_affecting_others` Faz 5'in
+**ikinci kovasını** ilk kez sınar. Dört istek, dört **farklı** IP: dördüncüsü
+yine de `429` alır, çünkü kova davetiyenindir. Aynı IP'den çiftin **kına gecesine**
+gönderilen istek geçer (**T7**: kararın sınırı).
 
-`ip_hash_is_never_exposed` üç ayrı kontrol yapıyor: hash'in kendisi, `ipHash` ve
-`ip_hash` anahtarları. Neden üçü?
+`travel(61)->seconds()` kovanın **kalıcı bir yasak olmadığını** kanıtlar. Zaman
+donmuş olduğu için bu satır olmadan kova hiç boşalmazdı.
 
-- Hash'in kendisi → değer sızmasın.
-- `ipHash` → biri Resource'a camelCase alan eklerse.
-- `ip_hash` → biri `$this->resource->toArray()` gibi bir kestirme yazarsa.
+### 2.8 Sahibin listesi (5 test)
 
-`an_unchanged_rsvp_list_returns_304` **K46'nın karşılığını** doğruluyor: Faz
-4'te ETag'i ayrı bir middleware yapmıştık, gerekçesi "Faz 5'in polling ucu aynı
-katmanı yeniden kullanacak" idi. Bu test o sözün tutulduğunu kanıtlıyor.
+`the_owner_sees_only_this_invitations_replies_newest_first` **P3'ün ikinci
+katmanının** (sorgu kapsamı) tek kanıtıdır. Kurgu:
 
-> **T13** burada zorunlu: aynı test metodunda iki kimlikli istek var. Arada
-> `forgetAuthState()` çağrılmazsa `RequestGuard` ilk kullanıcıyı önbellekte
-> tutar ve ikinci istek token'a **hiç bakmaz**.
+- Gülşah'ın düğünü → 3 yanıt (tarihleri **karışık** sırayla yaratılır)
+- Gülşah'ın kına gecesi → 1 yanıt
+- Mehmet Ali'nin düğünü → 1 yanıt
 
-### Silme (3 test)
+Beklenen: **yalnızca** düğünün 3 yanıtı, **en yeni üstte**. `created_at` bilerek
+karışık sırayla verilir: yaratılma sırasıyla aynı olsaydı "sıralama yok" mutantı
+(M5) veritabanının doğal sırasıyla yeşil kalabilirdi.
 
-`another_user_cannot_delete_an_rsvp` T14'ün en net örneği:
+`polling_gets_304_until_a_new_reply_arrives` eski testin **yokluk yarısını** ekler
+(**T6**): 304'ün bir gün **bitmesi** gerekir. Yeni bir LCV geldikten sonra eski
+ETag artık `200` + güncel listeyi getirmeli. Yalnızca "304 geliyor" testi, ETag'i
+sabit bir değere çeviren bir mutantla (liste sonsuza dek "değişmedi" der) yeşil
+kalırdı.
 
-```php
-->assertNotFound();
-$this->assertDatabaseHas('rsvps', ['id' => $rsvp->id]);
-```
+### 2.9 Silme (6 test)
 
-`404` dönmesi **silinmediğini kanıtlamaz**: policy silmeyi engellemeyip sonra
-404 döndürseydi de yanıt aynı olurdu. İkinci satır gerçek kanıttır.
+`the_owner_deletes_exactly_one_reply`: bir spam + üç gerçek yanıt. Spam silinir,
+**üçü de yerinde** kalmalı. Eski test tek yanıtlı bir davetiyede "sayı 0 oldu"
+diye bakıyordu — "tümünü sil" mutantı (M14) aynı sonucu verirdi.
+
+`a_reply_of_a_deleted_invitation_answers_404_not_500` Faz 6'da kalite kapısının
+bulduğu gerçek hatanın **regresyon testidir**: davetiye soft-delete edilince
+`$rsvp->invitation` `null` döner; `RsvpPolicy` kontrol etmeseydi `TypeError` → 500.
 
 ---
 
-## 3. 🔴 Mutasyon tablosu
+## 3. 🔴 Mutasyon tablosu (T16) — koşturuldu
 
-Kural 14: *"bu korumayı silsem hangi test kırılır?"* Kırılan yoksa test değil
-**süs** yazmışsındır.
+Her satır: üretim kodunda **tek bir değişiklik**, ardından yalnızca
+`php artisan test --filter='Tests\\Feature\\RsvpTest'`. "Öldü" = en az bir test
+**yeni** kırmızıya döndü (bilerek kırmızı olan 7 vaka hariç tutularak).
 
-| # | Bozulan kod | Kırılması gereken test |
+| # | Mutant | Eski | Yeni | Öldüren test (örnek) |
+|---|---|---|---|---|
+| M1 | Ham IP saklanır | 🟢 yaşadı | ☠️ | `the_guest_ip_is_stored_only_as_a_keyed_hmac` |
+| M2 | Kota `>` → `>=` | 🟢 | ☠️ | `..._up_to_the_exact_limit_and_not_one_more` |
+| M3 | Son tarih UTC'de hesaplanır | 🟢 | ☠️ | `a_reply_after_local_midnight_...` (4 vaka) |
+| M4 | Liste `Rsvp::query()` | 🟢 | ☠️ | `the_owner_sees_only_this_invitations_replies_newest_first` |
+| M5 | `latest()` silinir | 🟢 | ☠️ | aynı test |
+| M6 | Kota planı yok sayar | 🟢 | ☠️ | `a_gold_plan_has_no_rsvp_quota` |
+| M7 | Davetiye kovası silinir | 🟢 | ☠️ | `one_invitation_is_protected_against_many_ips_...` |
+| M8 | Herkes `attending` | 🟢 | ☠️ | `every_answer_is_recorded_...` (pending, declined) |
+| M9 | `message`/`menuPreference` eşlenmez | 🟢 | ☠️ | 6 vaka |
+| M10 | Resource `status` sabit | 🟢 | ☠️ | `every_answer_is_recorded_...` |
+| M11 | Resource `message` düşer | 🟢 | ☠️ | 6 vaka |
+| M12 | Bot yanıtında `createdAt` yok | 🟢 | ☠️ | `a_honeypot_hit_is_answered_like_a_real_reply_...` |
+| M13 | Honeypot davetiyeden **sonra** | 🟢 | ☠️ | `the_honeypot_is_the_first_layer_and_costs_no_query` |
+| M14 | Silme kardeşleri de siler | 🟢 | ☠️ | `the_owner_deletes_exactly_one_reply` |
+| M15 | IP hash anahtarsız `hash()` | 🟢 | ☠️ | `the_guest_ip_is_stored_only_as_a_keyed_hmac` |
+| M16 | Honeypot bloğu silinir | ☠️ | ☠️ | honeypot testleri |
+| M17 | `show_rsvp` kontrolü silinir | ☠️ | ☠️ | `hidden_invitations_are_indistinguishable_...` |
+| M18 | Yayın filtresi silinir | ☠️ | ☠️ | aynı test |
+| M19 | `SUM` → `COUNT` | ☠️ | ☠️ | 6 vaka |
+| M20 | Reddedenler de sayılır | ☠️ | ☠️ | `declined_guests_do_not_take_seats` |
+| M21 | `throttle:rsvp` kaldırılır | ☠️ | ☠️ | iki hız testi |
+| M22 | `whereUlid` kaldırılır | ☠️ | ☠️ | 7 bozuk kimlik vakası |
+| M23 | `RsvpPolicy::delete()` → `true` | ☠️ | ☠️ | `another_account_cannot_delete_a_reply` |
+| M24 | Son tarih kontrolü silinir | ☠️ | ☠️ | 5 vaka |
+| M25 | Son gün hariç (`<=`) | ☠️ | ☠️ | `a_reply_on_the_last_local_day_is_accepted` (4 vaka) |
+| M26 | Kota reddi sayaç sızdırır | ☠️ | ☠️ | `a_quota_rejection_reveals_no_counters` |
+| M27 | Silmede Gate yok | ☠️ | ☠️ | `another_account_cannot_delete_a_reply` |
+| M28 | Listede Gate yok | ☠️ | ☠️ | `another_account_gets_the_same_404_...` |
+| M29 | Listeden `SetEtag` kalkar | ☠️ | ☠️ | `polling_gets_304_until_a_new_reply_arrives` |
+| M30 | Resource `ip_hash` sızdırır | ☠️ | ☠️ | 4 vaka |
+| M31 | İsim `min:2` → `min:1` | 🟢 | ☠️ | `an_invalid_value_...` "isim tek harf" |
+| M32 | İade sonrası sınırsız | ☠️ | ☠️ | `a_refunded_plan_falls_back_to_the_narrowest_quota` |
+| M33 | Honeypot alan adı değişir | 🟢 | ☠️ | `the_honeypot_field_name_is_part_of_the_frontend_contract` |
+| M34 | Standart limiti 100 → 150 | 🟢 | ☠️ | 7 vaka |
+
+**Eski: 18 / 34 hayatta · Yeni: 0 / 34 hayatta.**
+
+> **Eşdeğer mutant notu:** `COLUMN_MAP`'e `'invitationId' => 'invitation_id'`
+> eklemek **hiçbir testi kırmaz** — ve kırmamalı. O alanın doğrulama kuralı yok,
+> dolayısıyla `validated()` onu zaten eler; harita satırı hiç çalışmaz. Davranışı
+> değiştirmeyen bir mutant **eşdeğerdir** ve hayatta kalması testin eksikliği
+> değildir. Kanıt, `server_owned_fields_in_the_body_are_ignored`'ın uçtan uca
+> yeşil kalmasıdır.
+
+> ⚠️ **Ortam uyarısı (B7):** tablo denetimin yalıtılmış kum havuzunda koştu —
+> **PHP 8.4.21 + PostgreSQL 16.13**. Proje PHP 8.5 + PostgreSQL 18 hedefliyor.
+> Kodda 8.5'e özgü sözdizimi yok ve davranışlar sürüm bağımsız, ama "doğrulandı"
+> demek için §7'deki komutların **senin makinende** koşması gerekir.
+
+---
+
+## 4. 🔴 KIRMIZI testler = KOD HATALARI
+
+Dört test metodu (7 vaka) bilerek kırmızı. **Hiçbiri testin hatası değil.**
+Her biri için üretimde ne olduğunu, kanıtı ve düzeltme seçeneklerini aşağıda
+bulacaksın. Düzeltmeler **sıradaki adımlardır** — her biri tek dosya, senin
+onayınla.
+
+### 4.1 NUL baytı: yanıt ile satır farklı, `min:2` atlatılıyor (4 vaka)
+
+**Kanıt** (kum havuzunda gerçek istek):
+
+```text
+POST guestName = "Ali\u0000Veli"
+→ 201  {"data":{"guestName":"Ali\u0000Veli", ...}}
+→ satır: guest_name = "Ali"
+
+POST guestName = "Z\u0000ZZZZZ"          (6 karakter, min:2 geçer)
+→ 201
+→ satır: guest_name = "Z"                (1 karakter!)
+```
+
+**Neden?** PostgreSQL'in istemci kütüphanesi (libpq) metin parametrelerini C
+dizesi olarak gönderir ve C dizesi **ilk `\0`'da biter**. PHP'nin dizesi
+uzunluğunu ayrıca bildiği için `\0` taşıyabilir; PostgreSQL'in `text` tipi
+taşıyamaz. Doğrulama PHP'de, yazma PostgreSQL'de — ikisi **farklı** dizeyi görür.
+
+**Etki:** auth'suz uçta 201 yanıtı **yalan söyler** (T14'ün üretimdeki hâli);
+`min:2` gibi kurallar atlatılır. Aynı sorun **her** metin alanında var —
+kum havuzunda doğrulandı: davetiye başlığı (`"Düğün\0ümüz"` → `"Düğün"`),
+kayıt formundaki ad, hatta e-posta (`"zeynep\0@gmail.com"` → `"zeynep"`,
+`@` işareti olmayan bir e-posta).
+
+**Düzeltme seçenekleri** — karar senin (**D-1**):
+
+| | A — Global middleware (öneri) | B — Alan başına kural |
 |---|---|---|
-| 1 | `SubmitRsvpAction`'daki `if ($honeypotTripped)` bloğu silinir | `honeypot_submission_is_not_persisted` |
-| 2 | `silentlyDiscard()` içine `$rsvp->save()` eklenir | aynı test |
-| 3 | `silentlyDiscard()`'tan `created_at` ataması silinir | `honeypot_response_has_the_same_shape_as_a_real_one` |
-| 4 | `if (! $invitation->show_rsvp)` silinir | `rsvp_is_rejected_when_the_module_is_closed` |
-| 5 | `ResolvePublicInvitationAction` yerine `Invitation::findOrFail()` | `rsvp_to_an_unpublished_invitation_is_rejected` |
-| 6 | `lessThan(now()->startOfDay())` → `isPast()` | `rsvp_is_accepted_on_the_deadline_day` |
-| 7 | Son tarih kontrolü tamamen silinir | `rsvp_is_rejected_after_the_deadline` |
-| 8 | `sum('guest_count')` → `count()` | `quota_counts_guests_not_rows` |
-| 9 | `quotaConsumingValues()` → `values()` | `declined_rsvps_do_not_consume_quota` |
-| 10 | `RsvpStatus::Pending`'in `consumesQuota()` değeri `false` yapılır | `pending_rsvps_consume_quota` |
-| 11 | `RsvpQuotaExceededException::errorParams()` `['limit' => 5]` döndürür | `quota_rejection_does_not_leak_counters` |
-| 12 | `'status' => ['in:...']` → `Rule::enum(...)` | `status_must_be_a_known_value` |
-| 13 | `RsvpResource`'a `'ipHash' => $this->ip_hash` eklenir | `ip_hash_is_never_exposed` |
-| 14 | `RsvpController::index`'te `$invitation->rsvps()` → `Rsvp::query()` | `another_user_cannot_list_rsvps` |
-| 15 | `RsvpPolicy::delete()` `return true` yapılır | `another_user_cannot_delete_an_rsvp` |
-| 16 | Rotadan `throttle:rsvp` kaldırılır | `rsvp_submissions_are_rate_limited` |
-| 17 | Rotadan `whereUlid('invitation')` kaldırılır | `a_malformed_invitation_id_never_reaches_the_database` |
-| 18 | `ApiExceptionRenderer`'dan `HasErrorCode` kolu silinir | son tarih ve kota testleri (403 yerine 500) |
+| Nerede | `api` grubuna tek bir `RejectMalformedInput` | Her FormRequest'in her metin alanı |
+| Yanıt | `400 MALFORMED_REQUEST` | `422 VALIDATION_FAILED` + `fields` |
+| Yeni uç eklenince | **Otomatik korunur** (fail-safe, K12'nin ruhu) | Biri kuralı **hatırlamalı** |
+| 4.2 ile birlikte | Aynı middleware yarım JSON'u da çözer | Çözmez |
 
-🔴 **Bu tabloyu koşturmak bir öneri değil, kabul ölçütüdür.** Faz 4'te üç IDOR
-testinin boş yeşil yandığı ancak bir sonraki faz koda dokunduğunda anlaşılmıştı.
+`\0`'ı bir tarayıcı formuna **yazamazsın** — gönderen ya bir bot ya bozuk bir
+istemcidir. Alan bazında kullanıcı dostu hata mesajına ihtiyaç yok. Bu yüzden
+öneri A. B'yi seçersen bu testteki iki satır `assertStatus(422)` +
+`ValidationFailed` olur; testin geri kalanı değişmez.
+
+### 4.2 Yarım kalmış JSON "geçersiz" değil "bozuk"tur (1 vaka)
+
+**Kanıt:** kapanış parantezi eksik bir gövde bugün `422` + üç alanda `required`
+alıyor. İstemciye "adı göndermedin" deniyor — oysa gönderdi; gövde **yolda
+kesildi** (mobil bağlantı koptu, bir proxy gövdeyi kırptı).
+
+**Sözleşme ne diyor?** `docs/08` §4 (durum kodu tablosu): *"**400** — İstek
+biçimsel olarak bozuk — `MALFORMED_REQUEST`"*. `ErrorCode::MalformedRequest` katalogda duruyor ama LCV
+ucunda hiçbir yol onu üretmiyor. Laravel geçersiz JSON'u sessizce **boş gövde**
+sayar; kararı bizim vermemiz gerekir. 4.1'in A seçeneği bunu da kapsar.
+
+### 4.3 `true` bir kişi sayısı değildir (1 vaka)
+
+**Kanıt:** `guestCount: true` → `201`, satırda `guest_count = 1`.
+
+**Neden?** Laravel'in `integer` kuralı `filter_var($deger, FILTER_VALIDATE_INT)`
+kullanır; PHP `true`'yu önce `"1"`e çevirir. (`false` ise `""` olur ve reddedilir —
+tutarsız bir asimetri.)
+
+**Etki:** bugün zararsız (1 kişi), ama **tip sözleşmesi** delik: aynı kusur
+davetiyenin `giftOptions` dizisinde `[true, 500]`'ü kabul edip frontend'e
+**`[true, 500]` olarak geri döndürüyor** (kum havuzunda doğrulandı) — `types.ts`
+`number[]` bekliyor.
+
+**Düzeltme (D-2):** `'integer'` → `'integer:strict'` (projedeki Laravel 13'te
+var — `vendor/.../ValidatesAttributes.php::validateInteger()`; yalnızca gerçek
+PHP `int`'i kabul eder). Kural **adı** `integer` kalır, D6 bozulmaz. Tek
+yan etki: `"3"` gibi **metin** sayılar da reddedilir. Frontend JSON ile sayı
+gönderdiği için sorun değil — ama karar senin.
+
+### 4.4 `Retry-After` başlığı vaat ediliyor, gönderilmiyor (1 vaka)
+
+**Kanıt:** 429 yanıtında gövdede `params.retryAfter: 60` var, **başlık yok**.
+
+**Sözleşme ne diyor?** `docs/08` §4.1: *"`Retry-After` başlığı 429 ve 503 ile
+birlikte gönderilir (RFC 9110 §10.2.3)."* **B4**: dokümanda verilen söz, kodda
+karşılığı yoksa yalandır.
+
+**Neden?** `ApiExceptionRenderer::render()` yeni bir `JsonResponse` üretir ve
+`ThrottleRequestsException::getHeaders()`'ı **kopyalamaz**. Değeri gövdeye
+koymak için okuyor (`params()` metodu), başlığa hiç yazmıyor. Aynı kusur
+`throttle:auth`, `throttle:contact`, `throttle:media`, asistan kotası (429) ve
+sağlayıcı hatası (503) yanıtlarında da var.
+
+**Düzeltme (D-3):** renderer'da `HttpExceptionInterface::getHeaders()` yanıta
+eklenir; `HasErrorCode` exception'ları için `retryAfter` parametresinden başlık
+türetilir. Tek dosya.
 
 ---
 
-## 4. Testin ortamıyla ilgili bilmen gerekenler
+## 5. PHP ve PHPUnit — bu dosyada ilk kez görebileceklerin
 
-### Hız sınırı testleri neden birbirini etkilemiyor?
-
-`phpunit.xml` → `CACHE_STORE=array`. Rate limiter sayaçlarını cache'te tutar;
-`array` sürücüsü her testte sıfırdan doğar. `file` sürücüsü olsaydı bir testin
-doldurduğu kova diğerini `429` yerdirirdi — klasik bir flaky test kaynağı.
-
-Yine de `rsvp_submissions_are_rate_limited` limiti **3'e düşürüyor**:
+### 5.1 Veri sağlayıcı (`#[DataProvider]`)
 
 ```php
-config(['davetkart.rsvp.rate_limit.per_ip_per_minute' => 3]);
+/** @return iterable<string, array{string, mixed, string}> */
+public static function gecersizDegerler(): iterable
+{
+    yield 'isim tek harf' => ['guestName', 'Ş', 'min'];
+    // ...
+}
+
+#[Test]
+#[DataProvider('gecersizDegerler')]
+public function an_invalid_value_is_rejected_by_its_rule_and_nothing_is_written(
+    string $alan, mixed $deger, string $kural,
+): void { ... }
 ```
 
-Gerçek limit (10) ile test etmek 11 HTTP isteği demek olurdu — yavaş ve
-kırılgan. Test **davranışı** doğruluyor, sayıyı değil (**T5**).
+- PHPUnit test metodunu sağlayıcının **her satırı için ayrı** çalıştırır. Rapor
+  satırı etiketi taşır: `with data set "isim tek harf"`.
+- Sağlayıcı **`static`** olmak zorunda (PHPUnit 11'den beri; projede 12). Test
+  nesnesi henüz yokken çağrılır; `$this` kullanılamaz.
+- `yield`, diziyi baştan kurmadan satırları **birer birer** üreten bir
+  *generator*'dır. Dönüş tipi bu yüzden `iterable`.
+- `mixed`: "her tip olabilir" demek. Bozuk değerler bilerek dizi, sayı, metin,
+  `true` olabildiği için parametre tipi dar tutulamaz.
 
-### `config()` ile kotayı değiştirmek neden çalışıyor?
+### 5.2 Tipli sınıf sabitleri (PHP 8.3)
 
-`TierRsvpQuotaResolver::limitFor()` config'i **her çağrıda** okuyor. Değeri
-kurucuda okusaydı test içinde değiştirmek işe yaramazdı.
+```php
+private const string YOK_OLAN_ULID = '01jbz8q4n6r2w3x5y7t9v0kd1m';
+private const array YANIT_ANAHTARLARI = ['id', 'guestName', ...];
+private const array YANIT_ANAHTARLARI_MESAJLI = [...self::YANIT_ANAHTARLARI, 'message'];
+```
 
-> Alternatif ve daha güçlü yol: arayüzü sahte bir uygulamaya bağlamak.
-> `RsvpQuotaResolver` bunu mümkün kılıyor (5.6 §5) — Faz 7'de kota kaynağı
-> değişince testler bu yola geçebilir.
+`const string` — sabitin tipi yazılır; alt sınıf onu başka tiple ezemez. `...`
+(spread) bir diziyi başka dizinin içine açar; sabit ifadelerinde de çalışır.
 
-### `RefreshDatabase` ve `lockForUpdate`
+### 5.3 Adlandırılmış argümanlar ve `??=`
 
-`SubmitRsvpAction` kota kontrolünü `DB::transaction` + `lockForUpdate()` ile
-yapıyor. `RefreshDatabase` zaten her testi bir transaction'a sardığı için bu
-**iç içe** bir transaction olur (PostgreSQL'de `SAVEPOINT`).
+```php
+$this->dugunDavetiyesi(plan: SubscriptionTier::Gold);
+$this->planSat($dugun, SubscriptionTier::Gold, iadeEdildi: true);
+```
 
-Çalışır, ama şunu bil: **eşzamanlılık testte doğrulanamaz.** Tek bir test
-süreci var; iki isteğin yarışını taklit edemeyiz. Bu, Faz 4'ün **T15**
-durumunun aynısı — zincirin bir halkası test edilemiyor, o hâlde:
+`plan:` ile ilk parametreyi (`$overrides`) atlayıp doğrudan ikinciye değer
+verirsin. `iadeEdildi: true` ise bir `true`'nun **ne anlama geldiğini** çağrı
+yerinde okunur kılar.
 
-- Kilit **kodda** var ve gerekçesi yazılı,
-- Elle doğrulama betiğinde iki paralel istekle deneme adımı var,
-- Ve bu boşluk **açıkça** yazıldı (**B6**).
+### 5.4 İki dizi karşılaştırması
+
+| | Sıra önemli mi? | Kullanım |
+|---|---|---|
+| `assertSame($a, $b)` | **Evet** + tipler katı | Liste sırası testin konusuysa (M5) |
+| `assertEqualsCanonicalizing($a, $b)` | Hayır | Anahtar **kümesi** (JSON'da sıra anlamsız) |
+
+### 5.5 `assertJsonPath` + closure
+
+```php
+->assertJsonPath('data.id', fn (string $id): bool => preg_match('/^[0-7][0-9a-hjkmnp-tv-z]{25}$/', $id) === 1)
+```
+
+Beklenen değer yerine bir fonksiyon verilirse Laravel değeri ona geçirir ve
+`true` bekler. Değer metin değilse `string` parametre tipi `TypeError` fırlatır —
+test yine kırmızı yanar, sessizce geçmez.
+
+### 5.6 Zaman, IP ve başlıklar
+
+| Yardımcı | Ne yapar |
+|---|---|
+| `travelTo($an)` / `travel(61)->seconds()` | `now()`'ı dondurur / ilerletir. Laravel test sonunda kendisi sıfırlar |
+| `withServerVariables(['REMOTE_ADDR' => ...])` | İsteğin IP'sini değiştirir — `$request->ip()` bunu okur |
+| `withToken()` / `withHeader()` | **Kalıcıdır**: sonraki TÜM isteklere eklenir |
+| `flushHeaders()` | Kalıcı başlıkları temizler — sahibin token'ı misafirin isteğine taşınmasın |
+| `forgetAuthState()` | **T13** — guard önbelleğini boşaltır (`tests/TestCase.php`) |
+| `DB::enableQueryLog()` | Sonraki sorguları kaydeder; `getQueryLog()` boşsa hiç sorgu açılmamıştır |
+| `call(..., server: [...], content: '...')` | Ham gövde göndermek için (yarım JSON) — `postJson` gövdeyi kendisi JSON'a çevirir, bozamazsın |
+
+### 5.7 `model-property<Invitation>` (PHPStan)
+
+```php
+/** @param array<model-property<Invitation>, mixed> $overrides */
+```
+
+Larastan'ın tipi: "yalnızca `Invitation` modelinin gerçek kolon adları". Fabrikanın
+`create()` metodu bunu bekler. `array<string, mixed>` yazsaydık PHPStan level 8
+"her metin kolon adı değildir" diye itiraz ederdi — ve haklıdır: `'titel'` diye bir
+yazım hatası o zaman analizde yakalanır.
 
 ---
 
-## 5. Sık yapılan hatalar
+## 6. Sık yapılan hatalar
 
 | # | Hata | Ne olur |
 |---|---|---|
-| 1 | Honeypot testinde yalnızca `assertCreated()` | Savunma silinse de yeşil kalır (T14) |
-| 2 | Kota testinde `guests(1)` kullanmak | `COUNT(*)` mutasyonu hayatta kalır |
-| 3 | İki kimlikli istek arasında `forgetAuthState()` unutmak | Test boş yeşil yanar (T13) |
-| 4 | Türkçe hata metni doğrulamak | **T5**: backend metin döndürmez, kod döndürür |
-| 5 | `assertJsonPath` ile ayırt edilemezlik testi | Yalnızca baktığın yeri kontrol eder (T11) |
-| 6 | Gerçek limitle (10) hız sınırı testi | Yavaş ve kırılgan |
-| 7 | `assertDatabaseCount` yerine `assertStatus` | En sık yapılan hata; bu fazda üç savunmayı birden kör eder |
+| 1 | Her testte **aynı** gövde | O gövdenin dokunmadığı her davranış mutasyona açık kalır (M8, M9) |
+| 2 | 🔴 Türkçe karakterli bir sızıntı işaretini **ham gövdede** aramak | Laravel JSON'u `İ` diye kaçırır: `'İsmail'` ham gövdede **hiç geçmez** → `assertStringNotContainsString` her zaman yeşil. Çözülmüş JSON'a (`->json(...)`) bak |
+| 3 | Beklenen değeri üretim koduyla hesaplamak (`IpHasher::hash()`) | Kod bozulunca beklenti de bozulur — totoloji |
+| 4 | Son tarih testini "şimdi"ye göre kurmak | Takvim ilerleyince kırmızı; saat 21:00 UTC'yi geçince başka sonuç (T12) |
+| 5 | Kota testini sınırın **altında** kurmak | `>` / `>=` farkı görünmez (M2) |
+| 6 | Faker ismine `assertDatabaseMissing` ile güvenmek | Rastgele isim bir gün tutar → yılda bir kırmızı |
+| 7 | `withToken()` sonrası misafir isteği atmak | Sahibin token'ı misafir isteğinde de gider; sonuç bugün aynı, yarın değil |
+| 8 | Mutasyon tablosunu **elle** yazmak | Eski tablonun iki satırı yanlıştı (§0) |
+| 9 | 🔴 Mutasyon koşucusunu doğrulamamak | Denetimde başıma geldi: filtre `Tests\Feature\RsvpTest` tek ters bölüyle verilince PHPUnit onu regex sanıp (`\R`) **0 test** koştu ve 34 mutantın **hepsi** "yaşadı" göründü. Koşucu artık vaka sayısı tabana eşit değilse sonucu reddediyor |
 
 ---
 
-## 6. Kendin dene
+## 7. Kendin dene
 
 ```powershell
 php artisan test --filter=RsvpTest
-composer check                     # 🔴 SON satıra bak, ilkine değil
 ```
 
-`composer check` **fail-fast**: `pint --test` kırılırsa PHPStan hiç koşmaz,
-PHPStan kırılırsa **testler hiç koşmaz**. "Yeşil gördüm" demek için zincirin
-**tamamının** koşmuş olması gerekir — üç fazda üç kez "kapandı" sanılan faz
-kapanmamıştı.
+Beklenen: **86 vaka, 79 yeşil, 7 kırmızı**. Kırmızıların adları tam olarak
+şunlar olmalı — başka bir kırmızı varsa ortam farkıdır, bana gönder:
+
+```text
+a_boolean_is_not_a_party_size
+a_nul_byte_is_rejected_as_malformed_instead_of_being_truncated  (×4)
+a_truncated_json_body_is_malformed_not_invalid
+a_rate_limited_reply_carries_the_retry_after_header
+```
+
+```powershell
+composer check
+```
+
+🔴 Bu komut **kırmızı biter** ve bu bekleniyor: `pint` ve `phpstan` yeşil
+geçmeli, `errors:export --check` yeşil, testler 7 kırmızıyla durmalı. Zincir
+fail-fast olduğu için **SON** satıra bak.
+
+**Elle mutasyon (kural 14):** `app/Http/Controllers/Api/V1/RsvpController.php`'de
+`$invitation->rsvps()` yerine `\App\Models\Rsvp::query()` yaz, testi koş.
+`the_owner_sees_only_this_invitations_replies_newest_first` kırılmalı. Eski
+dosyada bu mutant **yaşıyordu**. Sonra geri al (`git checkout -- app/`).
 
 ---
 
-## 7. Terim sözlüğü
+## 8. Terim sözlüğü
 
 | Terim | Anlamı |
 |---|---|
-| **Feature test** | Uçtan uca, gerçek HTTP isteğiyle koşan test |
-| **Mutasyon testi** | Kodu bilerek bozup testin kırılmasını bekleme yöntemi |
-| **Sızıntı testi** | Bir bilginin yanıta **girmediğini** doğrulayan test |
-| **Boş yeşil** | Hiçbir şey doğrulamadığı hâlde geçen test |
-| **Flaky test** | Kod değişmeden bazen geçen bazen kalan test |
-| **Fail-fast** | İlk hatada zinciri durduran yapılandırma |
-| **`SAVEPOINT`** | Transaction içinde iç içe transaction noktası |
+| **Mutant** | Üretim kodunun bilerek bozulmuş kopyası |
+| **Mutantı öldürmek** | Bozulmuş kodla en az bir testin kırmızıya dönmesi |
+| **Eşdeğer mutant** | Kodu değiştiren ama davranışı değiştirmeyen mutant — öldürülemez, öldürülmemeli |
+| **Totoloji (test)** | Beklenen değeri test edilen kodla hesaplayan, dolayısıyla hiçbir şey kanıtlamayan test |
+| **Veri sağlayıcı** | Bir testi farklı girdilerle tekrar koşturan statik metot |
+| **Generator / `yield`** | Değerleri tek tek üreten fonksiyon |
+| **NUL baytı (`\0`)** | Kodu 0 olan karakter; C dizelerinde "dize burada bitti" demek |
+| **libpq** | PostgreSQL'in C istemci kütüphanesi; PHP'nin `pdo_pgsql`'i onu kullanır |
+| **Fikstür (fixture)** | Testin üzerinde koştuğu hazır veri kurgusu |
+| **Duvar saati** | Saat dilimi bilgisi olmayan yerel saat ("19:30") |
 
 ---
 
-## 8. Sırada ne var?
+## 9. Sıradaki
 
-**5.14 — PHPStan level 6 → 8** (K22 takvimi) ve faz kapanış dokümanları.
+**Cevabını beklediğim kararlar:**
 
-| İlgili | Nerede |
-|---|---|
-| İş kuralı | [`../../app/Actions/Rsvp/SubmitRsvpAction.md`](../../app/Actions/Rsvp/SubmitRsvpAction.md) |
-| Fabrika | [`../../database/factories/RsvpFactory.md`](../../database/factories/RsvpFactory.md) |
-| Kardeş test | [`PublicInvitationTest.md`](PublicInvitationTest.md) |
+| # | Karar | Öneri |
+|---|---|---|
+| D-1 | NUL baytı: 400 (global) mı, 422 (alan başına) mı? | 400 — tek middleware |
+| D-2 | `integer` → `integer:strict` | Evet |
+| D-3 | Renderer 429/503'te `Retry-After` başlığını göndersin | Evet — sözleşme zaten söylüyor |
+
+Kararlardan sonra düzeltmeler **tek dosya** hâlinde gelir; her biri bu dosyadaki
+bir kırmızıyı yeşile çevirir. Denetimin sıradaki test dosyası
+**`InvitationTest.php`** — orada bu dosyadakilerden daha ağır bir bulgu var
+(yayından sonra paywall aşılıyor); ayrıntı denetim raporunda.
