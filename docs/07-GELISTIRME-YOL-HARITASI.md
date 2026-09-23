@@ -172,7 +172,7 @@ olduğunda** eklenir. Erken açılan kolon evrim değil borçtur.
 
 | Katman | Teknoloji | Sürüm | Neden |
 |---|---|---|---|
-| Dil | **PHP** | 8.3+ | Laravel 13'ün minimumu. Typed properties, enum, readonly, `match` |
+| Dil | **PHP** | **^8.5** | Laravel 13'ün minimumu 8.3; proje 20 Eylül 2026'da `^8.5`'e çıktı (`composer.json`, CI). ⚠️ `phpstan.neon` hâlâ `phpVersion: 80300` — bkz. `claude/GOZDEN-GECIRME-RAPORU.md` |
 | Framework | **Laravel** | 13.x | Hızlı geliştirme; frontend zaten Laravel'e göre yapılandırılmış |
 | ORM | **Eloquent** | (Laravel içinde) | Active Record. Repository katmanı **yok** (K4) |
 | Kimlik doğrulama | **Laravel Sanctum** | 4.x | İptal edilebilir Bearer token. JWT bunu karşılayamaz (K5) |
@@ -704,8 +704,23 @@ sistem 503 dönüp ayakta kalıyor. (Dil maddesi **kaldırıldı** — K21.)
 | 9.13 | `.env.example` + `docs/10-URETIM-ENV-SABLONU.md` | ✅ |
 | 9.14 | `FAZ-9.md` + elle doğrulama + bu dosya | ✅ |
 | — | **Redis + S3 + kuyruk süpervizörü** | ⬜ **ertelendi (K80)** |
-| — | **`IyzicoGateway` + imza + replay penceresi** | ⬜ **ertelendi** — sandbox anahtarı yok |
+| — | **`IyzicoGateway` + imza + replay penceresi** | ⬜ **ertelendi** — sandbox anahtarı yok. 🔴 Eylül 2026: İsmail **Shopier** hesabı açtı; sağlayıcı büyük olasılıkla Shopier olacak (`ShopierGateway`). `PaymentGateway` arayüzünün Shopier'e uyumu raporda (§4) |
 | — | **Argon2id ölçümü · log rotasyonu · yedekleme** | ⬜ sunucu tarafı |
+
+#### Faz 9 sonrası — plan dışı eklemeler (17–21 Eylül 2026)
+
+| # | İş | Durum |
+|---|---|---|
+| 9.19 | `DeleteGalleryMediaAction` + `DELETE /invitations/{id}/media/{media}` + `PublicGalleryImageResource` + `invitations.gallery_media_ids` (galeri **sırası**) | ✅ kılavuzlarıyla |
+| 9.20 | `AppServiceProvider::configureLocalServer()` — Windows'ta `php artisan serve` altında yükleme düşmesi + `LocalServerEnvironmentTest` | ✅ kılavuzuyla |
+| — | `OptimizeUploadedImage` sertleştirmesi (EXIF yönü, piksel tavanı, bellek bütçesi, yeni yola yazma) + `OptimizedImage` + `DeleteReplacedMediaFile` (24 saat gecikmeli silme) | ✅ kılavuzlarıyla |
+| — | `.github/workflows/ci.yml` — PostgreSQL 18 servisiyle `composer check` + `composer audit` | ✅ |
+| — | PHP `^8.3` → **`^8.5`** (`composer.json`, CI) | ✅ · ⚠️ `phpstan.neon` `phpVersion: 80300` kaldı |
+| — | **Sentry** (`sentry/sentry-laravel`, `config/sentry.php`, `bootstrap/app.php`) | ✅ · kılavuz 23 Eylül'de yazıldı (`rehber/config/sentry.md`) |
+| — | Gemini **2.5-flash** + `thinking_budget: 0` | ✅ · kılavuzlar 23 Eylül'de güncellendi |
+
+> Bu satırların hiçbiri için `composer check` sonucu kayda geçmedi. Gözden
+> geçirme bulguları: `claude/GOZDEN-GECIRME-RAPORU.md`.
 
 > ⚠️ **Bu liste Faz 3'ten önce yazılan 7 satırlık kaba planın yerini alır.**
 > Eski plan birikmiş borçları (9.9–9.11) ve `orders.scope` bulgusunu
@@ -731,12 +746,17 @@ sistem 503 dönüp ayakta kalıyor. (Dil maddesi **kaldırıldı** — K21.)
 | **2** ✅ | **Auth (özellik dilimi)** | **Giriş / kayıt** ✅ | 10 planlandı → **17 oldu** |
 | **3** ✅ | **Invitation CRUD** | **Dashboard + editör autosave** ✅ | 12 + 8 FE |
 | **4** ✅ | **Public davetiye** | **`/invite/{id}` sayfası** ✅ | 6 planlandı → **8 + 2 FE** |
-| **5** ⚠️ | **RSVP** — 17/17 adım ✅; `composer check` **Faz 6'da koştu ve yeşil bitti**, elle doğrulama hâlâ açık | LCV gönderimi + canlı panel ⬜ | 10 planlandı → **16** |
-| **6** ⚠️ | **Media** — 24/24 adım ✅, **6.15+ doğrulanmadı** | Galeri + LCV medyası ⬜ (frontend borcu) | 8 planlandı → **24** |
-| 6 | Media | Galeri yüklemesi | 7 |
-| **7** ⚠️ | **Ödeme + paywall** — 25/25 adım ✅, `composer check` **hiç koşmadı** | Yayınlama akışı ⬜ (frontend borcu) | 12 planlandı → **25** |
-| **8** ⚠️ | **AI asistan + iletişim** — 21/21 adım ✅, `composer check` **koşmadı** | Asistan + iletişim formu ⬜ (frontend borcu) | 6 planlandı → **21** |
-| **9** ⚠️ | **Üretim hazırlığı** — 14/14 adım ✅, `composer check` **koşmadı**; Redis/S3/Iyzico **ertelendi** | — | 7 planlandı → **14** |
+| **5** ⚠️ | **RSVP** — 17/17 adım ✅; `composer check` **Faz 6'da koştu ve yeşil bitti**, elle doğrulama hâlâ açık | LCV gönderimi + canlı panel ✅ (F2/F5) | 10 planlandı → **16** |
+| **6** ⚠️ | **Media** — 24/24 adım ✅, **6.15+ doğrulanmadı** | Galeri + LCV medyası ✅ (F2) | 8 planlandı → **24** |
+| **7** ⚠️ | **Ödeme + paywall** — 25/25 adım ✅, `composer check` ✅ (Faz 9'da yeşil) | Yayınlama akışı ✅ (frontend yakalama F3) | 12 planlandı → **25** |
+| **8** ⚠️ | **AI asistan + iletişim** — 21/21 adım ✅, `composer check` ✅ | Asistan + iletişim formu ✅ (F2/F4) | 6 planlandı → **21** |
+| **9** ⚠️ | **Üretim hazırlığı** — 14/14 adım ✅, `composer check` ✅ **YEŞİL (238 test, 11 Eylül)**; Redis/S3/gerçek ödeme sağlayıcısı **ertelendi** | — | 7 planlandı → **14** |
+| **9+** ⚠️ | **Faz 9 sonrası (17–21 Eylül)** — galeri sırası + silme ucu, `DeleteReplacedMediaFile`, görsel optimizasyonunun sertleştirilmesi, PHP ^8.5, Sentry, Gemini 2.5 + `thinking_budget`, GitHub Actions CI. `composer check` sonucu **kayıtlı değil** (274 test metodu) | Galeri silme ✅ | — |
+
+> 🔴 **Satırlar 5–8'deki "frontend borcu" notları kapandı:** frontend yakalama fazı
+> (F1–F7) 13–16 Eylül 2026'da tamamlandı (`davetkart-frontent/docs/FRONTEND-YAKALAMA-PLANI.md`).
+> Açık kalan: F8 uçtan uca doğrulama. Güncel durum ve bulgular:
+> `claude/GOZDEN-GECIRME-RAPORU.md`.
 
 ---
 
@@ -749,7 +769,7 @@ sistem 503 dönüp ayakta kalıyor. (Dil maddesi **kaldırıldı** — K21.)
 | Rotalar `/api/...`, **`/api/v1/...` değil** | `baseURL = '/api'`; versiyon namespace'te |
 | Auth yanıtı **zarfsız** `{user, token}` | `services/auth.ts` doğrudan `data.user` okur |
 | Alan adları **camelCase**, dönüşüm **sadece Resource'ta** | `fullName`, `mapUrl`, `showGallery` |
-| Yetki hatası **403**, kimlik hatası **401** | 401 frontend'de oturumu düşürür |
+| Sahiplik yoksa **404** (403 değil — H7), kimlik hatası **401** | 401 frontend'de oturumu düşürür; 403 kaynağın varlığını doğrulardı |
 | Backend **8000** portunda | `vite.config.ts` proxy'si |
 | Uzun işler kuyruğa | `api.ts` timeout 15 sn |
 | `id` alanları **string** | ULID |
@@ -776,7 +796,24 @@ sistem 503 dönüp ayakta kalıyor. (Dil maddesi **kaldırıldı** — K21.)
 
 ## 7. Şu an neredeyiz?
 
-> **Son güncelleme:** 4 Eylül 2026
+> **Son güncelleme:** 23 Eylül 2026 — backend kodu **bitti** ilan edildi, tam gözden
+> geçirme yapıldı: `claude/GOZDEN-GECIRME-RAPORU.md`.
+>
+> | Faz | Kod | `composer check` | Elle doğrulama |
+> |---|:---:|:---:|:---:|
+> | 0-4 | ✅ | ✅ | ✅ |
+> | 5-8 | ✅ | ✅ (Faz 9'da, 238 test) | ⬜ |
+> | 9 | ✅ (14 adım) | ✅ YEŞİL (11 Eylül) | ⬜ 22 adım |
+> | 9+ (17-21 Eylül) | ✅ galeri silme · `DeleteReplacedMediaFile` · PHP ^8.5 · Sentry · Gemini 2.5 · CI | ❓ **kayıt yok** — 274 test metodu | ⬜ |
+> | Frontend yakalama (F1-F7) | ✅ 13-16 Eylül | `npm run check` | ⬜ F8 (17 senaryo) |
+>
+> 🔴 **Sıradaki iş:** raporun §1'indeki iki kritik bulgu (yayın sonrası paywall
+> aşımı, geç gelen ödemenin kaybolması) → `composer check` → Faz 5-9 elle doğrulama
+> + frontend F8 → ödeme sağlayıcısı (Shopier) entegrasyonu.
+>
+> Aşağıdaki blok **4 Eylül 2026** tarihli tarihsel kayıttır.
+
+> **Tarihsel — 4 Eylül 2026**
 >
 > 🔴 **Özet:** Faz 0-4 tamamlandı ve doğrulandı. **Faz 5, 6 ve 7'nin kodu
 > yazıldı ama üçü de KAPANMADI** — kapanış ölçütleri (elle doğrulama betikleri)
@@ -897,6 +934,6 @@ konuşur; `Accept-Language` okunmaz.
 | **K9'** | Üretimde MySQL 8 | **PostgreSQL 18** | Düşük RAM tabanı, `jsonb`, güçlü kısıt desteği. Migration yazılmadığı için maliyet sıfır |
 | **K17** | Katman-katman inşa (12 adım) | **Özellik-özellik inşa (9 faz)** | Öğrenme hedefi: katmanların birlikte çalıştığını erken görmek. ⚠️ Yalnızca **inşa sırası** değişti; klasörleme katman-bazlı kalıyor (bkz. §0) |
 | **K19** | Geliştirmede SQLite | **Geliştirmede de PostgreSQL 18** | Dev/prod parity (12-Factor X). SQLite'ın gerekçesi "kurulum zahmeti"ydi, teknik üstünlük değil. ENUM/jsonb/CHECK tavizleri ortadan kalktı |
-| **K18** | — | **Pest + Pint + Larastan** | Hata üretimde değil laptop'ta yakalanmalı |
+| — | — | **PHPUnit + Pint + Larastan** (Pest değil — **K24**) | Hata üretimde değil laptop'ta yakalanmalı. ⚠️ Bu satır eskiden **K18** numarasını taşıyordu; K18 ana karar kaydında *"kısa yorum, detay `docs/rehber/`"* kararıdır. Numara çakışması 23 Eylül 2026'da düzeltildi |
 | **K35** | `users.full_name` (tek kolon) | **`first_name` + `last_name`** — API'de de **ayrı döner** | Birleştirmek kolay, birleşmiş veriyi ayırmak imkânsız ("Ayşe Nur Kaya" bölünemez). Fatura soyadı tek başına ister (Faz 7). Birleştirme bir **sunum kararıdır** → frontend'e ait. Faz 2'de alındı ve uygulandı |
 | **K36** | Rate limit Faz 5'te | **Auth uçlarında Faz 2'de** | Brute-force **ve** K32'nin doğurduğu bellek tüketimi saldırısı: Argon2id her isteği 64 MB'lık kaynak talebine çevirdi. İki limit: 5/dk (e-posta+IP) · 20/dk (IP) |

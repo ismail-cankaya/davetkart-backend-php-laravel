@@ -228,6 +228,14 @@ Analizi PHP 8.3 kurallarına göre yapar. Senin makinende 8.4 kurulu olsa bile
 **hedef sürüme göre** denetler — 8.4'e özgü bir sözdizimi kullanırsan uyarır,
 çünkü üretim sunucusu 8.3 olabilir.
 
+> ⚠️ **23 Eylül 2026:** `composer.json` 20 Eylül'de `"php": "^8.5"`'e çıktı, bu
+> satır ise `80300` kaldı. Sonuç zararsız ama tutarsız: PHPStan, sunucunun asla
+> koşmayacağı bir sürüme göre denetliyor ve 8.4/8.5 özelliklerini (property
+> hooks, asimetrik görünürlük, pipe operatörü…) yasak sayıyor. İki yol var:
+> ya `phpVersion: 80500` yap (hedef gerçekten 8.5 ise), ya da `composer.json`'ı
+> `^8.3`'e geri al (8.5'e özgü bir şey kullanılmıyorsa hosting seçeneği
+> genişler). Karar kaydı yok — bkz. `claude/GOZDEN-GECIRME-RAPORU.md`.
+
 ### `treatPhpDocTypesAsCertain: false`
 
 PHPDoc yorumlarını **kesin doğru** kabul etmez.

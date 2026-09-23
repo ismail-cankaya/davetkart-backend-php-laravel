@@ -1,5 +1,12 @@
 # `config/payment.php` — Kılavuz
 
+> 🔴 **23 Eylül 2026 notu:** Ödeme sağlayıcısı olarak **Shopier** hesabı açıldı
+> (Eylül 2026). Aşağıdaki `iyzico` bloğu ve `webhook.signature_header` Shopier'in
+> klasik akışına birebir uymuyor: imza **form gövdesinde** (`signature`,
+> `random_nr`, `platform_order_id`…) gelir, başlıkta değil; ödeme sayfasına
+> yönlendirme bir URL değil **imzalı bir form POST**'udur. Entegrasyondan önce
+> `claude/GOZDEN-GECIRME-RAPORU.md` §4 okunmalı.
+
 > **Bu dosya yeni yazıldı** (Adım 2). Ödeme sağlayıcı seçimi ve sırları.
 
 ## Neden sağlayıcı anlaşması olmadan yazıyoruz?

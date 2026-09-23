@@ -101,6 +101,29 @@ bekledigin **sebeple** aldigin anlamina gelmez. `blockReason` ve
 
 ---
 
+### 3.1 🆕 `thinkingConfig` — bütçeyi düşünme yemesin (21 Eylül 2026)
+
+`payload()` artık `generationConfig` içinde şunu da gönderiyor:
+
+```php
+'thinkingConfig' => [
+    'thinkingBudget' => Config::integer('ai.request.thinking_budget'),   // 0
+],
+```
+
+Sebep bu bölümün konusuyla aynı aileden: Gemini 2.5 *düşünen* bir modeldir ve
+düşünme jetonları `maxOutputTokens` bütçesinden düşülür. Bütçe 800 iken model
+767 jetonu düşünmeye harcayıp 29 jetonluk kesik bir cevap (ya da **hiç** metin)
+döndürüyordu — `finishReason: MAX_TOKENS`, HTTP **200**. Yukarıdaki kontrol bunu
+yakalayıp `PROVIDER_UNAVAILABLE` fırlatıyordu; yani hata *görünüyordu* ama sebebi
+sağlayıcıda değil bütçenin kimin tarafından yendiğindeydi. Ayrıntı ve ölçüm:
+[`config/ai.md`](../../../config/ai.md).
+
+> ⚠️ Model değişirse bu parametre de değişir: Pro modellerinde 0 geçersizdir,
+> Gemini 3.x `thinkingLevel` bekler.
+
+---
+
 ## 4. 🔴 H8: ham hata yanita girmez
 
 | Nereye | Ne gider |

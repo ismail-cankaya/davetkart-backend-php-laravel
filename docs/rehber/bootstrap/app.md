@@ -1,7 +1,7 @@
 # `bootstrap/app.php` — Eğitim Dokümanı
 
 > **Kapsanan dosya:** `bootstrap/app.php`
-> **Yol haritasındaki yeri:** Faz 1, dosya 1.3b
+> **Yol haritasındaki yeri:** Faz 1, dosya 1.3b · 🔴 sonraki eklemeler §2.6'da (Faz 5, Faz 9, 21 Eylül 2026 Sentry)
 > **Bağlantılı:** [`ForceJsonResponse.md`](../app/Http/Middleware/ForceJsonResponse.md) ·
 > [`ApiExceptionRenderer.md`](../app/Exceptions/ApiExceptionRenderer.md)
 
@@ -55,10 +55,10 @@ kurucusundaki (`->where()->orderBy()->get()`) desenin aynısı.
 
 ## 2. Kod okuması
 
-### 2.1 `withRouting()` — dokunulmadı
+### 2.1 `withRouting()` — Faz 9'da `web:` satırı kaldırıldı
 
 ```php
-web: __DIR__.'/../routes/web.php',
+// web: YOK (9.1) — saf API; `web` grubu (session, CSRF) hiçbir istekte koşmaz
 api: __DIR__.'/../routes/api.php',
 commands: __DIR__.'/../routes/console.php',
 health: '/up',
@@ -251,6 +251,40 @@ webhook URL'i dayatırsa) tahmin sessizce yanlışlanır ve o rota HTML döner.
 
 İkisini birden bırakmak da yanlıştı: aynı kararı iki yerde veren kod, biri
 değiştiğinde diğerinin unutulmasına yol açar. **Tek mekanizma, tek okuma noktası.**
+
+### 2.6 Sonradan eklenenler (Faz 5 → 21 Eylül 2026)
+
+Bu kılavuz Faz 1'de yazıldı; dosya o günden beri üç kez büyüdü.
+
+| Satır | Ne zaman | Neden |
+|---|---|---|
+| `$middleware->throttleApi();` | Faz 5 | Genel API tavanı (IP başına 60/dk). Gruba **eklenir**, başa değil: `ForceJsonResponse` önce koşmalı ki 429 da JSON olsun (M3). Limiter tanımı `AppServiceProvider::apiLimits()` |
+| `$middleware->append(SecurityHeaders::class);` | Faz 9 (K85) | Sertleştirme başlıkları **global** yığında: `/up` ve eşleşmeyen 404'ler de tarayıcıya gider |
+| `Integration::handles($exceptions);` | 21 Eylül 2026 | **Sentry** — aşağıda |
+
+#### Sentry: `report` ile `render` ayrı işlerdir
+
+```php
+Integration::handles($exceptions);          // report tarafı → Sentry'ye bildir
+$exceptions->render(fn (...) => ...);        // render tarafı → istemciye ne dönecek
+```
+
+Laravel'de bir istisnanın iki kaderi vardır ve birbirini bastırmaz:
+**report** (logla / dış servise bildir) ve **render** (HTTP yanıtına çevir).
+`Integration::handles()` report tarafına bir `reportable()` kancası ekler;
+`ApiExceptionRenderer`'ın ürettiği K20 zarfına hiç dokunmaz. `SENTRY_LARAVEL_DSN`
+boşsa SDK sessizce kapalıdır — yerelde ayrıca kapatmak gerekmez.
+
+> 🔴 **Bilinen sonuç (23 Eylül gözden geçirmesi):** Laravel'in *"raporlama"*
+> listesinden çıkarılmamış her istisna Sentry'ye gider. `HasErrorCode` uygulayan
+> **iş istisnalarımız** (`InvalidCredentialsException`, `PaywallViolationException`,
+> `RsvpQuotaExceededException`, `MediaQuotaExceededException`,
+> `AssistantQuotaExceededException`, `InvitationAlreadyPublishedException`,
+> `InvalidWebhookSignatureException`…) hiçbir `dontReport` listesinde değil —
+> yani **her yanlış parola** bir Sentry olayı ve bir `ERROR` log satırıdır.
+> Öneri: yalnızca 5xx sınıfındakileri raporla, ör.
+> `$exceptions->dontReportWhen(fn (Throwable $e) => $e instanceof HasErrorCode && $e->errorCode()->status() < 500);`
+> Karar İsmail'in; kılavuz: [`config/sentry.md`](../config/sentry.md).
 
 ---
 

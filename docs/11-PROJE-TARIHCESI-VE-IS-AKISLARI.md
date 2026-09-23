@@ -1,6 +1,12 @@
 # DavetKart Backend — Proje Giriş, Geliştirme Süreçleri ve İş Akışları Rehberi
 
-> **Doküman no:** 11 · **Oluşturma:** 13 Eylül 2026
+> **Doküman no:** 11 · **Oluşturma:** 13 Eylül 2026 · **Güncelleme:** 23 Eylül 2026
+>
+> 🔴 **23 Eylül notu:** Bu doküman Faz 9 sonunda yazıldı. O günden sonra: frontend
+> yakalama fazı (F1–F7) **tamamlandı** (§5.2 artık tarihsel), backend'e galeri silme
+> ucu, görsel optimizasyonu, PHP ^8.5, Sentry ve Gemini 2.5 eklendi. Güncellenen
+> bölümler: §1.3, §1.4, §4.10, §5.1, §5.2, §5.5, Ek A. Tam gözden geçirme ve açık
+> bulgular: `claude/GOZDEN-GECIRME-RAPORU.md`.
 > **Kapsam:** Faz 0 → Faz 9 arası tüm geliştirme sürecinin toplu kaydı
 > **Kimin için:** Projeye **ilk kez** katılan bir geliştirici (insan veya AI asistanı)
 > **Okuma süresi:** ~45 dakika · Sonrasında kod tabanında güvenle çalışabilirsin
@@ -21,7 +27,7 @@
 | **3** | [Temel İş Akışları ve Senaryolar](#3-temel-i̇ş-akışları-ve-senaryolar) | Request → Response, gerçek kod akışları |
 | **4** | [Geliştirme Tarihçesi: Faz 0 → Faz 9](#4-geliştirme-süreci-faz-0dan-faz-9a-tarihçe) | Her fazın hedefi, çıktısı, sapmaları |
 | **5** | [Gelecek Vizyonu ve Sonraki Adımlar](#5-gelecek-vizyonu-ve-sonraki-adımlar) | Açık borçlar ve öncelik sırası |
-| **Ek A** | [Uç nokta haritası](#ek-a--tam-uç-nokta-haritası-21-uç) | 21 endpoint tek tabloda |
+| **Ek A** | [Uç nokta haritası](#ek-a--tam-uç-nokta-haritası-22-uç) | 22 endpoint tek tabloda |
 | **Ek B** | [Kaynak doküman haritası](#ek-b--kaynak-doküman-haritası) | Hangi soru hangi dosyada |
 | **Ek C** | [Terim sözlüğü](#ek-c--terim-sözlüğü) | Projeye özgü kısaltmalar |
 
@@ -91,7 +97,8 @@ Bugün itibarıyla kayıt altına alınmış: **86 karar (K1–K86)**, **140 kur
 
 | Katman | Teknoloji | Sürüm | Neden bu seçildi |
 |---|---|---|---|
-| Dil | **PHP** | `^8.3` | Laravel 13'ün minimumu. Typed properties, backed enum, `readonly`, `match` |
+| Dil | **PHP** | **`^8.5`** | Laravel 13'ün minimumu 8.3; proje 20 Eylül 2026'da `^8.5`'e çıktı. ⚠️ `phpstan.neon` hâlâ `phpVersion: 80300` |
+| Hata izleme | **Sentry** (`sentry/sentry-laravel`) | `^4.27` | 21 Eylül 2026. DSN boşsa SDK kapalı; kılavuz `rehber/config/sentry.md` |
 | Framework | **Laravel** | `^13.8` | Hız önceliği; frontend zaten buna göre yapılandırılmış |
 | ORM | **Eloquent** | (Laravel içinde) | Active Record. 🔴 Repository katmanı **yok** (K4) |
 | Kimlik doğrulama | **Laravel Sanctum** | `^4.0` | İptal edilebilir Bearer token. JWT bunu karşılayamaz (K5) |
@@ -122,7 +129,8 @@ Bugün itibarıyla kayıt altına alınmış: **86 karar (K1–K86)**, **140 kur
 | **Laravel Pint** | PSR-12 biçimlendirici | `composer lint` / `vendor/bin/pint --test` |
 | **Larastan (PHPStan)** | Statik analiz — **level 8** | `composer analyse` |
 | **`errors:export --check`** | `ErrorCode` enum'u ↔ `contracts/error-codes.json` senkronu | `php artisan errors:export --check` |
-| **PHPUnit** | 238 test (232 Feature + 6 Unit) | `php artisan test` |
+| **PHPUnit** | 274 test metodu (268 Feature + 6 Unit) — 23 Eylül sayımı; son **kayıtlı** yeşil koşu 238 test (11 Eylül) | `php artisan test` |
+| **GitHub Actions** | Aynı `composer check` + `composer audit`, PostgreSQL 18 servisiyle | `.github/workflows/ci.yml` |
 
 ```bash
 composer check   # pint --test → phpstan → errors:export --check → phpunit
@@ -138,7 +146,7 @@ composer check   # pint --test → phpstan → errors:export --check → phpunit
 ### Adım 0 — Ön koşullar
 
 ```powershell
-php -v                 # 8.3+
+php -v                 # 8.5+ (composer.json ^8.5)
 composer -V            # 2.x
 psql --version         # PostgreSQL 18
 ```
@@ -2759,11 +2767,14 @@ Faz 9'un asıl işi planlanan liste değildi. 9.7'ye hazırlanırken `orders.inv
 
 ## 4.10 Bugünkü teknik durum
 
+> 🔴 23 Eylül 2026'da güncellendi. Faz 9 sonrası eklemeler (galeri silme,
+> `DeleteReplacedMediaFile`, PHP ^8.5, Sentry, Gemini 2.5, CI) dâhil.
+
 | | |
 |---|---|
-| **Dal** | `faz-9` |
-| **Uç nokta** | **21** (+ `GET /api/ping` sağlık sondası, `/up`) |
-| **Test** | **238** — 232 Feature + 6 Unit (`tests/Unit/OrderScopeTest`) |
+| **Dal** | `main` (tüm dallar birleşti; son commit `c85dbc9`, 21 Eylül) |
+| **Uç nokta** | **22** (+ `GET /api/ping` sağlık sondası, `/up`) — yeni: `DELETE /api/invitations/{id}/media/{media}` |
+| **Test** | **274** test metodu — 268 Feature + 6 Unit. Son **kayıtlı** yeşil `composer check`: 238 test (11 Eylül) |
 | **PHPStan** | level **8** · 164 dosya · **0 hata** |
 | **Tablo** | 8 iş tablosu + Sanctum/Laravel tabloları |
 | **Kural** | **140** · **Karar** 86 · **Ders** 64 |
@@ -2791,16 +2802,24 @@ Faz 9'un asıl işi planlanan liste değildi. 9.7'ye hazırlanırken `orders.inv
 
 | Sıra | İş | Neden bu sırada |
 |:---:|---|---|
-| **1** | 🔴 **Frontend yakalama fazı** | Backend altı faz önde; çalışan ama **kimsenin konuşamadığı** bir üretim backend'i var |
+| ~~1~~ | ~~Frontend yakalama fazı~~ | ✅ **13–16 Eylül'de tamamlandı** (F1–F7). Açık: F8 uçtan uca doğrulama |
+| **1** | 🔴 **Gözden geçirme raporunun kritik bulguları** | Yayın sonrası paywall aşımı + geç gelen ödemenin kaybolması — `claude/GOZDEN-GECIRME-RAPORU.md` §1 |
 | **2** | Faz 5–9 elle doğrulama betiklerini koştur | `composer check` yeşil ama **hiçbir faz kapanış ölçütü işaretlenmedi** |
 | **3** | Paket alımın yayın kotası (K43) | Bugün tek bir 399 ₺'lik paket **sınırsız** yayın açıyor |
-| **4** | `IyzicoGateway` | Sandbox anahtarları gelince — arayüz (K8) hazır bekliyor |
+| **4** | Gerçek ödeme sağlayıcısı — 🔴 **Shopier** (Eylül 2026'da hesap açıldı), `IyzicoGateway` değil | Arayüz (K8) hazır ama Shopier'in imza/geri dönüş modeline göre uyarlanmalı — rapor §4 |
 | **5** | Dört EK dosyasını master'a işle | K49–K86 yalnızca yama dosyalarında |
 | **6** | Redis · S3 · süpervizör | Barındırma netleşince (K80: **yükseltme**, varsayım değil) |
 
 ---
 
-## 5.2 🔴 En büyük risk: frontend yakalama fazı
+## 5.2 ~~🔴 En büyük risk: frontend yakalama fazı~~ ✅ kapandı
+
+> ✅ **23 Eylül 2026 notu — bu bölüm TARİHSEL.** Frontend yakalama fazı 13–16 Eylül
+> 2026'da tamamlandı: aşağıdaki tablonun tüm satırları kapandı (F1 hata çevirisi, F2
+> uçlar + honeypot, F3 yayınlama + gerçek checkout + `activeTier` kaldırıldı, F4 asistan,
+> F5 ETag/polling, F6 `timezone`, F7 üretim). Açık kalan: **F8** 17 senaryoluk uçtan uca
+> doğrulama, `publishedAt` alanı (F7.2) ve ödeme dönüş sayfası (`/odeme/basarili`
+> frontend'de rota yok) — rapor §3.
 
 Backend **altı faz** (4/5/6/7/8/9) öndedir ve bu, Faz 9'un ortaya çıkardığı en büyük tek
 risktir. Bugün elimizde çalışan ama **kimsenin konuşamadığı** bir üretim backend'i var.
@@ -2869,7 +2888,7 @@ Faz 9'un iki maddesi de doğrudan frontend'e dokunuyor:
 
 | Konu | Ne zaman | Hazırlık durumu |
 |---|---|---|
-| 🔴 `IyzicoGateway` + imza + replay penceresi | Sandbox anahtarı gelince | ✅ `PaymentGateway` arayüzü (K8) hazır: **tek `match` kolu + tek bağlama satırı** |
+| 🔴 Gerçek ödeme sürücüsü (**Shopier**; eskiden `IyzicoGateway` planlanıyordu) + imza + replay penceresi | Entegrasyon başlayınca | ⚠️ `PaymentGateway` arayüzü (K8) hazır, ama imzayı **başlıktan** okuyor; Shopier'in klasik akışında imza **form gövdesinde** geliyor — rapor §4 |
 | Redis (cache + queue) + `queue:work` süpervizörü | Barındırma netleşince | ⚠️ Redis'e geçince `throttle` sınıfı `ThrottleRequestsWithRedis`'e döner — kovalar aynı, davranış **birebir aynı değil**; `throttle:assistant` ve `throttle:contact` yeniden sınanmalı |
 | S3 uyumlu disk (**K55**) | Aynı | ✅ `media.disk` kolonda (F4) — göç eski satırları **kırmaz**. Ayrıca *"yüklenenler çalıştırılabilir dizinde durmaz"* kuralını **yapısal** hâle getirir |
 | Argon2id ölçümü | Üretim donanımı bilinince | Hedef **~250 ms/hash**; paylaşımlı hostingde `memory_limit` zorlayabilir |
@@ -2920,7 +2939,7 @@ uygulamadan önce **gerekçesini kontrol et** — ders 42: *kural değişmez, gi
 
 ---
 
-# Ek A — Tam uç nokta haritası (21 uç)
+# Ek A — Tam uç nokta haritası (22 uç)
 
 | # | Method | Path | Auth | Throttle | Yanıt | Faz |
 |:---:|---|---|:---:|---|---|:---:|
@@ -2936,7 +2955,8 @@ uygulamadan önce **gerekçesini kontrol et** — ders 42: *kural değişmez, gi
 | 9 | DELETE | `/api/invitations/{id}` | ✅ | `api` | `204` · soft delete + hak serbest bırakma | 3 · 9 |
 | 10 | POST | `/api/invitations/{id}/publish` | ✅ | `api` | `200` / **402** / **409** — 🔴 paywall kapısı | 7 |
 | 11 | POST | `/api/invitations/{id}/checkout` | ✅ | `api` | `201` — **tekil** alım | 7 |
-| 12 | POST | `/api/invitations/{id}/media` | ✅ | `api` | `201` — sahibin galerisi | 6 |
+| 12 | POST | `/api/invitations/{id}/media` | ✅ | `api` | `201` — sahibin galerisi, sıranın sonuna eklenir | 6 |
+| 12b | DELETE | `/api/invitations/{id}/media/{media}` | ✅ | `api` | `204` — galeriden silme; başka davetiyenin / LCV'nin dosyası **404** | 9+ |
 | 13 | GET | `/api/invitations/{id}/rsvps` | ✅ | `api` + **ETag** | `200` / **304** — polling | 5 |
 | 14 | DELETE | `/api/rsvps/{id}` | ✅ | `api` | `204` — sahip moderasyonu | 5 |
 | 15 | POST | `/api/payments/checkout` | ✅ | `api` | `201` — **paket** alım | 7 |
@@ -2944,7 +2964,7 @@ uygulamadan önce **gerekçesini kontrol et** — ders 42: *kural değişmez, gi
 | 17 | GET | `/api/public/invitations/{id}` | — | `api` + **ETag** | `200` / **304** — 🔥 cache'li | 4 |
 | 18 | POST | `/api/public/invitations/{id}/rsvps` | — | **`rsvp`** | `201` — 1. auth'suz yazma yolu | 5 |
 | 19 | POST | `/api/public/invitations/{id}/media` | — | **`media`** | `201` — 2. auth'suz yazma yolu | 6 |
-| 20 | POST | `/api/public/payments/webhook` | — | `api` | `204` **her zaman** — 3. yol, 🔒 imza | 7 |
+| 20 | POST | `/api/public/payments/webhook` | — | `api` | İmzası geçerliyse `204` (bilinmeyen `providerRef` dâhil — W3); imza hatası **404** (K69); bozuk gövde **400** — 3. yol, 🔒 imza | 7 |
 | 21 | POST | `/api/public/contact` | — | **`contact`** | `204` — 4. yol, honeypot'lu | 8 |
 
 ---

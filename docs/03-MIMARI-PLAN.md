@@ -1,6 +1,11 @@
 # DavetKart Backend — Mimari Plan
 
-> **Durum:** Onay bekliyor · **Tarih:** 2026-07-27
+> **Durum:** ✅ Onaylandı ve uygulandı (tarihsel plan belgesi) · **Tarih:** 2026-07-27
+>
+> 🔴 **23 Eylül 2026 notu:** §8'deki 12 adımlık inşa sırası **geçersiz** (K17 → 9 faz,
+> `07`). §0'daki PHP satırı da eskidi: proje artık **PHP ^8.5** istiyor (`composer.json`).
+> Veri modeli ve uç listesinin güncel hâli için `09` ve `11` (Ek A) esas alınır.
+> Tam gözden geçirme: `claude/GOZDEN-GECIRME-RAPORU.md`.
 > **Girdi:** `01-FRONTEND-ANALIZI.md` + `02-FRONTEND-BACKEND-TEMAS-NOKTALARI.md`
 >
 > Bu doküman, kod yazmadan önce **neyi neden yapacağımızın** sözleşmesidir.

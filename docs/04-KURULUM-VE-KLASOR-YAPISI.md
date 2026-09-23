@@ -1,5 +1,10 @@
 # Adım 1 — Kurulum ve Klasör Hiyerarşisi
 
+> 🔴 **TARİHSEL BELGE (23 Eylül 2026 notu).** §1 ve §4 **MySQL** anlatıyor; proje
+> K9'/K19 ile **PostgreSQL 18** kullanıyor (`pdo_pgsql`, `DB_CONNECTION=pgsql`).
+> PHP sürümü de artık **^8.5**. Güncel sıfırdan kurulum adımları:
+> `docs/11-PROJE-TARIHCESI-VE-IS-AKISLARI.md` §1.4 ve `docs/10-URETIM-ENV-SABLONU.md`.
+
 > **Bu adımın amacı:** Boş bir Laravel projesini, mimari planımızın gerektirdiği
 > klasör yapısına dönüştürmek. Kod yazmıyoruz — **iskeleti kuruyoruz.**
 >

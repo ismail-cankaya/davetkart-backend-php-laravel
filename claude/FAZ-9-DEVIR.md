@@ -4,6 +4,14 @@
 > **Kimin için:** Bu projede **ilk kez** çalışacak bir AI asistanı
 > **Ne kadar sürer:** Bu dosya + `CLAUDE.md` = ~15 dakika. Sonra çalışabilirsin.
 > **Öncekiler:** `FAZ-7-DEVIR.md` · `FAZ-6-DEVIR.md` · `FAZ-5-DEVIR.md`
+>
+> 🔴 **23 Eylül 2026 güncellemesi — önce bunu oku.** Bu dosya 11 Eylül'de yazıldı.
+> O günden beri: (1) **frontend yakalama fazı F1–F7 tamamlandı** (13–16 Eylül),
+> (2) backend'e plan dışı eklemeler geldi (galeri silme ucu, görsel optimizasyonu +
+> `DeleteReplacedMediaFile`, PHP **^8.5**, **Sentry**, Gemini **2.5** + `thinking_budget`,
+> GitHub Actions CI), (3) backend **"bitti"** ilan edildi ve tam gözden geçirildi.
+> Açık bulgular — ikisi kritik — **`claude/GOZDEN-GECIRME-RAPORU.md`**'de. §0, §4,
+> §7, §8 ve §10 bu tarihe göre güncellendi.
 
 ---
 
@@ -15,15 +23,18 @@ satın alır**, yayınlar, linkini paylaşır; misafirler linkten davetiyeyi gö
 
 | | |
 |---|---|
-| **Backend** | PHP 8.3 · Laravel 13 · PostgreSQL 18 · Sanctum · Modüler Monolit |
-| **Frontend** | React 19 · TypeScript · Vite · Zustand · **ayrı depo, ALTI faz geride** |
+| **Backend** | PHP **^8.5** · Laravel 13 · PostgreSQL 18 · Sanctum · Modüler Monolit · Sentry |
+| **Frontend** | React 19 · TypeScript · Vite · Zustand · **ayrı depo** — yakalama fazı F1–F7 ✅ (13–16 Eylül), F8 doğrulaması ⬜ |
 | **Geliştirici** | İsmail — bilgisayar mühendisliği 3. sınıf öğrencisi |
 | **Amaç** | Kod üretmek değil, **mimari vizyon öğretmek** |
 | **Yöntem** | 9 fazlık dikey dilimler; her faz uçtan uca çalışan bir özellik |
 
-**Şu an:** Faz 0-4 ✅ · Faz 5-8 kod ✅ / elle doğrulama ⬜ ·
-**Faz 9 kod ✅ · `composer check` YEŞİL (238 test)** / elle doğrulama ⬜
-**Sıradaki: 🔴 FRONTEND YAKALAMA FAZI** — bkz. §10.
+**Şu an (23 Eylül 2026):** Faz 0-4 ✅ · Faz 5-8 kod ✅ / elle doğrulama ⬜ ·
+**Faz 9 kod ✅ · `composer check` YEŞİL (238 test, 11 Eylül)** / elle doğrulama ⬜ ·
+**Faz 9 sonrası eklemeler** kod ✅ / `composer check` **kayıt yok** (274 test metodu) ·
+**Frontend yakalama F1–F7 ✅**
+**Sıradaki: 🔴 `GOZDEN-GECIRME-RAPORU.md` §1'in iki kritik bulgusu** → `composer check`
+→ Faz 5-9 + frontend F8 elle doğrulama → ödeme sağlayıcısı (**Shopier**).
 
 ---
 
@@ -55,6 +66,7 @@ satın alır**, yayınlar, linkini paylaşır; misafirler linkten davetiyeyi gö
 ## 2. Okuma sırası
 
 ```
+0. claude/GOZDEN-GECIRME-RAPORU.md           ← 🔴 23 Eylül: güncel durum + açık bulgular
 1. claude/PHP-LARAVEL-SETUP.md               ← ANA GİRİŞ: kararlar, dersler, harita
    + claude/PHP-LARAVEL-SETUP-EK-FAZ-5.md    (K49-K53, L1-L4)
    + claude/PHP-LARAVEL-SETUP-EK-FAZ-6.md    (K54-K63, F1-F5)
@@ -110,9 +122,9 @@ rota → FormRequest → Controller → Action → Model → Resource → yanıt
 
 | | |
 |---|---|
-| Dal | `faz-9` |
-| Uç nokta | **21** (Faz 9 uç eklemedi) |
-| Test | **238** · ilk **6 birim** testi (`tests/Unit/OrderScopeTest`) |
+| Dal | `main` (23 Eylül: tüm dallar birleşmiş; son commit `c85dbc9`, 21 Eylül) — Faz 9 sonunda `faz-9` idi |
+| Uç nokta | **22** — Faz 9 sonrası `DELETE /api/invitations/{id}/media/{media}` eklendi (Faz 9 sonunda 21) |
+| Test | **274** test metodu (23 Eylül sayımı) · son **kayıtlı** yeşil koşu 238 test · ilk **6 birim** testi (`tests/Unit/OrderScopeTest`) |
 | PHPStan | level **8** · 164 dosya · 0 hata |
 | Kural | **140** · **Karar** 86 · **Ders** 64 |
 | Kalite | `pint` · `phpstan` · `errors:export --check` · `phpunit` → `composer check` |
@@ -193,7 +205,9 @@ Kimse hata yapmamıştı — şema tutarlı, FK doğru, sorgu doğru. Yanlış o
 - [ ] `docs/rehber/fazlar/FAZ-9-ELLE-DOGRULAMA.md` (22 adım) — **hiç koşulmadı**
 - [ ] Faz 5/6/7/8'in elle doğrulama betikleri — **hâlâ açık**
 - [ ] Dört EK dosyası master `PHP-LARAVEL-SETUP.md`'ye işlensin
-- [ ] 🔴 **Frontend yakalama fazı** — `davetkart-frontent/docs/FRONTEND-YAKALAMA-PLANI.md`
+- [x] ~~🔴 **Frontend yakalama fazı**~~ — F1–F7 ✅ 13–16 Eylül; F8 (17 senaryo) ⬜
+- [ ] 🔴 **`GOZDEN-GECIRME-RAPORU.md` §1** — yayın sonrası paywall aşımı + geç gelen ödeme
+- [ ] `composer check` Faz 9 sonrası eklemelerle (PHP 8.5, Sentry, galeri silme…) — sonucu kayda geçir (**B7**)
 
 ### 7.2 Cevap bekleyen açık kararlar
 
@@ -204,16 +218,19 @@ Kimse hata yapmamıştı — şema tutarlı, FK doğru, sorgu doğru. Yanlış o
 | 3 | `SubscriptionTier::label()` dokuz fazdır çağrılmıyor | Ders 26 gereği **silinmeli** |
 | 4 | Asistan kotasının gün sınırı UTC | İstanbul'da 03:00'te yenileniyor |
 | 5 | `contact_messages` okuma ucu yok | Yazan var, okuyan yok |
-| 6 | `rsvps.id` ULID (K52) | Faz 5'ten beri bekliyor |
+| 6 | `rsvps.id` ULID (K52) | ✅ Kodda **uygulanmış** (migration + `whereUlid`); yalnızca resmî onay kaydı eksik |
 | 7 | İade var olan yayını geri çekmiyor | İade akışı doğduğunda |
 | 8 | 🆕 **Zamanlanmış iş koşmazsa kimse bilmez** | İzleme kararı gerekiyor |
-| 9 | 🆕 **Silme sonucu kullanıcıya söylenmiyor** | `DELETE` → 204; bir "siparişlerim" ucu gerekli |
+| 9 | 🆕 **Silme sonucu kullanıcıya söylenmiyor** | `DELETE` → 204; bir "siparişlerim" ucu gerekli. Frontend ayrıca `publishedAt` istiyor (F7.2) |
+| 10 | 🆕 (23 Eylül) **Token'lar hiç sona ermiyor** | `sanctum.expiration = null` → `sanctum:prune-expired` hiçbir şey silmiyor. Süre kararı gerekiyor |
+| 11 | 🆕 (23 Eylül) **Sentry'ye 4xx iş istisnaları da gidiyor** | `dontReportWhen` kararı — rapor §2 |
+| 12 | 🆕 (23 Eylül) **PHP ^8.5 kararı kayıtsız** | `phpstan.neon` `phpVersion: 80300` ile tutarsız; barındırma seçeneğini daraltıyor |
 
 ### 7.3 Sonraki fazlara
 
 | Konu | Ne zaman |
 |---|---|
-| 🔴 `IyzicoGateway` + imza + replay penceresi | Sandbox anahtarları gelince — `PaymentGateway` (K8) hazır bekliyor |
+| 🔴 Gerçek ödeme sürücüsü — **Shopier** (Eylül 2026'da hesap açıldı; eskiden `IyzicoGateway` planlanıyordu) + imza + replay penceresi | `PaymentGateway` (K8) hazır ama imzayı **başlıktan** okuyor; Shopier'in klasik akışında imza form gövdesinde — rapor §4 |
 | Redis (cache + queue) + `queue:work` süpervizörü | Barındırma netleşince (K80: **yükseltme**, varsayım değil) |
 | S3 uyumlu disk (K55) | Aynı — `media.disk` kolonda (F4), göç eski satırları kırmaz |
 | Argon2id ölçümü | Üretim donanımı bilinince — hedef ~250 ms/hash |
@@ -227,8 +244,9 @@ Kimse hata yapmamıştı — şema tutarlı, FK doğru, sorgu doğru. Yanlış o
 ```
 D:\Projects\davetkart\
 ├─ claude\                            bağlam repo'su (ayrı git)
-├─ davetkart-backend-php-laravel\     git: faz-9 dalı
-└─ davetkart-frontent\                git: main — 🔴 ALTI FAZ GERİDE
+├─ davetkart-backend-php-laravel\     git: main (23 Eylül; Faz 9 sonunda faz-9)
+└─ davetkart-frontent\                git: edit-design-motion-principles — yakalama F1–F7 ✅
+                                       ⚠️ ~530 dosya yalnızca CRLF farkıyla "değişmiş" (.gitattributes kararı bekliyor)
 ```
 
 **Ortam:** Windows + Laravel Herd + PostgreSQL 18 (pgAdmin 4).
@@ -259,7 +277,14 @@ D:\Projects\davetkart\
 
 ---
 
-## 10. 🔴 Sıradaki iş: FRONTEND YAKALAMA FAZI
+## 10. ~~🔴 Sıradaki iş: FRONTEND YAKALAMA FAZI~~ ✅ tamamlandı (13–16 Eylül 2026)
+
+> ✅ **23 Eylül notu — bu bölüm TARİHSEL.** Aşağıdaki tablonun tüm satırları
+> frontend'in F1–F7 dilimlerinde kapandı (`FRONTEND-YAKALAMA-PLANI.md` §4). Açık
+> kalanlar: F8 uçtan uca doğrulama; `publishedAt` alanı (backend'den istendi,
+> yazılmadı); ödeme dönüş sayfası — backend `PAYMENT_SUCCESS_URL=/odeme/basarili`
+> diyor ama frontend'de bu rota **yok** (`path: '*'` ana sayfaya atıyor); sipariş
+> durumunu sorgulayacak bir uç da yok. Hepsi: `GOZDEN-GECIRME-RAPORU.md` §3.
 
 Backend **altı faz** önde (4/5/6/7/8/9) ve bu, Faz 9'un ortaya çıkardığı en
 büyük tek risk. Bugün elimizde **çalışan ama kimsenin konuşamadığı** bir

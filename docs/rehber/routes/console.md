@@ -70,6 +70,23 @@ saklanır, sonra silinir. **Sıfır yazmadık**, çünkü bir güvenlik inceleme
 *"hangi token ne zaman iptal edildi"* sorusunun izi kalmalı. Bir temizlik işi
 kadar hızlı olmalı, ama adli iz bırakacak kadar yavaş.
 
+> 🔴 **23 Eylül 2026 — bu iş bugün HİÇBİR ŞEY SİLMİYOR (B4).** Komutun kaynağı
+> (`vendor/laravel/sanctum/src/Console/Commands/PruneExpired.php`) iki sorgu çalıştırır:
+>
+> 1. `expires_at < şimdi − saat` → bizim token'larımız `createToken()` ile
+>    **`expires_at` olmadan** üretiliyor; kolon hep `NULL`, eşleşen satır yok.
+> 2. `created_at < şimdi − (expiration + saat)` → **yalnızca** `config/sanctum.php`
+>    içinde `expiration` doluysa çalışır. Bizde `null`; komut
+>    *"Expiration value not specified"* uyarısı basıp geçer.
+>
+> Yukarıdaki *"iptal edilmiş token bir ay saklanır"* cümlesi de doğru değil:
+> `RevokeTokenAction` çıkışta token satırını **hemen siler**; iz kalmaz.
+>
+> Sonuç: tablo büyümeye devam ediyor **ve** hiçbir token süresi dolmuyor (çalınan
+> bir token sonsuza kadar geçerli). Düzeltme bir karar ister — ör.
+> `'expiration' => 60 * 24 * 30` (dakika) ve frontend'in 401'de oturumu zaten
+> düşürmesi. Ayrıntı: `claude/GOZDEN-GECIRME-RAPORU.md`.
+
 ---
 
 ## 3. `withoutOverlapping()` — idempotansa değil yapıya güven

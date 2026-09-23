@@ -1,8 +1,17 @@
 # FAZ 9 — Üretim Hazırlığı
 
 > **Tarih:** 11 Eylül 2026
-> **Durum:** ⬜ **`composer check` HENÜZ KOŞMADI** — 9.8'den 9.14'e kadar yedi adım
-> tek oturumda, kapı koşmadan yazıldı (İsmail'in açık talebi)
+> **Durum:** ✅ **`composer check` YEŞİL (238 test)** — `claude/FAZ-9-DEVIR.md` §0/§4'e
+> göre 11 Eylül'de sonuna kadar koştu. (Bu satır eskiden *"henüz koşmadı"* diyordu:
+> 9.8'den 9.14'e kadar yedi adım tek oturumda, kapı koşmadan yazılmıştı.)
+>
+> 🔴 **23 Eylül 2026 notu:** Faz 9'dan sonra plan dışı eklemeler yapıldı (9.19 galeri
+> silme, 9.20 yerel sunucu, `DeleteReplacedMediaFile`, PHP ^8.5, Sentry, Gemini 2.5,
+> CI) — liste `docs/07` §4 Faz 9 altında. Bu dosyadaki iki iddia artık doğru değil:
+> §2'deki *"`routes/web.php` silindi"* (dosya ve `welcome.blade.php` hâlâ depoda,
+> yalnızca yüklenmiyor) ve 9.11'in *"token tablosu küçülüyor"* beklentisi
+> (`sanctum.expiration = null` olduğu için `sanctum:prune-expired` hiçbir satır
+> silmiyor). Ayrıntı: `claude/GOZDEN-GECIRME-RAPORU.md`.
 > ⬜ **Elle doğrulama açık** ([`FAZ-9-ELLE-DOGRULAMA.md`](FAZ-9-ELLE-DOGRULAMA.md))
 > **Önceki:** [`FAZ-8.md`](FAZ-8.md) · **Sonraki:** frontend yakalama fazı
 > **Bu dosya:** fazın kaydı, alınan kararlar, kurulan kurallar ve devir
@@ -85,7 +94,7 @@ yazılacağı adımdı: plan düz uygulansaydı bu delik **bu fazda açılacakt�
 
 | # | Dosya | Ne yapar |
 |---|---|---|
-| 9.1 | `routes/web.php` **silindi** + `bootstrap/app.php` | Ölü `welcome` rotası; `web` middleware grubu artık hiç koşmuyor |
+| 9.1 | `routes/web.php` **yüklenmiyor** + `bootstrap/app.php` | Ölü `welcome` rotası; `web` middleware grubu artık hiç koşmuyor. ⚠️ 23 Eylül: dosyanın kendisi ve `welcome.blade.php` **silinmemiş** — `git rm` bekliyor |
 | 9.2 | `app/Enums/OrderScope.php` + `tests/Unit/.gitkeep` | Kapsam tipi + sürümlenmemiş test süiti düzeltildi (**B10**) |
 | 9.3 | `..._add_scope_to_orders_table.php` | Nullable kolon + 2 CHECK + geri doldurma (**genişlet**) |
 | 9.4 | `Order` · `OrderFactory` · `StartCheckoutAction` | Bütün yazıcılar `scope` yazar (**taşı**) |
@@ -262,10 +271,11 @@ tek bir metot okumasında verdiği yer.
 | 3 | `SubscriptionTier::label()` dokuz fazdır çağrılmıyor → ders 26 gereği **silinmeli** | FAZ-8 §9 |
 | 4 | Asistan kotasının gün sınırı **UTC** — İstanbul'da 03:00'te yenileniyor | FAZ-8 §9 |
 | 5 | `contact_messages` için **okuma ucu yok** | FAZ-8 §9 |
-| 6 | `rsvps.id` ULID (K52) Faz 5'ten beri onay bekliyor | FAZ-7 §9 |
+| 6 | `rsvps.id` ULID (K52) Faz 5'ten beri onay bekliyor — ✅ kodda **uygulanmış** (migration `ulid('id')`, rota `whereUlid`); yalnızca resmî onay kaydı eksik | FAZ-7 §9 |
 | 7 | İade var olan yayını geri çekmiyor | FAZ-7 §9 |
 | 8 | 🔴 **Faz 5, 6, 7 ve 8'in elle doğrulama betikleri hâlâ açık** | — |
-| 9 | 🔴 **Frontend BEŞ faz geride** | FAZ-8 §8 |
+| 9 | ~~🔴 **Frontend BEŞ faz geride**~~ ✅ Frontend yakalama fazı F1–F7 13–16 Eylül'de tamamlandı; F8 doğrulaması açık | FAZ-8 §8 |
+| 10 | 🆕 `sanctum:prune-expired` **etkisiz** — `sanctum.expiration = null`, token'lar `expires_at` olmadan üretiliyor; komut hiçbir satır silmiyor ve token'lar hiç sona ermiyor | 23 Eylül gözden geçirmesi |
 
 ---
 

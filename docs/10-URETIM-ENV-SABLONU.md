@@ -3,6 +3,8 @@
 > **Faz:** 9 — Üretim hazırlığı, dosya 9.13
 > **Kılavuz:** [`rehber/env.md`](rehber/env.md) — her satırın gerekçesi orada
 > **Kurallar:** **Y1** · **E6** · **B10** · **K80**
+> **Güncelleme:** 23 Eylül 2026 — Sentry, `GEMINI_MODEL`, PHP ^8.5, TrustProxies'in
+> hız sınırlarına etkisi ve ödeme sağlayıcısı notu (Shopier) eklendi.
 
 ---
 
@@ -45,6 +47,14 @@ APP_DEBUG=false
 # 🔴 https ZORUNLU. Uretilen tum mutlak URL'ler (medya, odeme donus yollari)
 # bunu taban alir. Reverse proxy arkasindaysa TrustProxies de ayarlanmali,
 # yoksa X-Forwarded-Proto guvenilmez ve uretilen URL'ler http kalir.
+#
+# 🔴 TrustProxies YALNIZCA URL meselesi DEGIL (23 Eylul notu): istek bir yuk
+# dengeleyiciden (ALB, CloudFront, Cloudflare) geliyorsa ve proxy guvenilir
+# isaretlenmemisse $request->ip() DENGELEYICININ IP'sini doner. Sonuc: butun
+# IP anahtarli kovalar (throttle:api 60/dk, auth, rsvp, media, contact) TUM
+# ziyaretciler icin TEK kova olur ve ip_hash kolonlari anlamsizlasir. Bu ayar
+# .env'de degil bootstrap/app.php'de yapilir ($middleware->trustProxies(...)).
+# Ayni sunucuda nginx + php-fpm (AWS Yol A) bundan etkilenmez.
 APP_URL=https://api.davetkart.com
 
 APP_LOCALE=en
@@ -126,6 +136,11 @@ LOG_DEPRECATIONS_CHANNEL=null
 CORS_ALLOWED_ORIGINS=https://davetkart.com
 
 # --- Odeme -------------------------------------------------------------------
+# 🔴 23 Eylul notu: saglayici buyuk olasilikla SHOPIER (Eylul 2026'da hesap
+# acildi). O gun asagidaki IYZICO_* satirlari SHOPIER_* karsiliklariyla
+# degisir; `payment.webhook.signature_header` Shopier'in klasik akisinda
+# kullanilmaz (imza form govdesinde gelir). Ayrinti:
+# claude/GOZDEN-GECIRME-RAPORU.md §4.
 # 🔴 'iyzico' YAZMADAN ONCE IyzicoGateway yazilmis olmali (9.x, anahtarlar
 # geldiginde). Bugun 'fake' birakmak, bu satiri 'iyzico' yapip surucusuz
 # birakmaktan IYIDIR: K70 geregi bilinmeyen surucu sessizce fake'e DUSMEZ,
@@ -141,6 +156,24 @@ PAYMENT_FAILURE_URL=https://davetkart.com/odeme/hata
 # --- AI asistan --------------------------------------------------------------
 AI_PROVIDER=gemini
 GEMINI_API_KEY=
+# Model adi SABITLENIR ('latest' takma adi yok). config/ai.php varsayilani
+# gemini-2.5-flash ve `thinking_budget: 0` bu modele gore olculdu.
+# ⚠️ Google, 2.5 modellerine erisimi "daha once kullanmis" projelerle
+# sinirladigini duyurdu: YENI bir uretim anahtariyla bu modeli ilk gun dene.
+# 3.x bir modele gecilirse `thinking_budget` yerine `thinkingLevel` gerekir.
+GEMINI_MODEL=gemini-2.5-flash
+
+# --- Hata izleme (Sentry, 21 Eylul 2026) ------------------------------------
+# DSN bos ise SDK sessizce kapalidir. DSN bir YAZMA anahtaridir: repoya girmez.
+SENTRY_LARAVEL_DSN=
+SENTRY_ENVIRONMENT=production
+# Performans izleme (tracing) KAPALI kalir; acilirsa once dusuk oran (0.1).
+SENTRY_TRACES_SAMPLE_RATE=
+# 🔴 false KALMALI (varsayilan): true yapilirsa IP, cerez ve kullanici
+# bilgisi Sentry'ye gider — K14 (KVKK) ile celisir.
+SENTRY_SEND_DEFAULT_PII=false
+# ⚠️ Bugun 4xx is istisnalari (yanlis parola, 402, kota) de Sentry'ye
+# raporlaniyor — kota ve gurultu riski. Bkz. rapor §2 ve rehber/config/sentry.md.
 
 # --- Posta -------------------------------------------------------------------
 # 🔴 K79 hala acik: bildirim kanali secilmedi. 'log' birakmak, gonderilmeyen
@@ -226,6 +259,12 @@ tek satır bile olmaz. Cloudflare arkasındaysan onun da sınırı geçerlidir
 (ücretsiz planda 100 MB).
 
 ### 3. Kuyruk işçisinin belleği ve eklentiler
+
+- **PHP sürümü:** `composer.json` **`^8.5`** istiyor (20 Eylül 2026). Sunucudaki
+  PHP 8.4 veya altındaysa `composer install` platform hatasıyla durur. Ubuntu'da
+  `ppa:ondrej/php`, Elastic Beanstalk'ta ise platform sürümünün 8.5'i
+  desteklediği **önceden** doğrulanmalı (AWS Yol C).
+- **`ext-pdo_pgsql`** `composer.json`'da listelenmiyor ama zorunludur.
 
 - **Eklentiler:** `ext-gd` ve `ext-exif` artık `composer.json`'da **zorunlu**.
   Eksikse `composer install` açık bir hatayla durur — küçültme işinin sessizce

@@ -355,7 +355,9 @@ büyük. Git'e girmediği için önemli değil.
 `composer.json`'daki sürümü değiştirip `composer update`. Bilgisayara dokunmazsınız.
 
 **S: PHP sürümünü nasıl değiştiririm?**
-Herd arayüzünden. Laravel 13 için **PHP 8.3 veya üstü** gerekli.
+Herd arayüzünden. Laravel 13'ün kendi minimumu **PHP 8.3**'tür, ama bu proje
+`composer.json`'da **PHP ^8.5** istiyor (20 Eylül 2026). Herd'de 8.5 seçili
+değilse `composer install` platform hatasıyla durur.
 
 **S: `php artisan serve` yerine Herd'in `.test` adresini kullansam?**
 Kullanabilirsiniz ama `vite.config.ts`'i de güncellemeniz gerekir. Şimdilik

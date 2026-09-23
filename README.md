@@ -1,58 +1,68 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# DavetKart — Backend (PHP · Laravel)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Dijital davetiye SaaS'ının API'si. Kullanıcı davetiye tasarlar, plan satın alır,
+yayınlar; misafirler paylaşılan linkten davetiyeyi görür, LCV bırakır ve
+fotoğraf/video ekler. Frontend ayrı depoda (`davetkart-frontent`, React 19 + TS).
 
-## About Laravel
+> Bu dosya Laravel'in varsayılan README'sinin yerine 23 Eylül 2026'da yazıldı.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Yığın
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| | |
+|---|---|
+| Dil / framework | **PHP ^8.5** · **Laravel 13** · Sanctum 4 |
+| Veritabanı | **PostgreSQL 18** — geliştirme, test ve üretimde aynı motor (K19) |
+| Mimari | Modüler monolit + **Action tabanlı** katman — Repository/Fat Service **yok** |
+| Kalite | Pint · Larastan (level 8) · `errors:export --check` · PHPUnit → `composer check` |
+| Hata izleme | Sentry (DSN boşsa kapalı) |
+| CI | GitHub Actions — `composer check` + `composer audit` |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Hızlı başlangıç (Windows + Laravel Herd)
 
-## Learning Laravel
+```powershell
+composer install
+copy .env.example .env          # DB_PASSWORD'ü doldur
+php artisan key:generate
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+# pgAdmin'de iki veritabanı: davetkart ve davetkart_test
+php artisan migrate
+php artisan storage:link        # onsuz her medya URL'i 404
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+php artisan serve               # http://127.0.0.1:8000
+php artisan queue:work          # görsel optimizasyonu ve gecikmeli silme
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Frontend (`npm run dev`, port 3000) `/api` ve `/storage` isteklerini Vite proxy'si
+ile 8000'e yollar; yerelde CORS devreye girmez.
 
-## Contributing
+## Komutlar
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+| Komut | Ne yapar |
+|---|---|
+| `composer check` | Faz bitiş kapısı: pint → phpstan → errors:export → testler (fail-fast, **son satıra bak**) |
+| `composer lint` | Kod stilini düzeltir (`check` yalnızca bakar) |
+| `php artisan errors:export` | `contracts/error-codes.json`'u üretir (frontend'e tek yönlü kopyalanır) |
+| `php artisan orders:expire --dry-run` | Süresi dolmuş bekleyen siparişler |
+| `php artisan media:prune-orphans --dry-run` | LCV'ye bağlanmamış misafir yüklemeleri |
+| `php artisan schedule:list` | Zamanlanmış 3 bakım işi |
 
-## Code of Conduct
+## Sözleşme (kırılırsa frontend kırılır)
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- Rotalar `/api/...` — **`/api/v1/...` değil**; sürüm controller namespace'inde
+- Auth yanıtı zarfsız `{user, token}`; diğer her şey `{data: ...}`
+- Hata: `{error: {code, fields?, params?}}` — **metin yok** (`docs/08`)
+- Auth gerektirmeyen her rota `/api/public/` altında
+- Sahiplik yoksa **404**; `id`'ler string (ULID)
 
-## Security Vulnerabilities
+## Dokümanlar
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+| Nereden başla | |
+|---|---|
+| `CLAUDE.md` | Bağlayıcı kod standartları |
+| `claude/GOZDEN-GECIRME-RAPORU.md` | 🔴 23 Eylül 2026 tam gözden geçirme — açık bulgular |
+| `claude/FAZ-9-DEVIR.md` | Devir dosyası (yeni geliştirici / asistan) |
+| `docs/11-PROJE-TARIHCESI-VE-IS-AKISLARI.md` | Uçtan uca giriş: mimari, iş akışları, 22 uçluk harita |
+| `docs/08-HATA-SOZLESMESI.md` | Hata sözleşmesi |
+| `docs/10-URETIM-ENV-SABLONU.md` | Üretim `.env` şablonu ve kurulum sırası |
+| `docs/rehber/` | Her kod dosyasının eğitim kılavuzu (yol birebir: `app/X.php` → `docs/rehber/app/X.md`) |
+| `docs/rehber/fazlar/` | Faz özetleri ve elle doğrulama betikleri |

@@ -17,16 +17,20 @@
 
 Backend bittiğinde ortaya çıkan şey:
 
-**7 tablo · 20 endpoint · 7 bounded context · 9 faz**
+> 🔴 **23 Eylül 2026 — gerçekleşen hâl.** Plan *"7 tablo · 20 endpoint"* diyordu;
+> backend **8 iş tablosu · 22 uç** (+ `GET /api/ping`, `/up`) ile bitti. Aşağıdaki
+> tablo gerçekleşeni gösterir. Tam uç listesi: `docs/11` Ek A.
+
+**8 tablo · 22 endpoint · 7 bounded context · 9 faz (+ Faz 9 sonrası eklemeler)**
 
 | Modül (bounded context) | Tablo | Endpoint | Hangi fazda |
 |---|---|---|---|
 | Auth | `users` | 4 | 2 |
-| Invitation | `invitations`, `timeline_events` | 6 | 3 · 4 |
+| Invitation | `invitations`, `timeline_events` | 7 (CRUD 5 + publish + public okuma) | 3 · 4 · 7 |
 | RSVP | `rsvps` | 3 | 5 |
-| Media | `media` | 2 | 6 |
-| Payment | `orders` | 2 | 7 |
-| Assistant | — | 1 | 8 |
+| Media | `media` | 3 (sahip yükleme + **sahip silme** + misafir yükleme) | 6 · 9+ |
+| Payment | `orders` | 3 (tekil + paket checkout + webhook) | 7 · 9 |
+| Assistant | `assistant_usages` | 1 | 8 |
 | Contact | `contact_messages` | 1 | 8 |
 
 > `personal_access_tokens` (Sanctum) ve Laravel'in `sessions`/`cache`/`jobs`
@@ -41,11 +45,15 @@ Backend bittiğinde ortaya çıkan şey:
 | **2** | **Auth özellik dilimi** 🎯 walking skeleton | **Giriş / kayıt** ✅ | 10 → **17** | ✅ |
 | **3** | **Invitation CRUD + Policy + Resource ailesi** | **Dashboard + editör autosave** ✅ | 12 → **12 + 8 FE** | ✅ |
 | **4** | Public davetiye + cache + ETag 🔥 | `/invite/{id}` sayfası ✅ | 6 → **8 + 2 FE** | ✅ |
-| **5** | RSVP (public submit + owner list) | LCV gönderimi + canlı panel ⬜ | 10 → **16** | ⚠️ 17/17 adım ✅ · **doğrulama bekliyor** |
-| **6** | Media + Job | Galeri yüklemesi | 7 | ⬜ **SIRADAKİ** |
-| **7** | `TierResolver` + Payment + publish 🔴 | Yayınlama + paywall | 12 | ⬜ |
-| **8** | AI proxy + Contact | Asistan, iletişim formu | 6 | ⬜ |
-| **9** | Üretim hazırlığı | — | — | ⬜ |
+| **5** | RSVP (public submit + owner list) | LCV gönderimi + canlı panel ✅ (FE yakalama) | 10 → **16** | ⚠️ kod ✅ · `composer check` ✅ · elle doğrulama ⬜ |
+| **6** | Media + Job | Galeri + LCV medyası ✅ (FE yakalama) | 7 → **24** | ⚠️ kod ✅ · `composer check` ✅ · elle doğrulama ⬜ |
+| **7** | `TierResolver` + Payment + publish 🔴 | Yayınlama + paywall ✅ (FE yakalama) | 12 → **25** | ⚠️ kod ✅ · `composer check` ✅ · elle doğrulama ⬜ |
+| **8** | AI proxy + Contact | Asistan, iletişim formu ✅ (FE yakalama) | 6 → **21** | ⚠️ kod ✅ · `composer check` ✅ · elle doğrulama ⬜ |
+| **9** | Üretim hazırlığı | — | 7 → **14** | ⚠️ kod ✅ · `composer check` ✅ (238 test) · elle doğrulama ⬜ |
+| **9+** | Galeri silme, görsel optimizasyonu, PHP ^8.5, Sentry, Gemini 2.5, CI (17–21 Eylül) | Galeri silme ✅ | — | ⚠️ kod ✅ · `composer check` **kayıt yok** |
+
+> 🔴 Bu tablo 23 Eylül 2026'da güncellendi. Backend kodu bitti; bulgular ve kalan
+> işler: `claude/GOZDEN-GECIRME-RAPORU.md`.
 
 ## 3. Bağımlılık akışı
 
@@ -817,7 +825,7 @@ ayakta kalıyor.
 | 9.13 | `.env.example` + `docs/10-URETIM-ENV-SABLONU.md` | ✅ |
 | 9.14 | `FAZ-9.md` + elle doğrulama + bu dosya | ✅ |
 | — | **Redis + S3 + kuyruk süpervizörü** | ⬜ **ertelendi (K80)** |
-| — | **`IyzicoGateway` + imza + replay penceresi** | ⬜ **ertelendi** — sandbox anahtarı yok |
+| — | **`IyzicoGateway` + imza + replay penceresi** | ⬜ **ertelendi** — sandbox anahtarı yok. 🔴 Eylül 2026: sağlayıcı olarak **Shopier** hesabı açıldı; arayüz uyumu `claude/GOZDEN-GECIRME-RAPORU.md` §4'te |
 | — | **Argon2id ölçümü · log rotasyonu · yedekleme** | ⬜ sunucu tarafı |
 
 > ⚠️ **Bu liste Faz 3'ten önce yazılan 7 satırlık kaba planın yerini alır.**

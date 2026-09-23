@@ -1,6 +1,6 @@
 # DavetKart Backend Geliştirme Standartları
 
-Bu proje **PHP 8.3+ ve Laravel 13** kullanılarak, **Modüler Monolit** (Modular Monolith) mimarisi ile geliştirilmektedir. Yeni kod yazarken veya mevcut kodu güncellerken aşağıdaki kurallara **kesinlikle** uyulmalıdır.
+Bu proje **PHP 8.5+ ve Laravel 13** kullanılarak (`composer.json` → `"php": "^8.5"`, 20 Eylül 2026'dan beri), **Modüler Monolit** (Modular Monolith) mimarisi ile geliştirilmektedir. Yeni kod yazarken veya mevcut kodu güncellerken aşağıdaki kurallara **kesinlikle** uyulmalıdır.
 
 ## 1. Mimari Katmanlar ve Kurallar
 
