@@ -2,9 +2,9 @@
 
 > **Kod dosyası:** `tests/Feature/RsvpTest.php`
 > **Faz:** 5 — RSVP/LCV dilimi (5.13) · **Yeniden yazım:** Test denetimi, dosya 1/14 (24 Eylül 2026)
-> **46 test metodu · 86 vaka** (7'si veri sağlayıcılı) · **79 yeşil · 7 kırmızı**
-> 🔴 **Kırmızılar bilerek bırakıldı:** her biri bir **KOD HATASI**'nı gösteriyor (§4).
-> Test gevşetilmedi — kod düzeltilince yeşile döner.
+> **46 test metodu · 86 vaka** (7'si veri sağlayıcılı) · **86 yeşil · 0 kırmızı**
+> ✅ **7 kırmızı vaka 25 Eylül 2026'da kodla yeşile döndü** (§4): her biri bir
+> **KOD HATASI**'nı gösteriyordu. Test gevşetilmedi — düzeltilen kod oldu.
 > **Kardeş dosyalar:** [`MediaTest.md`](MediaTest.md) (LCV'ye medya iliştirme) ·
 > [`PaywallTest.md`](PaywallTest.md) (plan → kota bağlantısı)
 
@@ -433,12 +433,13 @@ Her satır: üretim kodunda **tek bir değişiklik**, ardından yalnızca
 
 ---
 
-## 4. 🔴 KIRMIZI testler = KOD HATALARI
+## 4. 🔴 KIRMIZI testler = KOD HATALARI (✅ 25 Eylül 2026'da düzeltildi)
 
-Dört test metodu (7 vaka) bilerek kırmızı. **Hiçbiri testin hatası değil.**
-Her biri için üretimde ne olduğunu, kanıtı ve düzeltme seçeneklerini aşağıda
-bulacaksın. Düzeltmeler **sıradaki adımlardır** — her biri tek dosya, senin
-onayınla.
+Dört test metodu (7 vaka) bilerek kırmızı bırakılmıştı. **Hiçbiri testin hatası
+değildi.** Her biri için üretimde ne olduğunu, kanıtı ve düzeltme seçeneklerini
+aşağıda bulacaksın; her alt başlığın sonundaki **✅ Uygulanan** satırı hangi
+seçeneğin, hangi dosyada uygulandığını söyler. Testlerin tek bir satırı
+değişmedi.
 
 ### 4.1 NUL baytı: yanıt ile satır farklı, `min:2` atlatılıyor (4 vaka)
 
@@ -479,6 +480,13 @@ istemcidir. Alan bazında kullanıcı dostu hata mesajına ihtiyaç yok. Bu yüz
 öneri A. B'yi seçersen bu testteki iki satır `assertStatus(422)` +
 `ValidationFailed` olur; testin geri kalanı değişmez.
 
+**✅ Uygulanan: A.** `app/Http/Middleware/RejectMalformedInput.php`, `api`
+grubunda, öncelik listesinde `SubstituteBindings`'in önünde (throttle'lar önce,
+rota model bağlama sonra — bozuk istek veritabanına sorgu açtırmaz). `api`
+grubunda durduğu için yukarıda sayılan davetiye başlığı, kayıt adı ve e-posta
+uçları da aynı kapıdan geçer. Ayrıntı:
+[`RejectMalformedInput.md`](../../app/Http/Middleware/RejectMalformedInput.md).
+
 ### 4.2 Yarım kalmış JSON "geçersiz" değil "bozuk"tur (1 vaka)
 
 **Kanıt:** kapanış parantezi eksik bir gövde bugün `422` + üç alanda `required`
@@ -489,6 +497,10 @@ kesildi** (mobil bağlantı koptu, bir proxy gövdeyi kırptı).
 biçimsel olarak bozuk — `MALFORMED_REQUEST`"*. `ErrorCode::MalformedRequest` katalogda duruyor ama LCV
 ucunda hiçbir yol onu üretmiyor. Laravel geçersiz JSON'u sessizce **boş gövde**
 sayar; kararı bizim vermemiz gerekir. 4.1'in A seçeneği bunu da kapsar.
+
+**✅ Uygulanan:** 4.1 ile aynı middleware. `Content-Type` JSON ise ve gövde
+**boş değilse** `json_validate()` ile sınanır; gövdesiz bir `DELETE` bozuk
+sayılmaz.
 
 ### 4.3 `true` bir kişi sayısı değildir (1 vaka)
 
@@ -509,6 +521,13 @@ PHP `int`'i kabul eder). Kural **adı** `integer` kalır, D6 bozulmaz. Tek
 yan etki: `"3"` gibi **metin** sayılar da reddedilir. Frontend JSON ile sayı
 gönderdiği için sorun değil — ama karar senin.
 
+**✅ Uygulanan:** `StoreRsvpRequest`'te `guestCount` → `integer:strict`.
+`ApiExceptionRenderer::RULE_PARAM_NAMES`'e `'integer' => []` eklendi: yoksa
+`strict` kelimesi hataya `params.values: ["strict"]` olarak sızardı. Yanıt
+eskisiyle birebir aynı: `{"rule": "integer"}`.
+⚠️ **Açık kalan:** `giftOptions` dizisindeki `[true, 500]` bu düzeltmenin
+kapsamında **değil** — `InvitationRequest`'teki kural hâlâ düz `integer`.
+
 ### 4.4 `Retry-After` başlığı vaat ediliyor, gönderilmiyor (1 vaka)
 
 **Kanıt:** 429 yanıtında gövdede `params.retryAfter: 60` var, **başlık yok**.
@@ -526,6 +545,14 @@ sağlayıcı hatası (503) yanıtlarında da var.
 **Düzeltme (D-3):** renderer'da `HttpExceptionInterface::getHeaders()` yanıta
 eklenir; `HasErrorCode` exception'ları için `retryAfter` parametresinden başlık
 türetilir. Tek dosya.
+
+**✅ Uygulanan (öneriden bir farkla):** başlık **yalnızca** beyaz listeden
+geçmiş `retryAfter` parametresinden türetilir (`ApiExceptionRenderer::headers()`).
+Exception'ın kendi başlıkları **kopyalanmaz**: 405, **H7** gereği 404 olarak
+döner ama `MethodNotAllowedHttpException` bir `Allow` başlığı taşır. Kopyalansaydı
+404 yanıtı "bu rota var, şu metotlarla" derdi. `retryAfter`'ı yalnızca 429 ve
+503 kodları beyaz listeye aldığı için başlık kendiliğinden doğru durumlarla
+sınırlı kalır ve yukarıda sayılan bütün uçları kapsar.
 
 ---
 
@@ -643,8 +670,8 @@ yazım hatası o zaman analizde yakalanır.
 php artisan test --filter=RsvpTest
 ```
 
-Beklenen: **86 vaka, 79 yeşil, 7 kırmızı**. Kırmızıların adları tam olarak
-şunlar olmalı — başka bir kırmızı varsa ortam farkıdır, bana gönder:
+Beklenen: **86 vaka, 86 yeşil**. Bir kırmızı görürsen ortam farkıdır, bana gönder.
+(25 Eylül 2026'dan önce bu dört test bilerek kırmızıydı — §4.)
 
 ```text
 a_boolean_is_not_a_party_size
@@ -657,9 +684,8 @@ a_rate_limited_reply_carries_the_retry_after_header
 composer check
 ```
 
-🔴 Bu komut **kırmızı biter** ve bu bekleniyor: `pint` ve `phpstan` yeşil
-geçmeli, `errors:export --check` yeşil, testler 7 kırmızıyla durmalı. Zincir
-fail-fast olduğu için **SON** satıra bak.
+✅ Bu komut **yeşil biter**: `pint`, `phpstan`, `errors:export --check` ve
+testlerin tamamı. Zincir fail-fast olduğu için bir şey kırılırsa **SON** satıra bak.
 
 **Elle mutasyon (kural 14):** `app/Http/Controllers/Api/V1/RsvpController.php`'de
 `$invitation->rsvps()` yerine `\App\Models\Rsvp::query()` yaz, testi koş.
@@ -687,15 +713,14 @@ dosyada bu mutant **yaşıyordu**. Sonra geri al (`git checkout -- app/`).
 
 ## 9. Sıradaki
 
-**Cevabını beklediğim kararlar:**
+**Kararlar** (✅ 25 Eylül 2026'da öneriler uygulandı, ayrıntı §4):
 
-| # | Karar | Öneri |
+| # | Karar | Uygulanan |
 |---|---|---|
-| D-1 | NUL baytı: 400 (global) mı, 422 (alan başına) mı? | 400 — tek middleware |
-| D-2 | `integer` → `integer:strict` | Evet |
-| D-3 | Renderer 429/503'te `Retry-After` başlığını göndersin | Evet — sözleşme zaten söylüyor |
+| D-1 | NUL baytı: 400 (global) mı, 422 (alan başına) mı? | ✅ 400 — tek middleware (`RejectMalformedInput`) |
+| D-2 | `integer` → `integer:strict` | ✅ `guestCount` için · `giftOptions` açık |
+| D-3 | Renderer 429/503'te `Retry-After` başlığını göndersin | ✅ `retryAfter` parametresinden türetilerek |
 
-Kararlardan sonra düzeltmeler **tek dosya** hâlinde gelir; her biri bu dosyadaki
-bir kırmızıyı yeşile çevirir. Denetimin sıradaki test dosyası
+Denetimin sıradaki test dosyası
 **`InvitationTest.php`** — orada bu dosyadakilerden daha ağır bir bulgu var
 (yayından sonra paywall aşılıyor); ayrıntı denetim raporunda.

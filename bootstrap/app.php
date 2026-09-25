@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 use App\Exceptions\ApiExceptionRenderer;
 use App\Http\Middleware\ForceJsonResponse;
+use App\Http\Middleware\RejectMalformedInput;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Sentry\Laravel\Integration;
 
 // Not: `use Throwable;` YOK. Bu dosyanin namespace'i yok, yani zaten global
@@ -33,6 +35,15 @@ return Application::configure(basePath: dirname(__DIR__))
         // AppServiceProvider::apiLimits(). Gruba EKLENIR, basa degil:
         // ForceJsonResponse once calismali ki 429 yaniti da JSON olsun (M3).
         $middleware->throttleApi();
+
+        // Bozuk girdi (yarim JSON, NUL bayti) -> 400. Gruba EKLENIR ama oncelik
+        // listesinde SubstituteBindings'in ONUNE alinir. Iki sonucu var:
+        //   - Throttle'lar (throttle:api ve rota seviyesindeki throttle:rsvp)
+        //     ondan ONCE calisir: bozuk istek yagdiran bot da kovayi doldurur.
+        //   - Rota model baglama ondan SONRA calisir: bozuk istek veritabanina
+        //     hic sorgu actirmaz (O6'nin ayni gerekcesi).
+        $middleware->appendToGroup('api', RejectMalformedInput::class);
+        $middleware->prependToPriorityList(SubstituteBindings::class, RejectMalformedInput::class);
 
         // Sertlestirme basliklari GLOBAL yigina eklenir, 'api' grubuna degil:
         // /up saglik sondasi ve rota eslesmeyen 404'ler de tarayiciya gider ve

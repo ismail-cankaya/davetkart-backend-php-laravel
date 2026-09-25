@@ -67,9 +67,15 @@ final class StoreRsvpRequest extends FormRequest
             // 🔴 Ust sinir CONFIG'ten: kisit degil is tercihi (E6). max kurali
             // 'max' parametresini yanita verir ve H9 beyaz listesi buna izin
             // verir — kullanici zaten formda goruyor.
+            //
+            // 🔴 'integer:strict', 'integer' DEGIL: duz kural filter_var kullanir
+            // ve PHP true'yu "1"e cevirir — {"guestCount": true} 1 kisilik kayit
+            // yaziyordu (kilavuz §4.3, D-2). Strict yalnizca gercek int kabul
+            // eder; "3" gibi METIN sayilar da reddedilir (frontend JSON sayi
+            // gonderiyor). Kural ADI 'integer' kalir, D6 bozulmaz.
             'guestCount' => [
                 'required',
-                'integer',
+                'integer:strict',
                 'min:1',
                 'max:'.Config::integer('davetkart.rsvp.max_guests_per_entry'),
             ],

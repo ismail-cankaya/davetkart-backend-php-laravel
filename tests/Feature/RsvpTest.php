@@ -26,7 +26,8 @@ use Tests\TestCase;
  * LCV (RSVP) yolu — gercek bir dugunun verisiyle, katman katman.
  *
  * Her yazma testi VERITABANINI, her okuma testi TAM anahtar kumesini dogrular (T14).
- * 🔴 Dort test KOD HATASI yuzunden bilerek KIRMIZI: kilavuz §4.
+ * 🔴 Dort test bir KOD HATASINI gosteriyordu ve bilerek KIRMIZIYDI; kod
+ * duzeltildi, test gevsetilmedi (kilavuz §4, 25 Eylul 2026).
  * Ayrintili aciklama: docs/rehber/tests/Feature/RsvpTest.md
  */
 final class RsvpTest extends TestCase
@@ -381,8 +382,8 @@ final class RsvpTest extends TestCase
     }
 
     /**
-     * 🔴 KOD HATASI (kilavuz §4.3): Laravel'in `integer` kurali `true`yu 1 sayar.
-     * Bugun 201 doner ve 1 kisilik kayit yazilir.
+     * 🔴 Eski KOD HATASI (kilavuz §4.3): Laravel'in duz `integer` kurali `true`yu 1
+     * sayar; 201 donup 1 kisilik kayit yaziliyordu. Duzeltme: `integer:strict`.
      */
     #[Test]
     public function a_boolean_is_not_a_party_size(): void
@@ -406,8 +407,9 @@ final class RsvpTest extends TestCase
     }
 
     /**
-     * 🔴 KOD HATASI (kilavuz §4.1): PostgreSQL metni NUL'da KESER. Bugun 201 doner,
-     * yanitta tam metin, satirda "Zeynep" yazar — "Z" ise min:2'yi atlatir.
+     * 🔴 Eski KOD HATASI (kilavuz §4.1): PostgreSQL metni NUL'da KESER. 201 donuyordu,
+     * yanitta tam metin, satirda "Zeynep" — "Z" ise min:2'yi atlatiyordu.
+     * Duzeltme: RejectMalformedInput middleware'i.
      */
     #[Test]
     #[DataProvider('nulBaytliMetinler')]
@@ -423,8 +425,9 @@ final class RsvpTest extends TestCase
     }
 
     /**
-     * 🔴 KOD HATASI (kilavuz §4.2): yarim kalmis JSON bugun 422 + uc 'required' alir —
-     * istemciye "isim gondermedin" der, oysa gonderdi. docs/08: bicimsel bozukluk 400'dur.
+     * 🔴 Eski KOD HATASI (kilavuz §4.2): yarim kalmis JSON 422 + uc 'required' aliyordu —
+     * istemciye "isim gondermedin" diyordu, oysa gonderdi. docs/08: bicimsel bozukluk
+     * 400'dur. Duzeltme: RejectMalformedInput middleware'i.
      */
     #[Test]
     public function a_truncated_json_body_is_malformed_not_invalid(): void
@@ -734,8 +737,9 @@ final class RsvpTest extends TestCase
     }
 
     /**
-     * 🔴 KOD HATASI (kilavuz §4.4): docs/08 §4.1 "Retry-After basligi 429 ile gonderilir" diyor.
-     * Bugun yalnizca govdede `params.retryAfter` var; ApiExceptionRenderer basliklari dusuruyor.
+     * 🔴 Eski KOD HATASI (kilavuz §4.4): docs/08 §4.1 "Retry-After basligi 429 ile gonderilir"
+     * diyor, ama yalnizca govdede `params.retryAfter` vardi. Duzeltme:
+     * ApiExceptionRenderer::headers() basligi o parametreden turetir.
      */
     #[Test]
     public function a_rate_limited_reply_carries_the_retry_after_header(): void

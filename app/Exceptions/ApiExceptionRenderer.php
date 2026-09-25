@@ -37,6 +37,11 @@ final class ApiExceptionRenderer
         'digits_between' => ['min', 'max'],
         'gt' => ['value'],
         'gte' => ['value'],
+
+        // Bos liste = "parametresi disari cikmaz". 'integer:strict'in 'strict'i
+        // bir uygulama ayari, istemciye bilgi degil; yoksa 'values' altinda sizardi.
+        'integer' => [],
+
         'lt' => ['value'],
         'lte' => ['value'],
         'max' => ['max'],
@@ -67,7 +72,28 @@ final class ApiExceptionRenderer
             $payload['debug'] = $this->debug($e);
         }
 
-        return response()->json(['error' => $payload], $code->status());
+        return response()->json(['error' => $payload], $code->status(), $this->headers($params));
+    }
+
+    /**
+     * 08 §4.1: Retry-After basligi 429 ve 503 ile gonderilir (RFC 9110 §10.2.3).
+     *
+     * 🔴 Deger beyaz listeden GECMIS params'tan turetilir; exception'in kendi
+     * basliklari kopyalanmaz. Sebep: 405, H7 geregi 404 olarak doner ama
+     * MethodNotAllowedHttpException 'Allow' basligi tasir — kopyalansaydi 404
+     * yaniti "bu rota var, su metotlarla" derdi. 'retryAfter'i yalnizca 429 ve
+     * 503 kodlari beyaz listeye aliyor; baslik boylece kendiliginden dogru
+     * durumlarla sinirli kalir.
+     *
+     * @param  array<string, mixed>  $params
+     *
+     * @return array<string, string>
+     */
+    private function headers(array $params): array
+    {
+        $retryAfter = $params['retryAfter'] ?? null;
+
+        return is_int($retryAfter) ? ['Retry-After' => (string) $retryAfter] : [];
     }
 
     /** Exception turunu sozlesmedeki hata koduna esler. */
