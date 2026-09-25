@@ -737,6 +737,25 @@ sistem 503 dönüp ayakta kalıyor. (Dil maddesi **kaldırıldı** — K21.)
 
 ---
 
+### FAZ 10 — Sertleştirme ve lansman eksikleri 📋 PLANLANDI (25 Eylül 2026)
+
+| Dilim | Konu | Adımlar |
+|:---:|---|---|
+| 0 | Denetim sonrası ilk düzeltmeleri doğrula (`ef7c692`, K91–K93) | 10.0 |
+| **A** 🔴 | Yayın sonrası paywall (K88) · `OrderStatus::Expired` (K89) | 10.1–10.9 |
+| **B** 🟠 | Token 30 gün (K90) · e-posta `İ` · Sentry 4xx · TrustProxies · `mapUrl`/`integer:strict` · bozuk girdi testleri | 10.10–10.20 |
+| **C** 🟠 | `publishedAt` · `GET /orders` · ödeme dönüş sayfası (FE) | 10.21–10.29 |
+| **D** 🟠 | Parola sıfırlama · hesap silme · saklama süreleri (KVKK) | 10.30–10.46 |
+| **E** 🟡 | Test denetiminin kalan 8 dosyası | 10.47–10.54 |
+| **F** 🟡 | Ürün/operasyon kararları (K43, mükerrer LCV, hız sınırları…) | 10.55–10.66 |
+| **G** 💳 | Shopier entegrasyonu | 10.67–10.75 |
+| **H** 🟢 | Temizlik (K87: `phpVersion 80500`) | 10.76–10.81 |
+| **Z** | Kapanış | 10.82–10.84 |
+
+Tam plan, kararlar ve tuzaklar: [`../claude/FAZ-10-PLANI.md`](../claude/FAZ-10-PLANI.md).
+
+---
+
 ## 5. Faz özeti
 
 | Faz | Konu | Frontend'de ne çalışır | Tahmini dosya |
@@ -807,9 +826,11 @@ sistem 503 dönüp ayakta kalıyor. (Dil maddesi **kaldırıldı** — K21.)
 > | 9+ (17-21 Eylül) | ✅ galeri silme · `DeleteReplacedMediaFile` · PHP ^8.5 · Sentry · Gemini 2.5 · CI | ❓ **kayıt yok** — 274 test metodu | ⬜ |
 > | Frontend yakalama (F1-F7) | ✅ 13-16 Eylül | `npm run check` | ⬜ F8 (17 senaryo) |
 >
-> 🔴 **Sıradaki iş:** raporun §1'indeki iki kritik bulgu (yayın sonrası paywall
-> aşımı, geç gelen ödemenin kaybolması) → `composer check` → Faz 5-9 elle doğrulama
-> + frontend F8 → ödeme sağlayıcısı (Shopier) entegrasyonu.
+> 🔴 **Sıradaki iş (25 Eylül 2026): FAZ 10 — Sertleştirme ve lansman eksikleri.**
+> Plan: `claude/FAZ-10-PLANI.md` (85 adım: 10.0–10.84, 9 dilim; kritikten düşüğe). İlk adım 10.0:
+> denetim sonrası ilk düzeltmelerin (`ef7c692`: `RejectMalformedInput`, `Retry-After`,
+> `integer:strict`) PHP 8.5 ile `composer check` kaydı. Kaynaklar: gözden geçirme raporu +
+> `claude/TEST-DENETIMI-2026-09-24.md`.
 >
 > Aşağıdaki blok **4 Eylül 2026** tarihli tarihsel kayıttır.
 

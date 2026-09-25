@@ -33,8 +33,9 @@ satın alır**, yayınlar, linkini paylaşır; misafirler linkten davetiyeyi gö
 **Faz 9 kod ✅ · `composer check` YEŞİL (238 test, 11 Eylül)** / elle doğrulama ⬜ ·
 **Faz 9 sonrası eklemeler** kod ✅ / `composer check` **kayıt yok** (274 test metodu) ·
 **Frontend yakalama F1–F7 ✅**
-**Sıradaki: 🔴 `GOZDEN-GECIRME-RAPORU.md` §1'in iki kritik bulgusu** → `composer check`
-→ Faz 5-9 + frontend F8 elle doğrulama → ödeme sağlayıcısı (**Shopier**).
+**Sıradaki (25 Eylül): 🔴 FAZ 10** — plan `claude/FAZ-10-PLANI.md`. İlk adım 10.0
+(`ef7c692`'nin PHP 8.5 ile `composer check` kaydı), sonra Dilim A: yayın sonrası paywall (K88) ve
+`OrderStatus::Expired` (K89).
 
 ---
 
