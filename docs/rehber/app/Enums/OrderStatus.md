@@ -1,11 +1,13 @@
 # `app/Enums/OrderStatus.php`
 
 > **Kod dosyası:** `app/Enums/OrderStatus.php`
-> **Faz:** 7 — Ödeme ve paywall, dosya 7.1
+> **Faz:** 7 — Ödeme ve paywall, dosya 7.1 · 🆕 **Faz 10**, adım 10.3 (§11: `expired`)
 > **Birlikte değişenler:** `..._create_orders_table.php` (CHECK kısıtı),
-> `app/Models/Order.php` (cast), `HandlePaymentCallbackAction`
+> `app/Models/Order.php` (cast), `HandlePaymentCallbackAction` ·
+> Faz 10: `2026_09_25_100000_add_expired_to_orders_status.php` (CHECK'in yeniden
+> kurulması), `ExpireStaleOrders` (yazan), `tests/Unit/OrderStatusTest.php`
 > **Kaynağı:** `docs/09-TUM-FAZLAR-PLANI.md` §Faz 7 → *"7.1 `OrderStatus`
-> `pending | paid | failed | refunded`"*
+> `pending | paid | failed | refunded`"* · Faz 10: **K89**
 
 ---
 
@@ -45,7 +47,7 @@ bir ham değeri vardır.
 | Case'ten değere | `OrderStatus::Paid->value` | `'paid'` |
 | Değerden case'e (katı) | `OrderStatus::from('paid')` | `OrderStatus::Paid` |
 | Değerden case'e (yumuşak) | `OrderStatus::tryFrom('xyz')` | `null` |
-| Tüm case'ler | `OrderStatus::cases()` | `[Pending, Paid, Failed, Refunded]` |
+| Tüm case'ler | `OrderStatus::cases()` | `[Pending, Paid, Failed, Expired, Refunded]` |
 
 TypeScript'teki karşılığı `type OrderStatus = 'pending' | 'paid' | ...`'dır ama
 PHP enum'u **davranış da taşıyabilir** — aşağıdaki üç metot tam olarak bu.
@@ -90,11 +92,15 @@ aranırdı (`OrderEntitlementResolver`, `SubscriptionRsvpQuotaResolver`,
 
 ```php
 pending ──→ paid ──→ refunded
+   │          ▲
+   │          │ (Faz 10: geç gelen ödeme)
+   ├────→ expired
    └────→ failed
 ```
 
 Bu bir **durum makinesidir (state machine)**: geçerli olan sadece geçişlerdir,
-durumların kendisi değil.
+durumların kendisi değil. Faz 7'deki hâli yalnızca `pending → paid | failed` ve
+`paid → refunded` idi; `expired` ve ondan `paid`'e dönen ok Faz 10'da geldi (§11).
 
 🔴 En önemli satır **olmayan** satırdır: `paid → paid` yasak.
 
@@ -137,10 +143,21 @@ yazmak kadar önemlidir"*) yeni bir örneği olurdu.
 
 ## 5. `isFinal()` neden var?
 
-Süresi dolmuş siparişleri temizleyen iş (`order_expires_after_minutes`,
-`config/payment.php`) yalnızca **durulmamış** satırlara dokunmalıdır. `isFinal()`
-bu soruyu tek yerde cevaplar; "pending değilse" kontrolünü üç ayrı yere yazmak
-K50'nin yasakladığı dağılmadır.
+Faz 7'de yazılırken gerekçe şuydu: süresi dolmuş siparişleri temizleyen iş
+yalnızca **durulmamış** satırlara dokunmalıdır ve *"pending değilse"* kontrolü
+tek yerde durmalıdır.
+
+🔴 **Faz 10'da iki gerçek ortaya çıktı** ve metot değişti (§11.4):
+
+1. **Kimse çağırmıyordu.** Faz 9'da yazılan `orders:expire` doğrudan
+   `where('status', Pending)` kullandı — ve doğru olan oydu (sorgunun
+   kapsamında, E2). `isFinal()` dokuz fazdır ölü kod (ders 26).
+2. **Gövdesi yalan söylüyordu.** `return $this !== self::Pending;` → `paid`
+   *"sonlu"* diyordu, oysa `paid → refunded` meşru. `expired` eklenince yalan
+   büyüyecekti: `expired → paid` meşru ama metot *"sonlu"* diyecekti.
+
+Artık cevap **durum makinesinden türetiliyor**: gidebileceği hiçbir durum
+yoksa sonludur. Bugün yalnızca `failed` ve `refunded`.
 
 ---
 
@@ -170,6 +187,9 @@ Faz 5'in **26. dersi** (`RsvpStatus::label()` tam olarak bu yüzden yazılmadı)
 | 4 | Durum makinesini yeterli idempotans sanmak | İki eşzamanlı webhook aynı `pending`'i okur (E9); kilit şart |
 | 5 | `grantsPublishRight()` yerine sorguya `where('status','paid')` yazmak | Kural üç dosyaya dağılır (K50 ihlali) |
 | 6 | Enum'a `label()` eklemek | K21 ihlali + çağrılmayan ölü kod (ders 26) |
+| 7 | 🆕 "Bekledik, gelmedi" ile "sağlayıcı reddetti"yi aynı değere yazmak | Geç gelen ödeme sessizce yutulur (Faz 9 → 10, K-4) |
+| 8 | 🆕 Türetilebilecek bir cevabı (`isFinal`) elle yazmak | Yeni durum eklenince metot sessizce yalan söyler |
+| 9 | 🆕 `expired`'i `hasBeenPaid()`'e eklemek | `orders_paid_at_check` her süresi dolmuş satırda `paid_at` ister — yazılamaz |
 
 ---
 
@@ -179,7 +199,7 @@ Faz 5'in **26. dersi** (`RsvpStatus::label()` tam olarak bu yüzden yazılmadı)
 // php artisan tinker
 use App\Enums\OrderStatus;
 
-OrderStatus::values();                                    // ['pending','paid','failed','refunded']
+OrderStatus::values();                                    // ['pending','paid','failed','expired','refunded']
 OrderStatus::default();                                   // OrderStatus::Pending
 OrderStatus::Paid->grantsPublishRight();                  // true
 OrderStatus::Pending->grantsPublishRight();               // false
@@ -187,6 +207,9 @@ OrderStatus::Pending->grantsPublishRight();               // false
 OrderStatus::Pending->canTransitionTo(OrderStatus::Paid); // true
 OrderStatus::Paid->canTransitionTo(OrderStatus::Paid);    // 🔴 false — webhook tekrarı burada eleniyor
 OrderStatus::Failed->canTransitionTo(OrderStatus::Paid);  // false
+OrderStatus::Expired->canTransitionTo(OrderStatus::Paid); // 🆕 true — geç gelen ödeme (K89)
+OrderStatus::Expired->grantsPublishRight();               // false
+OrderStatus::Paid->isFinal();                             // false — iade edilebilir
 OrderStatus::tryFrom('chargeback');                       // null
 ```
 
@@ -210,7 +233,7 @@ doğruluyordur (T14).
 
 ---
 
-## 10. Sırada ne var?
+## 10. Sırada ne vardı? (Faz 7)
 
 **7.2 — `..._create_orders_table.php`.** Fazın ticari çekirdeğinin şeması:
 `provider_ref` UNIQUE (idempotansın veritabanı yarısı) ve `invitation_id`
@@ -221,3 +244,128 @@ nullable (K42 — tekil satın alma ile paket aboneliğin aynı tabloda durması
 | Plan enum'u | [`SubscriptionTier.md`](SubscriptionTier.md) |
 | Aynı desenin Faz 5 hâli | [`RsvpStatus.md`](RsvpStatus.md) |
 | Faz planı | `docs/09-TUM-FAZLAR-PLANI.md` §Faz 7 |
+
+---
+
+## 11. 🆕 Faz 10 — `expired` (10.3 · K89)
+
+### 11.1 Hata: `failed` iki gerçeği anlatıyordu
+
+Faz 9'un `orders:expire` komutu, ödeme penceresi dolan `pending` siparişleri
+`failed` yapıyordu. O andan itibaren `failed` iki ayrı olguyu aynı biçimde
+temsil etti:
+
+| Kim yazdı | Anlamı | Kesin mi? |
+|---|---|---|
+| Sağlayıcının webhook'u | *"Kart reddedildi"* | ✅ Kesin |
+| `StartCheckoutAction`'ın telafisi (F3) | *"Ödeme hiç başlatılamadı"* | ✅ Kesin |
+| `orders:expire` | *"30 dakika bekledik, haber gelmedi"* | ❌ **Tahmin** |
+
+Üçüncüsü bir tahmindi ve tahmin yanlış çıkabiliyordu. Denetim bunu kum havuzunda
+**yeniden üretti** (K-4):
+
+```
+12:00  checkout → pending, expires_at 12:30
+12:29  kullanıcı 3D Secure'u bitirir, sağlayıcı parayı çeker
+12:29  webhook denemesi başarısız (ağ, deploy, 429)
+13:00  orders:expire → failed
+13:05  sağlayıcı webhook'u tekrar dener: paid
+       canTransitionTo(failed → paid) = false → 204, sipariş failed, log YOK
+```
+
+Para çekildi, hak açılmadı, hiçbir yerde iz yok.
+
+> **E12'nin ikinci örneği:** *"bir kolonun anlamı, ona yazan tüm yolların
+> toplamıdır."* `orders.scope`'u doğuran sorun (Faz 9: `invitation_id IS NULL`
+> hem "paket" hem "davetiyesi silindi" demekti) burada `status` kolonunda
+> tekrarlandı. Çözüm de aynı: iki gerçeğe **iki ayrı değer**.
+
+### 11.2 Çözüm: tahmine kendi adı
+
+```php
+/** Odeme penceresi doldu, saglayicidan SONUC gelmedi (orders:expire yazar). */
+case Expired = 'expired';
+```
+
+| Durum | Kimin sözü | Geri dönebilir mi? |
+|---|---|---|
+| `failed` | Sağlayıcının (ya da telafinin) | ❌ Hayır — final |
+| `expired` | **Bizim** sabrımızın sonu | ✅ `paid`'e |
+
+```php
+self::Pending => in_array($next, [self::Paid, self::Failed, self::Expired], true),
+self::Expired => $next === self::Paid,
+```
+
+🔴 **`failed → paid` hâlâ kapalı** (plan: *"`Failed` final kalır"*). Sağlayıcı
+bir kez *"reddedildi"* dediyse sonradan gelen *"ödendi"* bir çelişkidir ve
+**otomatik** çözülmemeli: bir insan bakmalı. O yüzden bu geçiş reddedilir ama
+artık **gürültüyle** reddedilir — `HandlePaymentCallbackAction` `Log::critical`
+yazar (10.6).
+
+`pending → expired` geçişi tabloda **var** ama onu kullanan tek yazıcı
+(`ExpireStaleOrders`) `canTransitionTo()`'yu çağırmıyor: koşulu toplu
+`UPDATE`'in içinde, sorgunun kapsamında taşıyor (E2). Tablo yine de tam
+yazıldı: durum makinesi *"kim yazarsa yazsın, hangi geçişler meşru"* sorusunun
+**belgesidir**, yalnızca webhook'un kuralı değil.
+
+### 11.3 Değişmeyen iki soru
+
+| Metot | `expired` için | Neden |
+|---|---|---|
+| `grantsPublishRight()` | `false` | Para gelmedi; hak yok |
+| `hasBeenPaid()` | `false` | 🔴 `true` olsaydı `orders_paid_at_check` her süresi dolmuş satırda `paid_at` isterdi — komut yazamazdı |
+
+Plan bunu açıkça istedi: *"`grantsPublishRight()` ve `hasBeenPaid()` değişmez."*
+Sonuç: `paidValues()` hâlâ `['paid', 'refunded']` ve `paid_at` kısıtına
+migration'da (10.4) dokunulmuyor.
+
+### 11.4 `isFinal()` türetildi
+
+```php
+public function isFinal(): bool
+{
+    foreach (self::cases() as $next) {
+        if ($this->canTransitionTo($next)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+```
+
+`paidValues()`'un `hasBeenPaid()`'ten türetilmesiyle aynı fikir (**K39**'un
+metot hâli): bir cevap başka bir cevaptan çıkarılabiliyorsa elle yazılmaz.
+
+| Durum | Eski `isFinal()` | Yeni | Doğrusu |
+|---|---|---|---|
+| `pending` | false | false | ✅ |
+| `paid` | **true** | false | `paid → refunded` meşru |
+| `failed` | true | true | ✅ |
+| `expired` | **true** (eklenseydi) | false | `expired → paid` meşru |
+| `refunded` | true | true | ✅ |
+
+Metodu **çağıran yok**, dolayısıyla `paid` satırındaki değişiklik bugün hiçbir
+davranışı değiştirmiyor. Silmek de bir seçenekti (ders 26); ama 10.3'ün işi
+enum'u tutarlı bırakmak, temizlik değil. Silinip silinmeyeceği Dilim H'de
+(`SubscriptionTier::label()` ile aynı soru, 10.80) sorulabilir.
+
+### 11.5 Birim testi: tablonun tamamı
+
+`tests/Unit/OrderStatusTest.php` 5 × 5 = 25 çiftin **hepsini** sabitliyor.
+Feature testleri makinenin yalnızca birkaç geçişini dener (webhook tekrarı,
+iade, geç ödeme); yarın biri *"`expired → refunded` da açık olsun"* derse
+feature testleri yeşil kalır, tablo testi kırılır. Ayrıntı:
+[`../../tests/Unit/OrderStatusTest.md`](../../tests/Unit/OrderStatusTest.md).
+
+**Mutasyon denemesi:** `self::Expired => $next === self::Paid` kolunu
+`self::Expired => false` yap → `the_transition_table_is_exactly_the_documented_one`
+ve `an_expired_order_can_still_become_paid_but_a_failed_one_cannot` kırılır;
+10.7'den sonra `PaywallTest::a_paid_webhook_after_expiry_still_grants_the_order` da.
+
+### 11.6 Frontend
+
+`types.ts` → `OrderStatus`'a `'expired'` (10.9). Frontend bugün bu değeri
+yalnızca `CheckoutResult.status`'ta görebilir (yeni siparişler hep `pending`);
+asıl okuyucusu 10.27'nin ödeme dönüş sayfası olacak: `expired` → *"tekrar dene"*.
