@@ -1,9 +1,10 @@
 # `routes/console.php`
 
-> **Faz:** 9 — Üretim hazırlığı, dosya 9.11
+> **Faz:** 9 — Üretim hazırlığı, dosya 9.11 · 🆕 **Faz 10, adım 10.10** (§2, token temizliği)
 > **İlgili:** [`app/Console/Commands/ExpireStaleOrders.md`](app/Console/Commands/ExpireStaleOrders.md) ·
-> [`app/Console/Commands/PruneOrphanMedia.md`](app/Console/Commands/PruneOrphanMedia.md)
-> **Kurallar:** ders 26 · **B6** · **CLAUDE.md §4** (15 saniye kuralı)
+> [`app/Console/Commands/PruneOrphanMedia.md`](app/Console/Commands/PruneOrphanMedia.md) ·
+> [`config/sanctum.md`](../config/sanctum.md)
+> **Kurallar:** ders 26 · **B4** · **B6** · **CLAUDE.md §4** (15 saniye kuralı) · **K90**
 
 ---
 
@@ -30,7 +31,7 @@ istemeden çalışıyor. Üç yeni risk getiriyor:
 ```php
 Schedule::command('orders:expire')->hourly()
 Schedule::command('media:prune-orphans')->dailyAt('03:15')
-Schedule::command('sanctum:prune-expired --hours=720')->daily()
+Schedule::command('sanctum:prune-expired --hours=24')->daily()
 ```
 
 ### `orders:expire` — saatlik
@@ -59,33 +60,59 @@ etmiyor, kimseye görünmüyor. **K71'in tersi**: orada saat dilimi *anlamlıyd�
 (düğünün olduğu yerin saati); burada değil. Her zaman damgasına saat dilimi
 eklemek, hiçbirine eklememek kadar yanlıştır.
 
-### `sanctum:prune-expired --hours=720`
+### `sanctum:prune-expired --hours=24`
 
 🔴 Laravel bu komutu **Faz 2'den beri sağlıyordu** ve sekiz fazdır
 çağrılmadı: `personal_access_tokens` her girişle büyüyor, hiçbir şey
 küçültmüyor. Bir yılda binlerce satır — hepsi ölü.
 
-`--hours=720` (30 gün): iptal edilmiş ya da süresi dolmuş token bir ay
-saklanır, sonra silinir. **Sıfır yazmadık**, çünkü bir güvenlik incelemesinde
-*"hangi token ne zaman iptal edildi"* sorusunun izi kalmalı. Bir temizlik işi
-kadar hızlı olmalı, ama adli iz bırakacak kadar yavaş.
+#### Komut ne siler? (kaynak: `vendor/laravel/sanctum/src/Console/Commands/PruneExpired.php`)
 
-> 🔴 **23 Eylül 2026 — bu iş bugün HİÇBİR ŞEY SİLMİYOR (B4).** Komutun kaynağı
-> (`vendor/laravel/sanctum/src/Console/Commands/PruneExpired.php`) iki sorgu çalıştırır:
+İki sorgu çalıştırır:
+
+| # | Sorgu | Bizde |
+|---|---|---|
+| 1 | `expires_at < şimdi − saat` | **Hiçbir şey.** Token'larımız `createToken()` ile `expires_at` **olmadan** üretiliyor; kolon hep `NULL` |
+| 2 | `created_at < şimdi − (expiration + saat)` | **Asıl iş bu.** Yalnızca `config/sanctum.php` → `expiration` doluyken çalışır |
+
+`expiration` = 30 gün (43 200 dakika), `--hours=24` → `created_at`'i **31 günden
+eski** her token silinir. Yani token ömrünü doldurduktan bir gün sonra.
+
+#### Faz 9'da ne oluyordu? (B4)
+
+> 🔴 **23 Eylül 2026'dan 10.10'a kadar bu iş HİÇBİR ŞEY SİLMEDİ.** `expiration`
+> `null`'dı; ikinci sorgu hiç koşmadı, komut her gece *"Expiration value not
+> specified in configuration file"* uyarısını basıp geçti. Birinci sorgunun da
+> eşleşeceği satır yoktu.
 >
-> 1. `expires_at < şimdi − saat` → bizim token'larımız `createToken()` ile
->    **`expires_at` olmadan** üretiliyor; kolon hep `NULL`, eşleşen satır yok.
-> 2. `created_at < şimdi − (expiration + saat)` → **yalnızca** `config/sanctum.php`
->    içinde `expiration` doluysa çalışır. Bizde `null`; komut
->    *"Expiration value not specified"* uyarısı basıp geçer.
->
-> Yukarıdaki *"iptal edilmiş token bir ay saklanır"* cümlesi de doğru değil:
-> `RevokeTokenAction` çıkışta token satırını **hemen siler**; iz kalmaz.
->
-> Sonuç: tablo büyümeye devam ediyor **ve** hiçbir token süresi dolmuyor (çalınan
-> bir token sonsuza kadar geçerli). Düzeltme bir karar ister — ör.
-> `'expiration' => 60 * 24 * 30` (dakika) ve frontend'in 401'de oturumu zaten
-> düşürmesi. Ayrıntı: `claude/GOZDEN-GECIRME-RAPORU.md`.
+> Sonuç: tablo büyüdü **ve** hiçbir token süresi dolmadı — çalınan bir token
+> sonsuza kadar geçerliydi. Düzeltme bir **karar** istedi (K90, 30 gün, mutlak)
+> ve bu satırda değil, [`config/sanctum.php`](../config/sanctum.md)'de yapıldı.
+
+Bu, **ders 26**'nın zamanlayıcıdaki hâli: komut yazılmış, zamanlanmış, `schedule:list`'te
+görünüyor, hiçbir hata vermiyor — ve hiçbir şey yapmıyor. Bir bakım işinin
+*"koştuğunu"* görmek, *"iş yaptığını"* görmek değildir. Doğrusunu yalnızca
+**silinen satırı sayan** bir test söyler (`MaintenanceTest`, adım 10.11).
+
+#### Neden `--hours=720` değil de `24`?
+
+Faz 9 `720` (30 gün) yazmıştı. Gerekçe: *"bir güvenlik incelemesinde hangi token
+ne zaman iptal edildi sorusunun izi kalmalı."* Gerekçe iki yerden yanlıştı:
+
+1. **İptal edilen token'ın satırı zaten yok.** `RevokeTokenAction` çıkışta
+   satırı **anında siler** (`$token->delete()`). Saklanacak bir iz hiç oluşmadı.
+2. **Süresi dolan token'ın satırı bilgi taşımıyor.** Guard süresi dolmuş token'ı
+   reddederken `last_used_at`'i **güncellemez** (`Guard.php`: geçersiz token'da
+   `return`, güncelleme çağrısından önce). Satır bize *"reddedilen bir deneme
+   oldu mu?"* sorusunu bile cevaplayamaz.
+
+İzi olmayan bir şeyi saklamak yalnızca tabloyu iki katına çıkarıyordu (30 gün
+yaşayan + 30 gün bekleyen satırlar). `24` paketin kendi varsayılanı; `0` ile
+pratik farkı yok ve varsayılandan sapmak için bir sebep kalmadı.
+
+> **B6 — kapatmadığı delik:** *"Hangi token ne zaman kullanıldı/iptal edildi"*
+> sorusunun bugün **hiçbir** cevabı yok. İsteniyorsa yeri bu tablo değil, bir
+> denetim (audit) log'udur. Faz 10'un kapsamında değil.
 
 ---
 
@@ -149,7 +176,8 @@ Bugünkü asgari cevap `FAZ-9-ELLE-DOGRULAMA.md`'de: kurulumdan sonra
 | 2 | `withoutOverlapping()` yazmamak | İki süreç aynı satırları siler |
 | 3 | Her işi gece yarısına koymak | Aynı anda başlayan yığın; veritabanı tepesi |
 | 4 | Anlamı olmayan bir işe saat dilimi vermek | Gereksiz karmaşıklık; K71'in yanlış tarafa uygulanması |
-| 5 | `--hours=0` ile token silmek | Adli iz kalmaz |
+| 5 | `sanctum.expiration`'ı `null` bırakıp `sanctum:prune-expired`'ı zamanlamak | Komut her gece bir uyarı basar, **hiçbir satır silmez** (Faz 9'dan 10.10'a kadar tam olarak buydu, §2) |
+| 5b | *"İz kalsın"* diye `--hours`'ı büyütmek | İz zaten yok (çıkışta satır anında siliniyor); tablo boşuna büyür (§2) |
 | 6 | Komutu yazıp zamanlayıcıya eklememek | Kod var, koşan yok — ders 26 |
 
 ---
@@ -172,6 +200,19 @@ php artisan schedule:test      # hangi işi koşacağını sorar, seçtiğini he
 
 🔴 `schedule:test` bu fazın en faydalı komutu: bir bakım işini ilk kez
 zamanlayıcıdan görmek, onu hiç görmemektir.
+
+Token temizliğinin **gerçekten** iş yaptığını görmek (Faz 10, 10.10):
+
+```powershell
+php artisan sanctum:prune-expired --hours=24
+```
+
+İki görev satırı görmelisin ve **"Expiration value not specified"** uyarısı
+**olmamalı**. Uyarıyı görüyorsan `config/sanctum.php` → `expiration` boş ya da
+`config:cache` eski bir kopyayı tutuyor (`php artisan config:clear`).
+
+> ⚠️ Bu komut geliştirme veritabanında da **gerçekten siler** (31 günden eski
+> token'lar). Oturumun düşerse yeniden giriş yap.
 
 Üretimde (VPS, cron):
 

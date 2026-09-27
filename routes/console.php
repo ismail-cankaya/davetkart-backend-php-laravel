@@ -63,10 +63,18 @@ Schedule::command('media:prune-orphans')
 //
 // 🔴 Laravel bu komutu Faz 2'den beri sagliyordu ve sekiz fazdir CAGRILMADI:
 // `personal_access_tokens` tablosu her girisle buyuyor, hicbir sey kucultmuyor.
-// --hours=720 (30 gun): iptal edilmis ya da suresi dolmus bir token bir ay
-// saklanir, sonra silinir. Sifir yazmiyoruz cunku bir guvenlik incelemesinde
-// "hangi token ne zaman iptal edildi" sorusunun izi kalmali.
-Schedule::command('sanctum:prune-expired --hours=720')
+//
+// 🔴 Faz 10 (K90): komut ancak `sanctum.expiration` DOLUYKEN satir siler.
+// Faz 9'da `null`du; bu satir her gece "Expiration value not specified"
+// uyarisi basip hicbir sey silmeden geciyordu (B4).
+//
+// --hours=24: token 30 gunluk omrunu doldurduktan bir gun sonra silinir
+// (yani `created_at` 31 gunden eskiyse). Neden kisa? Suresi dolmus satir
+// hicbir bilgi tasimiyor: Guard onu reddederken `last_used_at`'i guncellemez,
+// cikista (`RevokeTokenAction`) token zaten ANINDA siliniyor. Faz 9'daki
+// "iptalin izi kalsin" gerekcesi bu yuzden hic dogru olmadi. 24, paketin
+// varsayilani; 0 ile pratik farki yok, varsayilandan sapmak icin sebep yok.
+Schedule::command('sanctum:prune-expired --hours=24')
     ->daily()
     ->withoutOverlapping()
     ->onOneServer();
