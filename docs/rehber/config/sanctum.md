@@ -121,9 +121,12 @@ Ayrıntı: [`routes/console.md`](../routes/console.md) §2.
 
 ### Hangi test korur?
 
-`tests/Feature/AuthTest.php` (adım 10.11): `travel(31)->days()` sonrası aynı
-token → 401 `UNAUTHENTICATED`.
-**Mutasyon:** `expiration`'ı `null` yap → o test kırılmalı.
+`tests/Feature/AuthTest.php` → `a_token_expires_thirty_days_after_it_was_issued`
+(adım 10.11): login'den alınan token 30. günün son saniyesinde **200**, tam
+sınırda **401** `UNAUTHENTICATED`. Son saniyedeki kullanım ömrü uzatmadığı için
+aynı test *"mutlak"*ı da kanıtlıyor.
+**Mutasyon:** `null`, 29 gün, 31 gün — üçü de testi kırıyor
+([`AuthTest.md`](../tests/Feature/AuthTest.md) §3.6).
 
 ## Token nasıl saklanıyor?
 

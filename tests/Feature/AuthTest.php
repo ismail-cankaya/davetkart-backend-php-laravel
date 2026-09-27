@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Enums\ErrorCode;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -180,13 +181,19 @@ final class AuthTest extends TestCase
             ->assertJsonPath('error.code', ErrorCode::Unauthenticated->value);
     }
 
-    /** 🔴 `me` zarfli doner: {data: ...} — istisna yalnizca login/register icin. */
+    /**
+     * 🔴 `me` zarfli doner: {data: ...} — istisna yalnizca login/register icin.
+     *
+     * T10: `actingAs()` DEGIL. `actingAs()` guard'i atlar; `me` tam da
+     * "token hala gecerli mi?" sorusunun ucu (frontend acilista bunu soracak,
+     * 10.29) ve o soruyu soran yol burada test edilmeli.
+     */
     #[Test]
     public function me_returns_the_wrapped_user(): void
     {
         $user = User::factory()->create(['email' => self::EMAIL]);
 
-        $this->actingAs($user, 'sanctum')
+        $this->withToken($this->tokenFor($user))
             ->getJson(route('auth.me'))
             ->assertOk()
             ->assertJsonPath('data.email', self::EMAIL)
@@ -223,6 +230,50 @@ final class AuthTest extends TestCase
         $this->assertSame(1, $user->tokens()->count());
     }
 
+    // ----------------------------------------------------------- TOKEN OMRU
+
+    /**
+     * 🔴 K90: token 30 gun gecerli, MUTLAK — `created_at`'ten sayilir.
+     *
+     * Sinirin IKI yani da sinaniyor (T6): yalnizca "31. gunde 401" yazsaydik
+     * omur 29 gune dusse de, 1 gune dusse de test yesil kalirdi.
+     *
+     * Ayni test "mutlak"i da kanitliyor: token son saniyede KULLANILIYOR
+     * (Guard `last_used_at`'i gunceller). Kayan pencere olsaydi bu kullanim
+     * omru 30 gun daha uzatirdi ve bir saniye sonraki istek 200 donerdi.
+     *
+     * Token login ucundan aliniyor, `createToken()`'dan degil: istemcinin
+     * gercekte aldigi token bu. Yarin LoginUserAction token'a kendi
+     * `expires_at`'ini yazarsa bu test onu da sinar.
+     */
+    #[Test]
+    public function a_token_expires_thirty_days_after_it_was_issued(): void
+    {
+        $issuedAt = CarbonImmutable::parse('2026-09-01 12:00:00', 'UTC');
+        $this->travelTo($issuedAt);
+
+        User::factory()->create(['email' => self::EMAIL]);
+
+        $token = $this->postJson(route('auth.login'), [
+            'email' => self::EMAIL,
+            'password' => UserFactory::PASSWORD,
+        ])->assertOk()->json('token');
+
+        $this->assertIsString($token);
+
+        // Son saniye: hala gecerli.
+        $this->travelTo($issuedAt->addDays(30)->subSecond());
+        $this->withToken($token)->getJson(route('auth.me'))->assertOk();
+
+        // 30. gunun tam sonu: gecersiz. T13: guard onbellegi sifirlanmazsa
+        // ikinci istek token'a hic bakmaz ve test haksiz yere 200 alir.
+        $this->forgetAuthState();
+        $this->travelTo($issuedAt->addDays(30));
+        $this->withToken($token)->getJson(route('auth.me'))
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', ErrorCode::Unauthenticated->value);
+    }
+
     // ----------------------------------------------------------- HIZ SINIRI
 
     /** 🔴 K36: alti deneme, altincisi reddedilir. */
@@ -243,15 +294,26 @@ final class AuthTest extends TestCase
             ->assertJsonStructure(['error' => ['params' => ['retryAfter']]]);
     }
 
-    /** Kapsam siniri: token gerektiren uclar hiz sinirina TAKILMAZ. */
+    /**
+     * Kapsam siniri: token gerektiren uclar hiz sinirina TAKILMAZ.
+     *
+     * T10 + T13: her istek gercek token yolundan gecer. Guard sifirlanmasaydi
+     * ilk istekten sonraki yedisi token'a hic bakmazdi.
+     */
     #[Test]
     public function authenticated_endpoints_are_not_throttled_by_the_auth_limiter(): void
     {
-        $user = User::factory()->create();
+        $token = $this->tokenFor(User::factory()->create());
 
         foreach (range(1, 8) as $ignored) {
-            $this->actingAs($user, 'sanctum')->getJson(route('auth.me'))->assertOk();
+            $this->forgetAuthState();
+            $this->withToken($token)->getJson(route('auth.me'))->assertOk();
         }
+    }
+
+    private function tokenFor(User $user): string
+    {
+        return $user->createToken('api')->plainTextToken;
     }
 
     /**

@@ -1,15 +1,16 @@
 # `tests/Feature/AuthTest.php` — Eğitim Dokümanı
 
 > **Kapsanan dosya:** `tests/Feature/AuthTest.php`
-> **Yol haritasındaki yeri:** Faz 2, dosya 2.10 — **fazın kanıtı**
+> **Yol haritasındaki yeri:** Faz 2, dosya 2.10 — **fazın kanıtı** · 🆕 **Faz 10, adım 10.11** (§3.3, §3.6)
 > **Bağlantılı:** [`HealthTest.md`](HealthTest.md) (test temelleri orada) ·
-> [`fazlar/FAZ-0.md`](../../fazlar/FAZ-0.md) §4.4 · [`FAZ-1.md`](../../fazlar/FAZ-1.md) §4.4
+> [`fazlar/FAZ-0.md`](../../fazlar/FAZ-0.md) §4.4 · [`FAZ-1.md`](../../fazlar/FAZ-1.md) §4.4 ·
+> [`config/sanctum.md`](../../config/sanctum.md) (token ömrü, K90)
 
 ---
 
 ## 0. Bir dakikalık özet
 
-14 test. Hepsi bugüne kadar `curl` ile **elle** yaptığımız doğrulamaların
+16 test. Çoğu bugüne kadar `curl` ile **elle** yaptığımız doğrulamaların
 kalıcı hâli.
 
 | Grup | Test sayısı | Neyi korur |
@@ -17,7 +18,11 @@ kalıcı hâli.
 | Kayıt | 6 | Sözleşme, hash, enumeration |
 | Giriş | 3 | Sözleşme, normalizasyon, **ayırt edilemezlik** |
 | Me / Çıkış | 4 | Kimlik zorunluluğu, token izolasyonu |
+| 🆕 Token ömrü | 1 | 30 gün, **mutlak** (K90) |
 | Hız sınırı | 2 | Limitin varlığı **ve kapsamı** |
+
+> Faz 2'deki bu satır *"14 test"* diyordu; dosyada Faz 10'dan önce zaten 15
+> test vardı. Sayıyı elle tutan belge, kodu değiştiren her adımda eskir.
 
 Elle test bir kez doğrular. Test dosyası **her `composer check`'te** doğrular.
 
@@ -33,9 +38,10 @@ Bir testin değeri, **kırıldığında ne söylediğiyle** ölçülür.
 | `register_does_not_reveal_that_the_email_is_taken` | 🔴 Kayıt formu hesap tarayıcısına döndü |
 | `login_is_indistinguishable_...` | 🔴 Enumeration açığı geri geldi |
 | `logout_revokes_only_the_current_token` | Kullanıcı bir cihazdan çıkınca hepsinden çıkıyor |
+| `a_token_expires_thirty_days_after_it_was_issued` | 🔴 Çalınan bir token yeniden **sonsuza kadar** geçerli (ya da ömür sessizce değişti) |
 | `credential_endpoints_are_rate_limited` | Brute-force + bellek tüketimi kapısı açıldı |
 
-Üçü 🔴 işaretli: bunlar **güvenlik regresyon testleridir**. Kod bozulursa
+Dördü 🔴 işaretli: bunlar **güvenlik regresyon testleridir**. Kod bozulursa
 uygulama çalışmaya devam eder ama **güvenli olmaktan çıkar** — hiçbir kullanıcı
 şikâyet etmez, hiçbir 500 hatası düşmez. Yalnızca bu testler haber verir.
 
@@ -200,25 +206,40 @@ farklı kullanıcının token'ıyla arka arkaya istek atacak — orada sıfırla
 unutmak **IDOR testini sessizce boşa çıkarır**.
 Ayrıntılı açıklama: [`TestCase.md`](../TestCase.md)
 
-### 3.3 `me_returns_the_wrapped_user` — `actingAs` vs `withToken`
-
-```php
-$this->actingAs($user, 'sanctum')->getJson(route('auth.me'))
-```
+### 3.3 `actingAs` vs `withToken` — bu dosyada artık yalnızca `withToken` (T10)
 
 `actingAs()` guard'ı **atlar** ve kullanıcıyı doğrudan yerleştirir. Hızlıdır ama
 token doğrulama yolunu test **etmez**.
 
-Bu yüzden iki yöntem bilinçli olarak karışık kullanılıyor:
-
-| Yöntem | Nerede | Neden |
-|---|---|---|
-| `actingAs($user, 'sanctum')` | Yanıt biçimini test ederken | Token üretmeye gerek yok, hızlı |
-| `withToken($plainText)` | Token **iptalini** test ederken | Gerçek token yolu test edilmeli |
-
 `logout_revokes_only_the_current_token` testinde `actingAs` kullansaydık,
 `currentAccessToken()` bir `PersonalAccessToken` değil `null` dönerdi ve test
 hiçbir şey doğrulamazdı — **yeşil yanan boş bir test**.
+
+#### Faz 2'den Faz 10'a kadar: "bilinçli karışık" (ve neden yanlıştı)
+
+Faz 2'de bu bölüm iki yöntemi bilerek karıştırıyordu:
+
+| Yöntem | Nerede | Faz 2'nin gerekçesi |
+|---|---|---|
+| `actingAs($user, 'sanctum')` | Yanıt biçimini test ederken (`me_returns_the_wrapped_user`, throttle kapsamı) | Token üretmeye gerek yok, hızlı |
+| `withToken($plainText)` | Token **iptalini** test ederken | Gerçek token yolu test edilmeli |
+
+24 Eylül test denetimi ikisini **T10 ihlali** olarak işaretledi ve Faz 10 (10.11)
+ikisini de `withToken()`'a çevirdi. Sebep bu dosyaya özgü:
+
+- **`me` tam da *"token hâlâ geçerli mi?"* sorusunun ucu.** Frontend açılışta bu
+  ucu çağırıp süresi dolmuş ya da iptal edilmiş token'ı düşürecek (10.29).
+  Bu ucu guard'ı atlayarak test etmek, ucun **varlık sebebini** atlamaktır.
+- **"Hızlı" kazancı yok.** `createToken()` bir `INSERT`; testin süresinde
+  ölçülebilir bir fark yaratmıyor.
+- **Token ömrü (K90) guard'da yaşıyor.** `actingAs()` ile yazılmış bir test,
+  `expiration` ne olursa olsun aynı sonucu verir.
+
+Kural artık basit: **AuthTest'te kimlikli her istek `withToken()` ile.** Token
+`tokenFor($user)` yardımcısından gelir (diğer test dosyalarıyla aynı ad).
+
+Throttle kapsamı testinde döngünün her turunda `forgetAuthState()` çağrılıyor:
+aksi hâlde ilk istekten sonraki yedi istek token'a hiç bakmazdı (T13, §3.2).
 
 ### 3.4 `credential_endpoints_are_rate_limited`
 
@@ -255,6 +276,69 @@ doğruluyor. `"password": null` gibi bir sızıntı da yakalanır.
 
 Bu bir **sızıntı testidir** (Faz 1'in terimi): bir bilginin yanıta *girmediğini*
 doğrular. Normal testler "şu var mı?" der, sızıntı testleri "şu **yok** mu?" der.
+
+### 3.6 🔴 `a_token_expires_thirty_days_after_it_was_issued` (Faz 10, 10.11)
+
+```php
+$issuedAt = CarbonImmutable::parse('2026-09-01 12:00:00', 'UTC');
+$this->travelTo($issuedAt);
+
+$token = $this->postJson(route('auth.login'), [...])->assertOk()->json('token');
+
+$this->travelTo($issuedAt->addDays(30)->subSecond());          // son saniye
+$this->withToken($token)->getJson(route('auth.me'))->assertOk();
+
+$this->forgetAuthState();                                      // 🔴 T13
+$this->travelTo($issuedAt->addDays(30));                       // tam sınır
+$this->withToken($token)->getJson(route('auth.me'))
+    ->assertUnauthorized()
+    ->assertJsonPath('error.code', ErrorCode::Unauthenticated->value);
+```
+
+K90'ın (30 gün, mutlak) kanıtı. Planın ilk hâli yalnızca *"`travel(31)->days()` →
+401"* diyordu. Test ondan üç noktada sıkı:
+
+#### 1. Sınırın **iki** yanı (T6)
+
+Yalnızca *"31. günde 401"* yazsaydık ömür 29 güne, hatta 1 güne düşse de test
+yeşil kalırdı. Kullanıcı her gün yeniden giriş yapmak zorunda kalır ve hiçbir
+test haber vermezdi. **Son saniye 200, tam sınır 401**: ömür bir saniye bile
+kayarsa bir iddia düşer.
+
+Sınırın neden *"tam 30 gün"* olduğu Guard'ın kaynağında yazıyor:
+
+```php
+$accessToken->created_at->gt(now()->subMinutes($this->expiration))
+```
+
+`gt` = kesin büyük. Tam 30. günde `created_at` ile `now − 30 gün` **eşit** →
+koşul yanlış → token reddedilir.
+
+> **Neden `travelTo` (sabit an) ve saniye?** `created_at` veritabanına saniye
+> hassasiyetiyle yazılıyor. Sabit, tam saniyeli bir başlangıç anı, testin koşma
+> saatinden ve milisaniyelerden bağımsız aynı sonucu verir (flaky değil).
+
+#### 2. "Mutlak"ın kanıtı aynı testte
+
+Token son saniyede **kullanılıyor**: Guard başarılı istekte `last_used_at`'i
+günceller. Ömür kayan pencere olsaydı bu kullanım onu 30 gün daha uzatırdı ve
+bir saniye sonraki istek 200 dönerdi. 401 dönmesi, sürenin `created_at`'ten
+sayıldığını kanıtlıyor.
+
+#### 3. Token login ucundan
+
+`createToken()` değil `POST /auth/login`: istemcinin gerçekte aldığı token bu.
+Yarın `LoginUserAction` token'a kendi `expires_at`'ini yazarsa (ör. 7 gün), bu
+test onu da sınar ve kırılır.
+
+#### Mutasyon kanıtı (10.11'de koşuldu)
+
+| Mutasyon (`config/sanctum.php`) | Düşen iddia |
+|---|---|
+| `'expiration' => null` | tam sınır: *"401 beklendi, 200 geldi"* |
+| `60 * 24 * 29` | son saniye: *"200 beklendi, 401 geldi"* |
+| `60 * 24 * 31` | tam sınır: *"401 beklendi, 200 geldi"* |
+| Testten `forgetAuthState()` silindi | tam sınır: *"401 beklendi, 200 geldi"* (T13'ün canlı kanıtı) |
 
 ---
 
@@ -293,6 +377,9 @@ alan görünüyor, geri kalan gürültü kayboluyor.
 | Hata | Ne olur | Doğrusu |
 |---|---|---|
 | Token iptalini `actingAs` ile test etmek | `currentAccessToken()` null — test boş yeşil | `withToken()` |
+| `me`'yi (ya da herhangi bir kimlikli ucu) `actingAs` ile test etmek | Token ömrü, iptal, guard hiç sınanmaz (T10) | `withToken($this->tokenFor($user))` |
+| Token ömrünü yalnızca *"süre dolunca 401"* ile test etmek | Ömür kısalsa da test yeşil | Sınırın iki yanı: son saniye 200, sınır 401 |
+| Zaman yolculuğundan sonra `forgetAuthState()`'i unutmak | Guard eski kullanıcıyı döner, token'a bakmaz — haksız 200 | Her kimlikli istekten önce sıfırla (T13) |
 | Yalnızca "yokluk" testi yazmak | Özellik silinse de yeşil kalır | T6: çifti de yaz |
 | `assertJsonPath` ile yetinmek (enumeration) | Bakmadığın alandan sızar | `assertSame` ile tam gövde |
 | Sabit e-posta kullanıp `RefreshDatabase`'i atlamak | İkinci test `UNIQUE` ihlali | `RefreshDatabase` |
@@ -311,7 +398,7 @@ php artisan test --filter=login_is_indistinguishable   # tek test
 composer check                                          # tam zincir
 ```
 
-Beklenen: **14 test, hepsi yeşil.**
+Beklenen: **16 test, hepsi yeşil.**
 
 Bir testin gerçekten bir şey koruduğunu görmek için **bilerek kır**:
 
@@ -322,6 +409,8 @@ Bir testin gerçekten bir şey koruduğunu görmek için **bilerek kır**:
    fark görünür. §3.1'deki uyarının somut anlamı budur.
 3. `logout`'u `$user->tokens()->delete()` yap →
    `logout_revokes_only_the_current_token` kırılır.
+4. `config/sanctum.php` → `'expiration' => null` yap →
+   `a_token_expires_thirty_days_after_it_was_issued` kırılır (§3.6).
 
 Her seferinde değişikliği **geri al**.
 
