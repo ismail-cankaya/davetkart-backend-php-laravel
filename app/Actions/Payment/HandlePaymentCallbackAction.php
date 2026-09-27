@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Payment;
 
+use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Services\Payment\PaymentNotification;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,10 @@ use Illuminate\Support\Facades\Log;
  * 🔴 Bu Action IMZA DOGRULAMAZ. Elindeki PaymentNotification'in var olmasi
  * imzanin dogrulandiginin kanitidir — o nesneyi uretebilen tek yer
  * PaymentGateway::parseNotification()'dir.
+ *
+ * 🔴 Faz 10 (K-4): reddedilen bir `paid` artik SESSIZ DEGIL. Saglayici parayi
+ * cektigini soyluyor ama siparis odenemiyorsa bu bir insanin bakmasi gereken
+ * bir tutarsizliktir -> Log::critical. Kabul edilen gec odeme de iz birakir.
  * Ayrintili aciklama: docs/rehber/app/Actions/Payment/HandlePaymentCallbackAction.md
  */
 final class HandlePaymentCallbackAction
@@ -66,9 +71,23 @@ final class HandlePaymentCallbackAction
             // kural burada, calisma yerinde durur ve ikinci bir cagiranda
             // (iade ucu, admin paneli) yeniden yazilmasi gerekirdi (C3).
             if (! $order->status->canTransitionTo($notification->status)) {
+                // 🔴 Para alindi, hak acilamadi (Faz 10, K-4). Bugun tek ornegi:
+                // saglayici once "reddedildi" dedi (failed, final), sonra
+                // "odendi" diyor. Otomatik cozulmez; elle iade ya da eslestirme
+                // gerekir. `hasBeenPaid()` kosulu webhook TEKRARINI ayirir:
+                // zaten `paid` olan siparise gelen ikinci `paid` normaldir.
+                if ($notification->status === OrderStatus::Paid && ! $order->status->hasBeenPaid()) {
+                    Log::critical('Paid notification rejected: the order cannot become paid', [
+                        'order_id' => $order->id,
+                        'provider_ref' => $order->provider_ref,
+                        'status' => $order->status->value,
+                    ]);
+                }
+
                 return $order;
             }
 
+            $previous = $order->status;
             $order->status = $notification->status;
 
             // orders_paid_at_check kisiti: parasi alinmis siparis damga
@@ -79,6 +98,15 @@ final class HandlePaymentCallbackAction
             }
 
             $order->save();
+
+            // Mesru ama OLAGAN DISI (K89): kullanici bu arada yeniden odemis
+            // olabilir (cifte tahsilat). Gecis kabul edildi; iz birakilir.
+            if ($previous === OrderStatus::Expired) {
+                Log::warning('Late payment accepted for an expired order', [
+                    'order_id' => $order->id,
+                    'provider_ref' => $order->provider_ref,
+                ]);
+            }
 
             return $order;
         });
