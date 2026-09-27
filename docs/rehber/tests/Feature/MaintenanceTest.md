@@ -1,12 +1,13 @@
 # `tests/Feature/MaintenanceTest.php`
 
 > **Kod dosyası:** `tests/Feature/MaintenanceTest.php`
-> **Faz:** 9 — Üretim hazırlığı, dosyalar 9.9 · 9.10 · 9.11 · 🆕 **Faz 10**, adım 10.5 (§5.1) · adım 10.11 (§6b)
+> **Faz:** 9 — Üretim hazırlığı, dosyalar 9.9 · 9.10 · 9.11 · 🆕 **Faz 10**, adım 10.5 (§5.1) · adım 10.11 (§6b) · adım 10.14 (§6c)
 > **Kılavuz yazımı:** 25 Eylül 2026 — **K18 borcu** (dosya Faz 9'da kılavuzsuz eklenmişti;
 > plan 10.54'ün yarısı burada kapandı, `HardeningTest.md` hâlâ bekliyor)
-> **Test sayısı:** 16 · **Test edilenler:** [`ExpireStaleOrders.md`](../../app/Console/Commands/ExpireStaleOrders.md) ·
+> **Test sayısı:** 21 · **Test edilenler:** [`ExpireStaleOrders.md`](../../app/Console/Commands/ExpireStaleOrders.md) ·
 > [`PruneOrphanMedia.md`](../../app/Console/Commands/PruneOrphanMedia.md) · [`routes/console.md`](../../routes/console.md) ·
-> `sanctum:prune-expired` (Laravel'in komutu, [`config/sanctum.md`](../../config/sanctum.md))
+> `sanctum:prune-expired` (Laravel'in komutu, [`config/sanctum.md`](../../config/sanctum.md)) ·
+> [`NormalizeUserEmails.md`](../../app/Console/Commands/NormalizeUserEmails.md)
 
 ---
 
@@ -78,6 +79,7 @@ doğrulamayla görülür.
 | `orders:expire` | 5 | [`ExpireStaleOrders`](../../app/Console/Commands/ExpireStaleOrders.md) |
 | `media:prune-orphans` | 7 | [`PruneOrphanMedia`](../../app/Console/Commands/PruneOrphanMedia.md) |
 | 🆕 `sanctum:prune-expired` | 1 | Laravel'in komutu + bizim config'imiz + zamanlayıcıdaki argüman (§6b) |
+| 🆕 `users:normalize-emails` | 5 | [`NormalizeUserEmails`](../../app/Console/Commands/NormalizeUserEmails.md) (§6c) |
 | Zamanlayıcı | 3 | [`routes/console.php`](../../routes/console.md) |
 
 ---
@@ -221,6 +223,52 @@ Test zamanı geriye almak için `forceFill()` kullanıyor: `$fillable`'ı atlaya
 
 ---
 
+## 6c. 🆕 `users:normalize-emails` (Faz 10, 10.14)
+
+Faz 9'a kadar `İsmail@…` ile kaydolmuş hesapların satırındaki `i̇` (i + U+0307)
+dizisini kanonik biçime getiren tek seferlik bakım komutu.
+
+| Test | Soru | Kanıt |
+|---|---|---|
+| 🔴 `it_folds_a_legacy_dotted_i_email_so_the_user_can_log_in_again` | 1 | Önce giriş **401**, komuttan sonra kolon baytı baytına `ismail…` **ve** giriş **200** |
+| `it_leaves_an_already_canonical_email_untouched` | 2 | Kolon aynı, `updated_at` bile değişmedi |
+| 🔴 `it_skips_and_reports_an_address_another_account_already_holds` | 2 · 3 | `FAILURE` · iki hesap da olduğu gibi · **aynı koşudaki** ilgisiz bozuk satır yine düzeldi · rapor çakışan hesabın numarasını (`#<id>`) söylüyor |
+| `it_skips_two_legacy_rows_that_fold_into_the_same_address` | 3 | `FAILURE` · iki satır da yazılmadı |
+| `the_normalize_dry_run_writes_nothing_and_shows_the_hidden_dot` | 4 | Kolon aynı · çıktıda `i\u0307smail…` görünüyor |
+
+### İlk testin iki yarısı
+
+Kolonun düzeldiğini görmek yetmez. Komutun **amacı** kullanıcının yeniden
+girebilmesi. Test o yüzden giriş ucunu komuttan **önce** (401: bozuk durum
+gerçekten kuruldu) ve **sonra** (200) çağırıyor. İlk 401 olmasa test, bozuk
+satırı hiç kuramamış bir kurulumda da yeşil kalabilirdi.
+
+### `userWithStoredEmail()` — mutator'ı atlamak
+
+```php
+DB::table('users')->where('id', $user->id)->update(['email' => $raw]);
+```
+
+Model üzerinden yazılsaydı 10.13'ten beri normalizer değeri düzeltirdi ve
+testin kurmak istediği bozuk durum **hiç oluşmazdı**. Sorgu oluşturucu
+(query builder) modeli ve mutator'ı atlar: Faz 9'un yazdığı satırın aynısı.
+
+### Neden `runCommand()` değil de `Artisan::call()`?
+
+`runCommand()` çıkış kodunun `SUCCESS` olduğunu **iddia eder** (§2). Çakışma
+testleri ise tam tersini bekliyor: `FAILURE`. Orada `Artisan::call()`'ın dönüş
+değeri doğrudan karşılaştırılıyor.
+
+### Görünmez nokta ve düzenleme aracı
+
+Dry-run testi çıktıda `i\u0307smail.cankaya@gmail.com` **metnini** arıyor: ters
+bölü, `u`, `0307`. İlk yazımda iğne, düzenleme aracı tarafından **gerçek**
+U+0307 karakterine çevrildi ve test kırmızı yandı. Komut doğruydu, iğne yanlıştı.
+Hata mesajı ipucunu veriyordu: iğnenin uzunluğu 26 bayttı (kaçış metni 30
+olurdu). Görünmez karakterle çalışırken **baytlara bak**.
+
+---
+
 ## 7. Zamanlayıcı
 
 | Test | Neyi yakalar |
@@ -258,6 +306,20 @@ Test zamanı geriye almak için `forceFill()` kullanıyor: `$fillable`'ı atlaya
 13. satır `scheduledArtisanCommand()`'ın varlık sebebi: argüman testte elle
 yazılsaydı bu mutasyon **hayatta kalırdı**.
 
+**Faz 10, 10.14 — `users:normalize-emails` (28 Eylül 2026, İsmail'in makinesi, PHP 8.5):**
+
+| # | Mutasyon (`NormalizeUserEmails.php`) | Kırılan test |
+|---|---|---|
+| 15 | *"Hedef başka hesapta"* kontrolünü `if (false)` yap | `it_skips_and_reports_an_address_another_account_already_holds` |
+| 16 | *"İki aday aynı hedefe"* kontrolünü `if (false)` yap | `it_skips_two_legacy_rows_that_fold_into_the_same_address` |
+| 17 | Koşullu `UPDATE`'ten `where('email', eski)`'yi sil | ⚠️ **Hiçbiri**: okuma-yazma yarışı tek süreçli testte kurulamaz (**T15**) |
+| 18 | `--dry-run` dalını `if (false)` yap | `the_normalize_dry_run_writes_nothing_…` |
+| 19 | `visible()` ham değeri döndürsün | `the_normalize_dry_run_writes_nothing_…` (çıktıda kaçış yok) |
+| 20 | Çakışmada da `SUCCESS` dön | Çakışma testlerinin ikisi |
+
+17. satır bilinen bir boşluk, eşdeğer mutant değil: koşul gerçek bir yarışı
+kapatıyor, ama o yarışı kuracak ikinci bir süreç testte yok.
+
 Dördüncü satır bir boşluk değil: mutasyon programın davranışını değiştirmiyor.
 Eşdeğer bir mutantı öldürecek test yazılamaz — ve yazılmaya çalışılmamalı.
 
@@ -294,6 +356,7 @@ burası). **B6**: bir savunmanın neyi kapatmadığı da yazılır.
 | Toplu `UPDATE` ile eşzamanlı webhook yarışı | **T15**: tek süreçli testte kurulamaz. `ExpireStaleOrders.md` §9.3 mantığı anlatıyor |
 | Geç ödemenin `expired` satırı açması | Bu dosyada değil, `PaywallTest` (10.7) |
 | Süresi dolan token'ın **reddedilmesi** | Bu dosya yalnızca satırın silinmesini görür; reddi `AuthTest` §3.6 kanıtlıyor (10.11) |
+| `users:normalize-emails`'in okuma-yazma yarışı | **T15** — mutasyon 17 |
 
 ---
 
@@ -301,7 +364,7 @@ burası). **B6**: bir savunmanın neyi kapatmadığı da yazılır.
 
 ```powershell
 php artisan test --filter=MaintenanceTest
-# 16 passed
+# 21 passed
 ```
 
 Mutasyon 13'ü elle dene: `routes/console.php`'de `--hours=24`'ü `--hours=720`

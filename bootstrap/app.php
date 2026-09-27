@@ -30,14 +30,25 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // prepend: Tüm API rotalari icin Accept: application/json zorunlu kilinir.
-        // yoksa o hatalar HTML doner.
+        // NEDEN BASA: throttle gibi erken firlatan middleware'lerden ONCE
+        // calismali, yoksa o hatalar HTML doner. Bkz. kilavuz §2.2.
         $middleware->prependToGroup('api', ForceJsonResponse::class);
 
         // API hız sınırını (Rate Limiter) devreye sokar.
+        // Limiter tanimi: AppServiceProvider::apiLimits() (Faz 5 · FAZ-4 §9.2).
+        // NEDEN SONA (gruba EKLENIR, basa degil): ForceJsonResponse once
+        // calismali ki 429 yaniti da JSON olsun (M3).
         $middleware->throttleApi();
 
         // API'ye gönderilen verilerin (özellikle JSON formatının veya metin karakterlerinin)
         // bozuk, hatalı veya biçimsiz olup olmadığını denetleyen bir güvenlik filtresidir.
+        // Bozuk girdi (yarim JSON, NUL bayti) -> 400.
+        // NEDEN BU SIRA: gruba EKLENIR ama oncelik listesinde SubstituteBindings'in
+        // ONUNE alinir. Iki sonucu var:
+        //   - Throttle'lar (throttle:api ve rota seviyesindeki throttle:rsvp)
+        //     ondan ONCE calisir: bozuk istek yagdiran bot da kovayi doldurur.
+        //   - Rota model baglama ondan SONRA calisir: bozuk istek veritabanina
+        //     hic sorgu actirmaz (O6'nin ayni gerekcesi).
         $middleware->appendToGroup('api', RejectMalformedInput::class);
         $middleware->prependToPriorityList(SubstituteBindings::class, RejectMalformedInput::class);
 

@@ -9,12 +9,14 @@ use App\Models\Media;
 use App\Models\Order;
 use App\Models\Rsvp;
 use App\Models\User;
+use Database\Factories\UserFactory;
 use DateTimeInterface;
 use Illuminate\Console\Command;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\PersonalAccessToken;
 use PHPUnit\Framework\Attributes\Test;
@@ -37,6 +39,11 @@ use Tests\TestCase;
 final class MaintenanceTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** Faz 9'a kadar `İsmail.Cankaya@…` kaydinin satira yazilan hali: i + U+0307. */
+    private const LEGACY_DOTTED_I = "i\u{0307}smail.cankaya@gmail.com";
+
+    private const CANONICAL = 'ismail.cankaya@gmail.com';
 
     /**
      * 🔴 Storage::fake() GERCEK diski hic gormez (Faz 6'nin storage:link dersi).
@@ -298,6 +305,112 @@ final class MaintenanceTest extends TestCase
         $this->assertModelMissing($stale);
         $this->assertModelExists($inGraceDay);
         $this->assertModelExists($alive);
+    }
+
+    // -------------------------------------- users:normalize-emails (10.14)
+
+    /**
+     * 🔴 Asil amac: Faz 9'da `İ` ile kaydolmus kullanici yeniden girebilsin.
+     * Kanit kolonda DEGIL yalnizca — giris ucunda: satir duzeldi ama giris
+     * hala 401 donseydi komut isini yapmamis olurdu.
+     */
+    #[Test]
+    public function it_folds_a_legacy_dotted_i_email_so_the_user_can_log_in_again(): void
+    {
+        $user = $this->userWithStoredEmail(self::LEGACY_DOTTED_I);
+
+        $this->postJson(route('auth.login'), [
+            'email' => self::CANONICAL,
+            'password' => UserFactory::PASSWORD,
+        ])->assertUnauthorized();
+
+        $this->runCommand('users:normalize-emails');
+
+        $this->assertSame(bin2hex(self::CANONICAL), bin2hex($user->refresh()->email));
+
+        $this->postJson(route('auth.login'), [
+            'email' => self::CANONICAL,
+            'password' => UserFactory::PASSWORD,
+        ])->assertOk();
+    }
+
+    /** Hedef olmayan satir: dokunulmaz, `updated_at` bile degismez. */
+    #[Test]
+    public function it_leaves_an_already_canonical_email_untouched(): void
+    {
+        $user = User::factory()->create(['email' => self::CANONICAL]);
+        $before = $user->refresh()->updated_at;
+
+        $this->travel(1)->minute();
+        $this->runCommand('users:normalize-emails');
+
+        $user->refresh();
+        $this->assertSame(self::CANONICAL, $user->email);
+        $this->assertEquals($before, $user->updated_at);
+    }
+
+    /**
+     * 🔴 K-3'un 3. adimi Faz 9'da ikinci bir hesap aciyordu. O iki hesap
+     * varsa hangisinin kalacagi bir KOD karari degil: komut yazmaz,
+     * raporlar ve basarisiz biter. Ayni kosudaki cakismayan satir yine de
+     * duzeltilir (bir cakisma digerlerini rehin almaz).
+     */
+    #[Test]
+    public function it_skips_and_reports_an_address_another_account_already_holds(): void
+    {
+        $existing = User::factory()->create(['email' => self::CANONICAL]);
+        $legacy = $this->userWithStoredEmail(self::LEGACY_DOTTED_I);
+        $unrelated = $this->userWithStoredEmail("\u{0130}pek@ornek.test");
+
+        $this->assertSame(Command::FAILURE, Artisan::call('users:normalize-emails'));
+
+        $this->assertSame(self::CANONICAL, $existing->refresh()->email);
+        $this->assertSame(self::LEGACY_DOTTED_I, $legacy->refresh()->email);
+        $this->assertSame('ipek@ornek.test', $unrelated->refresh()->email);
+
+        $this->assertStringContainsString(sprintf('#%d', $existing->id), Artisan::output());
+    }
+
+    /** Iki bozuk satir ayni adrese dusuyor: ikisi de yazilmaz. */
+    #[Test]
+    public function it_skips_two_legacy_rows_that_fold_into_the_same_address(): void
+    {
+        $dotted = $this->userWithStoredEmail(self::LEGACY_DOTTED_I);
+        $capital = $this->userWithStoredEmail("\u{0130}smail.cankaya@gmail.com");
+
+        $this->assertSame(Command::FAILURE, Artisan::call('users:normalize-emails'));
+
+        $this->assertSame(self::LEGACY_DOTTED_I, $dotted->refresh()->email);
+        $this->assertSame("\u{0130}smail.cankaya@gmail.com", $capital->refresh()->email);
+    }
+
+    /**
+     * Dry-run yazmaz ve gorunmezi GORUNUR kilar: "i̇" ile "i" terminalde
+     * ayni gorunur, rapor onu `\u0307` kacisiyla basar.
+     */
+    #[Test]
+    public function the_normalize_dry_run_writes_nothing_and_shows_the_hidden_dot(): void
+    {
+        $user = $this->userWithStoredEmail(self::LEGACY_DOTTED_I);
+
+        $this->runCommand('users:normalize-emails', ['--dry-run' => true]);
+
+        $this->assertSame(self::LEGACY_DOTTED_I, $user->refresh()->email);
+        $this->assertStringContainsString('i\u0307smail.cankaya@gmail.com', Artisan::output());
+    }
+
+    /**
+     * Faz 9'un yazdigi satiri taklit eder: mutator'i ATLAYARAK yazar.
+     * Model uzerinden yazilsaydi 10.13'ten beri normalizer onu duzeltirdi
+     * ve testin kurmak istedigi bozuk durum hic olusmazdi.
+     */
+    private function userWithStoredEmail(string $raw): User
+    {
+        $user = User::factory()->create();
+
+        DB::table('users')->where('id', $user->id)->update(['email' => $raw]);
+
+        return $user->refresh();
     }
 
     private function tokenIssuedAt(User $user, DateTimeInterface $issuedAt): PersonalAccessToken
