@@ -17,6 +17,8 @@ use Sentry\Laravel\Integration;
 // isim alanindayiz; global bir sinifi global alana ithal etmek etkisizdir ve
 // PHP uyari verir. Throwable asagida ithalsiz calisir.
 
+// basePath: dirname(__DIR__): Uygulamanın kök dizinini belirler.
+// api, commands, health: Rotaları ve sağlık denetimi yolunu yapılandırır.
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         // web: YOK. Bu bir saf API backend'i; tek web rotasi olan '/' ->
@@ -27,13 +29,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // prepend: throttle gibi erken firlatanlardan ONCE calismali,
-        // yoksa o hatalar HTML doner. Bkz. kilavuz §2.2.
+        // prepend: Tüm API rotalari icin Accept: application/json zorunlu kilinir.
+        // yoksa o hatalar HTML doner. 
         $middleware->prependToGroup('api', ForceJsonResponse::class);
 
-        // Genel API tavani (Faz 5 · FAZ-4 §9.2'nin acik borcu). Limiter tanimi
-        // AppServiceProvider::apiLimits(). Gruba EKLENIR, basa degil:
-        // ForceJsonResponse once calismali ki 429 yaniti da JSON olsun (M3).
+        //API hız sınırını (Rate Limiter) devreye sokar.
         $middleware->throttleApi();
 
         // Bozuk girdi (yarim JSON, NUL bayti) -> 400. Gruba EKLENIR ama oncelik
