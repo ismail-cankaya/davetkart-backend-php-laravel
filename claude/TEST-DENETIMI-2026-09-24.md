@@ -18,10 +18,10 @@
 
 | # | Seviye | Bulgu | Kanıt (kum havuzu) | Testin evi | Durum |
 |---|---|---|---|---|---|
-| K-1 | 🔴 Kritik | Yayından sonra `PUT` Elit modüllerini açıyor (paywall bypass) | Standart ödendi → yayın 200 → `PUT {showGallery,showGift,...}` 200 → public'te IBAN + galeri | InvitationTest / PaywallTest | ⬜ |
+| K-1 | 🔴 Kritik | Yayından sonra `PUT` Elit modüllerini açıyor (paywall bypass) | Standart ödendi → yayın 200 → `PUT {showGallery,showGift,...}` 200 → public'te IBAN + galeri | InvitationTest / PaywallTest | ✅ Faz 10 · 10.1–10.2 (PaywallTest §11) · 10.8 (frontend) |
 | K-2 | 🟠 Yüksek | NUL baytı (`\0`) doğrulamayı geçiyor, PostgreSQL metni **kesiyor** | `"Ali\0Veli"` → 201, satırda `"Ali"`; `"Z\0ZZZZZ"` → satırda `"Z"` (min:2 atlatıldı); başlık, kayıt adı, e-posta (`"zeynep\0@gmail.com"` → `"zeynep"`) | RsvpTest ✅ (4 vaka kırmızı), diğerleri ⬜ | ⬜ |
 | K-3 | 🟠 Orta-Yüksek | Türkçe `İ` e-posta normalizasyonu | `İsmail.Cankaya@gmail.com` → `i̇smail...` (U+0307) saklanıyor; `ismail.cankaya@gmail.com` ile giriş **401**; aynı adresle ikinci kayıt **201** (iki hesap) | AuthTest | ⬜ |
-| K-4 | 🟠 Orta | Geç gelen `paid` webhook'u (`orders:expire` sonrası) sessizce yutuluyor | pending → 61 dk → expire → failed → imzalı `paid` → 204, sipariş `failed`, `paid_at` null, log yok | PaywallTest / MaintenanceTest | ⬜ |
+| K-4 | 🟠 Orta | Geç gelen `paid` webhook'u (`orders:expire` sonrası) sessizce yutuluyor | pending → 61 dk → expire → failed → imzalı `paid` → 204, sipariş `failed`, `paid_at` null, log yok | PaywallTest / MaintenanceTest | ✅ Faz 10 · 10.3–10.7 (`expired`, `Log::critical`/`warning`; PaywallTest §12) |
 | K-5 | 🟡 Orta | 429/503'te `Retry-After` BAŞLIĞI yok (docs/08 §4.1 vaat ediyor) | Gövdede `params.retryAfter: 60`, başlık null — renderer başlıkları düşürüyor | RsvpTest ✅ (kırmızı), Auth/Contact/Assistant ⬜ | ⬜ |
 | K-6 | 🟡 Orta | Yarım JSON → 422 + sahte `required` (docs/08 §4: bozuk istek 400) | Kapanmamış gövde → 422 üç alanda required | RsvpTest ✅ (kırmızı) | ⬜ |
 | K-7 | 🟡 Düşük | `integer` kuralı `true`'yu kabul ediyor | `guestCount: true` → 201 (1 kişi); `giftOptions: [true, 500]` kaydediliyor ve **aynen** frontend'e dönüyor (`number[]` sözleşmesi) | RsvpTest ✅ (kırmızı), InvitationTest ⬜ | ⬜ |

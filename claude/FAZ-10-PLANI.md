@@ -4,7 +4,9 @@
 > **Kaynaklar:** `claude/GOZDEN-GECIRME-RAPORU.md` (23 Eylül, kod okuması) ·
 > `claude/TEST-DENETIMI-2026-09-24.md` (24 Eylül, testler kum havuzunda gerçekten koşturuldu)
 > **Başlangıç noktası:** `edit-test` dalı, `ef7c692` (25 Eylül 07:28)
-> **Durum:** 📋 Plan. 10.0'ın kodu commit'lendi, `composer check` kaydı bekliyor. Diğer adımlara başlanmadı
+> **Durum:** 🟡 **Dilim A'nın kodu yazıldı** (25 Eylül 2026, 10.1–10.9). Kum havuzunda (PHP 8.4 + PostgreSQL 16)
+> her commit'te `composer check` yeşil; **senin makinende (PHP 8.5 + PostgreSQL 18) kaydı bekliyor** (B7).
+> 10.0'ın kaydı da hâlâ bekliyor. Ayrıntı, sapmalar ve yeni bulgular: **§9**
 
 ---
 
@@ -138,15 +140,19 @@ tahsil ettiğimiz parayı müşteriden alıyor.
 
 | # | Dosya | İş | Bulgu | Test / mutasyon |
 |---|---|---|---|---|
-| **10.1** | `app/Actions/Invitation/UpdateInvitationAction.php` | Satırı **kilitle ve yeniden oku** (`lockForUpdate`, E9: eşzamanlı yayınla yarışmasın). `published` ise `fill()`'den sonra `TierResolver::requiredFor()` ↔ `PublishEntitlementResolver::highestTierFor()`. Yetmiyorsa `PaywallViolationException::insufficientTier()`, transaction geri alınır. Taslak (`saved`) serbest kalır (K43'ün ruhu: denemenin bedeli olmaz). Modül **kapatmak** her zaman serbest | Rapor §1.1 · K-1 · **K88** | 10.2 |
-| **10.2** | `tests/Feature/PaywallTest.php` | 5 test: yayındaki davetiyede plan üstü modül → 402 + **DB'de bayrak `false`** (T14) · plan içi modül → 200 · modül kapatma → 200 · plan yükseltilince aynı istek → 200 · taslakta her şey serbest. Mutasyon: 10.1'deki `if`'i sil → ilk test kırılmalı | — | — |
-| **10.3** | `app/Enums/OrderStatus.php` | `case Expired = 'expired'`. `canTransitionTo`: `Pending → Paid/Failed/Expired`, **`Expired → Paid`**. `grantsPublishRight()` ve `hasBeenPaid()` değişmez | Rapor §1.2 · K-4 · **K89** | 10.7 |
-| **10.4** | `database/migrations/…_add_expired_to_orders_status.php` | `orders_status_check`'i enum'dan yeniden kur (K39 deseni: düşür → yeniden yaz). `paid_at` CHECK'i etkilenmez (`Expired` ödenmiş sayılmaz) | — | `migrate` + `migrate:rollback` |
-| **10.5** | `app/Console/Commands/ExpireStaleOrders.php` | `Failed` yerine `Expired` yazar. Koşullu `UPDATE` (eşzamanlı yarış koruması) aynen kalır | — | 10.7 |
-| **10.6** | `app/Actions/Payment/HandlePaymentCallbackAction.php` | Geçiş reddedildiğinde gelen durum `paid` ise **`Log::critical`** (sipariş, sağlayıcı ref, mevcut durum). Sentry'ye düşer. Para alındı, hak açılamadı: elle müdahale gerekir | K-4 | 10.7 |
-| **10.7** | `tests/Feature/PaywallTest.php` · `MaintenanceTest.php` | `orders:expire` → `expired` · expire sonrası imzalı `paid` → sipariş `paid`, `paid_at` dolu, yayın açılır · `failed` sonrası `paid` → reddedilir **ve** critical log (`Log::spy()`). Mutasyon: `Expired → Paid` kolunu sil | — | — |
-| **10.8** | **FE** `components/create/EditorWorkspace.tsx` (+ `useInvitationStore`) | Autosave'de 402 gelirse: açılan anahtarı geri al, paywall'ı `reason: 'upgrade'` + sunucunun `requiredTier`'ıyla aç. Autosave bir 402 fırtınası üretmesin (aynı alan için tek paywall) | K88 | Elle: Standart ile yayınla → galeriyi aç |
-| **10.9** | **FE** `src/types.ts` | `OrderStatus`'a `'expired'` | K89 | `npm run lint` |
+| **10.1** ✅ | `app/Actions/Invitation/UpdateInvitationAction.php` | Satırı **kilitle ve yeniden oku** (`lockForUpdate`, E9: eşzamanlı yayınla yarışmasın). `published` ise `fill()`'den sonra `TierResolver::requiredFor()` ↔ `PublishEntitlementResolver::highestTierFor()`. Yetmiyorsa `PaywallViolationException::insufficientTier()`, transaction geri alınır. Taslak (`saved`) serbest kalır (K43'ün ruhu: denemenin bedeli olmaz). Modül **kapatmak** her zaman serbest | Rapor §1.1 · K-1 · **K88** | 10.2 |
+| **10.2** ✅ | `tests/Feature/PaywallTest.php` | 5 test: yayındaki davetiyede plan üstü modül → 402 + **DB'de bayrak `false`** (T14) · plan içi modül → 200 · modül kapatma → 200 · plan yükseltilince aynı istek → 200 · taslakta her şey serbest. Mutasyon: 10.1'deki `if`'i sil → ilk test kırılmalı | — | — |
+| **10.3** ✅ | `app/Enums/OrderStatus.php` | `case Expired = 'expired'`. `canTransitionTo`: `Pending → Paid/Failed/Expired`, **`Expired → Paid`**. `grantsPublishRight()` ve `hasBeenPaid()` değişmez | Rapor §1.2 · K-4 · **K89** | 10.7 |
+| **10.4** ✅ | `database/migrations/…_add_expired_to_orders_status.php` | `orders_status_check`'i enum'dan yeniden kur (K39 deseni: düşür → yeniden yaz). `paid_at` CHECK'i etkilenmez (`Expired` ödenmiş sayılmaz) | — | `migrate` + `migrate:rollback` |
+| **10.5** ✅ | `app/Console/Commands/ExpireStaleOrders.php` | `Failed` yerine `Expired` yazar. Koşullu `UPDATE` (eşzamanlı yarış koruması) aynen kalır | — | 10.7 |
+| **10.6** ✅ | `app/Actions/Payment/HandlePaymentCallbackAction.php` | Geçiş reddedildiğinde gelen durum `paid` ise **`Log::critical`** (sipariş, sağlayıcı ref, mevcut durum). Sentry'ye düşer. Para alındı, hak açılamadı: elle müdahale gerekir | K-4 | 10.7 |
+| **10.7** ✅ | `tests/Feature/PaywallTest.php` · `MaintenanceTest.php` | `orders:expire` → `expired` · expire sonrası imzalı `paid` → sipariş `paid`, `paid_at` dolu, yayın açılır · `failed` sonrası `paid` → reddedilir **ve** critical log (`Log::spy()`). Mutasyon: `Expired → Paid` kolunu sil | — | — |
+| **10.8** ✅ | **FE** `components/create/EditorWorkspace.tsx` (+ `useInvitationStore`) | Autosave'de 402 gelirse: açılan anahtarı geri al, paywall'ı `reason: 'upgrade'` + sunucunun `requiredTier`'ıyla aç. Autosave bir 402 fırtınası üretmesin (aynı alan için tek paywall) | K88 | Elle: Standart ile yayınla → galeriyi aç |
+| **10.9** ✅ | **FE** `src/types.ts` | `OrderStatus`'a `'expired'` | K89 | `npm run lint` |
+
+> ✅ Dilim A'nın kodu yazıldı (25 Eylül). Planın metni **değiştirilmedi**; uygulamada
+> dokuz sapma/ekleme oldu ve hepsi onayını bekliyor → **§9.1**. En önemlisi: 10.6'daki
+> *"Sentry'ye düşer"* doğru değil (yeni satır **10.55b**).
 
 ---
 
@@ -229,7 +235,8 @@ A, B ve C'deki test adımlarıyla aynı dosyalara dokunanlar o adımla birleşti
 | **10.51** | `ContactTest` | Saatlik kova silinse yeşil · NUL · Türkçe veri |
 | **10.52** | `AssistantTest` | `retryAfter` yalnızca `assertIsInt` → `travelTo` ile sabitlenmeli |
 | **10.53** | `HardeningTest` | HSTS bloğu silinse yeşil → `https://localhost` isteğiyle otomatik test |
-| **10.54** | Kılavuzlar | `rehber/tests/Feature/HardeningTest.md` · `MaintenanceTest.md` (K18 borcu) |
+| **10.54** | Kılavuzlar | `rehber/tests/Feature/HardeningTest.md` · `MaintenanceTest.md` (K18 borcu) — 🟡 `MaintenanceTest.md` 10.5'te yazıldı, `HardeningTest.md` bekliyor |
+| **10.54b** 🆕 | `MaintenanceTest` | `every_scheduled_command_guards_against_overlapping` **boş yeşil**: `mutexName()` her iş için dolu döner, `withoutOverlapping()` silinse de geçer (10.5'te kum havuzunda kanıtlandı). `onOneServer()` hiç sınanmıyor. Doğrusu: `assertTrue($event->withoutOverlapping)` · `assertTrue($event->onOneServer)` |
 
 ---
 
@@ -240,6 +247,7 @@ Kod adımından önce karar gelir. Önerim her satırda.
 | # | Konu | Öneri | Kod |
 |---|---|---|---|
 | **10.55** | Zamanlanmış işler koşmazsa kimse bilmiyor (Faz 9 açık #1) | Sentry **Cron Monitors**: `->sentryMonitor()` makrosu paketle geliyor | `routes/console.php`, 3 satır |
+| **10.55b** 🆕 | 10.6'nın `Log::critical`'ı (*"para alındı, hak açılamadı"*) **Sentry'ye gitmiyor**: `Integration::handles()` yalnızca istisnaları yollar, üretimde `LOG_STACK=daily` | `config/logging.php` → `'sentry' => ['driver' => 'sentry', 'level' => 'critical']` + üretim `.env` → `LOG_STACK=daily,sentry`. Seviye `critical` olmalı: paketin kendi kaydettiği kanal seviyesiz, istisnalar `error` ile log'a da yazıldığı için Sentry'ye **iki kez** giderdi | `config/logging.php` + `docs/10` (+ kılavuz) |
 | **10.56** | `AI_PROVIDER` varsayılanı `gemini`, belgesi `null` diyor (rapor §5.7) | Kodu `null` yap. Üretim anahtarıyla `gemini-2.5-flash`'ı ilk gün dene (Google 2.5 erişimini kısıtlıyor) | `config/ai.php` |
 | **10.57** | Asistan kotası günü UTC (İstanbul'da 03:00'te yenileniyor) | `davetkart.default_timezone` | `AskAssistantAction` + test |
 | **10.58** | **K43** — paket alım kaç yayın açar? Bugün sınırsız | Frontend paket satın almayı zaten göstermiyor. Karar verilene kadar `POST /payments/checkout` **kapatılsın** (ya da `orders.publish_quota`) | Route ya da migration + Action |
@@ -283,7 +291,7 @@ Her biri bağımsız. İki büyük dilim arasında nefes almak için iyi.
 | **10.77** | Ölü config: `davetkart.auth.*`, `rsvp.poll_interval_seconds` | Rapor §6.2 · ders 26 |
 | **10.78** | `phpstan.neon` → `phpVersion: 80500` · CI yorumu (`^8.3` → `^8.5`) · K1 satırına K87 notu | **K87** |
 | **10.79** | `composer.json` → `ext-pdo_pgsql` | Rapor §6.6 |
-| **10.80** | `SubscriptionTier::label()` — dokuz fazdır çağrılmıyor (P-1'in sonucuna bağlı: fatura metni doğarsa kalır) | Faz 9 açık #3 |
+| **10.80** | `SubscriptionTier::label()` — dokuz fazdır çağrılmıyor (P-1'in sonucuna bağlı: fatura metni doğarsa kalır) · 🆕 `OrderStatus::isFinal()` de Faz 7'den beri çağrılmıyor (10.3'te durum makinesinden türetildi, silinmedi) | Faz 9 açık #3 · ders 26 |
 | **10.81** | Git hijyeni: 4 ajan worktree'si, 178 commit geride dallar, `payment-servide` · frontend `.gitattributes` (530 sahte değişiklik) · `D:\Projects\davetkart\Claude outputs\FRONTEND-YAKALAMA-PLANI.md` (eski kopya) | Rapor §6.9-10 |
 
 ---
@@ -321,9 +329,9 @@ Gerçek ödeme için minimum yol: **10.0 → A → B → C → G**. D lansmandan
 
 | # | Tuzak | Nerede |
 |---|---|---|
-| 1 | Kilitsiz plan kontrolü yarışa açık: eşzamanlı *"yayınla"* ile *"galeriyi aç"* ikisi de eski satırı görür | 10.1 → `lockForUpdate` şart (E9) |
-| 2 | Autosave her tuşta PUT atar: 402 bir kez değil **onlarca** kez gelebilir | 10.8 |
-| 3 | `ExpireStaleOrders`'ın mevcut testleri `failed` bekliyor. Yeşil kalıyorsa test etkiyi değil yanıtı doğruluyordur | 10.5 / 10.7 |
+| 1 | Kilitsiz plan kontrolü yarışa açık: eşzamanlı *"yayınla"* ile *"galeriyi aç"* ikisi de eski satırı görür | 10.1 → `lockForUpdate` şart (E9) — ✅ yazıldı; test edilemez (T15) |
+| 2 | Autosave her tuşta PUT atar: 402 bir kez değil **onlarca** kez gelebilir | 10.8 — ✅ anahtar geri alınıyor; formun bayat taslağı da (10.8c) |
+| 3 | `ExpireStaleOrders`'ın mevcut testleri `failed` bekliyor. Yeşil kalıyorsa test etkiyi değil yanıtı doğruluyordur | 10.5 / 10.7 — ✅ test beklendiği gibi **kırmızıya döndü** |
 | 4 | Normalizasyon dört yerde birden değişmeli. Biri unutulursa throttle kovası ve kayıt ayrı anahtarla çalışır | 10.13 |
 | 5 | Mevcut `i̇smail@…` satırı ile yeni `ismail@…` çakışabilir (UNIQUE ihlali) | 10.14 → önce `--dry-run` |
 | 6 | `dontReportWhen` log dosyasını da susturur. Bilerek | 10.16 |
@@ -337,8 +345,8 @@ Gerçek ödeme için minimum yol: **10.0 → A → B → C → G**. D lansmandan
 
 ## 7. Faz 10 bitti ölçütü
 
-- [ ] Standart planla yayınlanmış davetiyede galeri açma isteği **402**, veritabanı değişmedi
-- [ ] Süresi dolmuş siparişe gelen imzalı `paid` bildirimi hakkı açıyor
+- [ ] Standart planla yayınlanmış davetiyede galeri açma isteği **402**, veritabanı değişmedi — 🟡 kod + test (Dilim A), senin makinende kaydı bekliyor
+- [ ] Süresi dolmuş siparişe gelen imzalı `paid` bildirimi hakkı açıyor — 🟡 kod + test (Dilim A), senin makinende kaydı bekliyor
 - [ ] 31 günlük token 401 alıyor, `sanctum:prune-expired` satır siliyor
 - [ ] `İsmail@…` ile kayıt olan `ismail@…` ile giriş yapabiliyor
 - [ ] Ödeme dönüş sayfası siparişin durumunu gösteriyor
@@ -352,8 +360,73 @@ Gerçek ödeme için minimum yol: **10.0 → A → B → C → G**. D lansmandan
 
 ## 8. Nereden başlıyoruz?
 
-**10.0**: `ef7c692`'nin `composer check` sonucunu senin makinende (PHP 8.5) alıyoruz.
-Sonra **10.1**.
+~~**10.0**: `ef7c692`'nin `composer check` sonucunu senin makinende (PHP 8.5) alıyoruz.
+Sonra **10.1**.~~ → Dilim A yazıldı (§9.1).
+
+**Sıradaki:** Dilim A'nın commit'leri + `composer check` (PHP 8.5) kaydı (10.0'ınkiyle
+aynı koşu yeter), §9.1'deki dokuz sapmanın onayı, sonra **Dilim B**.
 
 Başlamadan önce §2.3'teki beş sorudan en az **D-5**'i cevaplarsan Dilim B kesintisiz
 ilerler. M-1, H-1 ve S-1 ancak Dilim D'de gerekiyor. P-1 hiçbir şeyi bloke etmiyor.
+
+---
+
+## 9. İlerleme kaydı
+
+### 9.1 Dilim A — 25 Eylül 2026 (kod yazıldı · senin makinende kaydı bekliyor)
+
+**Commit'ler** — her satır bir commit, adım adım:
+
+| Adım | Depo | Başlık | Dosyalar |
+|---|---|---|---|
+| 10.1 | backend | `10.1 - fix(paywall): Re-check the tier when a published invitation enables a module` | `UpdateInvitationAction` + kılavuz |
+| 10.2 | backend | `10.2 - test(paywall): Cover module changes on published invitations (7 tests)` | `PaywallTest` + kılavuz §11 |
+| 10.3 | backend | `10.3 - feat(orders): Add the expired status and allow expired to paid` | `OrderStatus` + kılavuz · 🆕 `tests/Unit/OrderStatusTest` + kılavuz |
+| 10.4 | backend | `10.4 - feat(orders): Rebuild the status check constraint to accept expired` | migration + kılavuz |
+| 10.5 | backend | `10.5 - fix(orders): Mark stale pending orders expired instead of failed` | `ExpireStaleOrders` · `MaintenanceTest` · `OrderFactory` + üç kılavuz (`MaintenanceTest.md` yeni) |
+| 10.6 | backend | `10.6 - feat(payments): Log a rejected paid notification as critical, a late one as a warning` | `HandlePaymentCallbackAction` + kılavuz §13 |
+| 10.7 | backend | `10.7 - test(paywall): Prove a late payment after expiry still grants the order` | `PaywallTest` + kılavuz §12 |
+| — | backend | `docs(phase10): Record the Dilim A progress, deviations and new findings` | bu dosya · `TEST-DENETIMI` (K-1, K-4 ✅) |
+| 10.8a | frontend | `10.8a - feat(paywall): Map a paywall 402 to paywall options in one place` | `useSubscriptionStore` + kılavuz (yeni) |
+| 10.8b | frontend | `10.8b - fix(editor): Roll back a module the server rejected on autosave` | `useInvitationStore` + kılavuz eki |
+| 10.8c | frontend | `10.8c - fix(editor): Write only the fields a form changed when a draft flushes` | `useInvitationDraft` + kılavuz §6 |
+| 10.8d | frontend | `10.8d - fix(editor): Show the paywall in every wizard stage` | `CreatePage` · `EditorWorkspace` · `PaywallModal` + iki kılavuz (yeni) |
+| 10.8e | frontend | `10.8e - test(editor): Verify the autosave 402 rollback and the draft flush` | `scripts/verify-editor-state.ts` |
+| 10.9 | frontend | `10.9 - feat(types): Add the expired order status` | `types.ts` + kılavuz §10 |
+
+**Doğrulama — nerede, neyle (B7):**
+
+| Ne | Nerede | Sonuç |
+|---|---|---|
+| `composer check`, **her** backend commit'inde ayrı ayrı | Kum havuzu: PHP 8.4.21 + PostgreSQL 16.13 | Pint · PHPStan L8 · `errors:export --check` yeşil; test sayısı 331 → 338 → 343 → 343 → 343 → 343 → **347** |
+| Migration 10.4: `migrate` → `expired` satır → `migrate:rollback` → `migrate` | Kum havuzu, gerçek veritabanı | Satır `failed`'a döndü, kısıt daraldı, `expired` yazımı reddedildi, yeniden genişledi |
+| Mutasyon, backend | Kum havuzu | 29 mutasyon: 24'ü beklenen testi kırdı · 4 bilinen boşluk (kilit ×1 T15, `save()` sırası ×1, `withoutOverlapping` ×1, `onOneServer` ×1) · 1 eşdeğer mutant |
+| Mutasyon, frontend (`verify:state`) | Kum havuzu | 6/6 beklenen kontrolü kırdı |
+| `npm run check` (lint + build + 7 doğrulama betiği) | Kum havuzu, Node 22 | Yeşil; her frontend commit'inde `tsc` + `verify:state` ayrı ayrı yeşil |
+| 🔴 `composer check` — PHP 8.5 + PostgreSQL 18 | **Senin makinen** | **Koşmadı.** Dilim A "doğrulandı" değil, "kodu yazıldı" |
+| Elle (Standart ile yayınla → galeriyi aç) | Tarayıcı | **Koşmadı** — adımlar `CreatePage.md` §5 ve `useInvitationStore.md` Faz 10 ekinde |
+
+**Plandan sapmalar ve eklemeler — onayını bekliyor:**
+
+| # | Adım | Plan ne diyordu | Ne yapıldı | Neden |
+|---|---|---|---|---|
+| S1 | 10.1 | `fill()`'den sonra `requiredFor()` ↔ `highestTierFor()`, yetmiyorsa 402 | Kural **farka** bakıyor: değişiklik gereken planı **yükseltiyorsa** yeni gereksinim sahip olunanla kıyaslanır | Son hâle bakan kural, iade ya da fiyat haritası değişikliğinden sonra tarih düzeltmeyi, hatta modül **kapatmayı** 402'ye çevirirdi (planın *"kapatmak her zaman serbest"* cümlesiyle çelişki). Normal durumda iki kural aynı cevabı verir. `UpdateInvitationAction.md` §9.3 |
+| S2 | 10.1 | Yalnızca `insufficientTier()` | Hiç hak yoksa (iade) `noPurchase()` → `PAYMENT_REQUIRED` | Yayın ucuyla aynı iki kod; `insufficientTier()` sahip olunan planı ister, `null` alamaz |
+| S3 | 10.2 | 5 test | 7 test | Son ikisi S1'in kanıtı |
+| S4 | 10.3 | Enum + geçişler | + `isFinal()` makineden türetildi · + `tests/Unit/OrderStatusTest.php` | Eski `isFinal()` `expired`'ı (ve `paid`'i) sonlu sayıyordu; çağıranı yok, davranış değişmedi |
+| S5 | 10.5 | Komut | + `OrderFactory::failed()` yorumu (B4) · + `MaintenanceTest.md` (10.54'ün yarısı) | Dosyaya dokunan adım kılavuzunu da yazar (K18) |
+| S6 | 10.6 | Yalnızca `Log::critical` | + `expired → paid` kabulünde `Log::warning` | Çifte tahsilatın tek izi |
+| S7 | 10.6 | *"Sentry'ye düşer"* | **Düşmüyor** — belgelendi, yeni satır **10.55b** | `Integration::handles()` yalnızca istisnaları yollar |
+| S8 | 10.7 | `PaywallTest` · `MaintenanceTest` | 4 yeni test `PaywallTest`'te + `a_signed_webhook_marks_the_order_paid`'e *"uyarı yok"* iddiası. `MaintenanceTest`'in değişikliği 10.5'e taşındı | 10.5, test değişmeden kırmızı kalırdı (commit'ler tek tek yeşil olmalı) |
+| S9 | 10.8 | `EditorWorkspace.tsx` (+ store) | Beş alt adım (10.8a–e), yukarıdaki tablo | Modül anahtarları stüdyoda değil **formda** (`build` aşaması): duvar yalnızca stüdyoda yaşasaydı 402 hiçbir ekran açmazdı. Formun bekleyen taslağı geri alınan anahtarı geri yazıyordu (fırtınanın ikinci kaynağı) |
+
+**Yeni bulgular (bu plana eklendi):**
+
+- **10.54b** — `MaintenanceTest`'te boş yeşil bir test (`withoutOverlapping`), `onOneServer` hiç sınanmıyor.
+- **10.55b** — `Log::critical` Sentry'ye gitmiyor.
+- **10.80** — `OrderStatus::isFinal()` de ölü kod.
+- **Z (10.84) için belge borcu** — `docs/03` (§ağaç, satır ~107), `docs/05` (satır ~146) ve `docs/11`
+  (§komutlar ~277, §zamanlayıcı ~1863) hâlâ dört durumlu enum ve *"`orders:expire` `failed` yapar"*
+  diyor. O güne kadar doğru olan kılavuzlardır.
+- **10.27 için not** — `OrderStatus`'u `switch`'leyen tek yer henüz yok; dönüş sayfası durum
+  eşlemesini `Record<OrderStatus, …>` olarak kurmalı ki `expired` unutulamasın (`types.md` §10).
