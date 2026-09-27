@@ -1,11 +1,12 @@
 # `tests/Feature/MaintenanceTest.php`
 
 > **Kod dosyası:** `tests/Feature/MaintenanceTest.php`
-> **Faz:** 9 — Üretim hazırlığı, dosyalar 9.9 · 9.10 · 9.11 · 🆕 **Faz 10**, adım 10.5 (§5.1)
+> **Faz:** 9 — Üretim hazırlığı, dosyalar 9.9 · 9.10 · 9.11 · 🆕 **Faz 10**, adım 10.5 (§5.1) · adım 10.11 (§6b)
 > **Kılavuz yazımı:** 25 Eylül 2026 — **K18 borcu** (dosya Faz 9'da kılavuzsuz eklenmişti;
 > plan 10.54'ün yarısı burada kapandı, `HardeningTest.md` hâlâ bekliyor)
-> **Test sayısı:** 15 · **Test edilenler:** [`ExpireStaleOrders.md`](../../app/Console/Commands/ExpireStaleOrders.md) ·
-> [`PruneOrphanMedia.md`](../../app/Console/Commands/PruneOrphanMedia.md) · [`routes/console.md`](../../routes/console.md)
+> **Test sayısı:** 16 · **Test edilenler:** [`ExpireStaleOrders.md`](../../app/Console/Commands/ExpireStaleOrders.md) ·
+> [`PruneOrphanMedia.md`](../../app/Console/Commands/PruneOrphanMedia.md) · [`routes/console.md`](../../routes/console.md) ·
+> `sanctum:prune-expired` (Laravel'in komutu, [`config/sanctum.md`](../../config/sanctum.md))
 
 ---
 
@@ -76,6 +77,7 @@ doğrulamayla görülür.
 |---|---|---|
 | `orders:expire` | 5 | [`ExpireStaleOrders`](../../app/Console/Commands/ExpireStaleOrders.md) |
 | `media:prune-orphans` | 7 | [`PruneOrphanMedia`](../../app/Console/Commands/PruneOrphanMedia.md) |
+| 🆕 `sanctum:prune-expired` | 1 | Laravel'in komutu + bizim config'imiz + zamanlayıcıdaki argüman (§6b) |
 | Zamanlayıcı | 3 | [`routes/console.php`](../../routes/console.md) |
 
 ---
@@ -143,6 +145,82 @@ ne işe yaradığına bağlı.
 
 ---
 
+## 6b. 🆕 `sanctum:prune-expired` (Faz 10, 10.11)
+
+### Neden bir **vendor** komutunu test ediyoruz?
+
+Laravel'in komutunu değil, **bizim ona verdiğimiz iki şeyi** test ediyoruz:
+
+| Girdi | Nerede | Faz 9'da |
+|---|---|---|
+| `sanctum.expiration` | `config/sanctum.php` | `null` → asıl sorgu hiç koşmadı |
+| `--hours` | `routes/console.php` | `720` |
+
+Komut Faz 9'dan 10.10'a kadar zamanlanmıştı, `schedule:list`'te görünüyordu,
+hata vermiyordu — ve **hiçbir şey silmiyordu** (B4, [`routes/console.md`](../../routes/console.md) §2).
+§7'deki kayıt testi bunu yakalayamazdı: o, satırın **var olduğunu** sorar, **iş
+yaptığını** değil. Yalnızca silinen satırı sayan bir test yakalar (T14).
+
+### Test
+
+```php
+$stale      = $this->tokenIssuedAt($user, now()->subDays(31)->subMinute());
+$inGraceDay = $this->tokenIssuedAt($user, now()->subDays(31)->addMinute());
+$alive      = $this->tokenIssuedAt($user, now()->subDay());
+
+$this->runCommand($this->scheduledArtisanCommand('sanctum:prune-expired'));
+
+$this->assertModelMissing($stale);
+$this->assertModelExists($inGraceDay);
+$this->assertModelExists($alive);
+```
+
+| Token | Yaşı | Durumu | Beklenen | Dörtlü soru |
+|---|---|---|---|---|
+| `$stale` | 31 gün + 1 dk | Süresi dolmuş, bekleme günü de geçmiş | **Silinir** | 1 (hedef) · 3 (sınır) |
+| `$inGraceDay` | 31 gün − 1 dk | Süresi dolmuş, bekleme gününde | Kalır | 2 (hedef değil) · 3 (sınır) |
+| `$alive` | 1 gün | Geçerli | Kalır | 2 (hedef değil) |
+
+Sınırın formülü: `expiration` (30 gün) + `--hours` (24) = **31 gün**. Soru 4
+(`--dry-run`) bu komut için yok: Laravel'in komutunun böyle bir seçeneği yok.
+
+> **Sınır neden dakika, `AuthTest` §3.6'daki gibi saniye değil?** Orada Guard'ın
+> kendi `now()`'ı sınırın **tam üstüne** getiriliyordu (`travelTo`). Burada
+> token'lar `now()`'a göre yazılıyor ve komut birkaç milisaniye sonra kendi
+> `now()`'ını alıyor. Bir dakikalık pay, iki an arasındaki kaymayı yutar ama
+> ömrü 29 ya da 31 güne kaydıran bir mutasyonu (≥ 1 gün) kaçırmaz.
+
+### 🔴 `scheduledArtisanCommand()` — zamanlayıcıdaki satırı **aynen** koşturmak
+
+Test komutu `['--hours' => 24]` gibi **elle yazılmış** argümanlarla çağırsaydı,
+yarın biri zamanlayıcıyı yeniden `--hours=720` yaptığında test yeşil kalırdı:
+test kendi argümanını sınıyor olurdu, üretimin koşacağını değil.
+
+Bunun yerine yardımcı, zamanlayıcıya kaydedilmiş satırı okuyup `Artisan::call()`'a
+verilebilecek hâle getiriyor:
+
+```
+Windows: "C:\...\php.exe" "artisan" sanctum:prune-expired --hours=24
+Linux  : '/usr/bin/php' 'artisan' sanctum:prune-expired --hours=24
+Sonuç  : sanctum:prune-expired --hours=24
+```
+
+Tırnak işletim sistemine göre değişiyor (Laravel `ProcessUtils::escapeArgument`
+kullanıyor); düzenli ifade `['"]artisan['"]` ikisini de kabul ediyor.
+`Artisan::call()` argümanlı bir dizgiyi kendisi ayrıştırır (`StringInput`).
+
+> **Neden `$event->run()` değil?** O, komutu **ayrı bir PHP sürecinde** başlatır.
+> `RefreshDatabase` her testi bir transaction içinde koşturduğu için ayrı süreç
+> testin yazdığı token'ları **göremez**: test boş bir tabloyu temizler ve geçer.
+
+### `tokenIssuedAt()` — `forceFill`
+
+`created_at` `$fillable`'da değil ve olmamalı: zamanı model yazar, istemci değil.
+Test zamanı geriye almak için `forceFill()` kullanıyor: `$fillable`'ı atlayan,
+**yalnızca** bilerek çağrılan yol. Uygulama kodunda karşılığı yok.
+
+---
+
 ## 7. Zamanlayıcı
 
 | Test | Neyi yakalar |
@@ -167,6 +245,18 @@ ne işe yaradığına bağlı.
 | 8 | `Storage::…->delete()` satırını sil | `it_removes_the_file_from_its_own_disk` |
 | 9 | `orders:expire`'dan `withoutOverlapping()`'i sil | ⚠️ **Hiçbiri** — §8.1 |
 | 10 | `orders:expire`'dan `onOneServer()`'ı sil | ⚠️ **Hiçbiri** — §8.1 |
+
+**Faz 10, 10.11 — `sanctum:prune-expired` (27 Eylül 2026, İsmail'in makinesi, PHP 8.5):**
+
+| # | Mutasyon | Kırılan iddia |
+|---|---|---|
+| 11 | `config/sanctum.php` → `'expiration' => null` (Faz 9'un hâli) | `$stale` silinmedi |
+| 12 | `'expiration' => 60 * 24 * 29` | `$inGraceDay` silindi |
+| 13 | `routes/console.php` → `--hours=720` (Faz 9'un hâli) | `$stale` silinmedi |
+| 14 | `--hours=0` | `$inGraceDay` silindi |
+
+13. satır `scheduledArtisanCommand()`'ın varlık sebebi: argüman testte elle
+yazılsaydı bu mutasyon **hayatta kalırdı**.
 
 Dördüncü satır bir boşluk değil: mutasyon programın davranışını değiştirmiyor.
 Eşdeğer bir mutantı öldürecek test yazılamaz — ve yazılmaya çalışılmamalı.
@@ -203,6 +293,7 @@ burası). **B6**: bir savunmanın neyi kapatmadığı da yazılır.
 | Gerçek disk | `Storage::fake()` (§3) |
 | Toplu `UPDATE` ile eşzamanlı webhook yarışı | **T15**: tek süreçli testte kurulamaz. `ExpireStaleOrders.md` §9.3 mantığı anlatıyor |
 | Geç ödemenin `expired` satırı açması | Bu dosyada değil, `PaywallTest` (10.7) |
+| Süresi dolan token'ın **reddedilmesi** | Bu dosya yalnızca satırın silinmesini görür; reddi `AuthTest` §3.6 kanıtlıyor (10.11) |
 
 ---
 
@@ -210,8 +301,12 @@ burası). **B6**: bir savunmanın neyi kapatmadığı da yazılır.
 
 ```powershell
 php artisan test --filter=MaintenanceTest
-# 15 passed
+# 16 passed
 ```
+
+Mutasyon 13'ü elle dene: `routes/console.php`'de `--hours=24`'ü `--hours=720`
+yap, `php artisan test --filter=the_scheduled_token_prune` koştur. **Kırmızı**
+olmalı (§6b). Geri almayı unutma.
 
 Mutasyon 9'u elle dene: `routes/console.php`'de `orders:expire`'ın
 `->withoutOverlapping()` satırını sil, testi koştur. **Yeşil** kalacak — §8.1'in

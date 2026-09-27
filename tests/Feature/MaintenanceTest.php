@@ -8,12 +8,15 @@ use App\Enums\OrderStatus;
 use App\Models\Media;
 use App\Models\Order;
 use App\Models\Rsvp;
+use App\Models\User;
+use DateTimeInterface;
 use Illuminate\Console\Command;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\PersonalAccessToken;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -259,6 +262,54 @@ final class MaintenanceTest extends TestCase
 
         $this->assertDatabaseHas('media', ['id' => $media->id]);
     }
+
+    // --------------------------------------- sanctum:prune-expired (10.10)
+
+    /**
+     * 🔴 Faz 9'dan 10.10'a kadar bu komut zamanlanmisti, `schedule:list`'te
+     * gorunuyordu, hata vermiyordu — ve HICBIR SEY silmiyordu (B4):
+     * `sanctum.expiration` null oldugu icin asil sorgusu hic kosmuyordu.
+     * Kayit testi (asagida) bunu yakalayamazdi; yalnizca SILINEN SATIRI
+     * sayan bir test yakalar.
+     *
+     * Komut elle yazilan argumanlarla degil, ZAMANLAYICIDAKI satirla aynen
+     * calistiriliyor (`scheduledArtisanCommand`). Yarin biri `--hours`'i
+     * degistirirse test onu da gorur.
+     *
+     * Sinir: `expiration` (30 gun) + `--hours=24` = `created_at`'i 31 gunden
+     * eski token silinir. Dortlu soru (dosya basi):
+     *   1. hedef    : 31 gun + 1 dakika -> silinir
+     *   2. hedef degil: 31 gun - 1 dakika (suresi dolmus ama bekleme gununde)
+     *                  ve 1 gunluk (canli) token -> kalir
+     *   3. sinir    : iki yanda birer dakika
+     *   4. dry-run  : komutun boyle bir secenegi yok
+     */
+    #[Test]
+    public function the_scheduled_token_prune_deletes_tokens_a_day_past_their_lifetime(): void
+    {
+        $user = User::factory()->create();
+
+        $stale = $this->tokenIssuedAt($user, now()->subDays(31)->subMinute());
+        $inGraceDay = $this->tokenIssuedAt($user, now()->subDays(31)->addMinute());
+        $alive = $this->tokenIssuedAt($user, now()->subDay());
+
+        $this->runCommand($this->scheduledArtisanCommand('sanctum:prune-expired'));
+
+        $this->assertModelMissing($stale);
+        $this->assertModelExists($inGraceDay);
+        $this->assertModelExists($alive);
+    }
+
+    private function tokenIssuedAt(User $user, DateTimeInterface $issuedAt): PersonalAccessToken
+    {
+        $token = $user->createToken('api')->accessToken;
+
+        // `created_at` $fillable'da degil ve olmamali; zamani yalnizca test yazar.
+        $token->forceFill(['created_at' => $issuedAt])->save();
+
+        return $token;
+    }
+
     // ------------------------------------------------------ ZAMANLAYICI (9.11)
 
     /**
@@ -329,6 +380,28 @@ final class MaintenanceTest extends TestCase
                 sprintf('Zamanlanmis is withoutOverlapping() tasimiyor: %s', $event->command),
             );
         }
+    }
+
+    /**
+     * Zamanlayicidaki satiri, `Artisan::call()`'a verilebilecek hale getirir.
+     *
+     *   Windows: "C:\...\php.exe" "artisan" sanctum:prune-expired --hours=24
+     *   Linux  : '/usr/bin/php' 'artisan' sanctum:prune-expired --hours=24
+     *   Sonuc  : sanctum:prune-expired --hours=24
+     *
+     * Tirnak isletim sistemine gore degisiyor (ProcessUtils::escapeArgument);
+     * ifade ikisini de kabul eder.
+     */
+    private function scheduledArtisanCommand(string $name): string
+    {
+        foreach ($this->scheduledCommands() as $command) {
+            if (str_contains($command, $name)
+                && preg_match('/[\'"]artisan[\'"]\s+(.+)$/', $command, $matches) === 1) {
+                return $matches[1];
+            }
+        }
+
+        $this->fail(sprintf('Zamanlayicida bulunamadi: %s', $name));
     }
 
     /**
