@@ -307,10 +307,10 @@ Bu bilinçli: kullanıcı telefondan ve bilgisayardan aynı anda girebilmeli.
 Telefondan çıkış yapmak bilgisayardaki oturumu düşürmemeli — 2.9'daki
 `logout` yalnızca **o anki** token'ı silecek.
 
-> ⚠️ Bilinen sınır: token'ların süresi yok (`config/sanctum.php` →
-> `expiration => null`) ve eskiyenler temizlenmiyor. Uzun vadede
-> `personal_access_tokens` tablosu büyür. Faz 9'da `sanctum:prune-expired`
-> zamanlanmış görevi eklenecek.
+> ✅ Faz 10 (**K90**): token'lar oluşturulduktan **30 gün** sonra geçersiz
+> (`config/sanctum.php` → `expiration`). Eskiyenleri zamanlayıcıdaki
+> `sanctum:prune-expired` siler. Ayrıntı: [`config/sanctum.md`](../../../config/sanctum.md).
+> *(Faz 9'a kadar burada "token'ların süresi yok" yazıyordu.)*
 
 ### 3.5 `TOKEN_NAME` neden ikisinde de `'api'`?
 

@@ -52,7 +52,18 @@ return [
     |
     */
 
-    'expiration' => null,
+    // 🔴 Faz 10 (K90): 30 gun, MUTLAK — token'in `created_at`'inden sayilir,
+    // kullanildikca uzamaz. 30. gunun sonunda yeniden giris istenir.
+    //
+    // Neden token basina `expires_at` degil de burasi? `createToken()`'a
+    // verilen `expires_at` yalnizca YENI token'lara yazilir; bugune kadar
+    // uretilmis her token'in kolonu NULL ve sonsuza kadar gecerli kalirdi.
+    // Buradaki deger Guard tarafindan HER istekte, eski token'lar dahil,
+    // `created_at`'e karsi okunur.
+    //
+    // `env()` BILEREK yok: bu bir urun karari, ortam ayari degil. Uretimin
+    // testlerden farkli bir omurle kosmasini istemiyoruz.
+    'expiration' => 60 * 24 * 30,
 
     /*
     |--------------------------------------------------------------------------
