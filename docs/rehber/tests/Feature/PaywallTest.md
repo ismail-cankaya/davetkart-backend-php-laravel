@@ -1,8 +1,8 @@
 # `tests/Feature/PaywallTest.php`
 
 > **Kod dosyası:** `tests/Feature/PaywallTest.php`
-> **Faz:** 7 — Ödeme ve paywall, dosya 7.19
-> **Test sayısı:** 33
+> **Faz:** 7 — Ödeme ve paywall, dosya 7.19 · 🆕 **Faz 10**, adım 10.2 (§11)
+> **Test sayısı:** 58 (Faz 7: 33 · Faz 9: +18 · Faz 10: +7)
 > **Bitti ölçütü (`docs/09`):** *"Standart planla galeri açık davetiye
 > yayınlanamıyor (402); sahte ödeme sonrası yayınlanabiliyor. Aynı webhook iki
 > kez gelince tek order."*
@@ -247,7 +247,89 @@ php artisan test
 
 ---
 
-## 10. Sırada ne var?
+## 10. Sırada ne vardı? (Faz 7)
 
 **7.20 — `FAZ-7.md`** (faz özeti, kurallar, kararlar) ve
 **`FAZ-7-ELLE-DOGRULAMA.md`** (testin kapatamadığı adımlar).
+
+> ⚠️ **K18 borcu:** Faz 9'un bu dosyaya eklediği 18 test (serbest bırakma,
+> bağlama, silme penceresi — `ClaimReleasedOrderAction`, `DeleteInvitationAction`)
+> bu kılavuzda henüz anlatılmıyor ve yukarıdaki mutasyon tablosunda yok.
+> Test denetiminin 10.49 adımı bu dosyaya zaten dönecek; borç orada kapanabilir.
+
+---
+
+## 11. 🆕 Faz 10 — yayındaki davetiyede modül (10.2 · K88)
+
+**Bulgu:** rapor §1.1 · denetim **K-1**. Dosyanın 51 testinin hiçbiri yayından
+sonra `PUT` atmıyordu; paywall'ın yalnızca yayın anında sorulduğunu bu yüzden
+kimse görmedi. Üretim kodu: [`UpdateInvitationAction.md`](../../app/Actions/Invitation/UpdateInvitationAction.md) §9.
+
+### 11.1 Yedi test, yedi iddia
+
+| Test | İddia | 🔴 Kanıt (T14) |
+|---|---|---|
+| `a_published_invitation_cannot_enable_a_module_above_its_tier` | Standart + galeri → 402 `PAYWALL_TIER_INSUFFICIENT`, `requiredTier: elit` | `show_gallery` hâlâ `false` **ve** aynı istekteki başlık yazılmadı |
+| `a_published_invitation_can_enable_a_module_within_its_tier` | Gold + zaman çizelgesi → 200 | Kolon `true` |
+| `disabling_a_module_needs_no_covering_order` | İade edilmiş siparişle (hak **yok**) galeri kapatılabilir | Kolon `false` |
+| `upgrading_the_order_lets_the_owner_enable_the_module` | Aynı istek: önce 402, Elit alınınca 200 | `show_gift` + `bank_name` yazıldı |
+| `a_draft_invitation_can_enable_any_module_without_an_order` | Taslakta her şey serbest (K43) | İki bayrak `true`, durum `saved` |
+| `a_published_invitation_stays_editable_when_the_price_map_changes` | Fiyat haritası değişse de metin düzeltilebilir | `venue` yazıldı |
+| `enabling_a_module_after_a_refund_asks_for_a_purchase` | Hak yoksa 402 `PAYMENT_REQUIRED` (yayın ucuyla aynı iki kod) | Kolon `false` |
+
+Plan beş test istemişti. Son ikisi **seçilen kuralın** kanıtı: kural son hâle
+değil **farka** bakıyor (Action kılavuzu §9.3). Onlar olmasaydı kuralı *"sahip
+olunan plan son hâli kapsıyor mu"*ya çeviren bir değişiklik bütün testleri
+yeşil geçerdi (mutasyon M3) — ve iade sonrası kullanıcı davetiyesine kilitlenirdi.
+
+### 11.2 İlk testin iki katmanlı kanıtı
+
+```php
+->putJson(route('invitations.update', $invitation), ['invitation' => [
+    'title' => 'Nikâhımıza Davetlisiniz',
+    'showGallery' => true,
+]])
+->assertStatus(402);
+
+$this->assertDatabaseHas('invitations', [
+    'show_gallery' => false,                 // reddedilen alan yazılmadı
+    'title' => 'Düğünümüze Davetlisiniz',    // 🔴 masum alan da yazılmadı
+]);
+```
+
+İkinci satır olmasaydı *"402 dön ama başlığı yine de kaydet"* diyen bir kod
+(örneğin kontrolü `save()`'ten sonra, transaction **dışında** yapan) testi
+geçerdi. Autosave her seferinde **tüm** davetiyeyi gönderdiği için bu fark
+önemli: frontend reddedilen isteğin **hiçbir parçasının** yazılmadığını bilerek
+anahtarı geri alır ve kalanını yeniden gönderir (frontend 10.8).
+
+### 11.3 Veri artık oyuncak değil
+
+Test denetimi *"oyuncak veri"* (`Dugunumuz`) ve *"ASCII isimler"* diye iki kez
+not düşmüştü. Yeni testler gerçek metin kullanıyor: `Nikâhımıza Davetlisiniz`,
+`Çırağan Sarayı, İstanbul`, `Ziraat Bankası`. `assertDatabaseHas` karşılaştırmayı
+veritabanında yapar, JSON kaçışı (`\u00e7`) araya girmez — Türkçe karakter
+burada güvenle doğrulanır.
+
+### 11.4 Mutasyon tablosu (kum havuzunda koşturuldu)
+
+| # | Mutasyon (`UpdateInvitationAction`) | Kırılan test |
+|---|---|---|
+| 34 | `status === Published` kontrolünü kaldır | `a_draft_invitation_can_enable_any_module_without_an_order` |
+| 35 | `covers()` reddini kaldır | `a_published_invitation_cannot_enable_…` · `upgrading_the_order_…` |
+| 36 | Fark kuralını kaldır (son hâle bak) | `disabling_a_module_needs_no_covering_order` · `…_stays_editable_when_the_price_map_changes` |
+| 37 | Önceki gereksinimi `fill()`'den sonra ölç | `a_published_invitation_cannot_enable_…` (+2) |
+| 38 | `noPurchase()` → `insufficientTier()` | `enabling_a_module_after_a_refund_asks_for_a_purchase` |
+| 39 | `lockForUpdate()`'i sil | ⚠️ **Hiçbiri** — T15 (§7.1'in 32. satırıyla aynı sınıf) |
+| 40 | Kontrolü `save()`'ten sonraya al | ⚠️ **Hiçbiri** — transaction geri alıyor; fark yalnızca bir cache temizliği |
+
+### 11.5 Kendin dene
+
+```powershell
+php artisan test --filter=PaywallTest
+# 58 passed
+```
+
+Elle karşılığı: Standart ile bir davetiye yayınla → dashboard'dan **Düzenle** →
+*Tasarımını Düzenle* → **Fotoğraf Galerisi** anahtarını aç. Network sekmesinde
+`PUT /api/invitations/{id}` → **402**. Frontend tarafı 10.8'de.

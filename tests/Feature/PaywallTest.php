@@ -324,6 +324,166 @@ final class PaywallTest extends TestCase
             ->assertJsonPath('data.id', $invitation->id);
     }
 
+    // --------------------------------- YAYINDAKI DAVETIYEDE MODUL (10.1 · K88)
+
+    /**
+     * 🔴 Rapor §1.1 · denetim K-1: Standart ile yayinlanan davetiyede galeri
+     * sonradan ACILAMAZ.
+     *
+     * Kanit yanit degil ETKI (T14): bayrak hala `false` ve AYNI istekteki
+     * baslik da yazilmadi. Kayit parca parca degil, TEK PARCA reddedildi.
+     */
+    #[Test]
+    public function a_published_invitation_cannot_enable_a_module_above_its_tier(): void
+    {
+        [$user, $invitation] = $this->publishedInvitation(SubscriptionTier::Standart, [
+            'title' => 'Düğünümüze Davetlisiniz',
+        ]);
+
+        $this->withToken($this->tokenFor($user))
+            ->putJson(route('invitations.update', $invitation), ['invitation' => [
+                'title' => 'Nikâhımıza Davetlisiniz',
+                'showGallery' => true,
+            ]])
+            ->assertStatus(402)
+            ->assertJsonPath('error.code', ErrorCode::PaywallTierInsufficient->value)
+            ->assertJsonPath('error.params.requiredTier', SubscriptionTier::Elit->value);
+
+        $this->assertDatabaseHas('invitations', [
+            'id' => $invitation->id,
+            'show_gallery' => false,
+            'title' => 'Düğünümüze Davetlisiniz',
+        ]);
+    }
+
+    /** Plan ICINDEKI modul serbest: Gold, zaman cizelgesini acabilir. */
+    #[Test]
+    public function a_published_invitation_can_enable_a_module_within_its_tier(): void
+    {
+        [$user, $invitation] = $this->publishedInvitation(SubscriptionTier::Gold);
+
+        $this->withToken($this->tokenFor($user))
+            ->putJson(route('invitations.update', $invitation), ['invitation' => ['showTimeline' => true]])
+            ->assertOk()
+            ->assertJsonPath('data.invitation.showTimeline', true);
+
+        $this->assertDatabaseHas('invitations', ['id' => $invitation->id, 'show_timeline' => true]);
+    }
+
+    /**
+     * 🔴 Modul KAPATMAK her zaman serbest — elde hicbir hak kalmamis olsa bile.
+     *
+     * Siparis iade edildi (hak yok), davetiye yayinda kaldi (acik karar 10.61).
+     * Kural "sahip olunan plan son hali kapsiyor mu" olsaydi bu istek 402
+     * alirdi ve kullanici iade edilmis galeriyi KAPATAMAZDI bile.
+     */
+    #[Test]
+    public function disabling_a_module_needs_no_covering_order(): void
+    {
+        $user = User::factory()->create();
+        $invitation = Invitation::factory()->published()->create([
+            'user_id' => $user->id,
+            'show_gallery' => true,
+        ]);
+        Order::factory()->refunded()->tier(SubscriptionTier::Elit)->forInvitation($invitation)->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->putJson(route('invitations.update', $invitation), ['invitation' => ['showGallery' => false]])
+            ->assertOk();
+
+        $this->assertDatabaseHas('invitations', ['id' => $invitation->id, 'show_gallery' => false]);
+    }
+
+    /** Ayni istek, plan yukseltilince gecer: red kalici degil, hakka bagli. */
+    #[Test]
+    public function upgrading_the_order_lets_the_owner_enable_the_module(): void
+    {
+        [$user, $invitation] = $this->publishedInvitation(SubscriptionTier::Standart);
+        $token = $this->tokenFor($user);
+        $payload = ['invitation' => ['showGift' => true, 'bankName' => 'Ziraat Bankası']];
+
+        $this->withToken($token)
+            ->putJson(route('invitations.update', $invitation), $payload)
+            ->assertStatus(402);
+
+        Order::factory()->paid()->tier(SubscriptionTier::Elit)->forInvitation($invitation)->create();
+
+        // T13: ikinci kimlikli istekten once guard sifirlanir.
+        $this->forgetAuthState();
+
+        $this->withToken($token)
+            ->putJson(route('invitations.update', $invitation), $payload)
+            ->assertOk();
+
+        $this->assertDatabaseHas('invitations', [
+            'id' => $invitation->id,
+            'show_gift' => true,
+            'bank_name' => 'Ziraat Bankası',
+        ]);
+    }
+
+    /** Taslakta her sey serbest: K43'un ruhu, denemenin bedeli olmaz. */
+    #[Test]
+    public function a_draft_invitation_can_enable_any_module_without_an_order(): void
+    {
+        [$user, $invitation] = $this->ownedInvitation();
+
+        $this->withToken($this->tokenFor($user))
+            ->putJson(route('invitations.update', $invitation), ['invitation' => [
+                'showGallery' => true,
+                'showGift' => true,
+            ]])
+            ->assertOk();
+
+        $this->assertDatabaseHas('invitations', [
+            'id' => $invitation->id,
+            'status' => InvitationStatus::Saved->value,
+            'show_gallery' => true,
+            'show_gift' => true,
+        ]);
+    }
+
+    /**
+     * 🔴 Kural bir FARKA bakar, son hale degil.
+     *
+     * Fiyat haritasi degisti: zaman cizelgesi artik Elit'e ait. Gold ile
+     * yayinlanmis davetiye artik "plan disi" gorunur — ama sahibi yine de
+     * metnini duzeltebilmeli. Bu istek gereksinimi YUKSELTMIYOR.
+     */
+    #[Test]
+    public function a_published_invitation_stays_editable_when_the_price_map_changes(): void
+    {
+        [$user, $invitation] = $this->publishedInvitation(SubscriptionTier::Gold, ['show_timeline' => true]);
+
+        Config::set('davetkart.module_tiers.show_timeline', SubscriptionTier::Elit->value);
+
+        $this->withToken($this->tokenFor($user))
+            ->putJson(route('invitations.update', $invitation), ['invitation' => ['venue' => 'Çırağan Sarayı, İstanbul']])
+            ->assertOk();
+
+        $this->assertDatabaseHas('invitations', [
+            'id' => $invitation->id,
+            'venue' => 'Çırağan Sarayı, İstanbul',
+        ]);
+    }
+
+    /** Hic hak kalmamissa (iade) modul acmak "once bir plan al" der — publish ile ayni iki kod. */
+    #[Test]
+    public function enabling_a_module_after_a_refund_asks_for_a_purchase(): void
+    {
+        $user = User::factory()->create();
+        $invitation = Invitation::factory()->published()->create(['user_id' => $user->id]);
+        Order::factory()->refunded()->forInvitation($invitation)->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->putJson(route('invitations.update', $invitation), ['invitation' => ['showTimeline' => true]])
+            ->assertStatus(402)
+            ->assertJsonPath('error.code', ErrorCode::PaymentRequired->value)
+            ->assertJsonPath('error.params.requiredTier', SubscriptionTier::Gold->value);
+
+        $this->assertDatabaseHas('invitations', ['id' => $invitation->id, 'show_timeline' => false]);
+    }
+
     // ------------------------------------------------- CHECKOUT (7.10 / 7.14)
 
     #[Test]
@@ -926,6 +1086,27 @@ final class PaywallTest extends TestCase
         $attributes = array_merge(['user_id' => $user->id], $overrides);
 
         return [$user, Invitation::factory()->create($attributes)];
+    }
+
+    /**
+     * Yayinda bir davetiye ve onu yayinlatan odenmis TEKIL siparis.
+     *
+     * @param  array<string, mixed>  $overrides
+     *
+     * @return array{0: User, 1: Invitation}
+     */
+    private function publishedInvitation(SubscriptionTier $paidTier, array $overrides = []): array
+    {
+        $user = User::factory()->create();
+
+        /** @var array<string, mixed> $attributes */
+        $attributes = array_merge(['user_id' => $user->id], $overrides);
+
+        $invitation = Invitation::factory()->published()->create($attributes);
+
+        Order::factory()->paid()->tier($paidTier)->forInvitation($invitation)->create();
+
+        return [$user, $invitation];
     }
 
     /**
