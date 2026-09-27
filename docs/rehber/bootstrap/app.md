@@ -1,7 +1,7 @@
 # `bootstrap/app.php` — Eğitim Dokümanı
 
 > **Kapsanan dosya:** `bootstrap/app.php`
-> **Yol haritasındaki yeri:** Faz 1, dosya 1.3b · 🔴 sonraki eklemeler §2.6'da (Faz 5, Faz 9, 21 Eylül 2026 Sentry)
+> **Yol haritasındaki yeri:** Faz 1, dosya 1.3b · 🔴 sonraki eklemeler §2.6'da (Faz 5, Faz 9, 21 Eylül 2026 Sentry) · 🆕 **Faz 10, adım 10.16** (§2.7)
 > **Bağlantılı:** [`ForceJsonResponse.md`](../app/Http/Middleware/ForceJsonResponse.md) ·
 > [`ApiExceptionRenderer.md`](../app/Exceptions/ApiExceptionRenderer.md)
 
@@ -285,6 +285,87 @@ boşsa SDK sessizce kapalıdır — yerelde ayrıca kapatmak gerekmez.
 > Öneri: yalnızca 5xx sınıfındakileri raporla, ör.
 > `$exceptions->dontReportWhen(fn (Throwable $e) => $e instanceof HasErrorCode && $e->errorCode()->status() < 500);`
 > Karar İsmail'in; kılavuz: [`config/sentry.md`](../config/sentry.md).
+>
+> ✅ **Faz 10 (10.16) — uygulandı.** Ayrıntı: §2.7.
+
+### 2.7 🆕 Faz 10 (10.16): `dontReportWhen` — 4xx iş istisnaları raporlanmaz
+
+```php
+$exceptions->dontReportWhen(
+    fn (Throwable $e): bool => $e instanceof HasErrorCode && $e->errorCode()->status() < 500,
+);
+```
+
+#### Neden?
+
+Yanlış parola, 402, kota aşımı, sahte webhook imzası birer **hata** değil,
+sözleşmenin öngördüğü **cevaplardır**. Faz 9'a kadar her biri iki şey
+üretiyordu: bir Sentry olayı ve `laravel.log`'da yığın izli bir `ERROR` satırı.
+Sentry'nin ücretsiz kotasını yiyordu ve daha kötüsü, gerçek bir 500'ü
+yüzlerce *"yanlış parola"* olayının içine gömüyordu.
+
+#### Hangileri susar, hangileri konuşmaya devam eder?
+
+| İstisna | Kod | Sonuç |
+|---|---|---|
+| `InvalidCredentialsException` | 401 | 🔇 Raporlanmaz |
+| `PaywallViolationException` | 402 | 🔇 |
+| `RsvpQuotaExceededException` · `MediaQuotaExceededException` | 403 | 🔇 |
+| `InvalidWebhookSignatureException` | 404 | 🔇 (aşağıdaki bedele bak) |
+| `InvitationAlreadyPublishedException` | 409 | 🔇 |
+| `RsvpDeadlinePassedException` · `RegistrationFailedException` | 4xx | 🔇 |
+| `AssistantQuotaExceededException` | 429 | 🔇 |
+| `PaymentProviderException` | **502** / 503 | 🔊 **Raporlanır** |
+| `AiProviderException` | **503** | 🔊 **Raporlanır** |
+| `HasErrorCode` **olmayan** her istisna (`QueryException`, `TypeError`…) | 500 | 🔊 **Raporlanır** |
+
+Ölçüt sınıf adı değil, **HTTP durumu**: yarın eklenen bir istisna kodunu
+`ErrorCode`'a yazdığı anda doğru tarafa düşer. Liste tutulmaz, unutulmaz.
+
+#### Sentry'yi de neden durduruyor? (kaynaktan)
+
+```php
+// vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php
+public function report(Throwable $e)
+{
+    $e = $this->mapException($e);
+
+    if ($this->shouldntReport($e)) {   // ← dontReportWhen burada sorulur
+        return;
+    }
+
+    $this->reportThrowable($e);        // ← Sentry'nin reportable() kancası burada
+}
+```
+
+`Integration::handles()` Sentry'yi bir `reportable()` geri çağrısı olarak kaydeder.
+O geri çağrı `reportThrowable()`'ın içinde çalışır, yani `shouldntReport()`
+*"hayır"* dediyse hiç çağrılmaz. İki satırın dosyadaki sırası bu yüzden önemli değil.
+
+#### 🔴 Bilinen bedel (plan tuzak #6, **bilerek**)
+
+`dontReportWhen` yalnızca Sentry'yi değil **log'u da** susturur. Bu istisnaların
+`laravel.log`'da hiçbir izi kalmaz. Bu bilinçli bir takas: iz gereken yerde
+**Action kendisi yazar**, istisnanın varlığına güvenmez. Örnek:
+`HandlePaymentCallbackAction`'ın `Log::warning` / `Log::critical` satırları
+(10.6), istisnadan bağımsız olarak kalıyor.
+
+En çok neyi kaybettik? **Sahte webhook denemelerinin izini.**
+`InvalidWebhookSignatureException` bilerek 404 dönüyor (ucun varlığını saklamak
+için), dolayısıyla 4xx tarafına düşüyor. Faz 9'da her sahte imza bir Sentry
+olayıydı; bugün hiçbir iz bırakmıyor. İmza doğrulaması (`hash_equals`) saldırıyı
+zaten durduruyor, kaybolan yalnızca *"biri deniyor"* sinyali.
+
+> **B6:** Bu sinyal gerekiyorsa yeri Sentry değil, imzayı doğrulayan yerde tek
+> satırlık bir `Log::warning`'dir. Doğal zamanı Dilim G (10.70, `ShopierGateway`):
+> orada imza, tutar ve tekrar oynatma kontrolleri zaten yeniden yazılacak.
+
+#### Hangi test korur?
+
+[`tests/Feature/ExceptionReportingTest.php`](../tests/Feature/ExceptionReportingTest.md) (10.16):
+4xx iş istisnası **raporlanmaz** · 502 ve 503 **raporlanır** · `HasErrorCode`
+olmayan bir istisna **raporlanır** · uçtan uca: yanlış parola 401 döner ama hiçbir
+şey raporlanmaz.
 
 ---
 
@@ -347,6 +428,8 @@ Dosyanın büyümesi beklenen ve normaldir — **kablolama** büyür, mantık b�
 | `shouldRenderJsonWhen`'i de bırakmak | İki mekanizma, belirsiz sorumluluk | Tek mekanizma |
 | Mantığı bu dosyaya inline yazmak | Test edilemez, PHPStan zorlanır | Ayrı sınıf |
 | `Kernel.php` aramak | Laravel 11+ ile kaldırıldı | Bu dosya |
+| `dontReport` listesine sınıf adı eklemek | Yarın eklenen istisna unutulur | HTTP durumuna bakan tek kural (§2.7) |
+| 4xx istisnanın log'da iz bırakacağını varsaymak | `dontReportWhen` log'u da susturur | İz gerekiyorsa Action `Log::…` yazar (§2.7) |
 
 ---
 

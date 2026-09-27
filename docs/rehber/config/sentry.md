@@ -82,7 +82,11 @@ Bu yüzden Sentry'yi eklemek API sözleşmesini etkilemedi.
 
 ---
 
-## 5. 🔴 Bilinen sorun: iş istisnaları da raporlanıyor
+## 5. ✅ İş istisnaları raporlanıyordu (Faz 10, 10.16'da kapandı)
+
+> **28 Eylül 2026:** aşağıdaki öneri `bootstrap/app.php`'ye uygulandı. Bu bölüm
+> Faz 9'un durumunu ve gerekçeyi anlatıyor. Uygulama, bedeli (log izi de gidiyor,
+> sahte webhook sinyali dahil) ve testler: [`bootstrap/app.md`](../bootstrap/app.md) §2.7.
 
 Laravel bazı istisnaları **hiç raporlamaz** (`internalDontReport`):
 `ValidationException`, `AuthenticationException`, `ModelNotFoundException`,
@@ -104,7 +108,7 @@ yazılıyor, hem de Sentry'ye bir olay olarak gidiyor. Bu **hata değil, beklene
 davranış**; ama (a) ücretsiz planın aylık kotasını yer, (b) gerçek 500'leri
 gürültünün içinde kaybettirir.
 
-**Öneri (karar İsmail'in):** yalnızca sunucu tarafı hataları raporla.
+**Öneri (karar İsmail'in) — ✅ Faz 10'da uygulandı:** yalnızca sunucu tarafı hataları raporla.
 
 ```php
 // bootstrap/app.php — withExceptions içinde

@@ -172,8 +172,8 @@ SENTRY_TRACES_SAMPLE_RATE=
 # 🔴 false KALMALI (varsayilan): true yapilirsa IP, cerez ve kullanici
 # bilgisi Sentry'ye gider — K14 (KVKK) ile celisir.
 SENTRY_SEND_DEFAULT_PII=false
-# ⚠️ Bugun 4xx is istisnalari (yanlis parola, 402, kota) de Sentry'ye
-# raporlaniyor — kota ve gurultu riski. Bkz. rapor §2 ve rehber/config/sentry.md.
+# Faz 10 (10.16): 4xx is istisnalari (yanlis parola, 402, kota) Sentry'ye
+# RAPORLANMAZ; yalnizca 5xx gider. Bkz. rehber/bootstrap/app.md §2.7.
 
 # --- Posta -------------------------------------------------------------------
 # 🔴 K79 hala acik: bildirim kanali secilmedi. 'log' birakmak, gonderilmeyen

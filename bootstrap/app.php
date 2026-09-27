@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Exceptions\ApiExceptionRenderer;
+use App\Exceptions\HasErrorCode;
 use App\Http\Middleware\ForceJsonResponse;
 use App\Http\Middleware\RejectMalformedInput;
 use App\Http\Middleware\SecurityHeaders;
@@ -73,6 +74,25 @@ return Application::configure(basePath: dirname(__DIR__))
         // (paketin ServiceProvider'i kaydi hasDsnSet() ardina aliyor), bu
         // yuzden "yerelde kapat" diye ayrica bir kosul yazmiyoruz.
         Integration::handles($exceptions);
+
+        // 🔴 Faz 10 (10.16): 4xx IS istisnalari RAPORLANMAZ — ne Sentry'ye
+        // ne laravel.log'a. Yanlis parola, 402, kota asimi, sahte webhook
+        // birer HATA degil, sozlesmenin ongordugu CEVAPLARDIR; her biri bir
+        // Sentry olayi ve yigin izli bir ERROR satiri uretiyordu. Kota yer,
+        // gercek 500'leri gomer. 5xx olanlar (PaymentProviderException 502,
+        // AiProviderException 503) raporlanmaya DEVAM eder.
+        //
+        // Sentry'yi de neden durduruyor? Handler::report() once
+        // shouldntReport()'u sorar; Sentry'nin reportable() geri cagrisi
+        // ancak ondan SONRA, reportThrowable() icinde calisir.
+        //
+        // Bilinen bedel (plan tuzak #6, BILEREK): bu istisnalarin log izi de
+        // kalmaz. Iz gereken yerde Action kendisi yazar (ornek:
+        // HandlePaymentCallbackAction'in Log::warning/critical satirlari).
+        // Bkz. kilavuz §2.7.
+        $exceptions->dontReportWhen(
+            fn (Throwable $e): bool => $e instanceof HasErrorCode && $e->errorCode()->status() < 500,
+        );
 
         // null donerse Laravel varsayilan akisina duser (web rotalari).
         //
