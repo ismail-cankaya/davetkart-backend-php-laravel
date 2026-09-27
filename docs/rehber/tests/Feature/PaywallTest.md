@@ -1,8 +1,8 @@
 # `tests/Feature/PaywallTest.php`
 
 > **Kod dosyası:** `tests/Feature/PaywallTest.php`
-> **Faz:** 7 — Ödeme ve paywall, dosya 7.19 · 🆕 **Faz 10**, adım 10.2 (§11)
-> **Test sayısı:** 58 (Faz 7: 33 · Faz 9: +18 · Faz 10: +7)
+> **Faz:** 7 — Ödeme ve paywall, dosya 7.19 · 🆕 **Faz 10**, adımlar 10.2 (§11) ve 10.7 (§12)
+> **Test sayısı:** 62 (Faz 7: 33 · Faz 9: +18 · Faz 10: +7 +4)
 > **Bitti ölçütü (`docs/09`):** *"Standart planla galeri açık davetiye
 > yayınlanamıyor (402); sahte ödeme sonrası yayınlanabiliyor. Aynı webhook iki
 > kez gelince tek order."*
@@ -333,3 +333,102 @@ php artisan test --filter=PaywallTest
 Elle karşılığı: Standart ile bir davetiye yayınla → dashboard'dan **Düzenle** →
 *Tasarımını Düzenle* → **Fotoğraf Galerisi** anahtarını aç. Network sekmesinde
 `PUT /api/invitations/{id}` → **402**. Frontend tarafı 10.8'de.
+
+---
+
+## 12. 🆕 Faz 10 — geç gelen ödeme (10.7 · K89)
+
+**Bulgu:** rapor §1.2 · denetim **K-4**. Üretim kodu üç dosyaya dağıldı:
+[`OrderStatus.md`](../../app/Enums/OrderStatus.md) §11 (durum + geçiş) ·
+[`ExpireStaleOrders.md`](../../app/Console/Commands/ExpireStaleOrders.md) §9 (yazan) ·
+[`HandlePaymentCallbackAction.md`](../../app/Actions/Payment/HandlePaymentCallbackAction.md) §13 (log'lar).
+
+### 12.1 Dört yeni test, bir değişen test
+
+| Test | İddia | 🔴 Kanıt (T14) |
+|---|---|---|
+| `an_expired_order_grants_nothing` | `expired` hak vermez | Resolver `null` döner |
+| `a_paid_webhook_after_expiry_still_grants_the_order` | Uçtan uca K-4: `orders:expire` → `expired` → imzalı `paid` → **yayın** | Sipariş `paid`, `paid_at` dolu, `POST /publish` **200**, `Log::warning` |
+| `a_paid_webhook_after_a_provider_failure_is_rejected_loudly` | `failed` final kalır ama red **gürültülü** | Sipariş `failed`, `paid_at` `NULL`, `Log::critical` **birebir** bağlamla |
+| `a_repeated_paid_webhook_is_not_reported_as_critical` | Tekrar normaldir | Ne `critical` ne `warning` |
+| `a_signed_webhook_marks_the_order_paid` *(Faz 7, değişti)* | Zamanında ödeme uyarı üretmez | `shouldNotHaveReceived('warning')` |
+
+### 12.2 🔴 Uçtan uca testin zinciri
+
+```php
+$order = Order::factory()->forInvitation($invitation)->create([
+    'provider_ref' => 'ref-gec',
+    'expires_at' => now()->subMinute(),       // pencere kapandı
+]);
+
+$this->assertSame(Command::SUCCESS, Artisan::call('orders:expire'));   // 1. gerçek komut
+$this->assertSame(OrderStatus::Expired, $order->refresh()->status);
+
+$this->signedWebhook(['providerRef' => 'ref-gec', 'status' => 'paid'])  // 2. gerçek imza
+    ->assertNoContent();
+
+$this->withToken(…)->postJson(route('invitations.publish', $invitation))   // 3. gerçek yayın
+    ->assertOk();
+```
+
+Süresi dolmuş sipariş **fabrikayla** (`['status' => Expired]`) üretilebilirdi.
+Üretilmedi: o zaman test, komutun gerçekten `expired` yazdığını değil, bizim
+elle koyduğumuz değeri sınardı. Zincirin üç halkası da gerçek kod — biri
+bozulursa (komut `failed` yazsa, geçiş kapansa, yetki okunmasa) test kırılır.
+Mutasyon tablosunda üç ayrı mutasyon (a, d, g) bu tek testi kırıyor.
+
+Son halka (`publish` → 200) en önemlisi: *"sipariş `paid` oldu"* bir ara
+sonuçtur; kullanıcının umursadığı şey **davetiyenin yayınlanabilmesidir**.
+
+### 12.3 `Log::spy()` — log'u bir etki olarak sınamak
+
+```php
+$logger = Log::spy();
+// … istek …
+$logger->shouldHaveReceived('critical', [
+    'Paid notification rejected: the order cannot become paid',
+    Mockery::on(fn (array $context): bool => $context === [...]),
+]);
+```
+
+`spy()` Log facade'ının arkasına bir **casus** koyar: çağrılar gerçekten
+yapılır ama kaydedilir, sonra sorgulanır. `MediaTest`'in PHP sınırı testindeki
+(`a_file_dropped_by_the_php_limit_is_logged`) desenin aynısı.
+
+Bu testlerde log bir yan ayrıntı değil, **ürünün kendisi**: reddedilen bir
+ödemenin tek çıktısı o satır. Onu sınamamak, K-4'ün *"log yok"* yarısını açık
+bırakmak olurdu.
+
+`shouldNotHaveReceived` iddiaları (**T6**) en az olumlular kadar önemli: her
+webhook tekrarında `critical` atan bir kod da *"reddedildi ve log yazıldı"*
+testini geçerdi. Alarm yorgunluğunu bu iki test (`a_repeated_…`,
+`a_signed_webhook_…`) önlüyor.
+
+### 12.4 Mutasyon tablosu (kum havuzunda koşturuldu)
+
+| # | Mutasyon | Kırılan test |
+|---|---|---|
+| 41 | `OrderStatus`: `expired → paid` kapalı | `a_paid_webhook_after_expiry_still_grants_the_order` (+ Unit) |
+| 42 | `ExpireStaleOrders` yine `failed` yazsın | `a_paid_webhook_after_expiry_still_grants_the_order` · `MaintenanceTest::it_expires_…` |
+| 43 | `critical` bloğunu kaldır | `a_paid_webhook_after_a_provider_failure_is_rejected_loudly` |
+| 44 | `critical` koşulundan `! hasBeenPaid()`'i sil | `a_repeated_paid_webhook_is_not_reported_as_critical` |
+| 45 | `critical` bağlamına `user_id` ekle | `a_paid_webhook_after_a_provider_failure_is_rejected_loudly` |
+| 46 | Geç kabul uyarısını sil | `a_paid_webhook_after_expiry_still_grants_the_order` |
+| 47 | Uyarıyı her ödemede yaz | `a_signed_webhook_marks_the_order_paid` |
+
+### 12.5 Bu testlerin kapatamadıkları (B6)
+
+| Kapatmaz | Neden |
+|---|---|
+| `critical`'ın Sentry'ye ulaşması | Bugün ulaşmıyor — `HandlePaymentCallbackAction.md` §13.7; plan 10.55'in yanına yeni satır |
+| Toplu `UPDATE` ile eşzamanlı webhook yarışı | **T15**. Mantık `ExpireStaleOrders.md` §9.3'te |
+| Çifte tahsilatın **tespiti** | Uyarı yalnızca iz bırakır; iki ödemeyi eşleştiren bir iş yok |
+
+### 12.6 Kendin dene
+
+```powershell
+php artisan test --filter=PaywallTest
+# 62 passed
+php artisan test --testsuite=Unit
+# 11 passed
+```

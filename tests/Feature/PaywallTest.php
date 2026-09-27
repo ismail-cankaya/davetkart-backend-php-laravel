@@ -21,10 +21,14 @@ use App\Services\Payment\PaymentGateway;
 use App\Services\Payment\PaymentNotification;
 use App\Services\Pricing\TierResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Console\Command;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\TestResponse;
+use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Tests\TestCase;
@@ -165,6 +169,18 @@ final class PaywallTest extends TestCase
 
         Order::factory()->refunded()->tier(SubscriptionTier::Elit)
             ->forInvitation($invitation)->create();
+
+        $this->assertNull($this->entitlements()->highestTierFor($invitation));
+    }
+
+    /** Faz 10 (K89): suresi dolmus siparis ne hak verir ne de odenmis sayilir. */
+    #[Test]
+    public function an_expired_order_grants_nothing(): void
+    {
+        $invitation = Invitation::factory()->create();
+
+        Order::factory()->tier(SubscriptionTier::Elit)->forInvitation($invitation)
+            ->create(['status' => OrderStatus::Expired]);
 
         $this->assertNull($this->entitlements()->highestTierFor($invitation));
     }
@@ -652,6 +668,7 @@ final class PaywallTest extends TestCase
     public function a_signed_webhook_marks_the_order_paid(): void
     {
         $order = Order::factory()->create(['provider_ref' => 'ref-1']);
+        $logger = Log::spy();
 
         $this->signedWebhook(['providerRef' => 'ref-1', 'status' => 'paid'])
             ->assertNoContent();
@@ -660,6 +677,10 @@ final class PaywallTest extends TestCase
 
         $this->assertSame(OrderStatus::Paid, $order->status);
         $this->assertNotNull($order->paid_at);
+
+        // Faz 10 (T6): zamaninda gelen odeme uyari URETMEZ. Uyari yalnizca
+        // `expired -> paid` icin; her odemede yazilsaydi anlamini yitirirdi.
+        $logger->shouldNotHaveReceived('warning');
     }
 
     /** 🔴 IDEMPOTANS. Kanit yanit degil, DAMGANIN DEGISMEMESI (T14). */
@@ -768,6 +789,96 @@ final class PaywallTest extends TestCase
             'status' => InvitationStatus::Saved->value,
             'published_at' => null,
         ]);
+    }
+
+    // ------------------------------------------ GEC GELEN ODEME (10.7 · K89)
+
+    /**
+     * 🔴 Rapor §1.2 · denetim K-4, UCTAN UCA.
+     *
+     * Odeme penceresi kapandi, zamanlayici siparisi `expired` yapti, SONRA
+     * saglayicinin imzali `paid` bildirimi geldi. Faz 9'da bu bildirim 204
+     * ile sessizce yutuluyordu. Kanit yanit degil, zincirin sonu (T14):
+     * siparis odendi VE davetiye gercekten yayinlanabiliyor.
+     */
+    #[Test]
+    public function a_paid_webhook_after_expiry_still_grants_the_order(): void
+    {
+        [$user, $invitation] = $this->ownedInvitation();
+
+        $order = Order::factory()->forInvitation($invitation)->create([
+            'provider_ref' => 'ref-gec',
+            'expires_at' => now()->subMinute(),
+        ]);
+
+        // Zamanlayicinin saatlik kosusu: pencere kapandi.
+        $this->assertSame(Command::SUCCESS, Artisan::call('orders:expire'));
+        $this->assertSame(OrderStatus::Expired, $order->refresh()->status);
+
+        $logger = Log::spy();
+
+        $this->signedWebhook(['providerRef' => 'ref-gec', 'status' => 'paid'])->assertNoContent();
+
+        $order->refresh();
+        $this->assertSame(OrderStatus::Paid, $order->status);
+        $this->assertNotNull($order->paid_at);
+
+        // Kabul edildi ama iz birakti: cifte tahsilat olabilir (10.6).
+        $logger->shouldHaveReceived('warning', [
+            'Late payment accepted for an expired order',
+            Mockery::on(fn (array $context): bool => ($context['order_id'] ?? null) === $order->id),
+        ]);
+        $logger->shouldNotHaveReceived('critical');
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('invitations.publish', $invitation))
+            ->assertOk();
+
+        $this->assertSame(InvitationStatus::Published, $invitation->refresh()->status);
+    }
+
+    /**
+     * 🔴 `failed` final kalir (K89) — ama red artik SESSIZ DEGIL.
+     *
+     * Saglayici once "reddedildi", sonra "odendi" diyor. Celiski otomatik
+     * cozulmez (siparis acilmaz), bir insani cagirir: Log::critical.
+     * Baglam TAM olarak dogrulaniyor: log'a kisisel veri sizmasin (K14).
+     */
+    #[Test]
+    public function a_paid_webhook_after_a_provider_failure_is_rejected_loudly(): void
+    {
+        $order = Order::factory()->failed()->create(['provider_ref' => 'ref-red']);
+
+        $logger = Log::spy();
+
+        $this->signedWebhook(['providerRef' => 'ref-red', 'status' => 'paid'])->assertNoContent();
+
+        $order->refresh();
+        $this->assertSame(OrderStatus::Failed, $order->status);
+        $this->assertNull($order->paid_at);
+
+        $logger->shouldHaveReceived('critical', [
+            'Paid notification rejected: the order cannot become paid',
+            Mockery::on(fn (array $context): bool => $context === [
+                'order_id' => $order->id,
+                'provider_ref' => 'ref-red',
+                'status' => OrderStatus::Failed->value,
+            ]),
+        ]);
+    }
+
+    /** Webhook TEKRARI normal isleyistir: zaten odenmis siparise ikinci `paid` alarm uretmez. */
+    #[Test]
+    public function a_repeated_paid_webhook_is_not_reported_as_critical(): void
+    {
+        Order::factory()->paid()->create(['provider_ref' => 'ref-1']);
+
+        $logger = Log::spy();
+
+        $this->signedWebhook(['providerRef' => 'ref-1', 'status' => 'paid'])->assertNoContent();
+
+        $logger->shouldNotHaveReceived('critical');
+        $logger->shouldNotHaveReceived('warning');
     }
 
     // ------------------------------------------------- LCV KOTASI (7.16)
