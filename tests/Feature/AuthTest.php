@@ -28,6 +28,11 @@ final class AuthTest extends TestCase
 
     private const PASSWORD = 'gizli1234';
 
+    /** Denetimin K-3 ornegi. U+0130: Turkce klavyenin buyuk `İ`'si. */
+    private const EMAIL_WITH_CAPITAL_I = "\u{0130}smail.Cankaya@gmail.com";
+
+    private const EMAIL_PLAIN = 'ismail.cankaya@gmail.com';
+
     // ---------------------------------------------------------------- KAYIT
 
     #[Test]
@@ -35,9 +40,12 @@ final class AuthTest extends TestCase
     {
         $response = $this->postJson(route('auth.register'), $this->registerPayload());
 
+        // Denetim (24 Eylul): testler yalnizca ASCII ad kullaniyordu. Turkce
+        // harfleri bozan bir katman (kodlama, bir yerde unutulmus kucultme)
+        // hicbir testi kirmazdi.
         $response->assertCreated()
-            ->assertJsonPath('user.firstName', 'Ayse')
-            ->assertJsonPath('user.lastName', 'Yildirim')
+            ->assertJsonPath('user.firstName', 'Ayşe')
+            ->assertJsonPath('user.lastName', 'Yıldırım')
             ->assertJsonPath('user.email', self::EMAIL)
             ->assertJsonStructure(['user' => ['id', 'firstName', 'lastName', 'email'], 'token']);
 
@@ -169,6 +177,110 @@ final class AuthTest extends TestCase
 
         // Govdeler ayirt edilemez olmali (APP_DEBUG=false — T4).
         $this->assertSame($unknownEmail->getContent(), $wrongPassword->getContent());
+    }
+
+    // ------------------------------------------------ TURKCE İ (K-3 · 10.13)
+
+    /**
+     * 🔴 Denetimin K-3 senaryosu, birebir (1. ve 2. adim).
+     *
+     * Faz 9'da: kayit 201 ama veritabanina "i̇smail…" (i + U+0307) yaziliyordu;
+     * ayni kullanici "ismail…" ile giriste dogru parolayla 401 aliyordu.
+     *
+     * T6'nin yokluk yarisi da burada: normalizasyon YALNIZCA e-postaya
+     * uygulanir. Ad "İsmail" olarak kalmali — "ismail" degil.
+     */
+    #[Test]
+    public function a_user_registered_with_a_turkish_capital_i_can_log_in_with_a_plain_i(): void
+    {
+        $this->postJson(route('auth.register'), $this->registerPayload([
+            'firstName' => 'İsmail',
+            'lastName' => 'Işıkoğlu',
+            'email' => self::EMAIL_WITH_CAPITAL_I,
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('user.email', self::EMAIL_PLAIN)
+            ->assertJsonPath('user.firstName', 'İsmail')
+            ->assertJsonPath('user.lastName', 'Işıkoğlu');
+
+        // Ekranda ayni gorunen iki dizi: baytla karsilastir.
+        $this->assertSame(bin2hex(self::EMAIL_PLAIN), bin2hex(User::query()->sole()->email));
+
+        $this->postJson(route('auth.login'), [
+            'email' => self::EMAIL_PLAIN,
+            'password' => self::PASSWORD,
+        ])->assertOk();
+    }
+
+    /** Ters yon: hesap duz `i` ile kayitli, kullanici `İ` ile giriyor. Korudugu: LoginRequest. */
+    #[Test]
+    public function login_accepts_a_turkish_capital_i_for_an_account_stored_with_a_plain_i(): void
+    {
+        User::factory()->create(['email' => self::EMAIL_PLAIN]);
+
+        $this->postJson(route('auth.login'), [
+            'email' => self::EMAIL_WITH_CAPITAL_I,
+            'password' => UserFactory::PASSWORD,
+        ])->assertOk();
+    }
+
+    /** 🔴 K-3'un 3. adimi: ayni adresin ikinci hesabi. Faz 9'da 201 donuyordu. */
+    #[Test]
+    public function a_second_account_cannot_be_opened_with_the_other_form_of_the_same_address(): void
+    {
+        User::factory()->create(['email' => self::EMAIL_PLAIN]);
+
+        $this->postJson(route('auth.register'), $this->registerPayload([
+            'email' => self::EMAIL_WITH_CAPITAL_I,
+        ]))
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', ErrorCode::RegistrationFailed->value);
+
+        $this->assertSame(1, User::query()->count());
+    }
+
+    /**
+     * Son savunma hatti: istek katmanindan GECMEYEN yazim (seeder, tinker,
+     * factory, ileride parola sifirlama). Korudugu: User::setEmailAttribute().
+     *
+     * Kayit ucu bu mutator'i sinayamaz: RegisterRequest e-postayi zaten
+     * normalize edip gonderiyor (kilavuz §3.7, esdeger mutant).
+     */
+    #[Test]
+    public function the_user_model_folds_the_turkish_capital_i_on_every_write(): void
+    {
+        $user = User::factory()->create(['email' => self::EMAIL_WITH_CAPITAL_I]);
+
+        $this->assertSame(self::EMAIL_PLAIN, $user->refresh()->email);
+    }
+
+    /**
+     * 🔴 Hiz siniri kovasi da AYNI normalizasyondan gecer. Korudugu:
+     * AppServiceProvider::authLimits().
+     *
+     * Bes deneme duz `i` ile, altincisi `İ` ile. Kova anahtari farkli
+     * normalize edilseydi altinci deneme YENI bir kovaya duserdi (401):
+     * ayni hesaba dakikada 5 degil 10 deneme. IP kovasi 20/dk oldugu icin
+     * buradaki 429 yalnizca e-posta kovasindan gelebilir.
+     */
+    #[Test]
+    public function the_auth_limiter_counts_both_forms_of_i_in_one_bucket(): void
+    {
+        User::factory()->create(['email' => self::EMAIL_PLAIN]);
+
+        foreach (range(1, 5) as $ignored) {
+            $this->postJson(route('auth.login'), [
+                'email' => self::EMAIL_PLAIN,
+                'password' => 'yanlis-parola',
+            ])->assertUnauthorized();
+        }
+
+        $this->postJson(route('auth.login'), [
+            'email' => self::EMAIL_WITH_CAPITAL_I,
+            'password' => 'yanlis-parola',
+        ])
+            ->assertStatus(429)
+            ->assertJsonPath('error.code', ErrorCode::RateLimited->value);
     }
 
     // ------------------------------------------------------------ ME / CIKIS
@@ -324,8 +436,8 @@ final class AuthTest extends TestCase
     private function registerPayload(array $overrides = []): array
     {
         return array_merge([
-            'firstName' => 'Ayse',
-            'lastName' => 'Yildirim',
+            'firstName' => 'Ayşe',
+            'lastName' => 'Yıldırım',
             'email' => self::EMAIL,
             'password' => self::PASSWORD,
         ], $overrides);

@@ -36,7 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // API hız sınırını (Rate Limiter) devreye sokar.
         $middleware->throttleApi();
 
-        // API'ye gönderilen verilerin (özellikle JSON formatının veya metin karakterlerinin) 
+        // API'ye gönderilen verilerin (özellikle JSON formatının veya metin karakterlerinin)
         // bozuk, hatalı veya biçimsiz olup olmadığını denetleyen bir güvenlik filtresidir.
         $middleware->appendToGroup('api', RejectMalformedInput::class);
         $middleware->prependToPriorityList(SubstituteBindings::class, RejectMalformedInput::class);

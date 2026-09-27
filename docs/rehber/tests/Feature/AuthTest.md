@@ -1,22 +1,24 @@
 # `tests/Feature/AuthTest.php` — Eğitim Dokümanı
 
 > **Kapsanan dosya:** `tests/Feature/AuthTest.php`
-> **Yol haritasındaki yeri:** Faz 2, dosya 2.10 — **fazın kanıtı** · 🆕 **Faz 10, adım 10.11** (§3.3, §3.6)
+> **Yol haritasındaki yeri:** Faz 2, dosya 2.10 — **fazın kanıtı** · 🆕 **Faz 10, adım 10.11** (§3.3, §3.6) · **adım 10.15** (§3.7)
 > **Bağlantılı:** [`HealthTest.md`](HealthTest.md) (test temelleri orada) ·
 > [`fazlar/FAZ-0.md`](../../fazlar/FAZ-0.md) §4.4 · [`FAZ-1.md`](../../fazlar/FAZ-1.md) §4.4 ·
-> [`config/sanctum.md`](../../config/sanctum.md) (token ömrü, K90)
+> [`config/sanctum.md`](../../config/sanctum.md) (token ömrü, K90) ·
+> [`app/Support/EmailNormalizer.md`](../../app/Support/EmailNormalizer.md) (Türkçe `İ`, D-5)
 
 ---
 
 ## 0. Bir dakikalık özet
 
-16 test. Çoğu bugüne kadar `curl` ile **elle** yaptığımız doğrulamaların
+21 test. Çoğu bugüne kadar `curl` ile **elle** yaptığımız doğrulamaların
 kalıcı hâli.
 
 | Grup | Test sayısı | Neyi korur |
 |---|---|---|
 | Kayıt | 6 | Sözleşme, hash, enumeration |
 | Giriş | 3 | Sözleşme, normalizasyon, **ayırt edilemezlik** |
+| 🆕 Türkçe `İ` | 5 | K-3: aynı adres, tek hesap, tek hız sınırı kovası (D-5) |
 | Me / Çıkış | 4 | Kimlik zorunluluğu, token izolasyonu |
 | 🆕 Token ömrü | 1 | 30 gün, **mutlak** (K90) |
 | Hız sınırı | 2 | Limitin varlığı **ve kapsamı** |
@@ -39,9 +41,11 @@ Bir testin değeri, **kırıldığında ne söylediğiyle** ölçülür.
 | `login_is_indistinguishable_...` | 🔴 Enumeration açığı geri geldi |
 | `logout_revokes_only_the_current_token` | Kullanıcı bir cihazdan çıkınca hepsinden çıkıyor |
 | `a_token_expires_thirty_days_after_it_was_issued` | 🔴 Çalınan bir token yeniden **sonsuza kadar** geçerli (ya da ömür sessizce değişti) |
+| `a_second_account_cannot_be_opened_with_the_other_form_of_the_same_address` | 🔴 `İsmail@` ile `ismail@` yeniden iki hesap; kullanıcının parası birinde, kendisi öbüründe |
+| `the_auth_limiter_counts_both_forms_of_i_in_one_bucket` | 🔴 Aynı hesaba dakikada 5 değil 10 deneme |
 | `credential_endpoints_are_rate_limited` | Brute-force + bellek tüketimi kapısı açıldı |
 
-Dördü 🔴 işaretli: bunlar **güvenlik regresyon testleridir**. Kod bozulursa
+Altısı 🔴 işaretli: bunlar **güvenlik regresyon testleridir**. Kod bozulursa
 uygulama çalışmaya devam eder ama **güvenli olmaktan çıkar** — hiçbir kullanıcı
 şikâyet etmez, hiçbir 500 hatası düşmez. Yalnızca bu testler haber verir.
 
@@ -340,6 +344,82 @@ test onu da sınar ve kırılır.
 | `60 * 24 * 31` | tam sınır: *"401 beklendi, 200 geldi"* |
 | Testten `forgetAuthState()` silindi | tam sınır: *"401 beklendi, 200 geldi"* (T13'ün canlı kanıtı) |
 
+### 3.7 🔴 Türkçe `İ` grubu (Faz 10, 10.15 · denetim K-3 · D-5)
+
+Beş test, 10.13'te dört yere bağlanan `EmailNormalizer`'ın uçtan uca kanıtı.
+Fonksiyonun **kendisi** birim testinde ([`EmailNormalizerTest.md`](../Unit/EmailNormalizerTest.md)).
+Bu grup başka bir soruyu cevaplar: *"dört çağrı yeri onu **gerçekten** kullanıyor mu?"*
+
+```php
+private const EMAIL_WITH_CAPITAL_I = "\u{0130}smail.Cankaya@gmail.com";   // U+0130
+private const EMAIL_PLAIN          = 'ismail.cankaya@gmail.com';
+```
+
+`İ` koda `\u{0130}` olarak yazıldı: düz `İ` ile `I` bazı yazı tiplerinde zor
+ayırt edilir ve testin bütün anlamı o bir karakterde.
+
+#### Her test bir çağrı yerini korur
+
+| Test | K-3 adımı | Koruduğu yer |
+|---|---|---|
+| `a_user_registered_with_a_turkish_capital_i_can_log_in_with_a_plain_i` | 1 + 2 | Kayıt tarafının bütünü (senaryonun birebir kendisi) |
+| `login_accepts_a_turkish_capital_i_for_an_account_stored_with_a_plain_i` | ters yön | `LoginRequest` |
+| `a_second_account_cannot_be_opened_with_the_other_form_of_the_same_address` | 3 | Kayıt tarafının bütünü |
+| `the_user_model_folds_the_turkish_capital_i_on_every_write` | — | `User::setEmailAttribute()` (son savunma hattı) |
+| `the_auth_limiter_counts_both_forms_of_i_in_one_bucket` | — | `AppServiceProvider::authLimits()` |
+
+Hız sınırı testinde beş deneme düz `i` ile, altıncısı `İ` ile yapılıyor. Kova
+anahtarı farklı normalize edilseydi altıncı deneme **yeni** bir kovaya düşer ve
+401 alırdı. IP kovası 20/dk olduğu için buradaki 429 **yalnızca** e-posta
+kovasından gelebilir: test başka bir sebeple yeşil yanamaz.
+
+#### Mutasyon kanıtı (28 Eylül 2026, İsmail'in makinesi, PHP 8.5)
+
+Her mutasyon bir çağrı yerini Faz 9'daki hâline (`mb_strtolower(trim(…))`) döndürür:
+
+| # | Geri alınan yer | Kırılan test |
+|---|---|---|
+| M1 | `RegisterRequest` | ⚪ **Hiçbiri: eşdeğer mutant** (aşağıda) |
+| M2 | `LoginRequest` | `login_accepts_a_turkish_capital_i_…` |
+| M3 | `User` mutator'ı | `the_user_model_folds_…` |
+| M4 | `authLimits()` | `the_auth_limiter_counts_both_forms_…` |
+| M1+M3 | Kayıt tarafının ikisi | K-3 senaryosu (1+2) · ikinci hesap (3) · model |
+| M1–M4 | **Faz 9'un tam hâli** | Beş testin **beşi** |
+
+#### ⚪ M1 neden eşdeğer?
+
+`RegisterRequest`'in normalize ettiği e-posta yalnızca bir yere gider:
+`userAttributes()` → `RegisterUserAction` → `User::create()` → **mutator**.
+Çakışma kontrolü de bir sorgu değil, veritabanının UNIQUE kısıtı. Değer o kısıta
+ulaşmadan mutator onu zaten normalize ediyor. `RegisterRequest` geri alınsa
+bile sonuç baytı baytına aynı:
+
+```
+normalize(mb_strtolower(x))  ===  normalize(x)
+```
+
+Yani M1'i öldürecek bir HTTP testi **yazılamaz**, yazılmaya da çalışılmamalı
+(`MaintenanceTest.md` §8'in 4. satırıyla aynı ders). `RegisterRequest`'teki
+çağrı yine de kalıyor, çünkü §3.4'teki *"iki katman, iki an"* ilkesi yarını
+koruyor. Yarın biri `rules()`'a `unique:users,email` eklerse ya da Action
+`where('email', …)` ile arama yaparsa, o sorgu mutator'dan **önce** çalışır ve
+normalize edilmiş değeri ister. O gün M1 eşdeğer olmaktan çıkar; bu tablodaki
+satırı güncellemek o değişikliğin işi.
+
+#### Türkçe adlar (denetim: *"ASCII isimler"*)
+
+`registerPayload()` artık `Ayşe Yıldırım` gönderiyor (Faz 2'den beri
+`Ayse Yildirim`'di). Türkçe harfleri bozan bir katman (kodlama, bir yerde
+unutulmuş küçültme) önceden hiçbir testi kırmazdı. K-3 senaryosu ek olarak
+`İsmail Işıkoğlu` kullanıyor ve **T6'nın yokluk yarısını** sınıyor:
+
+```php
+->assertJsonPath('user.firstName', 'İsmail')   // "ismail" DEĞİL
+```
+
+Normalizasyon **yalnızca** e-postaya uygulanır. Biri yarın *"her alanı
+normalize edelim"* derse bu satır kırılır.
+
 ---
 
 ## 4. Yardımcı metot — `registerPayload()`
@@ -348,7 +428,7 @@ test onu da sınar ve kırılır.
 private function registerPayload(array $overrides = []): array
 {
     return array_merge([
-        'firstName' => 'Ayse', 'lastName' => 'Yildirim',
+        'firstName' => 'Ayşe', 'lastName' => 'Yıldırım',   // Faz 10: Türkçe harfler (§3.7)
         'email' => self::EMAIL, 'password' => self::PASSWORD,
     ], $overrides);
 }
@@ -380,6 +460,8 @@ alan görünüyor, geri kalan gürültü kayboluyor.
 | `me`'yi (ya da herhangi bir kimlikli ucu) `actingAs` ile test etmek | Token ömrü, iptal, guard hiç sınanmaz (T10) | `withToken($this->tokenFor($user))` |
 | Token ömrünü yalnızca *"süre dolunca 401"* ile test etmek | Ömür kısalsa da test yeşil | Sınırın iki yanı: son saniye 200, sınır 401 |
 | Zaman yolculuğundan sonra `forgetAuthState()`'i unutmak | Guard eski kullanıcıyı döner, token'a bakmaz — haksız 200 | Her kimlikli istekten önce sıfırla (T13) |
+| Yalnızca ASCII ad ve e-posta ile test etmek | Türkçe harfi bozan katman fark edilmez (K-3 dört faz yaşadı) | `Ayşe Yıldırım`, `\u{0130}smail@…` |
+| E-postayı yalnızca metinle karşılaştırmak | `i` ile `i̇` hata mesajında aynı görünür | `bin2hex` ile de karşılaştır |
 | Yalnızca "yokluk" testi yazmak | Özellik silinse de yeşil kalır | T6: çifti de yaz |
 | `assertJsonPath` ile yetinmek (enumeration) | Bakmadığın alandan sızar | `assertSame` ile tam gövde |
 | Sabit e-posta kullanıp `RefreshDatabase`'i atlamak | İkinci test `UNIQUE` ihlali | `RefreshDatabase` |
@@ -398,7 +480,7 @@ php artisan test --filter=login_is_indistinguishable   # tek test
 composer check                                          # tam zincir
 ```
 
-Beklenen: **16 test, hepsi yeşil.**
+Beklenen: **21 test, hepsi yeşil.**
 
 Bir testin gerçekten bir şey koruduğunu görmek için **bilerek kır**:
 
@@ -411,6 +493,10 @@ Bir testin gerçekten bir şey koruduğunu görmek için **bilerek kır**:
    `logout_revokes_only_the_current_token` kırılır.
 4. `config/sanctum.php` → `'expiration' => null` yap →
    `a_token_expires_thirty_days_after_it_was_issued` kırılır (§3.6).
+5. `AppServiceProvider::authLimits()`'te `EmailNormalizer::normalize($email)`'i
+   `mb_strtolower(trim($email))` yap → `the_auth_limiter_counts_both_forms_of_i_in_one_bucket`
+   kırılır (§3.7). Aynısını `RegisterRequest`'te yap → **hiçbiri** kırılmaz:
+   eşdeğer mutant, §3.7'de neden olduğu yazıyor.
 
 Her seferinde değişikliği **geri al**.
 
