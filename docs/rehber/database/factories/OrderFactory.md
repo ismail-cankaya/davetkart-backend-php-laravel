@@ -187,3 +187,30 @@ tabidir; biri kısıtı bilmezse testler gerçekte olmayan bir dünyada yeşil y
 > `scope='invitation'` + `invitation_id=null`). A2.7'de o durumu sınayan test
 > yazılınca eklenecek; bugün eklenirse çağıranı olmayan bir state olur
 > (ders 26).
+
+---
+
+## 🆕 Faz 10 notu — `failed()` artık *"süre doldu"* demiyor (10.5)
+
+`failed()`'in açıklaması Faz 7'den beri *"Sağlayıcı reddetti ya da süre doldu"*
+idi. 10.5'ten sonra ikinci yarısı **yanlış**: `orders:expire` artık `failed`
+değil `expired` yazıyor (K89). Açıklama düzeltildi:
+
+```php
+/**
+ * Saglayici reddetti ya da odeme hic baslatilamadi.
+ *
+ * Suresi dolan siparis `failed` DEGIL `expired`'dir (Faz 10, K89) ve onun
+ * durumu burada degil, orders:expire komutunun kendisiyle uretilir.
+ */
+```
+
+Tek satırlık bir yorum için neden bir commit adımı? **B4**: belge (burada kod
+yorumu) koddan farklı bir şey söylüyorsa, okuyan kişi fabrikayı *"süresi dolmuş
+sipariş"* üretmek için kullanır ve `expired`'ın geç ödemeyi kabul edip `failed`'ın
+reddettiği farkı hiç görmeden yanlış bir test yazar.
+
+> **Neden `expired()` state'i eklenmedi?** Faz 10'un testleri süresi dolmuş
+> siparişi komutun **kendisiyle** üretiyor (`pending` + geçmiş `expires_at` →
+> `orders:expire`). Böylece test, durumu elle koymak yerine gerçek yolu sınıyor.
+> Çağıranı olmayan bir state yazılmadı (ders 26; `released()` notunun aynısı).

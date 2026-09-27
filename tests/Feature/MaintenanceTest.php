@@ -89,14 +89,23 @@ final class MaintenanceTest extends TestCase
 
     // ------------------------------------------------- orders:expire (9.9)
 
+    /**
+     * 🔴 Faz 10 (K89): `failed` DEGIL `expired`. Faz 9'daki adi
+     * `it_fails_a_pending_order_…` idi ve 10.5'te beklendigi gibi KIRMIZIYA
+     * dondu — test yaniti degil etkiyi (kolonu) dogruluyormus.
+     * Gec gelen odemenin bu satiri hala acabildigi: PaywallTest (10.7).
+     */
     #[Test]
-    public function it_fails_a_pending_order_whose_window_has_closed(): void
+    public function it_expires_a_pending_order_whose_window_has_closed(): void
     {
         $order = Order::factory()->create(['expires_at' => now()->subMinute()]);
 
         $this->runCommand('orders:expire');
 
-        $this->assertSame(OrderStatus::Failed, $order->refresh()->status);
+        $order->refresh();
+
+        $this->assertSame(OrderStatus::Expired, $order->status);
+        $this->assertNull($order->paid_at);
     }
 
     #[Test]

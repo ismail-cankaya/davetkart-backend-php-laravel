@@ -1,9 +1,10 @@
 # `app/Console/Commands/ExpireStaleOrders.php`
 
-> **Faz:** 9 — Üretim hazırlığı, dosya 9.9 · **Komut:** `php artisan orders:expire`
+> **Faz:** 9 — Üretim hazırlığı, dosya 9.9 · 🆕 **Faz 10**, adım 10.5 (§9: `failed` → `expired`)
+> **Komut:** `php artisan orders:expire`
 > **İlgili:** [`../../Enums/OrderStatus.md`](../../Enums/OrderStatus.md) ·
 > [`../../Models/Order.md`](../../Models/Order.md) · [`../../../config/payment.md`](../../../config/payment.md)
-> **Kurallar:** **E2** (kural sorgunun kapsamında) · **N4** · ders 26
+> **Kurallar:** **E2** (kural sorgunun kapsamında) · **N4** · ders 26 · Faz 10: **K89** · **E12**
 
 ---
 
@@ -40,7 +41,7 @@ yazıldı ama çağıranı yoktu.
 
 ```php
 $affected = $query->update([
-    'status' => OrderStatus::Failed->value,
+    'status' => OrderStatus::Expired->value,   // Faz 9'da: Failed (§9)
     'updated_at' => now(),
 ]);
 ```
@@ -53,14 +54,14 @@ $affected = $query->update([
 
 ```php
 foreach ($stale as $order) {          // ← okundu: status = pending
-    $order->status = OrderStatus::Failed;
+    $order->status = OrderStatus::Expired;
     $order->save();                   // ← arada webhook geldi, satır 'paid' oldu
-}                                     //   save() onu 'failed' yapar: ÖDENMİŞ SİPARİŞ YANDI
+}                                     //   save() onu 'expired' yapar: ÖDENMİŞ SİPARİŞ HAKKINI KAYBETTİ
 ```
 
 Toplu `UPDATE`'te `where status = 'pending'` koşulu **deyimin kendi içinde**
 durur; PostgreSQL onu yazma anında doğrular. Bu adımda `paid` olmuş bir satır
-hiçbir şekilde `failed` olamaz.
+hiçbir şekilde `expired` olamaz.
 
 > **E2**'nin yeni bir yüzü: benzersizlik `if` ile değil kısıtla kurulur —
 > ve **seçim** de `if` ile değil **sorgunun kapsamıyla** yapılır. Aynı fikir
@@ -111,7 +112,7 @@ hiç görmemektir.
 
 | Yapmaz | Neden |
 |---|---|
-| Satır silmek | Muhasebe kaydı silinmez; `failed` bir **durum**, yokluk değil |
+| Satır silmek | Muhasebe kaydı silinmez; `expired` bir **durum**, yokluk değil |
 | Sağlayıcıya iptal bildirmek | Sağlayıcı kendi penceresini kendi yönetir |
 | `paid_at` yazmak | `orders_paid_at_check` kısıtı buna izin vermez ve vermemeli |
 | Serbest bırakma / hak iadesi | Ödenmemiş siparişin hakkı zaten yoktu |
@@ -139,9 +140,9 @@ hiç görmemektir.
 php artisan tinker
 >>> App\Models\Order::factory()->create(['expires_at' => now()->subDay()]);
 
-php artisan orders:expire --dry-run    # "1 siparis suresi dolmus gorunuyor"
-php artisan orders:expire              # "1 siparis failed isaretlendi."
-php artisan orders:expire              # "0 siparis failed isaretlendi."  ← idempotent
+php artisan orders:expire --dry-run    # "1 siparis suresi dolmus gorunuyor (yazilmadi)."
+php artisan orders:expire              # "1 siparis expired isaretlendi."
+php artisan orders:expire              # "0 siparis expired isaretlendi."  ← idempotent
 ```
 
 Üçüncü koşu **0** demeli: komut aynı satırı ikinci kez yakalamaz, çünkü artık
@@ -149,7 +150,8 @@ php artisan orders:expire              # "0 siparis failed isaretlendi."  ← id
 koşmasının önkoşuludur.
 
 **Mutasyon denemesi (T16):** `->where('status', Pending)` satırını sil.
-`it_never_touches_a_paid_order` **kırmızıya dönmeli**.
+`it_never_touches_a_paid_order` **kırmızıya dönmeli**. (Faz 10'da kum havuzunda
+yeniden koşturuldu: kırıldı.)
 
 ---
 
@@ -161,3 +163,77 @@ koşmasının önkoşuludur.
 | **İdempotan** | Birden çok kez çalıştırıldığında sonucu değişmeyen işlem |
 | **`--dry-run`** | Yazmadan, ne yapacağını raporlayan çalışma kipi |
 | **Terk edilmiş ödeme** | Başlatılıp tamamlanmayan checkout |
+
+---
+
+## 9. 🆕 Faz 10 — `failed` değil `expired` (10.5 · K89)
+
+### 9.1 Bu komut bir hata üretiyordu
+
+Faz 9'daki hâli süresi dolan siparişi `failed` yapıyordu. `failed` ise
+`OrderStatus` makinesinde **final**: oradan hiçbir yere gidilemez. Sonuç
+(denetim K-4, kum havuzunda yeniden üretildi):
+
+```
+12:29  kullanıcı öder, webhook ağda kaybolur
+13:00  orders:expire → failed
+13:05  sağlayıcı yeniden dener: paid
+       failed → paid yasak → 204, sipariş failed, paid_at NULL, log YOK
+```
+
+Komut kendi işini **doğru** yapıyordu; yanlış olan, yazdığı değerin anlamıydı.
+`failed` artık iki şeyi birden söylüyordu: *"sağlayıcı reddetti"* (kesin) ve
+*"biz beklemekten vazgeçtik"* (tahmin). **E12:** *bir kolonun anlamı, ona yazan
+tüm yolların toplamıdır.*
+
+### 9.2 Değişen tek satır, değişen tek şey
+
+```php
+'status' => OrderStatus::Expired->value,
+```
+
+`expired` → `paid` geçişi meşru (10.3). Geç gelen ödeme artık hakkı açar ve
+iz bırakır (10.6'nın `Log::warning`'i). Komutun geri kalanı — toplu `UPDATE`,
+`where status = pending`, `--dry-run`, `updated_at` — **aynen kaldı**.
+
+### 9.3 🔴 İki sıranın ikisi de güvenli
+
+| Önce ne olur | Sonra | Sonuç |
+|---|---|---|
+| Webhook satırı kilitler, `paid` yazar | Komutun `UPDATE`'i satırı bekler, kilit düşünce `WHERE status = 'pending'`'i **yeniden değerlendirir** → eşleşmez | `paid` ✅ |
+| Komut `expired` yazar | Webhook satırı kilitler, `expired` okur, `expired → paid` meşru | `paid` ✅ |
+
+İlk satırdaki davranış PostgreSQL'in **READ COMMITTED** seviyesinin bir
+özelliğidir: bekleyen bir `UPDATE`, kilidi aldığında satırın **son** hâline
+göre koşulunu yeniden sınar. Faz 9'da da vardı; Faz 10'da ikinci satır eklendi.
+Faz 9'da ikinci satırın sonucu **`failed`** idi — asıl hata oradaydı.
+
+### 9.4 🔴 Test beklendiği gibi kırmızıya döndü (Faz 10 tuzağı #3)
+
+Plan uyarmıştı: *"`ExpireStaleOrders`'ın mevcut testleri `failed` bekliyor.
+Yeşil kalıyorsa test etkiyi değil yanıtı doğruluyordur."*
+
+Kodu değiştirip **testlere dokunmadan** koşturduk:
+
+```
+MaintenanceTest::it_fails_a_pending_order_whose_window_has_closed
+Failed asserting that two variables reference the same object.
+-App\Enums\OrderStatus Enum (Failed, 'failed')
++App\Enums\OrderStatus Enum (Expired, 'expired')
+```
+
+Kırmızı **iyi haberdi**: test kolonun kendisine bakıyormuş (T14). Adı ve
+beklentisi güncellendi: `it_expires_a_pending_order_whose_window_has_closed`,
+artık `paid_at`'in `NULL` kaldığını da doğruluyor. Kılavuzu:
+[`../../../tests/Feature/MaintenanceTest.md`](../../../tests/Feature/MaintenanceTest.md).
+
+### 9.5 Aynı commit'te düzeltilen yorum
+
+`OrderFactory::failed()`'in açıklaması *"Sağlayıcı reddetti ya da süre doldu"*
+diyordu. İkinci yarısı bu adımla yanlış oldu ve düzeltildi (**B4**).
+
+### 9.6 Belge borcu (Z adımına)
+
+`docs/11` (§komutlar ve §zamanlayıcı tabloları) ile `docs/03` / `docs/05`'in
+dosya ağaçları hâlâ *"`pending` → `failed`"* ve dört durumlu enum diyor. Faz
+kapanışında (10.84) güncellenecek; o güne kadar bu kılavuz doğru olanıdır.

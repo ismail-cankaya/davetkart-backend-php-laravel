@@ -88,7 +88,12 @@ class OrderFactory extends Factory
         ]);
     }
 
-    /** Saglayici reddetti ya da sure doldu. */
+    /**
+     * Saglayici reddetti ya da odeme hic baslatilamadi.
+     *
+     * Suresi dolan siparis `failed` DEGIL `expired`'dir (Faz 10, K89) ve onun
+     * durumu burada degil, orders:expire komutunun kendisiyle uretilir.
+     */
     public function failed(): static
     {
         return $this->state(fn (array $attributes): array => [

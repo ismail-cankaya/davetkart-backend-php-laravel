@@ -10,7 +10,12 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Odeme penceresi dolmus `pending` siparisleri `failed` isaretler.
+ * Odeme penceresi dolmus `pending` siparisleri `expired` isaretler.
+ *
+ * 🔴 Faz 10 (K89): `failed` DEGIL. `failed` saglayicinin kesin reddidir;
+ * bu komut ise yalnizca BEKLEMEYI BIRAKIR. Faz 9'daki hali `failed` yaziyordu
+ * ve o satira gec gelen imzali bir `paid` sessizce yutuluyordu (K-4). Artik
+ * `expired -> paid` gecisi acik: para gec de gelse hak acilir.
  *
  * 🔴 `orders.expires_at` Faz 7'den beri YAZILIYOR ama HIC OKUNMUYORDU.
  * StartCheckoutAction her siparise bir son kullanma damgasi basiyor
@@ -33,7 +38,7 @@ final class ExpireStaleOrders extends Command
     protected $signature = 'orders:expire
                             {--dry-run : Yazma, yalnizca kac satir etkilenecegini soyle}';
 
-    protected $description = 'Odeme penceresi dolmus bekleyen siparisleri failed isaretler';
+    protected $description = 'Odeme penceresi dolmus bekleyen siparisleri expired isaretler';
 
     public function handle(): int
     {
@@ -54,13 +59,15 @@ final class ExpireStaleOrders extends Command
         // dongu onu ESKI haliyle okumus olurdu. `where status = pending`
         // kosulu UPDATE'in KENDI icinde durdugu icin, veritabani o kosulu
         // yazma aninda dogrular: bu adimda 'paid' olan bir satir hicbir sekilde
-        // 'failed' olamaz (E2 — kural `if` ile degil sorgunun kapsaminda).
+        // 'expired' olamaz (E2 — kural `if` ile degil sorgunun kapsaminda).
+        // Ters sira da guvenli: once bu komut, sonra webhook gelirse
+        // `expired -> paid` gecisi mesrudur (K89).
         $affected = $query->update([
-            'status' => OrderStatus::Failed->value,
+            'status' => OrderStatus::Expired->value,
             'updated_at' => now(),
         ]);
 
-        $this->components->info(sprintf('%d siparis failed isaretlendi.', $affected));
+        $this->components->info(sprintf('%d siparis expired isaretlendi.', $affected));
 
         return self::SUCCESS;
     }
