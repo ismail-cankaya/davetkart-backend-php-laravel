@@ -63,6 +63,16 @@
              test eden senaryolar config(['app.debug' => true]) ile acar. -->
         <env name="APP_DEBUG" value="false"/>
 
+        <!-- 🔴 Faz 10 (10.17): testler Sentry'ye ASLA olay gondermez; bilerek
+             firlatilan istisnalar da dahil.
+             <server>, <env> DEGIL: Laravel env'i once $_SERVER'dan okur ve
+             gercek bir ortam degiskeni (CI, kabuk) orada durur. <env> —
+             force="true" ile bile — yalnizca $_ENV ve putenv'e yazar, yani
+             CI'daki bir DSN'i EZEMEZ. 10.17'de denendi (kilavuz §4.1).
+             Bos deger SENTRY_DSN yedegine de dusmez: env() "" dondurur,
+             null degil; config "" verince SDK kendi varsayilanini okumaz. -->
+        <server name="SENTRY_LARAVEL_DSN" value=""/>
+
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

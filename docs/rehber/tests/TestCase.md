@@ -3,6 +3,7 @@
 > **Kod dosyası:** `tests/TestCase.php`
 > **Eklendiği yer:** Faz 3 girişi — Faz 2'nin kırık bir testi araştırılırken
 > **Kurduğu kural:** **T13**
+> 🆕 **Faz 10, adım 10.17:** `setUp()` → `Http::preventStrayRequests()` (§8)
 
 ---
 
@@ -192,3 +193,56 @@ $this->withToken($b)->getJson('/api/...');
 > istekler arasında `forgetAuthState()` çağrılır. Guard çözdüğü kullanıcıyı
 > önbelleğe alır ve `setRequest()` onu temizlemez; çağrılmazsa sonraki istek
 > token'a hiç bakmadan önceki kullanıcıyı döndürür.
+
+---
+
+## 8. 🆕 Faz 10 (10.17): `setUp()` — sahtesiz HTTP çağrısı ağa çıkamaz
+
+```php
+protected function setUp(): void
+{
+    parent::setUp();
+
+    Http::preventStrayRequests();
+}
+```
+
+### Ne yapar?
+
+Laravel'in HTTP istemcisine (`Http` facade'i) şunu söyler: *"sahtesi kurulmamış
+bir istek gelirse gönderme, `StrayRequestException` fırlat."* `Http::fake()` kuran
+testler etkilenmez: sahte kurulan istek yine sahteye gider.
+
+### Neden temel sınıfta?
+
+Bugün dışarı çıkan tek istemci `GeminiProvider` ve `AssistantTest` her testinde
+`Http::fake()` kuruyor, yani bugün sorun yok. Koruma **yarın** için:
+
+| Unutulan şey | Korumasız | Korumalı |
+|---|---|---|
+| Yeni bir asistan testinde `Http::fake()` | Gerçek Gemini API'sine istek: `.env`'deki **gerçek anahtarla**, faturaya yazılır. Anahtar yoksa test ağ zaman aşımıyla **yavaşça** kırılır | Anında kırmızı: *"Attempted request to [...] without a matching fake"* |
+| Dilim G'de `ShopierGateway` testi | Shopier'in test ortamına gerçek istek | Aynı |
+
+Temel sınıfa konunca **her** feature testi korunur. Tek tek testlere yazmak,
+unutulacak bir adım daha eklemek olurdu. Çözmeye çalıştığımız sorun zaten
+*unutmak*.
+
+> Birim testleri (`tests/Unit/`) PHPUnit'in `TestCase`'inden türüyor, Laravel'i
+> ayağa kaldırmıyor. Onların HTTP istemcisi zaten yok.
+
+### Kapsamı (B6)
+
+Yalnızca **Laravel'in** HTTP istemcisi. Şunları görmez:
+
+- Sentry SDK'nın kendi taşıyıcısı (`HttpTransport`). O, `phpunit.xml`'deki boş
+  DSN ile kapalı: [`phpunit.md`](../phpunit.md) §4.1.
+- Ham Guzzle (`new \GuzzleHttp\Client`), `file_get_contents('https://…')`, `curl_*`.
+
+Bugün projede bunların hiçbiri yok. Biri eklenirse bu koruma onu yakalamaz.
+
+### Hangi test korur?
+
+[`tests/Feature/TestSuiteIsolationTest.php`](Feature/TestSuiteIsolationTest.md):
+sahtesiz çağrı `StrayRequestException` fırlatır · sahte kurulu çağrı yine çalışır.
+**Mutasyon:** `Http::preventStrayRequests();` satırını sil → ilk test kırılır
+(10.17'de denendi).

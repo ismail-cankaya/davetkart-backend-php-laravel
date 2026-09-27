@@ -125,9 +125,18 @@ devam eder — onlar gerçekten **bizim** ya da sağlayıcının sorunudur.
 
 ## 6. Testlerde Sentry
 
-`phpunit.xml` `SENTRY_LARAVEL_DSN`'i ezmiyor. Yerel `.env`'ine bir gün gerçek
-DSN yazarsan, testlerde bilerek fırlatılan istisnalar da Sentry'ye gider.
-Güvenli taraf: `phpunit.xml`'e `<env name="SENTRY_LARAVEL_DSN" value=""/>`.
+✅ **Faz 10 (10.17):** `phpunit.xml` artık `SENTRY_LARAVEL_DSN`'i boşaltıyor:
+
+```xml
+<server name="SENTRY_LARAVEL_DSN" value=""/>
+```
+
+Faz 9'da burada önerilen satır `<env name="SENTRY_LARAVEL_DSN" value=""/>` idi.
+`.env`'i ezer, ama CI'da ya da kabukta tanımlı **gerçek** bir ortam değişkenini
+ezemez; `force="true"` ile bile. Laravel env'i önce `$_SERVER`'dan okur ve
+`<env>` oraya yazmaz. 10.17'de denendi: [`phpunit.md`](../phpunit.md) §4.1.
+
+Kanıt testi: [`TestSuiteIsolationTest.md`](../tests/Feature/TestSuiteIsolationTest.md).
 
 ---
 

@@ -112,6 +112,67 @@ kazanır.
 > Bu yüzden test koşarken `.env`'deki `DB_DATABASE=davetkart` değeri **etkisiz**
 > kalır; `davetkart_test` kullanılır.
 
+### 4.1 🆕 Faz 10 (10.17): `force="true"` de gerçek ortam değişkenini **ezemez**
+
+Tablonun 1. satırı (*"gerçek ortam değişkeni en güçlü"*) PHPUnit'in `force`
+bayrağıyla aşılır sanılır:
+
+```xml
+<env name="SENTRY_LARAVEL_DSN" value="" force="true"/>
+```
+
+**Laravel'de aşılmaz.** 10.17'de denendi: kabukta `SENTRY_LARAVEL_DSN` tanımlıyken
+bu satırla test koşturuldu ve `config('sentry.dsn')` **dolu** geldi.
+
+Sebep iki kaynağın yan yana okunmasında:
+
+```php
+// vendor/phpunit/phpunit/src/TextUI/Configuration/PhpHandler.php
+// <env>: yalnızca putenv() ve $_ENV — $_SERVER'a DOKUNMAZ
+if ($force || getenv($name) === false) { putenv("{$name}={$value}"); }
+if ($force || !isset($_ENV[$name]))    { $_ENV[$name] = $value; }
+
+// <server>: her zaman $_SERVER
+$_SERVER[$variable->name()] = $variable->value();
+```
+
+Laravel'in `env()`'i (Dotenv deposu) **önce `$_SERVER`'a** bakar. CLI'da gerçek
+ortam değişkenleri `$_SERVER`'da da durur. Yani `<env force>` `$_ENV`'i ezer ama
+Laravel oraya hiç bakmadan `$_SERVER`'daki gerçek değeri bulur.
+
+| `phpunit.xml` satırı | Kabukta DSN var | Sonuç (10.17 deneyi) |
+|---|---|---|
+| `<env … value=""/>` | evet | ❌ DSN dolu |
+| `<env … value="" force="true"/>` | evet | ❌ DSN dolu |
+| `<server … value=""/>` | evet | ✅ DSN boş |
+
+Bu yüzden Sentry satırı `<server>`:
+
+```xml
+<server name="SENTRY_LARAVEL_DSN" value=""/>
+```
+
+> 🔴 **Aynı sonuç `DB_DATABASE` için de geçerli ve daha tehlikeli.** Kabukta ya
+> da CI'da `DB_DATABASE` tanımlıysa testler **o** veritabanında koşar ve
+> `RefreshDatabase` onun tablolarını siler. Bugün `<env>` ile duruyor; tablonun
+> 1. satırı bunu *"bilinçli"* sayıyordu. `<server>`'a taşımak ayrı bir karar
+> (Faz 10 planına not düşüldü).
+
+#### Boş değer neden `SENTRY_DSN` yedeğine düşmüyor?
+
+`config/sentry.php`: `env('SENTRY_LARAVEL_DSN', env('SENTRY_DSN'))`. Yedek yalnızca
+değer **`null`** iken kullanılır; `env()` boş dizgi için `""` döndürür. Sentry
+SDK'nın kendi varsayılanı (`$_SERVER['SENTRY_DSN']`) da devreye girmez, çünkü
+config `dsn` anahtarını açıkça veriyor. İkisi de 10.17'de kabukta `SENTRY_DSN`
+tanımlıyken denendi.
+
+#### DSN boşken Sentry tamamen kapalı mı?
+
+Hayır, ve buna güvenmek gerekmiyor. Bir `Sentry\Client` yine kurulur. Güvence,
+istemcinin DSN'inin `null` olması: `HttpTransport::send()` o durumda olayı
+**atlar** (*"Skipping …, because no DSN is set"*). Test bunu iddia ediyor:
+[`TestSuiteIsolationTest.md`](tests/Feature/TestSuiteIsolationTest.md).
+
 ---
 
 ## 5. `<php>` bölümündeki diğer ayarlar
