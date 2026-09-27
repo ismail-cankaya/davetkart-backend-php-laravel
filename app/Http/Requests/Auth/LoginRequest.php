@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Auth;
 
+use App\Support\EmailNormalizer;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -39,13 +40,17 @@ final class LoginRequest extends FormRequest
      *
      * Bu olmadan "Ayse@Ornek.TEST" ile giris DENEMESI kaydi bulamaz ve
      * kullanici, dogru parolayla bile giris yapamaz.
+     *
+     * 🔴 Faz 10 (10.13): kayitla AYNI fonksiyon. Iki taraf ayri kural
+     * yazarsa (Faz 9'a kadar ikisi de `mb_strtolower`du ve ikisi de `İ`'de
+     * yaniliyordu) biri duzeltilip digeri unutuldugunda giris kaydi bulamaz.
      */
     protected function prepareForValidation(): void
     {
         $email = $this->input('email');
 
         if (is_string($email)) {
-            $this->merge(['email' => mb_strtolower(trim($email))]);
+            $this->merge(['email' => EmailNormalizer::normalize($email)]);
         }
     }
 

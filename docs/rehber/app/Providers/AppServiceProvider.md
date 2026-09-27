@@ -251,7 +251,7 @@ private function configureRateLimiting(): void
 {
     RateLimiter::for('auth', function (Request $request): array {
         $email = $request->input('email');
-        $identity = is_string($email) ? mb_strtolower(trim($email)) : 'anonim';
+        $identity = is_string($email) ? EmailNormalizer::normalize($email) : 'anonim';   // Faz 10: §5.5.4b
 
         return [
             Limit::perMinute(5)->by($identity.'|'.$request->ip()),
@@ -313,16 +313,39 @@ desendir.
 ### 5.5.4 `is_string` kontrolü — yine güvenilmez veri
 
 ```php
-$identity = is_string($email) ? mb_strtolower(trim($email)) : 'anonim';
+$identity = is_string($email) ? EmailNormalizer::normalize($email) : 'anonim';
 ```
 
 Rate limiter **doğrulamadan önce** çalışır (middleware katmanı). `email[]=x`
-gönderen bir istekte `$request->input('email')` bir dizidir; `mb_strtolower(dizi)`
-`TypeError` fırlatır ve **rate limiter'ın kendisi 500 üretir**.
+gönderen bir istekte `$request->input('email')` bir dizidir; `normalize(dizi)`
+(Faz 9'a kadar `mb_strtolower(dizi)`) `TypeError` fırlatır ve **rate limiter'ın
+kendisi 500 üretir**.
 
 `RegisterRequest::prepareForValidation()`'daki aynı kontrolün kardeşi. Kural:
 **doğrulamadan önce çalışan her kod, güvenilmez veriyle karşılaşacağını
 varsaymalıdır.**
+
+### 5.5.4b 🆕 Faz 10 (10.13): kova anahtarı, kayıtla **aynı** normalizasyon
+
+Faz 9'a kadar anahtar `mb_strtolower(trim($email))` idi ve Türkçe `İ`'de yanlıştı
+(`İ` → `i` + U+0307, ayrıntı: [`EmailNormalizer.md`](../Support/EmailNormalizer.md)).
+Bugün `LoginRequest` ile hız sınırı aynı fonksiyonu çağırıyor. Yalnızca
+`LoginRequest` düzeltilip bu satır unutulsaydı ne olurdu?
+
+```
+Deneme 1-5:  "ismail@…"   → kova  ismail@…|IP     → 5/5 dolu
+Deneme 6-10: "İsmail@…"   → kova  i̇smail@…|IP     → 0/5 — YENİ KOVA
+                          → LoginRequest ikisini de "ismail@…" yapar → AYNI HESAP
+```
+
+Aynı hesaba dakikada 5 değil **10** deneme. Hiçbir test kırılmaz, hiçbir kullanıcı
+şikâyet etmez; sessiz bir güvenlik açığı. Plan bunu 4. tuzak olarak yazmıştı:
+*"normalizasyon dört yerde birden değişmeli."* Dört yer aynı fonksiyonu
+çağırdığında bu tuzak yapısal olarak kapanır.
+
+> Hâlâ açık kalan (B6): 20/dk'lık **IP kovası** e-postadan bağımsız ve bu
+> atlatmayı zaten sınırlıyordu. Yani açık *"sınırsız deneme"* değil, *"hesap
+> başına iki kat deneme"* idi.
 
 ### 5.5.5 Hata sözleşmesi — zaten hazırdı
 

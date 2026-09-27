@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Support\EmailNormalizer;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -28,12 +29,16 @@ class User extends Authenticatable
      * PostgreSQL'de UNIQUE karsilastirmasi harf duyarlidir; normalize
      * edilmezse ayni adres iki hesap acabilir.
      *
+     * 🔴 Faz 10 (10.13): FormRequest'lerle AYNI fonksiyon. Bu mutator son
+     * savunma hattidir: seeder, tinker, factory ve ileride parola sifirlama
+     * (Dilim D) istek katmanindan gecmeden yazar.
+     *
      * Klasik mutator sozdizimi BILEREK secildi; Attribute sinifi Larastan'da
      * generic bildirimi ister. Gerekcesi: docs/rehber/app/Models/User.md §3.6
      */
     protected function setEmailAttribute(string $value): void
     {
-        $this->attributes['email'] = mb_strtolower(trim($value));
+        $this->attributes['email'] = EmailNormalizer::normalize($value);
     }
 
     /**

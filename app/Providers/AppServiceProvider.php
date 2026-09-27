@@ -15,6 +15,7 @@ use App\Services\Payment\FakeGateway;
 use App\Services\Payment\PaymentGateway;
 use App\Services\Pricing\OrderEntitlementResolver;
 use App\Services\Rsvp\SubscriptionRsvpQuotaResolver;
+use App\Support\EmailNormalizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
@@ -306,12 +307,17 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Anahtar dogrulamadan ONCE hesaplanir; `email` dizi de gelebilir.
      *
+     * 🔴 Faz 10 (10.13): kayit/girisle AYNI normalizasyon. Farkli olsaydi
+     * `İsmail@` ile `ismail@` IKI AYRI KOVA olurdu: ayni hesaba dakikada
+     * 5 degil 10 deneme. Hicbir test kirilmaz, hicbir kullanici sikayet
+     * etmez — sessiz bir guvenlik acigi.
+     *
      * @return list<Limit>
      */
     private function authLimits(Request $request): array
     {
         $email = $request->input('email');
-        $identity = is_string($email) ? mb_strtolower(trim($email)) : 'anonim';
+        $identity = is_string($email) ? EmailNormalizer::normalize($email) : 'anonim';
 
         return [
             Limit::perMinute(5)->by($identity.'|'.$request->ip()),

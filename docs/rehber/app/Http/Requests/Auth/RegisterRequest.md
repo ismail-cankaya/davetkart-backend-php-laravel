@@ -1,9 +1,10 @@
 # `app/Http/Requests/Auth/RegisterRequest.php` — Eğitim Dokümanı
 
 > **Kapsanan dosya:** `app/Http/Requests/Auth/RegisterRequest.php`
-> **Yol haritasındaki yeri:** Faz 2, dosya 2.4
+> **Yol haritasındaki yeri:** Faz 2, dosya 2.4 · 🆕 **Faz 10, adım 10.13** (§3.4.1)
 > **Bağlantılı:** `docs/08-HATA-SOZLESMESI.md` §3.1 (enumeration) ·
 > [`app/Models/User.md`](../../../Models/User.md) §3.6 ·
+> [`app/Support/EmailNormalizer.md`](../../../Support/EmailNormalizer.md) ·
 > [`CLAUDE.md`](../../../../../../CLAUDE.md) §1
 
 ---
@@ -265,6 +266,29 @@ Kaydedilen:  ismail@gmail.com   →  UNIQUE ihlali → 500
 |---|---|
 | `prepareForValidation()` | Doğrulama ve **sorgular** normalize değerle çalışır |
 | Model mutator | Kolona **hangi yoldan** gelirse gelsin küçük harf yazılır (seeder, tinker) |
+
+#### 3.4.1 🆕 Faz 10 (10.13): iki katman, **tek fonksiyon**
+
+İki katman iki ayrı anı koruyordu ama **aynı kuralı iki kez yazıyordu**, ve kural
+Türkçe `İ`'de yanlıştı: `mb_strtolower('İ')` tek bir `i` değil `i` + U+0307
+(birleşen nokta) üretir. `İsmail@…` ile kaydolan kullanıcı `ismail@…` ile giremiyor,
+aynı adresle ikinci bir hesap açabiliyordu (denetim K-3).
+
+```php
+// Faz 2 – Faz 9
+$normalized['email'] = mb_strtolower($normalized['email']);
+
+// Faz 10
+$normalized['email'] = EmailNormalizer::normalize($normalized['email']);
+```
+
+Artık dört yer (bu dosya, `LoginRequest`, `User` mutator'ı, hız sınırı anahtarı)
+aynı fonksiyonu çağırıyor. Kural ve gerekçesi:
+[`app/Support/EmailNormalizer.md`](../../../Support/EmailNormalizer.md).
+
+`trim` önce burada, sonra normalizer içinde **iki kez** yapılıyor. Zararsız
+(normalizer idempotent) ve bilerek bırakıldı: döngü ad ve soyadı da kırpıyor,
+normalizer ise tek başına çağrıldığında da doğru olmalı.
 
 ### 3.5 Parola kuralı — neden karmaşıklık zorunluluğu yok?
 

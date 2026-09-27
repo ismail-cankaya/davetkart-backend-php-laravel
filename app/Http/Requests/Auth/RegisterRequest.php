@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Auth;
 
+use App\Support\EmailNormalizer;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -57,8 +58,10 @@ final class RegisterRequest extends FormRequest
             }
         }
 
+        // 🔴 Faz 10 (10.13): `mb_strtolower` DEGIL — `İ` onunla iki kod
+        // noktasina (i + U+0307) donusur ve ayni adres ikinci bir hesap acar.
         if (isset($normalized['email'])) {
-            $normalized['email'] = mb_strtolower($normalized['email']);
+            $normalized['email'] = EmailNormalizer::normalize($normalized['email']);
         }
 
         $this->merge($normalized);

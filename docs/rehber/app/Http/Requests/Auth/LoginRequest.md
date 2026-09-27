@@ -1,8 +1,9 @@
 # `app/Http/Requests/Auth/LoginRequest.php` — Eğitim Dokümanı
 
 > **Kapsanan dosya:** `app/Http/Requests/Auth/LoginRequest.php`
-> **Yol haritasındaki yeri:** Faz 2, dosya 2.8b
+> **Yol haritasındaki yeri:** Faz 2, dosya 2.8b · 🆕 **Faz 10, adım 10.13** (§2.3.1)
 > **Bağlantılı:** [`RegisterRequest.md`](RegisterRequest.md) (FormRequest temelleri orada) ·
+> [`app/Support/EmailNormalizer.md`](../../../Support/EmailNormalizer.md) ·
 > `docs/08-HATA-SOZLESMESI.md` §3.1 ·
 > [`AppServiceProvider.md`](../../../Providers/AppServiceProvider.md) §5.5
 
@@ -134,6 +135,33 @@ alır — sebebini asla anlayamayacağı bir hata.
 `trim` de duruyor ama `TrimStrings` global middleware'i onu zaten yapıyor
 (bkz. [`istek-yasam-dongusu.md`](../../../kavramlar/istek-yasam-dongusu.md) §6.1)
 — küçültme ise yalnızca burada yapılıyor.
+
+#### 2.3.1 🆕 Faz 10 (10.13): kayıtla **aynı** fonksiyon
+
+```php
+// Faz 2 – Faz 9
+$this->merge(['email' => mb_strtolower(trim($email))]);
+
+// Faz 10
+$this->merge(['email' => EmailNormalizer::normalize($email)]);
+```
+
+Yukarıdaki akışın Türkçe `İ`'li hâli, Faz 9'a kadar:
+
+```
+Kayıt:   "İsmail@…"  → mutator      → "i̇smail@…"   (i + U+0307, ekranda aynı)
+Giriş:   "ismail@…"  → mb_strtolower → "ismail@…"
+                                      → WHERE email = 'ismail@…' → BULUNAMAZ → 401
+```
+
+Bu sefer iki taraf da normalize ediyordu. Sorun, ikisinin de **aynı yanlış kuralı**
+kullanmasıydı: `mb_strtolower('İ')` tek bir `i` değil, iki kod noktası üretir.
+Düzeltme tek yerde yapıldı ve dört çağıran onu kullanıyor:
+[`app/Support/EmailNormalizer.md`](../../../Support/EmailNormalizer.md).
+
+> Ders: *"iki yerde normalize ediliyor"* güvence değil. Güvence, iki yerin
+> **aynı fonksiyonu** çağırması. Kural ayrı ayrı yazılırsa biri düzeltilip
+> diğeri unutulduğunda giriş kaydı bulamaz.
 
 ### 2.4 `email:rfc` — burada bilgi sızdırır mı?
 

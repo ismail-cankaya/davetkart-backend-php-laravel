@@ -1,7 +1,7 @@
 # `app/Models/User.php` — Eğitim Dokümanı
 
 > **Kapsanan dosya:** `app/Models/User.php`
-> **Yol haritasındaki yeri:** Faz 2, dosya 2.1 (fazın ilk dosyası)
+> **Yol haritasındaki yeri:** Faz 2, dosya 2.1 (fazın ilk dosyası) · 🆕 **Faz 10, adım 10.13** (§3.6.2)
 > **Bağlantılı:** [`CLAUDE.md`](../../../../CLAUDE.md) §1, §3 ·
 > [`docs/08-HATA-SOZLESMESI.md`](../../../08-HATA-SOZLESMESI.md) §3.1 ·
 > [`SubscriptionTier.md`](../Enums/SubscriptionTier.md) (PHP temelleri orada başladı)
@@ -116,9 +116,11 @@ iskeletinin ürettiği biçim bu; iskeletle çelişmemek gereksiz sürtünmeyi �
 ```php
 protected function setEmailAttribute(string $value): void
 {
-    $this->attributes['email'] = mb_strtolower(trim($value));
+    $this->attributes['email'] = EmailNormalizer::normalize($value);   // Faz 10 (10.13)
 }
 ```
+
+> Faz 9'a kadar gövde `mb_strtolower(trim($value))` idi. Neden yetmediği: §3.6.2.
 
 Eloquent, model üzerinde belirli adlandırma kalıplarına uyan metotlar arar ve o
 kolona erişilirken bu metodu **araya sokar**.
@@ -336,6 +338,28 @@ seeder, tinker, ileride bir admin paneli) kolona yalnızca küçük harf yazıla
 Neden `strtolower` değil `mb_strtolower`? `strtolower` bayt bazlı çalışır ve
 ASCII dışı karakterleri bozabilir. `mb_` öneki "multibyte" demektir — UTF-8'i doğru
 işler. E-postalar pratikte ASCII olsa da, doğru olanı varsayılan seçmek ucuzdur.
+
+#### 3.6.2 🆕 Faz 10 (10.13): `mb_strtolower` da yetmedi
+
+Yukarıdaki paragraf *"e-postalar pratikte ASCII"* diyordu. Türkçe klavyeli bir
+kullanıcı için değil: büyük `I` tuşu `İ` (U+0130) üretir ve
+
+```php
+mb_strtolower('İ');   // "i̇" — i + U+0307 (birleşen nokta), İKİ kod noktası
+```
+
+Ekranda `i` gibi görünür, baytta değildir. `İsmail@…` ile kaydolan kullanıcı
+`ismail@…` ile giremiyor, aynı adresle ikinci bir hesap açabiliyordu (test
+denetimi K-3). Mutator'ın *"hangi yoldan gelirse gelsin tek biçim"* sözü
+tutuluyordu, ama yanlış biçimle.
+
+Düzeltme bu mutator'da değil, dört çağıranın ortak kullandığı tek fonksiyonda:
+[`app/Support/EmailNormalizer.md`](../Support/EmailNormalizer.md). Mutator artık
+son savunma hattı olarak onu çağırıyor: seeder, tinker, factory ve ileride parola
+sıfırlama (Dilim D) istek katmanından geçmeden yazar.
+
+Mevcut bozuk satırlar (`i̇` içerenler) kendiliğinden düzelmez: mutator yalnızca
+**yazarken** çalışır. Onları 10.14'ün bakım komutu düzeltecek.
 
 #### 3.6.1 🔴 Neden klasik mutator sözdizimi? — bir araç kısıtının izini sürmek
 
