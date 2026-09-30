@@ -36,6 +36,7 @@ Dosyayı bu klasöre koymak onu kaydetmeye yeter; ekstra bir tanımlama yoktur.
 | `logging.php` | Log kanalları | Orta | [logging.md](logging.md) |
 | `mail.php` | E-posta gönderimi | Orta | [mail.md](mail.md) |
 | `services.php` | 3. parti servis kimlikleri | Düşük | [services.md](services.md) |
+| `trustedproxy.php` | 🆕 Faz 10: güvenilen yük dengeleyiciler → `$request->ip()` | 🔴 Yüksek (dengeleyici arkasında) | [trustedproxy.md](trustedproxy.md) |
 
 ## `.env` düzeltme listesi — ✅ tamamlandı
 

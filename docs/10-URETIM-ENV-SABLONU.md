@@ -52,10 +52,18 @@ APP_DEBUG=false
 # dengeleyiciden (ALB, CloudFront, Cloudflare) geliyorsa ve proxy guvenilir
 # isaretlenmemisse $request->ip() DENGELEYICININ IP'sini doner. Sonuc: butun
 # IP anahtarli kovalar (throttle:api 60/dk, auth, rsvp, media, contact) TUM
-# ziyaretciler icin TEK kova olur ve ip_hash kolonlari anlamsizlasir. Bu ayar
-# .env'de degil bootstrap/app.php'de yapilir ($middleware->trustProxies(...)).
+# ziyaretciler icin TEK kova olur ve ip_hash kolonlari anlamsizlasir.
+# Faz 10 (10.18): ayar asagidaki TRUSTED_PROXIES ile yapilir (config/trustedproxy.php).
 # Ayni sunucuda nginx + php-fpm (AWS Yol A) bundan etkilenmez.
 APP_URL=https://api.davetkart.com
+
+# 🔴 Faz 10 (10.18): BOS = hicbir vekile guvenilmez (guvenli varsayilan).
+# Yuk dengeleyici arkasinda dengeleyicinin adresleri/CIDR'lari, virgulle.
+# AWS ALB: VPC'nin CIDR'i (ornek 10.0.0.0/16). Cloudflare: yayimlanan IP
+# araliklari. '*' YALNIZCA sunucuya dogrudan erisim ag seviyesinde
+# (security group) kapaliysa; degilse sahte X-Forwarded-For ile butun hiz
+# siniri kovalari atlatilir. Bkz. docs/rehber/config/trustedproxy.md
+TRUSTED_PROXIES=
 
 APP_LOCALE=en
 APP_FALLBACK_LOCALE=en
