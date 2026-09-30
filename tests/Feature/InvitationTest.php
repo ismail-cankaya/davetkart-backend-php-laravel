@@ -9,6 +9,7 @@ use App\Enums\InvitationStatus;
 use App\Models\Invitation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -25,6 +26,8 @@ final class InvitationTest extends TestCase
     use RefreshDatabase;
 
     private const YOK_OLAN_ULID = '01ARZ3NDEKTSV4RRFFQ69G5FAV';
+
+    private const HARITA = 'https://maps.app.goo.gl/Kz8vYbN2aQ3xR5tW7';
 
     // ------------------------------------------------------------ KIMLIK
 
@@ -397,6 +400,95 @@ final class InvitationTest extends TestCase
 
         // T6: gecerli satir icin hata URETILMEMELI
         $this->assertArrayNotHasKey('invitation.timelineEvents.0.time', $fields);
+    }
+
+    // ------------------------------------------- GIRDI DOGRULAMA (10.19) 🔴
+
+    /** @return iterable<string, array{string}> */
+    public static function nonWebMapUrls(): iterable
+    {
+        yield 'SMB paylasimi' => ['smb://saldirgan.example/paylasim'];
+        yield 'Windows ayar semasi' => ['ms-settings://display'];
+        yield 'FTP' => ['ftp://ornek.test/harita'];
+    }
+
+    /**
+     * Denetim K-8: duz `url` kurali bunlari kabul ediyordu (PUT -> 200).
+     * T14: yalnizca 422 degil, eski deger de YERINDE.
+     */
+    #[Test]
+    #[DataProvider('nonWebMapUrls')]
+    public function a_map_url_must_be_a_web_address(string $mapUrl): void
+    {
+        $ayse = User::factory()->create();
+        $inv = Invitation::factory()->for($ayse)->create(['map_url' => self::HARITA]);
+
+        $response = $this->withToken($this->tokenFor($ayse))
+            ->putJson(route('invitations.update', $inv), $this->payload(['mapUrl' => $mapUrl]))
+            ->assertUnprocessable();
+
+        $this->assertSame('url', $response->json('error.fields')['invitation.mapUrl'][0]['rule']);
+        $this->assertSame(self::HARITA, $inv->refresh()->map_url);
+    }
+
+    /** T6'nin varlik yarisi: gercek harita baglantilari kaydedilir. */
+    #[Test]
+    public function a_web_map_url_is_saved(): void
+    {
+        $ayse = User::factory()->create();
+        $inv = Invitation::factory()->for($ayse)->create();
+
+        $this->withToken($this->tokenFor($ayse))
+            ->putJson(route('invitations.update', $inv), $this->payload(['mapUrl' => self::HARITA]))
+            ->assertOk()
+            ->assertJsonPath('data.invitation.mapUrl', self::HARITA);
+    }
+
+    /** @return iterable<string, array{list<mixed>}> */
+    public static function nonIntegerGiftOptions(): iterable
+    {
+        yield 'mantiksal deger (1 sayiliyordu)' => [[true, 500]];
+        yield 'sayi gibi gorunen metin' => [['500', 1000]];
+    }
+
+    /**
+     * Denetim K-7: [true, 500] kaydediliyor ve public yanitta AYNEN
+     * donuyordu — frontend `number[]` bekliyor. `integer:strict` (K92).
+     *
+     * @param  list<mixed>  $giftOptions
+     */
+    #[Test]
+    #[DataProvider('nonIntegerGiftOptions')]
+    public function gift_options_must_be_json_integers(array $giftOptions): void
+    {
+        $ayse = User::factory()->create();
+        $inv = Invitation::factory()->for($ayse)->create(['gift_options' => [250]]);
+
+        $response = $this->withToken($this->tokenFor($ayse))
+            ->putJson(route('invitations.update', $inv), $this->payload(['giftOptions' => $giftOptions]))
+            ->assertUnprocessable();
+
+        $error = $response->json('error.fields')['invitation.giftOptions.0'][0];
+
+        $this->assertSame('integer', $error['rule']);
+        // `strict` bir uygulama ayari; hata zarfina SIZMAZ (ef7c692, K-5).
+        $this->assertArrayNotHasKey('params', $error);
+        $this->assertSame([250], $inv->refresh()->gift_options);
+    }
+
+    /** Varlik yarisi: gercek tam sayilar kaydedilir ve sayi olarak doner. */
+    #[Test]
+    public function integer_gift_options_are_saved_as_numbers(): void
+    {
+        $ayse = User::factory()->create();
+        $inv = Invitation::factory()->for($ayse)->create();
+
+        $this->withToken($this->tokenFor($ayse))
+            ->putJson(route('invitations.update', $inv), $this->payload(['giftOptions' => [500, 1000]]))
+            ->assertOk()
+            ->assertJsonPath('data.invitation.giftOptions', [500, 1000]);
+
+        $this->assertSame([500, 1000], $inv->refresh()->gift_options);
     }
 
     // ------------------------------------------------------- YARDIMCILAR

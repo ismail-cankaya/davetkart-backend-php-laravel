@@ -1,7 +1,7 @@
 # `tests/Feature/InvitationTest.php`
 
 > **Kod dosyası:** `tests/Feature/InvitationTest.php`
-> **Faz:** 3 — Invitation dilimi, dosya 3.12 (son)
+> **Faz:** 3 — Invitation dilimi, dosya 3.12 (son) · 🆕 **Faz 10, adım 10.19** (§11)
 > **Bağlantılı:** [`AuthTest.md`](AuthTest.md) · [`TestCase.md`](../TestCase.md) (T13)
 
 ---
@@ -362,3 +362,47 @@ Bunun için frontend tarafında üç iş var (`claude/Notlar/03-FRONTEND-YAPILAC
 - `services/invitations.ts` → K37'nin REST koleksiyonuna uyarlanması
 - `useDashboardData.ts` → tek kayıt varsayımının kaldırılması
 - `TimelineEditor.tsx` → K44: `id: null` + ayrı `localKey`
+
+---
+
+## 11. 🆕 Faz 10 (10.19): girdi doğrulama testleri
+
+> **Kapattığı bulgular:** test denetimi **K-7** (`giftOptions`) ve **K-8** (`mapUrl`)
+> **Test edilen:** [`InvitationRequest.md`](../../app/Http/Requests/Invitation/InvitationRequest.md) → *Faz 10 eklemesi*
+
+Dört test metodu, veri sağlayıcılarla **yedi** vaka. Dosyanın toplamı: 23 metot.
+
+> §1'deki *"18 test"* Faz 3'ün sayısıydı. Faz 10'dan önce dosyada zaten 19
+> metot vardı.
+
+| Test | T6 | Vaka | Ne kanıtlar |
+|---|---|---|---|
+| `a_map_url_must_be_a_web_address` | Yokluk | `smb://`, `ms-settings://`, `ftp://` | 422 · `rule: url` · **eski değer yerinde** (T14) |
+| `a_web_map_url_is_saved` | Varlık | Google Maps kısa bağlantısı | 200 · yanıtta aynen |
+| `gift_options_must_be_json_integers` | Yokluk | `[true, 500]`, `["500", 1000]` | 422 · `rule: integer` · `params` **yok** (`strict` sızmıyor) · eski değer yerinde |
+| `integer_gift_options_are_saved_as_numbers` | Varlık | `[500, 1000]` | 200 · yanıtta ve veritabanında **sayı** |
+
+### Neden `ftp://` da listede?
+
+Denetimin iki örneği (`smb://`, `ms-settings://`) Windows'a özgü. `ftp://` üçüncü
+bir sınıf: tarayıcıların çoğu artık açmıyor, ama "harita" değil. Liste
+*"şu tehlikeli şemalar"* değil, *"web dışındaki her şey"* diye düşünülmeli.
+Kural da bu yüzden bir **izin listesi** (`http,https`), yasak listesi değil.
+
+### Neden eski değer de kontrol ediliyor?
+
+422 yanıtı yalnızca doğrulamanın **reddettiğini** söyler. Davetiyede önceden
+geçerli bir harita bağlantısı varken bozuk bir istek onu silseydi ya da
+değiştirseydi yanıt yine 422 olabilirdi (ör. önce yazıp sonra doğrulayan bir
+kod). `refresh()` sonrası eski değerin yerinde olması, reddin **etkisiz**
+olduğunu kanıtlıyor (§3.2'deki kural).
+
+### Mutasyon kanıtı (1 Ekim 2026, İsmail'in makinesi, PHP 8.5)
+
+| Mutasyon (`InvitationRequest.php`) | Kırılan vakalar |
+|---|---|
+| `url:http,https` → `url` (Faz 9'un hâli) | `a_map_url_must_be_a_web_address`'in **üç** vakası da |
+| `integer:strict` → `integer` (Faz 9'un hâli) | `gift_options_must_be_json_integers`'ın **iki** vakası da |
+
+Her veri seti ayrı ayrı kırıldı: listede *"zaten başka bir sebeple reddedilen"*,
+yani hiçbir şey kanıtlamayan bir vaka yok.

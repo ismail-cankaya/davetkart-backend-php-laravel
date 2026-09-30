@@ -78,7 +78,10 @@ abstract class InvitationRequest extends FormRequest
             'invitation.subtitle' => ['sometimes', 'nullable', 'string', 'max:255'],
             'invitation.names' => ['sometimes', 'nullable', 'string', 'max:120'],
             'invitation.venue' => ['sometimes', 'nullable', 'string', 'max:180'],
-            'invitation.mapUrl' => ['sometimes', 'nullable', 'string', 'url', 'max:2048'],
+            // Faz 10 (10.19): yalnizca web adresi. Duz `url` kurali onlarca sema
+            // kabul ediyor (smb://, ms-settings://…); misafir tiklayinca
+            // tarayici isletim sistemine uygulama actirir. Harita bir web sayfasidir.
+            'invitation.mapUrl' => ['sometimes', 'nullable', 'string', 'url:http,https', 'max:2048'],
             'invitation.date' => ['sometimes', 'nullable', 'date'],
 
             // K63: IANA saat dilimi kimligi. 'timezone' kurali degeri PHP'nin
@@ -98,7 +101,10 @@ abstract class InvitationRequest extends FormRequest
             'invitation.accountHolder' => ['sometimes', 'nullable', 'string', 'max:120'],
             'invitation.iban' => ['sometimes', 'nullable', 'string', 'max:34'],
             'invitation.giftOptions' => ['sometimes', 'nullable', 'array', 'max:10'],
-            'invitation.giftOptions.*' => ['integer', 'min:0', 'max:1000000'],
+            // Faz 10 (10.19, K92): `strict` — duz `integer` true'yu 1, "500"u 500
+            // sayar ve degeri OLDUGU GIBI kaydeder; public yanit frontend'e
+            // `number[]` yerine [true, "500"] doner.
+            'invitation.giftOptions.*' => ['integer:strict', 'min:0', 'max:1000000'],
 
             'invitation.rsvpDeadline' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
             'invitation.askMenuPreference' => ['sometimes', 'boolean'],

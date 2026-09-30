@@ -1,7 +1,7 @@
 # `app/Http/Requests/Invitation/InvitationRequest.php`
 
 > **Kod dosyası:** `app/Http/Requests/Invitation/InvitationRequest.php` (abstract)
-> **Faz:** 3 — Invitation dilimi, dosya 3.8 (1/3)
+> **Faz:** 3 — Invitation dilimi, dosya 3.8 (1/3) · 🆕 Faz 7 (`timezone`) · 🆕 **Faz 10, adım 10.19** (`mapUrl`, `giftOptions`: dosyanın sonu)
 > **Alt sınıflar:** [`StoreInvitationRequest.md`](StoreInvitationRequest.md) ·
 > [`UpdateInvitationRequest.md`](UpdateInvitationRequest.md)
 > **Bağlantılı:** [`RegisterRequest.md`](../Auth/RegisterRequest.md) — FormRequest temelleri orada
@@ -476,3 +476,65 @@ kimliği 32 karakterin altında, yani sınır rahat.
 `null` = *"sahip henüz saat dilimi seçmedi"*. `array_key_exists` kullanımı
 sayesinde kullanıcı alanı **temizleyebiliyor** (`isset` kullanılsaydı `null`
 gönderimi sessizce yok sayılırdı — bu kılavuzun ana bölümündeki aynı tuzak).
+
+---
+
+## 🆕 Faz 10 eklemesi — `mapUrl` ve `giftOptions` (10.19)
+
+> **Kapattığı bulgular:** test denetimi **K-8** (`mapUrl`) ve **K-7** (`giftOptions`) ·
+> gözden geçirme raporu §6.3 · **K92** (`integer:strict`)
+> **Test:** [`InvitationTest.md`](../../../../tests/Feature/InvitationTest.md) §11
+
+### 1. `mapUrl` → `url:http,https`
+
+```php
+'invitation.mapUrl' => ['sometimes', 'nullable', 'string', 'url:http,https', 'max:2048'],
+```
+
+Parametresiz `url` kuralı bir **protokol listesine** karşı doğrular ve o liste
+onlarca şema içerir. Denetim (24 Eylül) şunları **200** ile kaydettirdi:
+
+| Değer | Misafir tıklayınca |
+|---|---|
+| `smb://saldirgan.example/paylasim` | Windows dosya paylaşımına bağlanmaya çalışır; bazı yapılandırmalarda **kimlik bilgisi özetini** karşı sunucuya gönderir |
+| `ms-settings://display` | Windows ayarlar uygulamasını açar |
+
+`javascript:`, `file:` ve `data:` zaten reddediliyordu. Kalan açık, *"harita"*
+alanının bir web sayfası dışında bir şey olabilmesiydi. Harita her zaman bir web
+sayfasıdır (Google Maps, Yandex, Apple Maps paylaşım bağlantıları). Liste bu
+yüzden iki protokole indi.
+
+**Hata zarfına etkisi (bilinçli):** `url` kuralının parametreleri artık zarfta
+görünüyor:
+
+```json
+{ "rule": "url", "params": { "values": ["http", "https"] } }
+```
+
+`ApiExceptionRenderer::RULE_PARAM_NAMES`'te `url` yok, bu yüzden parametreler
+`values` altında toplanıyor. `integer:strict`'in `strict`'i bilerek gizleniyordu,
+çünkü o bir uygulama ayarı. Protokol listesi ise istemcinin işine yarayan bir
+bilgi (*"bağlantı http ya da https ile başlamalı"*). Sözleşmeye yalnızca
+**ekleme**: frontend `rule`'a bakıyor, fazladan `params` hiçbir şeyi kırmaz.
+
+### 2. `giftOptions.*` → `integer:strict` (K92)
+
+```php
+'invitation.giftOptions.*' => ['integer:strict', 'min:0', 'max:1000000'],
+```
+
+Laravel'in düz `integer` kuralı `filter_var(..., FILTER_VALIDATE_INT)` kullanır:
+`true` → 1, `"500"` → 500 geçer. Ama değer **dönüştürülmeden** kaydedilir:
+
+```
+PUT giftOptions: [true, "500"]   →  200
+GET /public/...                  →  "giftOptions": [true, "500"]
+```
+
+Frontend `number[]` bekliyor; `true + 250` gibi bir hesap sessizce `251` üretir.
+`strict` yalnızca gerçek JSON tam sayılarını kabul eder. Aynı düzeltme
+`ef7c692`'de LCV'nin `guestCount`'una yapılmıştı (K-7'nin ilk yarısı); bu adım
+ikinci yarısı.
+
+> `integer` kuralının `strict` parametresi hata zarfına **sızmaz**
+> (`RULE_PARAM_NAMES['integer'] = []`, K-5). Test bunu da iddia ediyor.
