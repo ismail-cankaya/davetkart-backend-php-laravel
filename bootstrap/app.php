@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Exceptions\ApiExceptionRenderer;
-use App\Exceptions\HasErrorCode;
 use App\Http\Middleware\ForceJsonResponse;
 use App\Http\Middleware\RejectMalformedInput;
 use App\Http\Middleware\SecurityHeaders;
@@ -22,86 +21,38 @@ use Sentry\Laravel\Integration;
 // api, commands, health: Rotaları ve sağlık denetimi yolunu yapılandırır.
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        // web: YOK. Bu bir saf API backend'i; tek web rotasi olan '/' ->
-        // view('welcome') olu koddu ve silindi. Parametre kalkinca `web`
-        // middleware grubu (session, CSRF) hicbir istekte calismaz.
+        // web: YOK. Saf bir API projesidir; 
+        // HTML sayfası olmadığı için Session ve 
+        // CSRF gibi gereksiz sunucu yükleri tamamen kapatılmıştır.
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // prepend: Tüm API rotalari icin Accept: application/json zorunlu kilinir.
-        // NEDEN BASA: throttle gibi erken firlatan middleware'lerden ONCE
-        // calismali, yoksa o hatalar HTML doner. Bkz. kilavuz §2.2.
+        // Accept başlığını zincirin en başında application/json yapar; 
+        // böylece hemen ardından gelecek hız sınırı (rate limit) gibi 
+        // kontroller hata fırlatırsa yanıt HTML değil JSON döner.
         $middleware->prependToGroup('api', ForceJsonResponse::class);
 
         // API hız sınırını (Rate Limiter) devreye sokar.
-        // Limiter tanimi: AppServiceProvider::apiLimits() (Faz 5 · FAZ-4 §9.2).
-        // NEDEN SONA (gruba EKLENIR, basa degil): ForceJsonResponse once
-        // calismali ki 429 yaniti da JSON olsun (M3).
         $middleware->throttleApi();
 
-        // API'ye gönderilen verilerin (özellikle JSON formatının veya metin karakterlerinin)
+        // API'ye gönderilen verilerin (özellikle JSON formatının veya metin karakterlerinin) 
         // bozuk, hatalı veya biçimsiz olup olmadığını denetleyen bir güvenlik filtresidir.
-        // Bozuk girdi (yarim JSON, NUL bayti) -> 400.
-        // NEDEN BU SIRA: gruba EKLENIR ama oncelik listesinde SubstituteBindings'in
-        // ONUNE alinir. Iki sonucu var:
-        //   - Throttle'lar (throttle:api ve rota seviyesindeki throttle:rsvp)
-        //     ondan ONCE calisir: bozuk istek yagdiran bot da kovayi doldurur.
-        //   - Rota model baglama ondan SONRA calisir: bozuk istek veritabanina
-        //     hic sorgu actirmaz (O6'nin ayni gerekcesi).
         $middleware->appendToGroup('api', RejectMalformedInput::class);
+        //RejectMalformedInput kontrolünü, Laravel'in öncelik listesinde SubstituteBindings'in hemen ÖNÜNE alır.
         $middleware->prependToPriorityList(SubstituteBindings::class, RejectMalformedInput::class);
 
-        // Sertlestirme basliklari GLOBAL yigina eklenir, 'api' grubuna degil:
-        // /up saglik sondasi ve rota eslesmeyen 404'ler de tarayiciya gider ve
-        // onlarin da nosniff/frame-options tasimasi gerekir. Yanit uretildikten
-        // SONRA calisan bir middleware oldugu icin append() dogru yer.
+        // Güvenlik başlıklarını (Security Headers) yanıtın başlıklarına ekler.
         $middleware->append(SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Sentry'yi Laravel'in istisna akisina baglayan TEK satir (paketin
-        // kendi onerdigi kalip). Laravel 11+ ile app/Exceptions/Handler.php
-        // kaldirildi; kanca noktasi artik burasi.
-        //
-        // report ve render AYRI islerdir ve birbirini bastirmaz:
-        //   handles()  -> istisnayi Sentry'ye BILDIRIR (report tarafi)
-        //   render()   -> istemciye NE DONECEGINI secer (asagida)
-        // Bu yuzden ikisi yan yana durabiliyor; Sentry'yi eklemek mevcut
-        // ApiExceptionRenderer davranisini degistirmiyor.
-        //
-        // SENTRY_LARAVEL_DSN bos oldugunda SDK sessizce devre disi kalir
-        // (paketin ServiceProvider'i kaydi hasDsnSet() ardina aliyor), bu
-        // yuzden "yerelde kapat" diye ayrica bir kosul yazmiyoruz.
+        // Sentry entegrasyonunu etkinleştirir;
+        // Sentry, uygulama hatalarını ve istisnaları izlemek için kullanılan bir hata izleme ve raporlama platformudur.
         Integration::handles($exceptions);
 
-        // 🔴 Faz 10 (10.16): 4xx IS istisnalari RAPORLANMAZ — ne Sentry'ye
-        // ne laravel.log'a. Yanlis parola, 402, kota asimi, sahte webhook
-        // birer HATA degil, sozlesmenin ongordugu CEVAPLARDIR; her biri bir
-        // Sentry olayi ve yigin izli bir ERROR satiri uretiyordu. Kota yer,
-        // gercek 500'leri gomer. 5xx olanlar (PaymentProviderException 502,
-        // AiProviderException 503) raporlanmaya DEVAM eder.
-        //
-        // Sentry'yi de neden durduruyor? Handler::report() once
-        // shouldntReport()'u sorar; Sentry'nin reportable() geri cagrisi
-        // ancak ondan SONRA, reportThrowable() icinde calisir.
-        //
-        // Bilinen bedel (plan tuzak #6, BILEREK): bu istisnalarin log izi de
-        // kalmaz. Iz gereken yerde Action kendisi yazar (ornek:
-        // HandlePaymentCallbackAction'in Log::warning/critical satirlari).
-        // Bkz. kilavuz §2.7.
-        $exceptions->dontReportWhen(
-            fn (Throwable $e): bool => $e instanceof HasErrorCode && $e->errorCode()->status() < 500,
-        );
-
         // null donerse Laravel varsayilan akisina duser (web rotalari).
-        //
-        // Iki kosul, iki farkli durumu kapsar:
-        //   expectsJson() -> rota ESLESTI, ForceJsonResponse Accept'i ezdi.
-        //   is('api/*')   -> rota ESLESMEDI. Router, middleware calismadan once
-        //                    NotFoundHttpException firlatir; grup uyeligi diye
-        //                    bir sey olmadigi icin geriye tek sinyal yol kalir.
-        // Bkz. kilavuz §2.4 (K25'in yapisal siniri).
+        // API rotalari icin, istisnalar JSON formatinda dondurulur.
         $exceptions->render(
             fn (Throwable $e, Request $request) => $request->is('api/*') || $request->expectsJson()
                 ? app(ApiExceptionRenderer::class)->render($e)
