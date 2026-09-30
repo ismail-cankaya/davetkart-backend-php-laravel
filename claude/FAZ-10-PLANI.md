@@ -4,9 +4,9 @@
 > **Kaynaklar:** `claude/GOZDEN-GECIRME-RAPORU.md` (23 Eylül, kod okuması) ·
 > `claude/TEST-DENETIMI-2026-09-24.md` (24 Eylül, testler kum havuzunda gerçekten koşturuldu)
 > **Başlangıç noktası:** `edit-test` dalı, `ef7c692` (25 Eylül 07:28)
-> **Durum:** 🟡 **Dilim A'nın kodu yazıldı** (25 Eylül 2026, 10.1–10.9). Kum havuzunda (PHP 8.4 + PostgreSQL 16)
-> her commit'te `composer check` yeşil; **senin makinende (PHP 8.5 + PostgreSQL 18) kaydı bekliyor** (B7).
-> 10.0'ın kaydı da hâlâ bekliyor. Ayrıntı, sapmalar ve yeni bulgular: **§9**
+> **Durum:** ✅ **Dilim 0, A ve B bitti** (25 Eylül – 1 Ekim 2026, 10.0–10.20). `composer check`
+> İsmail'in makinesinde (**PHP 8.5.8 + PostgreSQL 18.4**) her adımda yeşil; son koşu **407/407** (B7).
+> Sıradaki: **Dilim C**. Ayrıntı, sapmalar ve yeni bulgular: **§9**
 
 ---
 
@@ -73,6 +73,7 @@ Eksik olan yalnızca PHP 8.5 ile `composer check` kaydı (10.0).
 | **K88** | Yayındaki davetiyede modül açma **kayıt anında** plan kontrolünden geçer → **402** `PAYWALL_TIER_INSUFFICIENT` | Rapor §1.1 · denetim D-4. Okuma anında maskeleme bu fazda **yok** | 10.1 |
 | **K89** | `OrderStatus::Expired` eklenir. `orders:expire` onu yazar, `Expired → Paid` geçişine izin verilir. `Failed` final kalır | Rapor §1.2 · D-6. `failed` iki gerçeği anlatıyordu (**E12**'nin ikinci örneği) | 10.3–10.7 |
 | **K90** | Sanctum token ömrü **30 gün**, mutlak (oluşturmadan itibaren) | *"Aşırı hassas işlem yok"*. Kayan pencere gerekmez; 30. günde yeniden giriş istenir | 10.10 |
+| **D-5** ✅ | E-postada `İ` → **`i`** (seçenek a), tek kaynaklı `EmailNormalizer`. ASCII dışını reddetmek **değil** | 27 Eylül 2026. Türkçe klavyeli kullanıcıyı cezalandırmaz; büyük sağlayıcılar zaten ASCII dışı yerel kısım kabul etmiyor | 10.12–10.15 |
 
 ### 2.2 `ef7c692`'de uygulanmış, karar kaydına geçmemiş (10.0'da kayda geçer)
 
@@ -86,7 +87,7 @@ Eksik olan yalnızca PHP 8.5 ile `composer check` kaydı (10.0).
 
 | # | Soru | Öneri | Bloke ettiği adım |
 |---|---|---|---|
-| **D-5** | E-postada `İ`: `İ→i` dönüşümü mü, ASCII dışı yerel kısmı reddetmek mi? | `İ→i` + `mb_strtolower`, tek kaynaklı normalizer | 10.12 |
+| ~~**D-5**~~ | ~~E-postada `İ`~~ → ✅ cevaplandı (27 Eylül, seçenek a), §2.1 | — | — |
 | **M-1** | Mail kanalı (K79): Amazon SES mi, alan adının SMTP'si mi? Mailler hangi dilde? (K21 API için *tek dil* diyor, ama mail kullanıcıya giden metindir) | SES (AWS rehberiyle uyumlu) · mail dili Türkçe, K21'in istisnası olarak kayda geçer | 10.30 → tüm Dilim D'nin parola kısmı |
 | **H-1** | Hesap silinince ne olur? | **Anonimleştir**: kişisel veri silinir, `orders` satırı muhasebe için kalır (bugün `orders.user_id` `cascadeOnDelete` — kullanıcı silinirse sipariş kayıtları da silinir, K82 ile çelişir) | 10.38 |
 | **S-1** | Saklama süreleri: silinmiş davetiye kaç gün, etkinlikten sonra misafir verisi (ad, mesaj, foto) kaç ay, iletişim mesajı kaç ay? | 30 gün · 6 ay · 12 ay | 10.42 |
@@ -129,7 +130,7 @@ ama öyleyse fiyat kartındaki metin koddan farklı bir şey vaat ediyor:
 
 | # | İş | Doğrulama |
 |---|---|---|
-| **10.0** | `ef7c692` commit'lendi ✅. Kalan: `composer check`'i **PHP 8.5 ile kendi makinende** koştur, sonucu buraya yaz (B7). K91–K93 kayda geçer | Son satır yeşil · RsvpTest'in 7 kırmızı vakası yeşile döndü |
+| **10.0** ✅ | `ef7c692` commit'lendi. `composer check` İsmail'in makinesinde (PHP 8.5.8 + PostgreSQL 18.4, 27 Eylül): **347/347**, Pint · PHPStan L8 · `errors:export --check` yeşil (B7). K91–K93 kayda geçti (§2.2) | Son satır yeşil · RsvpTest'in 7 kırmızı vakası yeşile döndü |
 
 ---
 
@@ -150,9 +151,10 @@ tahsil ettiğimiz parayı müşteriden alıyor.
 | **10.8** ✅ | **FE** `components/create/EditorWorkspace.tsx` (+ `useInvitationStore`) | Autosave'de 402 gelirse: açılan anahtarı geri al, paywall'ı `reason: 'upgrade'` + sunucunun `requiredTier`'ıyla aç. Autosave bir 402 fırtınası üretmesin (aynı alan için tek paywall) | K88 | Elle: Standart ile yayınla → galeriyi aç |
 | **10.9** ✅ | **FE** `src/types.ts` | `OrderStatus`'a `'expired'` | K89 | `npm run lint` |
 
-> ✅ Dilim A'nın kodu yazıldı (25 Eylül). Planın metni **değiştirilmedi**; uygulamada
-> dokuz sapma/ekleme oldu ve hepsi onayını bekliyor → **§9.1**. En önemlisi: 10.6'daki
-> *"Sentry'ye düşer"* doğru değil (yeni satır **10.55b**).
+> ✅ Dilim A'nın kodu yazıldı (25 Eylül) ve İsmail'in makinesinde doğrulandı (27 Eylül,
+> PHP 8.5.8 + PostgreSQL 18.4, 347/347). Planın metni **değiştirilmedi**; uygulamada
+> dokuz sapma/ekleme oldu → **§9.1**. En önemlisi: 10.6'daki *"Sentry'ye düşer"* doğru
+> değil (yeni satır **10.55b**).
 
 ---
 
@@ -160,17 +162,24 @@ tahsil ettiğimiz parayı müşteriden alıyor.
 
 | # | Dosya | İş | Bulgu | Test / mutasyon |
 |---|---|---|---|---|
-| **10.10** | `config/sanctum.php` · `routes/console.php` | `'expiration' => 60 * 24 * 30`. `sanctum:prune-expired --hours=24` (tablo gerçekten küçülür). `console.php`'deki yanlış *"iz kalsın"* yorumu düzeltilir: çıkışta token zaten siliniyor | Rapor §2.2 · **K90** | 10.11 |
-| **10.11** | `tests/Feature/AuthTest.php` | `travel(31)->days()` → 401 `UNAUTHENTICATED` · prune gerçekten siler (MaintenanceTest) · denetimin bulduğu iki `actingAs()` → `withToken()` (**T10** ihlali) | — | Mutasyon: `expiration`'ı `null` yap → test kırılmalı |
-| **10.12** | `app/Support/EmailNormalizer.php` (yeni) | Tek kaynak: `trim` → `İ→i` → `mb_strtolower`. **D-5 kararı gerekir** | K-3 | 10.15 |
-| **10.13** | `RegisterRequest` · `LoginRequest` · `User` mutator · `AppServiceProvider::authLimits` | Dördü de 10.12'yi çağırır (bugün dördü ayrı `mb_strtolower` yazıyor: C3 ihlali). Throttle anahtarı da aynı normalizasyondan geçmezse `İ`/`i` iki ayrı kova olur | K-3 | 10.15 |
-| **10.14** | `app/Console/Commands/NormalizeUserEmails.php` (yeni) | `users:normalize-emails --dry-run`: mevcut `i̇` (U+0307) içeren satırları düzeltir. **Çakışma** (aynı adresin iki hesabı) varsa yazmaz, raporlar (K84: bakım komutu önce elle) | K-3 | MaintenanceTest |
-| **10.15** | `tests/Feature/AuthTest.php` | `İsmail.Cankaya@…` ile kayıt → `ismail.cankaya@…` ile giriş 200 · aynı adres büyük `İ` ile ikinci kez → `REGISTRATION_FAILED` · gerçek Türkçe adlar (denetim: *"ASCII isimler"*) | — | — |
-| **10.16** | `bootstrap/app.php` | `$exceptions->dontReportWhen(fn ($e) => $e instanceof HasErrorCode && $e->errorCode()->status() < 500)`. Yan etki (bilinçli): 4xx iş istisnaları `laravel.log`'a da düşmez | Rapor §5.1 | `Exceptions::fake()` + `assertNotReported(InvalidCredentialsException::class)` · 502 hâlâ raporlanır |
-| **10.17** | `phpunit.xml` · `tests/TestCase.php` | `SENTRY_LARAVEL_DSN=""` · `setUp()`'ta `Http::preventStrayRequests()` | Rapor §6.4-5 | Bir testte sağlayıcı bağlamayı unut → gerçek ağa değil hataya düşmeli |
-| **10.18** | `config/davetkart.php` + `AppServiceProvider` | `trusted_proxies` (env `TRUSTED_PROXIES`, **varsayılan boş**). Boot'ta `TrustProxies::at(...)` (config'ten okunur, böylece `config:cache` altında da çalışır). `'*'` yalnızca sunucuya doğrudan erişim ağ seviyesinde kapalıysa | Rapor §2.3 | HardeningTest: güvenilir proxy'den gelen `X-Forwarded-For` → `ip()` istemciyi döner, güvenilmeyenden gelen yok sayılır |
-| **10.19** | `app/Http/Requests/Invitation/InvitationRequest.php` | `mapUrl` → `url:http,https` · `giftOptions.*` → `integer:strict` | K-7 · K-8 · Rapor §6.3 | InvitationTest: `smb://` 422, `[true, 500]` 422 |
-| **10.20** | `tests/Feature/MalformedInputTest.php` (yeni) | 10.0'ın kapısını **her grupta** sına: auth, invitation, public LCV/iletişim, asistan, webhook. Ayrıca `Retry-After` başlığı auth/contact/asistan 429'unda | K-2 · K-5 · K-6 | Mutasyon: middleware kaydını sil → hepsi kırılmalı |
+| **10.10** ✅ | `config/sanctum.php` · `routes/console.php` | `'expiration' => 60 * 24 * 30`. `sanctum:prune-expired --hours=24` (tablo gerçekten küçülür). `console.php`'deki yanlış *"iz kalsın"* yorumu düzeltilir: çıkışta token zaten siliniyor | Rapor §2.2 · **K90** | 10.11 |
+| **10.11** ✅ | `tests/Feature/AuthTest.php` | `travel(31)->days()` → 401 `UNAUTHENTICATED` · prune gerçekten siler (MaintenanceTest) · denetimin bulduğu iki `actingAs()` → `withToken()` (**T10** ihlali) | — | Mutasyon: `expiration`'ı `null` yap → test kırılmalı |
+| **10.12** ✅ | `app/Support/EmailNormalizer.php` (yeni) | Tek kaynak: `trim` → `İ→i` → `mb_strtolower`. **D-5 kararı gerekir** | K-3 | 10.15 |
+| **10.13** ✅ | `RegisterRequest` · `LoginRequest` · `User` mutator · `AppServiceProvider::authLimits` | Dördü de 10.12'yi çağırır (bugün dördü ayrı `mb_strtolower` yazıyor: C3 ihlali). Throttle anahtarı da aynı normalizasyondan geçmezse `İ`/`i` iki ayrı kova olur | K-3 | 10.15 |
+| **10.14** ✅ | `app/Console/Commands/NormalizeUserEmails.php` (yeni) | `users:normalize-emails --dry-run`: mevcut `i̇` (U+0307) içeren satırları düzeltir. **Çakışma** (aynı adresin iki hesabı) varsa yazmaz, raporlar (K84: bakım komutu önce elle) | K-3 | MaintenanceTest |
+| **10.15** ✅ | `tests/Feature/AuthTest.php` | `İsmail.Cankaya@…` ile kayıt → `ismail.cankaya@…` ile giriş 200 · aynı adres büyük `İ` ile ikinci kez → `REGISTRATION_FAILED` · gerçek Türkçe adlar (denetim: *"ASCII isimler"*) | — | — |
+| **10.16** ✅ | `bootstrap/app.php` | `$exceptions->dontReportWhen(fn ($e) => $e instanceof HasErrorCode && $e->errorCode()->status() < 500)`. Yan etki (bilinçli): 4xx iş istisnaları `laravel.log`'a da düşmez | Rapor §5.1 | `Exceptions::fake()` + `assertNotReported(InvalidCredentialsException::class)` · 502 hâlâ raporlanır |
+| **10.17** ✅ | `phpunit.xml` · `tests/TestCase.php` | `SENTRY_LARAVEL_DSN=""` · `setUp()`'ta `Http::preventStrayRequests()` | Rapor §6.4-5 | Bir testte sağlayıcı bağlamayı unut → gerçek ağa değil hataya düşmeli |
+| **10.18** ✅ | `config/davetkart.php` + `AppServiceProvider` | `trusted_proxies` (env `TRUSTED_PROXIES`, **varsayılan boş**). Boot'ta `TrustProxies::at(...)` (config'ten okunur, böylece `config:cache` altında da çalışır). `'*'` yalnızca sunucuya doğrudan erişim ağ seviyesinde kapalıysa | Rapor §2.3 | HardeningTest: güvenilir proxy'den gelen `X-Forwarded-For` → `ip()` istemciyi döner, güvenilmeyenden gelen yok sayılır |
+| **10.19** ✅ | `app/Http/Requests/Invitation/InvitationRequest.php` | `mapUrl` → `url:http,https` · `giftOptions.*` → `integer:strict` | K-7 · K-8 · Rapor §6.3 | InvitationTest: `smb://` 422, `[true, 500]` 422 |
+| **10.20** ✅ | `tests/Feature/MalformedInputTest.php` (yeni) | 10.0'ın kapısını **her grupta** sına: auth, invitation, public LCV/iletişim, asistan, webhook. Ayrıca `Retry-After` başlığı auth/contact/asistan 429'unda | K-2 · K-5 · K-6 | Mutasyon: middleware kaydını sil → hepsi kırılmalı |
+
+> ✅ Dilim B'nin kodu yazıldı (27 Eylül – 1 Ekim) ve her adımda İsmail'in makinesinde
+> `composer check` yeşil (son: **407/407**). Plandan on sapma oldu (S10–S19) ve iki
+> yeni satır doğdu (**10.79b**, **10.70**'e not) → **§9.2**. En önemlileri:
+> 10.17'de `<env force>` CI'daki bir değişkeni **ezemiyor** (`<server>` gerekti);
+> 10.18'de Laravel'in kendi `config/trustedproxy.php` anahtarı plandaki
+> provider kodunun yerini aldı.
 
 ---
 
@@ -272,7 +281,7 @@ bu dilimin girdisidir.
 | **10.67** | Karar kaydı **K94** | Shopier panelindeki **güncel** dokümanla: klasik form akışı mı, REST API mi? İmzalanan alanlar, sıraları, bildirim kanalı (tarayıcı mı sunucu mu), test ortamı. Tahminle kod yazılmaz (kural 11) |
 | **10.68** | `app/Services/Payment/PaymentGateway.php` + `CheckoutSession` + `FakeGateway` | Arayüz revizyonu: `CheckoutSession` *redirect* ya da *imzalı form* taşıyabilsin; `parseNotification(Request $request)`: imzayı nereden okuyacağına sürücü karar verir. `FakeGateway` uyarlanır, **mevcut PaywallTest'in hepsi yeşil kalır** (DIP'in bedeli burada ödenir) |
 | **10.69** | `config/payment.php` · `.env.example` · `docs/10` | `shopier` bloğu, `IYZICO_*` kaldırılır. `webhook.tolerance_seconds` ya bu dilimde kullanılır ya silinir (ders 26) |
-| **10.70** | `app/Services/Payment/ShopierGateway.php` (yeni) | `startCheckout`: imzalı alanlar (`platform_order_id` = `orders.id`). `parseNotification`: `hash_equals` (W2) + **tutar ve para birimi doğrulaması** (denetim: bildirim bugün tutar taşımıyor) + tekrar oynatma koruması |
+| **10.70** | `app/Services/Payment/ShopierGateway.php` (yeni) | `startCheckout`: imzalı alanlar (`platform_order_id` = `orders.id`). `parseNotification`: `hash_equals` (W2) + **tutar ve para birimi doğrulaması** (denetim: bildirim bugün tutar taşımıyor) + tekrar oynatma koruması · 🆕 (10.16'dan) imza reddinde tek satırlık `Log::warning`: `InvalidWebhookSignatureException` artık raporlanmıyor, sahte webhook denemelerinin başka izi yok |
 | **10.71** | Callback ucu | Tarayıcı POST'u ise: idempotan işle → frontend'e **yönlendir** (`/odeme/basarili?order=…`). Sunucudan sunucuya ise mevcut webhook ucu kalır |
 | **10.72** | `AppServiceProvider::resolvePaymentGateway` | `'shopier' => ShopierGateway` (K70: bilinmeyen sürücü yine 503) |
 | **10.73** | `tests/Feature/ShopierGatewayTest.php` (yeni) | Belgeden alınan örnek imzalarla: geçerli/geçersiz imza, tutar uyuşmazlığı, tekrar, bilinmeyen sipariş |
@@ -291,6 +300,7 @@ Her biri bağımsız. İki büyük dilim arasında nefes almak için iyi.
 | **10.77** | Ölü config: `davetkart.auth.*`, `rsvp.poll_interval_seconds` | Rapor §6.2 · ders 26 |
 | **10.78** | `phpstan.neon` → `phpVersion: 80500` · CI yorumu (`^8.3` → `^8.5`) · K1 satırına K87 notu | **K87** |
 | **10.79** | `composer.json` → `ext-pdo_pgsql` | Rapor §6.6 |
+| **10.79b** 🆕 | `phpunit.xml`: `DB_DATABASE` (ve kalan `<env>` satırları) → `<server>`. `<env>`, `force="true"` ile bile, kabukta/CI'da tanımlı gerçek bir ortam değişkenini **ezemiyor** (Laravel `$_SERVER`'ı önce okur, 10.17'de denendi). `DB_DATABASE=davetkart` tanımlı bir makinede testler geliştirme veritabanında koşar ve `RefreshDatabase` onun tablolarını **siler** | 10.17 · `rehber/phpunit.md` §4.1 |
 | **10.80** | `SubscriptionTier::label()` — dokuz fazdır çağrılmıyor (P-1'in sonucuna bağlı: fatura metni doğarsa kalır) · 🆕 `OrderStatus::isFinal()` de Faz 7'den beri çağrılmıyor (10.3'te durum makinesinden türetildi, silinmedi) | Faz 9 açık #3 · ders 26 |
 | **10.81** | Git hijyeni: 4 ajan worktree'si, 178 commit geride dallar, `payment-servide` · frontend `.gitattributes` (530 sahte değişiklik) · `D:\Projects\davetkart\Claude outputs\FRONTEND-YAKALAMA-PLANI.md` (eski kopya) | Rapor §6.9-10 |
 
@@ -332,10 +342,10 @@ Gerçek ödeme için minimum yol: **10.0 → A → B → C → G**. D lansmandan
 | 1 | Kilitsiz plan kontrolü yarışa açık: eşzamanlı *"yayınla"* ile *"galeriyi aç"* ikisi de eski satırı görür | 10.1 → `lockForUpdate` şart (E9) — ✅ yazıldı; test edilemez (T15) |
 | 2 | Autosave her tuşta PUT atar: 402 bir kez değil **onlarca** kez gelebilir | 10.8 — ✅ anahtar geri alınıyor; formun bayat taslağı da (10.8c) |
 | 3 | `ExpireStaleOrders`'ın mevcut testleri `failed` bekliyor. Yeşil kalıyorsa test etkiyi değil yanıtı doğruluyordur | 10.5 / 10.7 — ✅ test beklendiği gibi **kırmızıya döndü** |
-| 4 | Normalizasyon dört yerde birden değişmeli. Biri unutulursa throttle kovası ve kayıt ayrı anahtarla çalışır | 10.13 |
-| 5 | Mevcut `i̇smail@…` satırı ile yeni `ismail@…` çakışabilir (UNIQUE ihlali) | 10.14 → önce `--dry-run` |
-| 6 | `dontReportWhen` log dosyasını da susturur. Bilerek | 10.16 |
-| 7 | `TRUSTED_PROXIES='*'` sunucuya doğrudan erişim açıksa sahte `X-Forwarded-For` ile bütün kovalar atlatılır | 10.18 |
+| 4 | Normalizasyon dört yerde birden değişmeli. Biri unutulursa throttle kovası ve kayıt ayrı anahtarla çalışır | 10.13 — ✅ dört yer tek fonksiyon; her biri ayrı bir testle korunuyor (10.15) |
+| 5 | Mevcut `i̇smail@…` satırı ile yeni `ismail@…` çakışabilir (UNIQUE ihlali) | 10.14 — ✅ çakışma yazılmaz, raporlanır, çıkış kodu 1. 🔴 Deploy: 10.13 ile aynı gün koşulmalı (`NormalizeUserEmails.md` §5) |
+| 6 | `dontReportWhen` log dosyasını da susturur. Bilerek | 10.16 — ✅ bilerek. En görünür kayıp: sahte webhook denemelerinin izi (→ 10.70 notu) |
+| 7 | `TRUSTED_PROXIES='*'` sunucuya doğrudan erişim açıksa sahte `X-Forwarded-For` ile bütün kovalar atlatılır | 10.18 — ✅ varsayılan boş; `'*'`in tehlikesi test ediliyor |
 | 8 | Veritabanındaki `cascadeOnDelete` model olaylarını **tetiklemez**: kullanıcı silinince dosyalar diskte kalır, cache temizlenmez | 10.39 → silme yalnızca Action'dan |
 | 9 | Mail metni backend'de üretilir. K21 (*"backend tek dil"*) bunu hiç düşünmemişti | 10.30 / M-1 |
 | 10 | Yeni hata kodu frontend'de 10 dile çevrilmeden sözleşme eksik kalır | 10.31 |
@@ -345,10 +355,10 @@ Gerçek ödeme için minimum yol: **10.0 → A → B → C → G**. D lansmandan
 
 ## 7. Faz 10 bitti ölçütü
 
-- [ ] Standart planla yayınlanmış davetiyede galeri açma isteği **402**, veritabanı değişmedi — 🟡 kod + test (Dilim A), senin makinende kaydı bekliyor
-- [ ] Süresi dolmuş siparişe gelen imzalı `paid` bildirimi hakkı açıyor — 🟡 kod + test (Dilim A), senin makinende kaydı bekliyor
-- [ ] 31 günlük token 401 alıyor, `sanctum:prune-expired` satır siliyor
-- [ ] `İsmail@…` ile kayıt olan `ismail@…` ile giriş yapabiliyor
+- [x] Standart planla yayınlanmış davetiyede galeri açma isteği **402**, veritabanı değişmedi — kod + test (Dilim A), İsmail'in makinesinde yeşil (27 Eylül)
+- [x] Süresi dolmuş siparişe gelen imzalı `paid` bildirimi hakkı açıyor — kod + test (Dilim A), İsmail'in makinesinde yeşil (27 Eylül)
+- [x] 30. günün sonunda token 401 alıyor, zamanlayıcıdaki `sanctum:prune-expired` satır siliyor (10.11 · `AuthTest` §3.6 · `MaintenanceTest` §6b)
+- [x] `İsmail@…` ile kayıt olan `ismail@…` ile giriş yapabiliyor (10.15 · `AuthTest` §3.7) · eski satırlar `users:normalize-emails` ile (10.14)
 - [ ] Ödeme dönüş sayfası siparişin durumunu gösteriyor
 - [ ] Parola sıfırlama uçtan uca çalışıyor (gerçek mail kutusuna)
 - [ ] Hesap silindiğinde dosyalar da gidiyor, sipariş kaydı kalıyor
@@ -363,17 +373,20 @@ Gerçek ödeme için minimum yol: **10.0 → A → B → C → G**. D lansmandan
 ~~**10.0**: `ef7c692`'nin `composer check` sonucunu senin makinende (PHP 8.5) alıyoruz.
 Sonra **10.1**.~~ → Dilim A yazıldı (§9.1).
 
-**Sıradaki:** Dilim A'nın commit'leri + `composer check` (PHP 8.5) kaydı (10.0'ınkiyle
-aynı koşu yeter), §9.1'deki dokuz sapmanın onayı, sonra **Dilim B**.
+~~**Sıradaki:** Dilim A'nın commit'leri + `composer check` (PHP 8.5) kaydı, sonra **Dilim B**.~~
+→ Dilim A doğrulandı, Dilim B yazıldı (§9.2).
 
-Başlamadan önce §2.3'teki beş sorudan en az **D-5**'i cevaplarsan Dilim B kesintisiz
-ilerler. M-1, H-1 ve S-1 ancak Dilim D'de gerekiyor. P-1 hiçbir şeyi bloke etmiyor.
+**Sıradaki:** Dilim B'nin kalan commit'leri (§9.2), §9.1 ve §9.2'deki sapmaların onayı,
+sonra **Dilim C** (10.21, `publishedAt`). Gerçek ödeme için minimum yol: C → G.
+
+§2.3'te dört soru kaldı: M-1, H-1 ve S-1 ancak Dilim D'de gerekiyor, P-1 hiçbir şeyi
+bloke etmiyor. Ayrıca yeni bir küçük karar: **10.79b** (`phpunit.xml` → `<server>`).
 
 ---
 
 ## 9. İlerleme kaydı
 
-### 9.1 Dilim A — 25 Eylül 2026 (kod yazıldı · senin makinende kaydı bekliyor)
+### 9.1 Dilim A — 25 Eylül 2026 (kod yazıldı · 27 Eylül'de İsmail'in makinesinde doğrulandı)
 
 **Commit'ler** — her satır bir commit, adım adım:
 
@@ -403,7 +416,7 @@ ilerler. M-1, H-1 ve S-1 ancak Dilim D'de gerekiyor. P-1 hiçbir şeyi bloke etm
 | Mutasyon, backend | Kum havuzu | 29 mutasyon: 24'ü beklenen testi kırdı · 4 bilinen boşluk (kilit ×1 T15, `save()` sırası ×1, `withoutOverlapping` ×1, `onOneServer` ×1) · 1 eşdeğer mutant |
 | Mutasyon, frontend (`verify:state`) | Kum havuzu | 6/6 beklenen kontrolü kırdı |
 | `npm run check` (lint + build + 7 doğrulama betiği) | Kum havuzu, Node 22 | Yeşil; her frontend commit'inde `tsc` + `verify:state` ayrı ayrı yeşil |
-| 🔴 `composer check` — PHP 8.5 + PostgreSQL 18 | **Senin makinen** | **Koşmadı.** Dilim A "doğrulandı" değil, "kodu yazıldı" |
+| ✅ `composer check` — PHP 8.5.8 + PostgreSQL 18.4 | **İsmail'in makinesi** (27 Eylül, Dilim B'nin başında) | **347/347** · Pint · PHPStan L8 · `errors:export --check` yeşil. 10.0'ın kaydı da bu koşu |
 | Elle (Standart ile yayınla → galeriyi aç) | Tarayıcı | **Koşmadı** — adımlar `CreatePage.md` §5 ve `useInvitationStore.md` Faz 10 ekinde |
 
 **Plandan sapmalar ve eklemeler — onayını bekliyor:**
@@ -430,3 +443,70 @@ ilerler. M-1, H-1 ve S-1 ancak Dilim D'de gerekiyor. P-1 hiçbir şeyi bloke etm
   diyor. O güne kadar doğru olan kılavuzlardır.
 - **10.27 için not** — `OrderStatus`'u `switch`'leyen tek yer henüz yok; dönüş sayfası durum
   eşlemesini `Record<OrderStatus, …>` olarak kurmalı ki `expired` unutulamasın (`types.md` §10).
+
+### 9.2 Dilim B — 27 Eylül – 1 Ekim 2026 (kod yazıldı · her adımda İsmail'in makinesinde doğrulandı)
+
+**Commit'ler** — İsmail atıyor, adım adım:
+
+| Adım | Commit | Başlık | Dosyalar |
+|---|---|---|---|
+| 10.10 | `bdea384` | `10.10 - feat(auth): Expire tokens after 30 days and prune them daily.` | `config/sanctum.php` + kılavuz · `LoginUserAction.md` §3.4 |
+| 10.10b | `f58dc0f` | `10.10b - fix(schedule): Prune expired tokens a day after expiry, not a month` | `routes/console.php` + kılavuz |
+| 10.11 | `d1a89f4` | `10.11 - test(auth): Prove tokens expire exactly 30 days after issue` | `AuthTest` + kılavuz · `sanctum.md` |
+| 10.11b | `2fe0741` | `10.11b - test(schedule): Prove the scheduled token prune actually deletes rows` | `MaintenanceTest` + kılavuz |
+| 10.12 | `6c43d65` | `10.12 - feat(auth): Add a single email normalizer that folds the Turkish İ` | `EmailNormalizer` + birim testi + iki kılavuz · (İsmail'in `bootstrap/app.php` yorum düzenlemesi de bu commit'te) |
+| 10.13 | `a8036d2` | `10.13 - fix(auth): Route every email normalization through EmailNormalizer` | dört çağrı yeri + dört kılavuz · `bootstrap/app.php` Pint düzeltmesi |
+| 10.15 | `93b9377` | `10.15 - test(auth): Prove both forms of the Turkish İ reach one account and one bucket` | `AuthTest` + kılavuz · `bootstrap/app.php` Pint düzeltmesi |
+| 10.14 | `862f842` | `10.14 - feat(users): Add a one-off command that folds legacy dotted-i emails` | komut + kılavuz · `MaintenanceTest` + kılavuz · `bootstrap/app.php` gerekçe yorumları |
+| 10.16 | `667f672` | `10.16 - fix(errors): Stop reporting 4xx business exceptions to Sentry and the log` | `bootstrap/app.php` · `ExceptionReportingTest` (yeni) · üç belge |
+| 10.17 | `bb75458` | `10.17 - test(infra): Keep the test suite away from Sentry and the network` | `phpunit.xml` · `TestCase` · `TestSuiteIsolationTest` (yeni) · üç belge |
+| — | `a6709be` | `refactor(app): Clean up middleware and exception handling in app configuration` | İsmail: `bootstrap/app.php` yorumları · ⚠️ `dontReportWhen` satırı da silindi (S19) |
+| — | ⬜ | `fix(errors): Restore the 4xx reporting rule removed in a6709be` | `bootstrap/app.php` |
+| 10.18 | ⬜ | `10.18 - feat(http): Trust configured load balancer addresses for the client IP` | `config/trustedproxy.php` (yeni) · `.env.example` · `docs/10` · `TrustedProxiesTest` (yeni) · üç kılavuz |
+| 10.19 | ⬜ | `10.19 - fix(invitations): Accept only web map links and real integer gift amounts` | `InvitationRequest` · `InvitationTest` · iki kılavuz |
+| 10.20 | ⬜ | `10.20 - test(http): Prove the malformed-input gate and Retry-After on every route group` | `MalformedInputTest` (yeni) + kılavuz |
+| — | ⬜ | `docs(phase10): Record the Dilim B progress, deviations and new findings` | bu dosya · `TEST-DENETIMI` |
+
+**Doğrulama — nerede, neyle (B7):**
+
+| Ne | Nerede | Sonuç |
+|---|---|---|
+| `composer check`, **her** adımda ayrı ayrı | İsmail'in makinesi: PHP 8.5.8 + PostgreSQL 18.4 | Yeşil; test sayısı 347 → 348 → 349 → 357 → 362 → 367 → 371 → 374 → 381 → 388 → **407** |
+| Mutasyon | Aynı makine | **42 mutasyon:** 39'u beklenen testi kırdı. İkisi ancak yeni bir test eklendikten **sonra** kırıldı (10.18: config dosyasını silmek · 10.20: öncelik satırını silmek), ilk hâllerinde hayatta kalmışlardı. **2 eşdeğer mutant:** 10.15'te `RegisterRequest` normalizasyonu · 10.16'da `status() <= 500`. **1 bilinen boşluk:** 10.14'te okuma-yazma yarışı (T15). 10.17'nin `<server>` mutasyonu yalnızca ortamda bir DSN varken kırılıyor. Her biri kendi kılavuzunun mutasyon tablosunda |
+| `schedule:list` | Aynı makine | `0 0 * * * sanctum:prune-expired --hours=24` |
+| `users:normalize-emails --dry-run` | Geliştirme veritabanı | 0 bozuk satır, çıkış kodu 0 |
+| Sentry DSN yalıtımı: kabukta `SENTRY_LARAVEL_DSN` / `SENTRY_DSN` tanımlı | Aynı makine | Beş yapılandırma denendi; yalnızca `<server>` ezdi (S16) |
+| Elle (tarayıcı) | — | Dilim B'de elle doğrulama gerektiren adım yok. 10.18'in üretim doğrulaması (iki ağdan istek → farklı `ip_hash`) barındırma seçilince: `trustedproxy.md` §5 |
+
+**Plandan sapmalar ve eklemeler — onayını bekliyor:**
+
+| # | Adım | Plan ne diyordu | Ne yapıldı | Neden |
+|---|---|---|---|---|
+| S10 | 10.11 | `travel(31)->days()` → 401 | Login'den alınan token · 30. günün son saniyesi **200**, tam sınır **401** | Yalnızca "31. günde 401" ömür kısalsa da yeşil kalırdı. Son saniyedeki kullanım aynı testte "mutlak"ı da kanıtlıyor |
+| S11 | 10.11 | "prune gerçekten siler" | Komut **zamanlayıcıdaki satırla** aynen koşturuluyor (`scheduledArtisanCommand`) | Argüman testte elle yazılsaydı zamanlayıcının `--hours=720`'ye dönmesi yakalanmazdı (mutasyonla kanıtlandı) |
+| S12 | 10.12 | `trim` → `İ→i` → `mb_strtolower` | `trim` → `mb_strtolower` → `i̇→i` · + `tests/Unit/EmailNormalizerTest` | Aynı harfin üç biçimi (U+0130, `I`+U+0307, eski DB satırı) küçültülünce aynı diziye düşüyor; planın sırası yalnızca ilkini yakalardı. 10.14 aynı fonksiyonu kullanabildi |
+| S13 | 10.14 ↔ 10.15 | 10.14 sonra 10.15 | Önce 10.15 | 10.13'ün değişikliği bir adım boyunca testsiz kalmasın |
+| S14 | 10.15 | Üç senaryo | Beş test, her biri **bir** çağrı yerini koruyor · `registerPayload()` Türkçe adlarla | `RegisterRequest`'teki çağrı **eşdeğer mutant** (değer mutator'dan geçiyor); belgelendi, bırakıldı |
+| S15 | 10.16 | Testler (dosya belirtilmemiş) | Yeni `ExceptionReportingTest` | `HardeningTest`'in kılavuzu yok (10.54); oraya eklemek o borcu bu adıma çekerdi |
+| S16 | 10.17 | `SENTRY_LARAVEL_DSN=""` | `<server name="SENTRY_LARAVEL_DSN" value=""/>` · güvence "istemci yok" değil **"istemcinin DSN'i null"** · yeni `TestSuiteIsolationTest` | Deney: `<env force="true">` kabuktaki bir değişkeni ezmiyor (Laravel önce `$_SERVER`'ı okuyor). DSN boşken de bir `Sentry\Client` kuruluyor; `HttpTransport` DSN `null` iken olayı atlıyor |
+| S17 | 10.18 | `davetkart.trusted_proxies` + `AppServiceProvider`'da `TrustProxies::at()` | Laravel'in kendi `config/trustedproxy.php` anahtarı · yeni `TrustedProxiesTest` | Global `TrustProxies` middleware'i `config('trustedproxy.proxies')`'i her istekte kendisi okuyor: provider kodu yok, statik durum yok, `Config::set()` ile test edilebilir |
+| S18 | 10.20 | Gruplar + `Retry-After` | + "bağlamadan önce" testi `invitations.update`'te · + asistan **kota** 429'unun başlığı | İlk yazım LCV ucunu kullanıyordu; orada örtük bağlama yok, öncelik satırı silinince test yeşil kaldı |
+| S19 | — | — | `a6709be`'de silinen `dontReportWhen` satırı ve `HasErrorCode` import'u geri kondu | İsmail'in yorum sadeleştirmesi 10.16'nın kodunu da götürmüştü; `ExceptionReportingTest` 2 kırmızı. İsmail'in yorumları korundu |
+
+**Yeni bulgular (bu plana eklendi):**
+
+- **10.79b** — `phpunit.xml`'in `<env>` satırları gerçek bir ortam değişkenini ezemiyor. `DB_DATABASE` için
+  tehlikeli: `RefreshDatabase` yanlış veritabanını silebilir.
+- **10.70'e not** — sahte webhook imzası artık hiçbir iz bırakmıyor (10.16'nın bilinçli bedeli). Shopier'in
+  imza kontrolüne tek satırlık `Log::warning`.
+- **Deploy sırası (Z / deploy fazı)** — 10.13 yayına alındığı gün `users:normalize-emails` da koşulmalı; arada
+  `İ` ile kaydolmuş eski kullanıcılar giriş **yapamaz** (Faz 9'da iki taraf aynı yanlış kuralla eşleştiği
+  için yapabiliyorlardı). Adımlar: `NormalizeUserEmails.md` §5.
+- **10.57'ye not** — `MalformedInputTest`'in asistan kota testi saniye değerini bilerek sabitlemiyor
+  (başlık = gövde iddiası), gün sınırı değişince kırılmasın diye.
+- **Z (10.84) için belge borcu, eklendi** — `docs/11` §zamanlayıcı (~1865) `sanctum:prune-expired --hours=720`
+  diyor (10.10b'den beri `24`). `docs/03` / `docs/05` ağaçlarında yeni dosyalar yok: `app/Support/EmailNormalizer.php`,
+  `app/Console/Commands/NormalizeUserEmails.php`, `config/trustedproxy.php` ve dört yeni test dosyası
+  (`ExceptionReportingTest`, `TestSuiteIsolationTest`, `TrustedProxiesTest`, `MalformedInputTest`).
+- **Denetim numaraları** — `TEST-DENETIMI`'nde K-2 = NUL, K-6 = yarım JSON. §1.2'deki tablo ikisini birlikte
+  anıyor; `MalformedInputTest`'in ilk hâli ikisini ters yazmıştı, düzeltildi.
