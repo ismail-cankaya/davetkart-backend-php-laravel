@@ -137,6 +137,84 @@ final class PublicInvitationTest extends TestCase
             ->assertJsonPath('data.invitation.giftOptions', [500, 1000]);
     }
 
+    /**
+     * Faz 10 (10.47): misafir tasarimi SAKLANDIGI GIBI gorur.
+     *
+     * Denetimde (TEST-DENETIMI §2) `names`, `venue`, `mapUrl` bos dondurulse
+     * ve `date` ISO 8601'e cevrilse bu dosya yesil kaliyordu: hicbir test bu
+     * alanlara bakmiyordu. Turkce veri bilerek: cok baytli karakter ve JSON'un
+     * `\uXXXX` kacisi yolun uzerinde olsun.
+     */
+    #[Test]
+    public function the_guest_sees_the_design_as_stored(): void
+    {
+        $inv = $this->published([
+            'title' => 'Hayatımızın En Güzel Günü',
+            'subtitle' => 'Sizi de aramızda görmekten mutluluk duyarız',
+            'names' => 'Ayşe & Çağrı',
+            'venue' => 'Çırağan Sarayı, Beşiktaş',
+            'map_url' => 'https://maps.app.goo.gl/Ciragan2026',
+            'event_at' => '2026-08-21 19:00:00',
+            'timezone' => 'Europe/Istanbul',
+            'category_id' => 'dugun',
+            'palette' => 'stone',
+        ]);
+
+        $this->getJson($this->url($inv))
+            ->assertOk()
+            ->assertJsonPath('data.invitation.title', 'Hayatımızın En Güzel Günü')
+            ->assertJsonPath('data.invitation.subtitle', 'Sizi de aramızda görmekten mutluluk duyarız')
+            ->assertJsonPath('data.invitation.names', 'Ayşe & Çağrı')
+            ->assertJsonPath('data.invitation.venue', 'Çırağan Sarayı, Beşiktaş')
+            ->assertJsonPath('data.invitation.mapUrl', 'https://maps.app.goo.gl/Ciragan2026')
+            // 🔴 Duvar saati: dilimsiz, saniyesiz. ISO 8601 ('…T19:00:00+00:00')
+            // gitseydi tarayici onu UTC okur ve geri sayim uc saat kayardi (K63).
+            ->assertJsonPath('data.invitation.date', '2026-08-21T19:00')
+            ->assertJsonPath('data.invitation.timezone', 'Europe/Istanbul')
+            ->assertJsonPath('data.invitation.categoryId', 'dugun')
+            ->assertJsonPath('data.invitation.palette', 'stone');
+    }
+
+    /**
+     * Faz 10 (10.47) · C6: kapali LCV modulunun AYARLARI da govdeye girmez.
+     *
+     * Hediye ve program icin vardi, LCV icin yoktu: `if ($this->show_rsvp)`
+     * silinse dosya yesil kaliyordu.
+     */
+    #[Test]
+    public function rsvp_settings_are_absent_when_the_module_is_off(): void
+    {
+        $inv = $this->published([
+            'show_rsvp' => false,
+            'rsvp_deadline' => '2026-08-01',
+            'ask_menu_preference' => true,
+        ]);
+
+        $response = $this->getJson($this->url($inv))
+            ->assertOk()
+            ->assertJsonMissingPath('data.invitation.rsvpDeadline')
+            ->assertJsonMissingPath('data.invitation.askMenuPreference')
+            ->assertJsonPath('data.invitation.showRSVP', false);
+
+        $this->assertStringNotContainsString('2026-08-01', $this->body($response));
+    }
+
+    /** T6: yoklugun karsiligi. Tarih yalnizca gun: LCV gun sonuna kadar acik. */
+    #[Test]
+    public function rsvp_settings_are_present_when_the_module_is_on(): void
+    {
+        $inv = $this->published([
+            'show_rsvp' => true,
+            'rsvp_deadline' => '2026-08-01',
+            'ask_menu_preference' => true,
+        ]);
+
+        $this->getJson($this->url($inv))
+            ->assertOk()
+            ->assertJsonPath('data.invitation.rsvpDeadline', '2026-08-01')
+            ->assertJsonPath('data.invitation.askMenuPreference', true);
+    }
+
     #[Test]
     public function the_timeline_is_absent_when_the_module_is_off(): void
     {
@@ -267,6 +345,29 @@ final class PublicInvitationTest extends TestCase
         $this->getJson($this->url($inv))->assertOk();
 
         $this->assertSame([], DB::getQueryLog());
+    }
+
+    /**
+     * 🔴 Faz 10 (10.47): her davetiyenin KENDI cache girdisi var.
+     *
+     * Denetimde anahtardan `$id` cikarilinca bu dosya yesil kaldi. O hatayla
+     * butun davetiyeler tek girdiye duser: ilk okunan davetiye sonraki HER
+     * linkte gorunur ve bir misafir baska bir ciftin davetiyesini (IBAN'i
+     * dahil) okur. Mevcut testlerin hepsi TEK davetiye kullaniyordu; hata
+     * ancak ikincisiyle gorunur.
+     */
+    #[Test]
+    public function each_invitation_has_its_own_cache_entry(): void
+    {
+        $first = $this->published(['names' => 'Ayşe & Çağrı']);
+        $second = $this->published(['names' => 'Zeynep & Emre']);
+
+        $this->getJson($this->url($first))->assertOk();
+
+        $this->getJson($this->url($second))
+            ->assertOk()
+            ->assertJsonPath('data.id', $second->id)
+            ->assertJsonPath('data.invitation.names', 'Zeynep & Emre');
     }
 
     /**

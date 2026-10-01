@@ -17,7 +17,7 @@ panzehiri testtir — çünkü tanımı gereği hiçbir hata mesajı üretmez.
 | Kapalı modülün verisi gövdeye girebilir | 4.2b §3 | `gift_details_are_absent_when_the_module_is_off` |
 | Otomatik keşif kopabilir | 4.6b §2 | `the_change_event_is_wired_to_the_cache_listener` |
 
-25 test dört bölüme ayrılmış: **görünürlük**, **sözleşme**, **cache**, **ETag**.
+25 test (Faz 10 sonunda 31) dört bölüme ayrılmış: **görünürlük**, **sözleşme**, **cache**, **ETag**.
 
 ---
 
@@ -496,3 +496,54 @@ $this->assertStringNotContainsString('releasableUntil', $body);
 
 Yol bazlı iddia (`assertJsonMissingPath('data.publishedAt')`) yalnızca baktığı
 yeri görür. Alan `data.invitation.publishedAt` altında sızsa yeşil kalırdı.
+
+---
+
+## 🆕 Faz 10 (10.47): denetimin hayatta bıraktığı dört mutant
+
+`TEST-DENETIMI` §2 bu dosyayı 🔴 ikinci öncelik olarak işaretlemişti: dört üretim
+hatası bu dosyayı **yeşil** geçiyordu. Dört test eklendi (27 → 31).
+
+| Test | Hayatta kalan mutant (önce) | Neden kaçıyordu |
+|---|---|---|
+| 🔴 `each_invitation_has_its_own_cache_entry` | Cache anahtarından `$id` çıkarıldı | Bütün testler **tek** davetiye kullanıyordu. Hata ancak ikinci davetiyeyle görünür |
+| `the_guest_sees_the_design_as_stored` | `names` / `venue` / `mapUrl` / `subtitle` boş · `date` ISO 8601 · `palette` sabit | Hiçbir test bu alanlara bakmıyordu; yalnızca `title` ve modül verisi sınanıyordu |
+| `rsvp_settings_are_absent_when_the_module_is_off` | `if ($this->show_rsvp)` kaldırıldı (C6) | Hediye ve program için yokluk testi vardı, LCV için yoktu |
+| `rsvp_settings_are_present_when_the_module_is_on` | — (T6: yokluğun karşılığı) | |
+
+### Cache anahtarı neden 🔴?
+
+Anahtar `davetkart:public-invitation` olsaydı ilk okunan davetiye o girdiye yazılır
+ve sonraki **her** link onu gösterirdi. Bir misafir başka bir çiftin davetiyesini,
+hediye modülü açıksa IBAN'ını görür. `the_listener_drops_the_public_cache_entry`
+bunu yakalamaz: dinleyici aynı üreticiyi (`publicCacheKey()`) kullandığı için anahtar
+bozuk da olsa kendi içinde tutarlı. Bu yüzden yeni test anahtara değil **davranışa**
+bakıyor: ikinci davetiyenin gövdesinde ikinci davetiyenin adları.
+
+### `date` neden ayrıca önemli?
+
+`'2026-08-21T19:00'` bir **duvar saati**: dilimsiz, saniyesiz. Yanındaki `timezone`
+onu yorumlar (K63). ISO 8601 (`…T19:00:00+00:00`) gönderilseydi tarayıcı onu UTC
+okur ve İstanbul'daki düğünün geri sayımı üç saat kayardı. Biçim değişikliği tip
+denetiminden geçer; bunu yalnızca beklenen dizgiyi **elle** yazan bir test yakalar.
+
+### Türkçe veri
+
+`Ayşe & Çağrı`, `Çırağan Sarayı, Beşiktaş`: çok baytlı karakterler JSON'da `\uXXXX`
+olarak kaçırılır. `assertJsonPath` çözülmüş değere bakar; ham gövdede Türkçe bir
+dizgiyi aramak boş yeşil üretirdi (denetim §4'ün notu).
+
+### Mutasyon kanıtı (1 Ekim 2026, İsmail'in makinesi)
+
+| # | Mutasyon | Kırılan |
+|---|---|---|
+| M1 | `publicCacheKey()` → `':public-invitation:'` (kimliksiz) | `each_invitation_has_its_own_cache_entry` |
+| M2 | `'names' => ''` | tasarım testi · cache testi |
+| M3 | `'venue' => ''` | tasarım testi |
+| M4 | `'mapUrl' => ''` | tasarım testi |
+| M5 | `date` → `toIso8601String()` | tasarım testi |
+| M6 | `if ($this->show_rsvp)` → `if (true)` | LCV yokluk testi |
+| M7 | `'subtitle' => ''` | tasarım testi |
+| M8 | `'palette' => 'midnight'` | tasarım testi |
+
+Önceki dosyayla sekizi de yeşildi.
