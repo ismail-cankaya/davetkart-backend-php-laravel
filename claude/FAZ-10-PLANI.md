@@ -4,9 +4,9 @@
 > **Kaynaklar:** `claude/GOZDEN-GECIRME-RAPORU.md` (23 Eylül, kod okuması) ·
 > `claude/TEST-DENETIMI-2026-09-24.md` (24 Eylül, testler kum havuzunda gerçekten koşturuldu)
 > **Başlangıç noktası:** `edit-test` dalı, `ef7c692` (25 Eylül 07:28)
-> **Durum:** ✅ **Dilim 0, A ve B bitti** (25 Eylül – 1 Ekim 2026, 10.0–10.20). `composer check`
-> İsmail'in makinesinde (**PHP 8.5.8 + PostgreSQL 18.4**) her adımda yeşil; son koşu **407/407** (B7).
-> Sıradaki: **Dilim C**. Ayrıntı, sapmalar ve yeni bulgular: **§9**
+> **Durum:** ✅ **Dilim 0, A, B ve C bitti** (25 Eylül – 1 Ekim 2026, 10.0–10.29). `composer check`
+> İsmail'in makinesinde (**PHP 8.5.8 + PostgreSQL 18.4**) her adımda yeşil; son koşu **422/422** (B7).
+> Frontend `npm run check` yeşil. Sıradaki: §8. Ayrıntı, sapmalar ve yeni bulgular: **§9**
 
 ---
 
@@ -191,15 +191,21 @@ bağımsız.
 
 | # | Dosya | İş | Bulgu | Test |
 |---|---|---|---|---|
-| **10.21** | `app/Http/Resources/InvitationResource.php` | `publishedAt` (ISO 8601 ya da `null`). **Yalnızca sahip** Resource'u; public'te yok (C5) | Frontend F7.2 · rapor §2.1 | InvitationTest + PublicInvitationTest (sızmaz) |
-| **10.22** | `app/Policies/OrderPolicy.php` (yeni) | `view`: sahiplik. Red → 404 (H7) | — | 10.25 |
-| **10.23** | `app/Http/Controllers/Api/V1/OrderController.php` (yeni) + `routes/api.php` | `GET /api/orders` (liste, **sorgu kapsamıyla** — P3) · `GET /api/orders/{order}` (`whereUlid`, Policy) | Rapor §2.1 · Faz 9 açık #9 | 10.25 |
-| **10.24** | `app/Http/Resources/OrderResource.php` | Beyaz listeye `invitationId` (nullable), `createdAt`, `paidAt`. `providerRef` yine **yok** | — | 10.25 |
-| **10.25** | `tests/Feature/OrderTest.php` (yeni) | Sahibi görür · başkası 404 · liste yalnızca kendi · `providerRef` sızmaz · `{data}` zarfı · `pending/paid/expired` doğru gelir | — | — |
-| **10.26** | **FE** `src/services/payments.ts` | `getOrder(id)` · `listOrders()` | — | `npm run verify:endpoints` |
-| **10.27** | **FE** `src/pages/PaymentReturnPage.tsx` (yeni) + `App.tsx` | `/odeme/basarili` ve `/odeme/hata`. `?order=` ile siparişi birkaç saniye yoklar: `paid` → *"Ödemen onaylandı, şimdi yayınlayabilirsin"* (K67: ödeme yayınlamaz); `pending` → bekliyor; `expired/failed` → tekrar dene | Rapor §2.1 | F8'e yeni senaryo |
-| **10.28** | **FE** `src/pages/DashboardPage.tsx` | Silme uyarısı `publishedAt`'e bakarak kesin: *"hakkınız X tarihine kadar serbest kalır"* ya da *"yanacak"* | F7.2 | Elle |
-| **10.29** | **FE** `src/services/auth.ts` · `stores/useAuthStore.ts` | Açılışta `GET /auth/me`: iptal ya da süresi dolmuş token hemen düşer, kullanıcı bilgisi tazelenir (30 günlük token'la daha önemli) | Rapor §3 | Elle |
+| **10.21** ✅ | `app/Http/Resources/InvitationResource.php` | `publishedAt` (ISO 8601 ya da `null`). **Yalnızca sahip** Resource'u; public'te yok (C5) | Frontend F7.2 · rapor §2.1 | InvitationTest + PublicInvitationTest (sızmaz) |
+| **10.22** ✅ | `app/Policies/OrderPolicy.php` (yeni) | `view`: sahiplik. Red → 404 (H7) | — | 10.25 |
+| **10.23** ✅ | `app/Http/Controllers/Api/V1/OrderController.php` (yeni) + `routes/api.php` | `GET /api/orders` (liste, **sorgu kapsamıyla** — P3) · `GET /api/orders/{order}` (`whereUlid`, Policy) | Rapor §2.1 · Faz 9 açık #9 | 10.25 |
+| **10.24** ✅ | `app/Http/Resources/OrderResource.php` | Beyaz listeye `invitationId` (nullable), `createdAt`, `paidAt`. `providerRef` yine **yok** | — | 10.25 |
+| **10.25** ✅ | `tests/Feature/OrderTest.php` (yeni) | Sahibi görür · başkası 404 · liste yalnızca kendi · `providerRef` sızmaz · `{data}` zarfı · `pending/paid/expired` doğru gelir | — | — |
+| **10.26** ✅ | **FE** `src/services/payments.ts` | `getOrder(id)` · `listOrders()` | — | `npm run verify:endpoints` |
+| **10.27** ✅ | **FE** `src/pages/PaymentReturnPage.tsx` (yeni) + `App.tsx` | `/odeme/basarili` ve `/odeme/hata`. `?order=` ile siparişi birkaç saniye yoklar: `paid` → *"Ödemen onaylandı, şimdi yayınlayabilirsin"* (K67: ödeme yayınlamaz); `pending` → bekliyor; `expired/failed` → tekrar dene | Rapor §2.1 | F8'e yeni senaryo |
+| **10.28** ✅ | **FE** `src/pages/DashboardPage.tsx` | Silme uyarısı `publishedAt`'e bakarak kesin: *"hakkınız X tarihine kadar serbest kalır"* ya da *"yanacak"* | F7.2 | Elle |
+| **10.29** ✅ | **FE** `src/services/auth.ts` · `stores/useAuthStore.ts` | Açılışta `GET /auth/me`: iptal ya da süresi dolmuş token hemen düşer, kullanıcı bilgisi tazelenir (30 günlük token'la daha önemli) | Rapor §3 | Elle |
+
+> ✅ Dilim C'nin kodu yazıldı (1 Ekim). Backend `composer check` **422/422**, frontend
+> `npm run check` yeşil. Frontend commit dizisi geçici bir index'te baştan sona oynatıldı:
+> her adım kendi başına `tsc` ile derleniyor. Sapmalar (S20–S27) ve yeni bulgular → **§9.3**.
+> En önemlisi: 10.21 `publishedAt`'in yanında **`releasableUntil`** de dönüyor, böylece
+> frontend *"3 gün"*ü kendisi hesaplamıyor ve kural tek yerde kalıyor.
 
 ---
 
@@ -359,7 +365,7 @@ Gerçek ödeme için minimum yol: **10.0 → A → B → C → G**. D lansmandan
 - [x] Süresi dolmuş siparişe gelen imzalı `paid` bildirimi hakkı açıyor — kod + test (Dilim A), İsmail'in makinesinde yeşil (27 Eylül)
 - [x] 30. günün sonunda token 401 alıyor, zamanlayıcıdaki `sanctum:prune-expired` satır siliyor (10.11 · `AuthTest` §3.6 · `MaintenanceTest` §6b)
 - [x] `İsmail@…` ile kayıt olan `ismail@…` ile giriş yapabiliyor (10.15 · `AuthTest` §3.7) · eski satırlar `users:normalize-emails` ile (10.14)
-- [ ] Ödeme dönüş sayfası siparişin durumunu gösteriyor
+- [x] Ödeme dönüş sayfası siparişin durumunu gösteriyor (10.27 · `verify:payment`; elle doğrulama `PaymentReturnPage.md` §8, Z 10.83)
 - [ ] Parola sıfırlama uçtan uca çalışıyor (gerçek mail kutusuna)
 - [ ] Hesap silindiğinde dosyalar da gidiyor, sipariş kaydı kalıyor
 - [ ] Test denetiminin 8 dosyasında hayatta kalan mutant yok
@@ -376,11 +382,17 @@ Sonra **10.1**.~~ → Dilim A yazıldı (§9.1).
 ~~**Sıradaki:** Dilim A'nın commit'leri + `composer check` (PHP 8.5) kaydı, sonra **Dilim B**.~~
 → Dilim A doğrulandı, Dilim B yazıldı (§9.2).
 
-**Sıradaki:** Dilim B'nin kalan commit'leri (§9.2), §9.1 ve §9.2'deki sapmaların onayı,
-sonra **Dilim C** (10.21, `publishedAt`). Gerçek ödeme için minimum yol: C → G.
+~~**Sıradaki:** Dilim B'nin kalan commit'leri, sonra **Dilim C**.~~ → Dilim C yazıldı (§9.3).
 
-§2.3'te dört soru kaldı: M-1, H-1 ve S-1 ancak Dilim D'de gerekiyor, P-1 hiçbir şeyi
-bloke etmiyor. Ayrıca yeni bir küçük karar: **10.79b** (`phpunit.xml` → `<server>`).
+**Sıradaki:** Dilim C'nin commit'leri (§9.3), sapmaların onayı (§9.1–§9.3). Sonra üç yol:
+
+| Yol | Ne gerekiyor | Not |
+|---|---|---|
+| **G** (Shopier) | **K94**: Shopier panelindeki güncel doküman (akış, imza, bildirim kanalı, test ortamı) | Gerçek ödeme için son dilim. Tahminle kod yazılmaz (kural 11) |
+| **D** (hesap yaşam döngüsü) | **M-1** (mail kanalı + dili), **H-1** (silme = anonimleştirme mi), **S-1** (saklama süreleri) | Lansmandan önce |
+| **E / H** (test denetimi, temizlik) | Karar gerektirmiyor | Hemen yapılabilir; **10.79b** küçük bir onay istiyor |
+
+P-1 (fiyat kartı vaatleri) hiçbir şeyi bloke etmiyor.
 
 ---
 
@@ -510,3 +522,60 @@ bloke etmiyor. Ayrıca yeni bir küçük karar: **10.79b** (`phpunit.xml` → `<
   (`ExceptionReportingTest`, `TestSuiteIsolationTest`, `TrustedProxiesTest`, `MalformedInputTest`).
 - **Denetim numaraları** — `TEST-DENETIMI`'nde K-2 = NUL, K-6 = yarım JSON. §1.2'deki tablo ikisini birlikte
   anıyor; `MalformedInputTest`'in ilk hâli ikisini ters yazmıştı, düzeltildi.
+
+### 9.3 Dilim C — 1 Ekim 2026 (kod yazıldı · backend ve frontend yeşil)
+
+**Commit'ler** — İsmail atıyor, adım adım (komutlar oturum çıktısında):
+
+| Adım | Depo | Başlık |
+|---|---|---|
+| — | backend | `chore(config): Say stale orders become expired, not failed` (`config/payment.php` yorumu, K89'dan kalma) |
+| 10.21 | backend | `10.21 - feat(invitations): Expose when an invitation was published and until when its purchase is releasable` |
+| 10.22 | backend | `10.22 - feat(orders): Add an owner-only order policy` |
+| 10.23 | backend | `10.23 - feat(orders): Let owners read their orders` |
+| 10.24 | backend | `10.24 - feat(orders): Expose invitation, creation and payment times on orders` |
+| 10.25 | backend | `10.25 - test(orders): Prove order reads are owner-only, ordered and leak-free` |
+| — | backend | `docs(phase10): Record the Dilim C progress, deviations and new findings` (bu dosya) |
+| 10.26 | frontend | `10.26 - feat(payments): Read a single order and the order list` |
+| 10.27 | frontend | `10.27 - feat(payments): Add the payment return page that polls the order status` |
+| 10.28 | frontend | `10.28 - feat(dashboard): Tell the exact release deadline before deleting a published invitation` |
+| 10.29 | frontend | `10.29 - feat(auth): Verify the cached session on startup` |
+
+Frontend'de üç dosya iki adıma bölünüyor (`types.ts`, `verify-payment.ts`, `verify-editor-state.ts`).
+Ara hâlleri `.git/faz10-dilim-c/*.patch` olarak hazırlandı; `git apply --cached` ile stage'leniyor.
+Dizi geçici bir index'te baştan sona oynatıldı: **her adım `tsc` ile yeşil**, sonda index = çalışma ağacı.
+
+**Doğrulama (B7):**
+
+| Ne | Nerede | Sonuç |
+|---|---|---|
+| `composer check` | İsmail'in makinesi, PHP 8.5.8 + PostgreSQL 18.4 | 407 → 409 (10.21) → **422** (10.25) |
+| `npm run check` (lint + build + 8 doğrulama) | İsmail'in makinesi, Node 24.18 | Yeşil; `verify:endpoints` +3 uç · `verify:payment` +25 · `verify:state` +6 kontrol |
+| Mutasyon, backend | Aynı makine | 10 mutasyon (10.21: 3 · 10.25: 6 + bir teşhis denemesi): hepsi kırıldı. **Biri ancak test düzeltildikten sonra:** sıralama tamamen silinince iki kayıtlı liste testi şansla yeşil kalıyordu (S22) |
+| Mutasyon, frontend | Aynı makine | 9 mutasyon (10.26: 1 · 10.27: 4 · 10.28: 1 · 10.29: 3): hepsi kırıldı. `Record<OrderStatus,…>`'tan `expired` silinince `tsc` derleme hatası verdi |
+| Elle (tarayıcı) | — | **Koşmadı.** Betikler: `PaymentReturnPage.md` §8 · `useAuthStore.md` §6 · `DashboardPage.md` §6 → Z (10.83) |
+
+**Plandan sapmalar ve eklemeler — onayını bekliyor:**
+
+| # | Adım | Plan ne diyordu | Ne yapıldı | Neden |
+|---|---|---|---|---|
+| S20 | 10.21 | Yalnızca `publishedAt` | + **`releasableUntil`** · kural `Invitation::releaseWindowEndsAt()`'e taşındı, `DeleteInvitationAction` onu kullanıyor | Frontend `publishedAt + 3 gün` hesaplasaydı "3" iki yerde yaşardı; config yorumu bunu açıkça yasaklıyor. Mutasyon: pencere modelden kalkınca hem silme hem tarih testi kırılıyor |
+| S21 | 10.23 | Liste + tek kayıt | `apiResource(...)->only(['index','show'])` · `SetEtag` yok · sayfalama yok | `only()` olmasa yazma rotaları tabloda görünürdü. Dönüş sayfası birkaç saniye yokluyor, ETag kazancı ölçülemez |
+| S22 | 10.25 | "Liste yalnızca kendi" | + sıra testi **üç kayıt, karışık ekleme** · + aynı saniye testi (açık ULID'ler) | İlk yazımda `ORDER BY` silinince test yeşil kaldı: PostgreSQL sıralamasız sonucu tesadüfen doğru döndürdü |
+| S23 | 10.26 | `getOrder`, `listOrders` | + `OrderRecord` tipi (`CheckoutResult`'tan ayrı) · kimlik `encodeURIComponent` · `payments.md` (K18) | `redirectUrl?` ile `paidAt: string \| null` farklı sözleşmeler. Kimlik sorgu dizesinden geliyor |
+| S24 | 10.27 | Sayfa + rota | Karar mantığı `utils/paymentReturn.ts`'te, `verify:payment` sınıyor · `/odeme/hata` tek okuma · `expired` yoklanıyor (K89) | Saf fonksiyon tarayıcısız sınanır. Ödenmemiş hiçbir durum hiçbir bağlamda "onaylandı" göstermiyor (genel kural olarak sınanıyor) |
+| S25 | 10.28 | `publishedAt`'e bakarak | `releasableUntil`'e bakarak · `utils/releaseWindow.ts` · tarih okunamazsa eski iki olasılıklı metin | S20'nin frontend yüzü. Sınır anı backend'le aynı (`>`, `isFuture()`) |
+| S26 | 10.29 | `auth.ts` + store | + çağrı `main.tsx`'te · + `api.ts`: **eski token'ın 401'i yeni oturumu düşürmez** · ağ hatasında oturum kalır | Açılış isteği yeni bir yarış açıyordu: süresi dolmuş token'la `/me` yoldayken giriş yapılırsa geç gelen 401 yeni oturumu düşürürdü. `useEffect` StrictMode'da iki istek atardı |
+| S27 | — | — | `config/payment.php` yorumu *"failed işaretlenir"* → *"expired"* | K89'dan kalma yanlış |
+
+**Yeni bulgular:**
+
+- **Deploy sırası:** backend 10.21 frontend 10.28'den **önce**. Tersinde `releasableUntil` gelmez ve silme uyarısı
+  `unknown` yedeğine (eski iki olasılıklı metin) düşer. Bozulmaz ama kesinlik kaybolur.
+- **Frontend satır sonları:** `core.autocrlf=true`, çalışma ağacı CRLF, depo LF. LF yazan araçlar karışık dosya
+  üretebiliyor (`types.md` bu adımda eşitlendi). **10.81**'in `.gitattributes` maddesi bunu kalıcı çözer.
+- **`listOrders()`'ın ekranı yok:** servis ve uç hazır, *"siparişlerim"* ekranı bir ürün kararı.
+- **B6 — `releasableUntil` siparişin türünü bilmiyor:** paket siparişiyle açılmış bir davetiyede serbest
+  bırakılacak tekil sipariş yok. Paket satışı açılırsa (10.58) uyarının dili bu ayrımı öğrenmeli.
+- **Z (10.84) belge borcu, eklendi:** `docs/11` Ek A'ya `GET /orders`, `GET /orders/{order}`; `docs/03` / `docs/05`
+  ağaçlarına `OrderController`, `OrderPolicy`, `OrderTest`; frontend F8'e `/odeme/basarili` senaryosu.
