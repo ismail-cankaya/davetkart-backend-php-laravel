@@ -157,8 +157,16 @@ Hata yolunda da olmalı:
 curl.exe -i http://127.0.0.1:8000/api/boyle-bir-yol-yok
 ```
 
-🔴 HSTS'in varlığı yalnızca **gerçek bir HTTPS isteğiyle** görülebilir; elle
-doğrulama betiğine bu yüzden ayrı bir adım olarak giriyor. Üretimde:
+~~🔴 HSTS'in varlığı yalnızca **gerçek bir HTTPS isteğiyle** görülebilir; elle
+doğrulama betiğine bu yüzden ayrı bir adım olarak giriyor.~~
+
+🆕 **Faz 10 (10.53):** bu cümle yanlıştı. Test istemcisi tam adres kabul ediyor:
+`getJson('https://localhost/api/ping')` Symfony'nin HTTPS sunucu değişkenini kurar ve
+`$request->secure()` `true` döner. `hsts_is_present_over_https` başlığın değerini birebir
+sınıyor; HSTS bloğu silinse artık kırmızı. Ağ, sertifika ya da TLS yok: sınanan şey
+middleware'in **koşulu**. Gerçek bir TLS sonlandırıcısının (ALB, Cloudflare) arkasında
+`secure()`'un doğru dönmesi ise TrustProxies'in işi (`TrustedProxiesTest`) ve üretimde
+bir kez gözle bakmaya değer:
 
 ```bash
 curl -sI https://api.davetkart.com/api/ping | grep -i strict-transport
@@ -167,7 +175,8 @@ curl -sI https://api.davetkart.com/api/ping | grep -i strict-transport
 **Mutasyon denemesi (T16):** `Referrer-Policy` satırını sil →
 `every_response_carries_the_hardening_headers` **kırmızıya dönmeli**.
 `$request->secure()` koşulunu kaldır → `hsts_is_absent_over_plain_http`
-kırmızıya dönmeli.
+kırmızıya dönmeli. 🆕 HSTS bloğunu sil ya da `max-age`'i değiştir →
+`hsts_is_present_over_https` kırmızıya dönmeli (10.53'te denendi).
 
 ---
 

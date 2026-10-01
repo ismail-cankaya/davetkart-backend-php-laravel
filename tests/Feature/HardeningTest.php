@@ -149,8 +149,8 @@ final class HardeningTest extends TestCase
      * HSTS yalnizca HTTPS uzerinden gonderilir.
      *
      * Testler http uzerinden kosar; basligin BURADA OLMAMASI dogru davranistir
-     * (T6: bir davranisin hem varligi hem yoklugu test edilir). Varliginin
-     * kaniti yalnizca gercek bir https istegiyle alinabilir — elle dogrulama.
+     * (T6: bir davranisin hem varligi hem yoklugu test edilir). Varligi
+     * asagidaki testte.
      */
     #[Test]
     public function hsts_is_absent_over_plain_http(): void
@@ -158,6 +158,25 @@ final class HardeningTest extends TestCase
         $this->getJson(self::PROBE)
             ->assertOk()
             ->assertHeaderMissing('Strict-Transport-Security');
+    }
+
+    /**
+     * Faz 10 (10.53): HSTS'nin VARLIGI da otomatik sinanir.
+     *
+     * Faz 9 bunu "yalnizca gercek bir https istegiyle, elle" demisti ve HSTS
+     * blogu silinse dosya yesil kaliyordu (TEST-DENETIMI §2). Oysa test
+     * istemcisi tam adresi kabul ediyor: `https://` ile verilen istekte
+     * Symfony HTTPS sunucu degiskenini kurar ve `$request->secure()` true
+     * doner. Ag, sertifika, sunucu yok; middleware'in KOSULU sinaniyor.
+     * Gercek bir TLS sonlandiricisinin arkasinda `secure()`'un dogru
+     * donmesi ise TrustProxies'in isi (TrustedProxiesTest).
+     */
+    #[Test]
+    public function hsts_is_present_over_https(): void
+    {
+        $this->getJson('https://localhost'.self::PROBE)
+            ->assertOk()
+            ->assertHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     }
 
     private function firstAllowedOrigin(): string
