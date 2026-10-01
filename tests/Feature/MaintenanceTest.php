@@ -625,14 +625,49 @@ final class MaintenanceTest extends TestCase
      * `media:prune-orphans` ayni dosyayi iki kez silmeye calisir ve ikinci
      * surec satiri bulamadan once birincisi dosyayi silmis olabilir.
      * Korumayi isin idempotansina degil, YAPIYA baglariz.
+     *
+     * 🔴 Faz 10 (10.54b): ilk surum `assertNotNull($event->mutexName())`
+     * diyordu ve BOS YESILDI. mutexName() her is icin bir ad uretir;
+     * withoutOverlapping() silinse de dolu doner (10.5'te kanitlandi).
+     * Soru "kilidin bir adi var mi?" degil "kilit ISTENDI mi?": bayrak.
      */
     #[Test]
     public function every_scheduled_command_guards_against_overlapping(): void
     {
-        foreach (app(Schedule::class)->events() as $event) {
-            $this->assertNotNull(
-                $event->mutexName(),
+        $events = app(Schedule::class)->events();
+
+        // Bos dongu de bos yesildir: zamanlayici okunamasa test hicbir sey
+        // sinamadan gecerdi.
+        $this->assertNotEmpty($events);
+
+        foreach ($events as $event) {
+            $this->assertTrue(
+                $event->withoutOverlapping,
                 sprintf('Zamanlanmis is withoutOverlapping() tasimiyor: %s', $event->command),
+            );
+        }
+    }
+
+    /**
+     * Faz 10 (10.54b): birden cok sunucuda AYNI is bir kez kosar.
+     *
+     * withoutOverlapping() tek makinedeki iki sureci ayirir; ikinci bir
+     * uygulama sunucusu eklendiginde her ikisinin cron'u ayni dakikada
+     * `data:purge` baslatir. onOneServer() kilidi paylasilan cache'te alir
+     * (K80: tek sunucuyla basliyoruz, bu satir buyumenin sigortasi).
+     * Faz 9'dan beri her iste yaziliydi ama hic sinanmiyordu.
+     */
+    #[Test]
+    public function every_scheduled_command_runs_on_one_server(): void
+    {
+        $events = app(Schedule::class)->events();
+
+        $this->assertNotEmpty($events);
+
+        foreach ($events as $event) {
+            $this->assertTrue(
+                $event->onOneServer,
+                sprintf('Zamanlanmis is onOneServer() tasimiyor: %s', $event->command),
             );
         }
     }

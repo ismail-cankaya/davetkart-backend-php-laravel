@@ -4,7 +4,7 @@
 > **Faz:** 9 — Üretim hazırlığı, dosyalar 9.9 · 9.10 · 9.11 · 🆕 **Faz 10**, adım 10.5 (§5.1) · adım 10.11 (§6b) · adım 10.14 (§6c)
 > **Kılavuz yazımı:** 25 Eylül 2026 — **K18 borcu** (dosya Faz 9'da kılavuzsuz eklenmişti;
 > plan 10.54'ün yarısı burada kapandı, `HardeningTest.md` hâlâ bekliyor)
-> **Test sayısı:** 27 · **Test edilenler:** [`ExpireStaleOrders.md`](../../app/Console/Commands/ExpireStaleOrders.md) ·
+> **Test sayısı:** 28 · **Test edilenler:** [`ExpireStaleOrders.md`](../../app/Console/Commands/ExpireStaleOrders.md) ·
 > [`PruneOrphanMedia.md`](../../app/Console/Commands/PruneOrphanMedia.md) · [`routes/console.md`](../../routes/console.md) ·
 > `sanctum:prune-expired` (Laravel'in komutu, [`config/sanctum.md`](../../config/sanctum.md)) ·
 > [`NormalizeUserEmails.md`](../../app/Console/Commands/NormalizeUserEmails.md)
@@ -306,7 +306,8 @@ ile geriye alıyor (`tokenIssuedAt()` ile aynı gerekçe: zamanı yalnızca test
 |---|---|
 | `the_maintenance_commands_are_registered_with_the_scheduler` | 🔴 Bir **hatayı** değil bir **unutmayı**: kayıtsız komut hiç koşmaz ve bunu hiçbir şey söylemez |
 | `each_maintenance_command_runs_at_its_intended_cadence` | Sıklık da sözleşmedir: `0 * * * *` · `15 3 * * *` · `0 0 * * *` |
-| ⚠️ `every_scheduled_command_guards_against_overlapping` | **Hiçbir şeyi** — §8.1 |
+| ✅ `every_scheduled_command_guards_against_overlapping` | Bir işten `withoutOverlapping()` silinmesini (10.54b'de düzeltildi, §8.1) |
+| 🆕 `every_scheduled_command_runs_on_one_server` | Bir işten `onOneServer()` silinmesini (10.54b) |
 
 ---
 
@@ -322,8 +323,8 @@ ile geriye alıyor (`tokenIssuedAt()` ile aynı gerekçe: zamanı yalnızca test
 | 6 | `video_media_id` kolunu sil | `it_keeps_an_upload_referenced_by_an_rsvp_video` |
 | 7 | Tür süzgecini (`guestUploadableValues`) sil | `it_never_touches_gallery_media` |
 | 8 | `Storage::…->delete()` satırını sil | `it_removes_the_file_from_its_own_disk` |
-| 9 | `orders:expire`'dan `withoutOverlapping()`'i sil | ⚠️ **Hiçbiri** — §8.1 |
-| 10 | `orders:expire`'dan `onOneServer()`'ı sil | ⚠️ **Hiçbiri** — §8.1 |
+| 9 | `orders:expire`'dan `withoutOverlapping()`'i sil | ⚠️ **Hiçbiri** — §8.1 · ✅ 10.54b'den sonra: `every_scheduled_command_guards_…` |
+| 10 | `orders:expire`'dan `onOneServer()`'ı sil | ⚠️ **Hiçbiri** — §8.1 · ✅ 10.54b'den sonra: `every_scheduled_command_runs_on_one_server` |
 
 **Faz 10, 10.11 — `sanctum:prune-expired` (27 Eylül 2026, İsmail'in makinesi, PHP 8.5):**
 
@@ -393,6 +394,23 @@ zamanlayıcı testleri değil. Bulgu FAZ-10 planına Dilim E'nin yeni satırı o
 eklendi (test denetiminin bu dosya için *"yüzeysel incelendi"* dediği yer tam
 burası). **B6**: bir savunmanın neyi kapatmadığı da yazılır.
 
+#### ✅ Faz 10, 10.54b: düzeltildi
+
+Test iki teste bölündü; ikisi de bayrağın **kendisini** soruyor (`Event::$withoutOverlapping`,
+`Event::$onOneServer`) ve döngüden önce `assertNotEmpty($events)` diyor. O satır ikinci bir
+boş yeşili kapatıyor: zamanlayıcı bir gün okunamaz hâle gelirse (`events()` boş döner)
+`foreach` hiç dönmez ve test hiçbir şey sınamadan geçerdi.
+
+| Mutasyon (`routes/console.php`, 1 Ekim 2026) | Kırılan |
+|---|---|
+| `data:purge`'den `withoutOverlapping()` silindi | `every_scheduled_command_guards_against_overlapping` |
+| `orders:expire`'dan `onOneServer()` silindi | `every_scheduled_command_runs_on_one_server` |
+| `sanctum:prune-expired`'dan `onOneServer()` silindi | `every_scheduled_command_runs_on_one_server` |
+
+`onOneServer()` bugün tek sunucuda (K80) davranış değiştirmiyor; ikinci bir uygulama
+sunucusu eklendiği gün her ikisinin cron'u aynı dakikada `data:purge` başlatırdı. Satır
+büyümenin sigortası ve Faz 9'dan beri her işte yazılıydı, ama hiç sınanmıyordu.
+
 ---
 
 ## 9. Bu dosyanın kapatamadıkları (B6)
@@ -412,7 +430,7 @@ burası). **B6**: bir savunmanın neyi kapatmadığı da yazılır.
 
 ```powershell
 php artisan test --filter=MaintenanceTest
-# 27 passed
+# 28 passed
 ```
 
 Mutasyon 13'ü elle dene: `routes/console.php`'de `--hours=24`'ü `--hours=720`
