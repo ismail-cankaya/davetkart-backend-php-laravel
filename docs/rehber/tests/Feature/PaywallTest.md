@@ -432,3 +432,61 @@ php artisan test --filter=PaywallTest
 php artisan test --testsuite=Unit
 # 11 passed
 ```
+
+---
+
+## 13. 🆕 Faz 10 — fiyat ve modül haritası sabit yazıldı (10.49)
+
+`TEST-DENETIMI` §2 bu dosyada üç boş yeşil buldu. Üçü de aynı kökten: **beklenen değer,
+sınanan kodla hesaplanıyordu**.
+
+| Mutant | Neden yeşildi | Şimdi kıran |
+|---|---|---|
+| `SubscriptionTier::price()` → `return 1` | Beklenen `Elit->price() * 100` idi: o da 100 oldu | `the_order_amount_…` · `each_tier_is_charged_…` ×3 |
+| `currency` → `USD` | Hiç sınanmıyordu | aynı dört test |
+| `show_envelope`: gold → standart | Yalnızca program (gold) ve galeri (elit) sınanıyordu | `each_module_requires_its_published_tier` |
+
+### 13.1 Kural: beklenen değeri elle yaz
+
+```php
+// ❌ Önce: test kendisiyle karşılaştırılıyor
+'amount_minor' => SubscriptionTier::Elit->price() * 100,
+
+// ✅ Şimdi: fiyat sayfasındaki söz
+'amount_minor' => 54900,
+'currency' => 'TRY',
+```
+
+Fiyat bir iş kararı ve `config/davetkart.php`'de duruyor (E6). Değiştiğinde bu testler
+**bilerek** kırılır: değişikliği yapan kişi testteki sayıyı da değiştirmek zorunda kalır ve
+bu, kararın bilinçli olduğunu kanıtlar. Config'ten okuyan bir test bunu sağlamaz: config'te
+yanlışlıkla `54.9` yazılsa da yeşil kalırdı.
+
+Aynı ders Faz 10'da iki yerde daha uygulandı: `InvitationTest` §12 (serbest bırakma
+penceresi 3 gün) ve `MaintenanceTest` §6e (saklama süreleri).
+
+### 13.2 Yeni testler
+
+| Test | Vaka | İddia |
+|---|---|---|
+| `each_tier_is_charged_its_published_price` | standart 24900 · gold 39900 · elit 54900 | `amount_minor` kuruş, `currency` `TRY` (K: para en küçük birimde tam sayı) |
+| `each_module_requires_its_published_tier` | 6 modül | galeri, hediye → elit · zarf, program → gold · geri sayım, LCV → standart |
+
+Eski `a_timeline_…` ve `a_gallery_…` testleri kaldı: okunur bir *"hikâye"* anlatıyorlar.
+Yeni veri sağlayıcı haritanın **tamamını** kilitliyor.
+
+### 13.3 Mutasyon kanıtı (1 Ekim 2026)
+
+| Mutasyon | Kırılan |
+|---|---|
+| `price()` → `1` | 4 |
+| elit 549 → 548 | 2 |
+| standart 249 → 199 | 1 |
+| `currency` → `USD` | 4 |
+| `* 100` → `* 10` (kuruş çevrimi) | 4 |
+| zarf gold → standart | 1 |
+| hediye elit → gold | 2 |
+| LCV standart → gold | 1 |
+| geri sayım standart → gold | 1 |
+
+Dokuzu da öldü. Eski dosyaya karşı yeniden koşturuldu: yedisi bu adımdan önce **yeşildi**; kuruş çevrimini ve hediye → gold'u eski testler de yakalıyordu. Dosya 62 → 71 vaka.

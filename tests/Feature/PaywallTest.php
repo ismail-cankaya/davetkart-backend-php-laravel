@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\TestResponse;
 use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Tests\TestCase;
@@ -99,6 +100,37 @@ final class PaywallTest extends TestCase
             SubscriptionTier::Elit,
             app(TierResolver::class)->requiredFor($invitation),
         );
+    }
+
+    /**
+     * Faz 10 (10.49): her modulun plani, ALTI birden ve sabit.
+     *
+     * Ustteki testler yalnizca program (gold) ve galeriyi (elit) sinyordu;
+     * `show_envelope` gold'dan standart'a indirilse dosya yesil kaliyordu
+     * (TEST-DENETIMI §2). Zarf animasyonu Standart'a bedava acilmis olurdu.
+     *
+     * @param  'show_gallery'|'show_gift'|'show_envelope'|'show_timeline'|'show_timer'|'show_rsvp'  $column
+     */
+    #[Test]
+    #[DataProvider('moduleTiers')]
+    public function each_module_requires_its_published_tier(string $column, SubscriptionTier $tier): void
+    {
+        $invitation = Invitation::factory()->create([$column => true]);
+
+        $this->assertSame($tier, app(TierResolver::class)->requiredFor($invitation));
+    }
+
+    /** @return array<string, array{'show_gallery'|'show_gift'|'show_envelope'|'show_timeline'|'show_timer'|'show_rsvp', SubscriptionTier}> */
+    public static function moduleTiers(): array
+    {
+        return [
+            'galeri elit' => ['show_gallery', SubscriptionTier::Elit],
+            'hediye elit' => ['show_gift', SubscriptionTier::Elit],
+            'zarf gold' => ['show_envelope', SubscriptionTier::Gold],
+            'program gold' => ['show_timeline', SubscriptionTier::Gold],
+            'geri sayim standart' => ['show_timer', SubscriptionTier::Standart],
+            'lcv standart' => ['show_rsvp', SubscriptionTier::Standart],
+        ];
     }
 
     // --------------------------------------- PublishEntitlementResolver (7.9)
@@ -567,12 +599,48 @@ final class PaywallTest extends TestCase
             ])
             ->assertCreated();
 
+        // Faz 10 (10.49): beklenen tutar SABIT. Once `Elit->price() * 100`
+        // yaziliyordu; `price()` 1 dondurse beklenen de 100 olur ve test
+        // kendisiyle karsilastirilmis olurdu (TEST-DENETIMI §2).
         $this->assertDatabaseHas('orders', [
             'user_id' => $user->id,
             'tier' => SubscriptionTier::Elit->value,
             'status' => OrderStatus::Pending->value,
-            'amount_minor' => SubscriptionTier::Elit->price() * 100,
+            'amount_minor' => 54900,
+            'currency' => 'TRY',
         ]);
+    }
+
+    /**
+     * Faz 10 (10.49): her planin fiyati, fiyat sayfasinda soylenen sayi.
+     *
+     * Kurus cinsinden, SABIT. Fiyat bir is karari (config); degistiginde bu
+     * test BILEREK kirilir ve degisikligin bilincli oldugunu soyletir.
+     */
+    #[Test]
+    #[DataProvider('publishedPrices')]
+    public function each_tier_is_charged_its_published_price(string $tier, int $amountMinor): void
+    {
+        $user = User::factory()->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('payments.checkout'), ['tier' => $tier])
+            ->assertCreated();
+
+        $order = Order::query()->where('user_id', $user->id)->sole();
+
+        $this->assertSame($amountMinor, $order->amount_minor);
+        $this->assertSame('TRY', $order->currency);
+    }
+
+    /** @return array<string, array{string, int}> */
+    public static function publishedPrices(): array
+    {
+        return [
+            'standart 249 TL' => ['standart', 24900],
+            'gold 399 TL' => ['gold', 39900],
+            'elit 549 TL' => ['elit', 54900],
+        ];
     }
 
     #[Test]
