@@ -78,3 +78,14 @@ Schedule::command('sanctum:prune-expired --hours=24')
     ->daily()
     ->withoutOverlapping()
     ->onOneServer();
+
+// Saklama suresi dolan kisisel veri (Faz 10, 10.43 · K98): cop kutusundaki
+// davetiye 30 gun, misafir verisi etkinlikten 6 ay, iletisim mesaji 12 ay.
+//
+// 03:45: media:prune-orphans'tan (03:15) yarim saat sonra. Ikisi de dosya
+// siliyor; ayni dakikada baslamasinlar. K84: yayina alindiginda ilk kosu
+// elle ve --dry-run ile yapilir.
+Schedule::command('data:purge')
+    ->dailyAt('03:45')
+    ->withoutOverlapping()
+    ->onOneServer();

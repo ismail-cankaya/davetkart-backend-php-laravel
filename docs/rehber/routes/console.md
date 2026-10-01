@@ -235,3 +235,29 @@ satır yazılmaz.
 | **Mutex** | Aynı işin iki kopyasının aynı anda koşmasını engelleyen kilit |
 | **Thundering herd** | Aynı anda başlayan çok sayıda işin kaynağı boğması |
 | **İdempotan** | Birden çok kez çalıştırıldığında sonucu değişmeyen işlem |
+
+---
+
+## 🆕 Faz 10 eklemesi — `data:purge` (10.44 · K98)
+
+```php
+Schedule::command('data:purge')
+    ->dailyAt('03:45')
+    ->withoutOverlapping()
+    ->onOneServer();
+```
+
+Saklama süresi dolan kişisel veriyi siler: çöp kutusundaki davetiye (30 gün), misafir
+verisi (etkinlikten 6 ay sonra), iletişim mesajı (12 ay). Ayrıntı:
+[`PurgeExpiredData.md`](../app/Console/Commands/PurgeExpiredData.md).
+
+**Neden 03:45?** `media:prune-orphans` 03:15'te. İkisi de diskten dosya siliyor ve
+aynı dakikada başlasalar aynı diski aynı anda yorarlar (§2'deki *thundering herd*).
+Yarım saat, prune işinin bitmesi için cömert bir pay.
+
+**İlk koşu (K84):** yayına alındığı gün elle ve `--dry-run` ile. Faz 10'dan önce
+hiçbir şey silinmediği için ilk gerçek koşu birikmiş verinin hepsini bir kerede siler.
+
+Zamanlayıcıda artık **dört** iş var. §7'deki `schedule:list` beklentisi:
+`orders:expire` (saatlik) · `media:prune-orphans` (03:15) · `sanctum:prune-expired`
+(günlük) · `data:purge` (03:45).
