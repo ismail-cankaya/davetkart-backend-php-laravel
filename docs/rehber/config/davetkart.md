@@ -633,3 +633,31 @@ tahmin etmek, açık bir ayardan daha kırılgan.
 **Yerel varsayılan neden 3000?** Frontend `vite --port=3000` ile açılıyor ve API'yi
 Vite proxy'si üzerinden çağırıyor (`vite.config.ts`). Yerelde tarayıcının gördüğü
 adres 3000.
+
+---
+
+## 🆕 Faz 10 eklemesi — `retention` (10.42 · K98)
+
+```php
+'retention' => [
+    'deleted_invitation_days' => 30,
+    'guest_data_months_after_event' => 6,
+    'contact_message_months' => 12,
+],
+```
+
+| Anahtar | Ne siliniyor | Sayaç neye göre |
+|---|---|---|
+| `deleted_invitation_days` | Çöp kutusundaki davetiye, kalıcı ve dosyalarıyla | `deleted_at` |
+| `guest_data_months_after_event` | LCV satırları + misafirin foto/videosu | `event_at` |
+| `contact_message_months` | İletişim formu mesajı | `created_at` |
+
+İsmail'in kararı (S-1 → K98, 1 Ekim 2026). Uygulayan: `data:purge` (gece 03:45).
+
+**Neden `env()` yok?** `release_window_days` ile aynı gerekçe: bir ortam farkı değil,
+kullanıcıya verilmiş bir söz. KVKK aydınlatma metni bu sayıları yazacak. Staging'de
+başka, üretimde başka bir süre, metnin bir ortamda yalan söylemesi demek.
+
+**Değiştirmek:** sayı burada değişir ve test **bilerek** kırılır
+(`MaintenanceTest`'in sınır tarihleri sabit yazıldı, 10.49'un dersi). Aydınlatma metni
+aynı commit'te güncellenmeli.

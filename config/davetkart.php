@@ -207,4 +207,22 @@ return [
         'locale' => 'tr',
     ],
 
+    // Faz 10 (10.42 · K98 / S-1): saklama sureleri. KVKK'nin veri en aza
+    // indirme ilkesi: amaci biten kisisel veri saklanmaz. `data:purge` her
+    // gece bunlari uygular. env() YOK: ortam farki degil, kullaniciya verilen
+    // bir soz (KVKK aydinlatma metni bu sayilari yazacak).
+    'retention' => [
+        // Cop kutusundaki (soft delete) davetiye bu sureden sonra KALICI silinir,
+        // dosyalariyla birlikte. O zamana kadar geri getirilebilir.
+        'deleted_invitation_days' => 30,
+
+        // Etkinlikten bu kadar ay sonra MISAFIR verisi silinir: LCV satirlari
+        // (ad, mesaj, menu tercihi) ve misafirin yukledigi foto/video.
+        // Davetiyenin kendisi ve sahibinin galerisi kalir.
+        'guest_data_months_after_event' => 6,
+
+        // Iletisim formu mesajlari (ad, e-posta, mesaj).
+        'contact_message_months' => 12,
+    ],
+
 ];
