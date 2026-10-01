@@ -915,3 +915,32 @@ geçerli olduğunu düşündürür.
 
 Hiçbir şey — `POST` cacheable değil ve yanıt `204`. Faz 5 ve 6'daki aynı
 durum. Grup middleware'i olarak geliyor, erken dönüyor.
+
+---
+
+## 🆕 Faz 10 eklemesi — siparişler (10.23)
+
+```php
+Route::apiResource('orders', OrderController::class)
+    ->only(['index', 'show'])
+    ->whereUlid('order');
+```
+
+| Metot | Yol | Grup | Ne |
+|---|---|---|---|
+| `GET` | `/api/orders` | `auth:sanctum` | Kullanıcının **kendi** siparişleri, en yeni üstte |
+| `GET` | `/api/orders/{order}` | `auth:sanctum` | Tek sipariş; başkasınınki **404** (H7) |
+
+- **`only(['index', 'show'])`:** Yazma ucu yok. Siparişi checkout ucu açıyor,
+  durumunu imzalı webhook değiştiriyor. `apiResource` tek başına `store`,
+  `update` ve `destroy` rotalarını da üretirdi; controller'da metot olmasa bile
+  rota tablosunda görünür ve bir gün birisi o metodu yazdığında sessizce
+  açılırlardı.
+- **`whereUlid('order')`:** `orders.id` ULID (`HasUlids`). Biçimsiz kimlik
+  veritabanına hiç ulaşmaz (O6, R6).
+- **`/payments/checkout` ile çakışmaz:** farklı önek (`/orders` ve `/payments`).
+- **Neden `SetEtag` yok?** Dönüş sayfası `show`'u **birkaç saniye** yokluyor, LCV
+  panelinin saatlerce süren 15 saniyelik yoklaması gibi değil. Yanıt birkaç
+  yüz bayt. ETag'in kazandıracağı şey ölçülemeyecek kadar küçük.
+
+Ayrıntı: [`OrderController.md`](../app/Http/Controllers/Api/V1/OrderController.md).

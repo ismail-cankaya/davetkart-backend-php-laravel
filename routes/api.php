@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MediaController;
+use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PublicContactController;
 use App\Http\Controllers\Api\V1\PublicInvitationController;
@@ -152,6 +153,17 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // PAKET alim: hesabin tamami icin plan. Davetiye kimligi YOK (K42).
     Route::post('/payments/checkout', [PaymentController::class, 'forAccount'])
         ->name('payments.checkout');
+
+    /*
+    | Siparisler (Faz 10, 10.23) — YALNIZCA okuma.
+    |
+    | Odeme donus sayfasi `show`'u birkac saniye yoklar; `index` ileride bir
+    | "siparislerim" ekrani icin. Yazma ucu YOK: siparisi checkout acar,
+    | durumunu imzali webhook degistirir. Baskasinin siparisi 404 (H7).
+    */
+    Route::apiResource('orders', OrderController::class)
+        ->only(['index', 'show'])
+        ->whereUlid('order');
 
     /*
     | AI asistan (Faz 8) — sistemin PARA HARCAYAN tek ucu.
