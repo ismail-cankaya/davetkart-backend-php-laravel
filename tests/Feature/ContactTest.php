@@ -38,7 +38,7 @@ final class ContactTest extends TestCase
         $this->submit()->assertNoContent();
 
         $this->assertDatabaseHas('contact_messages', [
-            'name' => 'Deniz Yilmaz',
+            'name' => 'Deniz Yılmaz',
             'email' => 'deniz@example.test',
             'subject' => ContactSubject::Pricing->value,
         ]);
@@ -187,6 +187,39 @@ final class ContactTest extends TestCase
             ->assertJsonPath('error.fields.message.0.params.max', 20);
     }
 
+    /**
+     * Faz 10 (10.51): sinir KARAKTER sayar, bayt degil.
+     *
+     * 'ğ' UTF-8'de iki bayt. Bayt sayan bir kontrol (strlen, ya da bayt
+     * sinirli bir kolon) Turkce yazan kullaniciya sinirin yarisini verirdi;
+     * ASCII veriyle yazilmis bir test bunu hic goremez.
+     */
+    #[Test]
+    public function the_length_limit_counts_characters_not_bytes(): void
+    {
+        Config::set('davetkart.contact.max_message_chars', 20);
+        $message = str_repeat('ğ', 20);
+
+        $this->submit(['message' => $message])->assertNoContent();
+
+        $this->assertDatabaseHas('contact_messages', ['message' => $message]);
+    }
+
+    /** Faz 10 (10.51): Turkce veri yazildigi gibi saklanir (K-3'un dersi: ASCII test kor). */
+    #[Test]
+    public function turkish_text_is_stored_as_written(): void
+    {
+        $this->submit([
+            'name' => 'Şükrü Çağlayan İnce',
+            'message' => 'Düğün davetiyesi için Elit planın içeriğini öğrenmek istiyorum. Teşekkürler!',
+        ])->assertNoContent();
+
+        $this->assertDatabaseHas('contact_messages', [
+            'name' => 'Şükrü Çağlayan İnce',
+            'message' => 'Düğün davetiyesi için Elit planın içeriğini öğrenmek istiyorum. Teşekkürler!',
+        ]);
+    }
+
     // --------------------------------------------------------- SEMA
 
     /**
@@ -230,6 +263,35 @@ final class ContactTest extends TestCase
             ->assertJsonPath('error.code', ErrorCode::RateLimited->value);
     }
 
+    /**
+     * Faz 10 (10.51): saatlik kova AYRI calisir.
+     *
+     * Denetimde (TEST-DENETIMI §2) saatlik Limit silinse dosya yesil
+     * kaliyordu: tek hiz testi dakikalik kovayi dolduruyordu. Dakikalik kova
+     * sabirli bir botu durdurmaz (dakikada 3 = saatte 180 mesaj); saatlik
+     * kova durdurur. Gonderimler dakikalara yayiliyor: dakikalik kova her
+     * seferinde bosaliyor, yalnizca saatlik kova sayiyor.
+     */
+    #[Test]
+    public function the_hourly_bucket_stops_a_patient_sender(): void
+    {
+        Config::set('davetkart.contact.rate_limit.per_ip_per_minute', 1);
+        Config::set('davetkart.contact.rate_limit.per_ip_per_hour', 2);
+
+        $this->submit()->assertNoContent();
+        $this->travel(2)->minutes();
+        $this->submit()->assertNoContent();
+        $this->travel(2)->minutes();
+
+        $this->submit()
+            ->assertStatus(429)
+            ->assertJsonPath('error.code', ErrorCode::RateLimited->value);
+
+        // Kova bir saatte bosalir; bir gune yayilan bir sinir burada kirilir.
+        $this->travel(1)->hour();
+        $this->submit()->assertNoContent();
+    }
+
     // ---------------------------------------------------------- YARDIMCI
 
     /**
@@ -240,10 +302,10 @@ final class ContactTest extends TestCase
     private function submit(array $overrides = []): TestResponse
     {
         return $this->postJson(route('public.contact.store'), array_merge([
-            'name' => 'Deniz Yilmaz',
+            'name' => 'Deniz Yılmaz',
             'email' => 'deniz@example.test',
             'subject' => ContactSubject::Pricing->value,
-            'message' => 'Plan farklarini ogrenmek istiyorum.',
+            'message' => 'Plan farklarını öğrenmek istiyorum.',
         ], $overrides));
     }
 }

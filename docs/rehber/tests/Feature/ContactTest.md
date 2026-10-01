@@ -94,3 +94,55 @@ DB::table('contact_messages')->insert([... 'subject' => 'sikayet' ...]);
 | Honeypot'un **frontend'de var olmasi** | Backend testi formun alani render ettigini bilemez. 🔴 `ContactPage` bugun bu alani **render etmiyor** — tuzak kurulmus ama kurulmamis durumda. Frontend borc listesinde |
 | Hiz sinirinin gercek IP dagilimi | Testte tek IP var; kovanin IP anahtarli oldugu kod incelemesiyle korunur |
 | Bildirim gonderimi | 🔴 Yok. Frontend "destek ekibine yonlendirilir" diyor; bu bir **B4 borcudur**, test edilecek bir davranis degil |
+
+---
+
+## 🆕 Faz 10 (10.51) — saatlik kova, Türkçe veri, NUL
+
+`TEST-DENETIMI` §2: *"Saatlik kova silinse yeşil · NUL · Türkçe veri"*. Dosya 14 → 17 test.
+
+| Test | Kapattığı boşluk |
+|---|---|
+| `the_hourly_bucket_stops_a_patient_sender` | Saatlik `Limit` silinse ya da `perDay`'e çevrilse yeşildi |
+| `the_length_limit_counts_characters_not_bytes` | `ğ` iki bayt: bayt sayan bir sınır Türkçe yazana sınırın yarısını verirdi |
+| `turkish_text_is_stored_as_written` | `Şükrü Çağlayan İnce`: `İ`, `ş`, `ğ` yazıldığı gibi saklanıyor |
+| (yardımcı) `submit()` | Varsayılan veri `Deniz Yilmaz` → `Deniz Yılmaz`, mesaj Türkçe karakterli |
+
+### Saatlik kova testi nasıl kuruldu?
+
+Tek hız testi (`contact_submissions_are_rate_limited`) üç isteği aynı dakikada atıyordu:
+dakikalık kova dolar, saatlik kovaya hiç sıra gelmez. Sabırlı bir bot dakikada 3 mesajla
+saatte 180 mesaj atar; onu durduran **yalnızca** saatlik kova.
+
+```
+dakika=1, saat=2
+istek 1 → 204
++2 dk   (dakikalık kova boşaldı)
+istek 2 → 204
++2 dk
+istek 3 → 429   ← yalnızca saatlik kova sayıyor
++1 saat
+istek 4 → 204   ← kova bir SAATTE boşalır (perDay mutantı burada kırılır)
+```
+
+Zaman `travel()` ile ilerliyor; RateLimiter'ın sayaçları Carbon'un saatini kullanıyor.
+
+### NUL baytı neden burada yok?
+
+Faz 10'un 10.20 adımı NUL'u **bütün rota gruplarında** `MalformedInputTest`'e taşıdı;
+`public: iletisim` o veri sağlayıcının bir satırı. Aynı iddiayı burada tekrar yazmak ikinci
+bir kaynak olurdu.
+
+### Mutasyon kanıtı (1 Ekim 2026)
+
+| Mutasyon (`AppServiceProvider::contactLimits` · `ContactRequest`) | Kırılan |
+|---|---|
+| Saatlik `Limit` silindi | `the_hourly_bucket_…` |
+| `perHour` → `perDay` | `the_hourly_bucket_…` (son adım) |
+| Mesaj sınırı `strlen` ile (bayt) | `the_length_limit_counts_…` (+ eski sınır testi, kural adı yüzünden) |
+| ⚪ Saatlik anahtar = dakikalık anahtar (`contact-min|`) | **Hiçbiri: eşdeğer mutant** |
+
+⚪ Son satır neden eşdeğer: Laravel'in `RateLimiter::limiter()`'ı aynı anahtarı taşıyan
+limitleri bulur ve her birine `fallbackKey()` verir (anahtara süreyi ekler). İki kova
+anahtarları aynı yazılsa da ayrı sayar. Test bunu yakalayamaz çünkü davranış değişmiyor;
+anahtarları yine de ayrı yazmak okuyana niyeti söylüyor.
