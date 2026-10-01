@@ -73,6 +73,10 @@ Eksik olan yalnızca PHP 8.5 ile `composer check` kaydı (10.0).
 | **K88** | Yayındaki davetiyede modül açma **kayıt anında** plan kontrolünden geçer → **402** `PAYWALL_TIER_INSUFFICIENT` | Rapor §1.1 · denetim D-4. Okuma anında maskeleme bu fazda **yok** | 10.1 |
 | **K89** | `OrderStatus::Expired` eklenir. `orders:expire` onu yazar, `Expired → Paid` geçişine izin verilir. `Failed` final kalır | Rapor §1.2 · D-6. `failed` iki gerçeği anlatıyordu (**E12**'nin ikinci örneği) | 10.3–10.7 |
 | **K90** | Sanctum token ömrü **30 gün**, mutlak (oluşturmadan itibaren) | *"Aşırı hassas işlem yok"*. Kayan pencere gerekmez; 30. günde yeniden giriş istenir | 10.10 |
+| **K95** | Mail kanalı kodda **sağlayıcıdan bağımsız**; geliştirmede `MAIL_MAILER=log`. SES mi alan adının SMTP'si mi, deploy'da karar verilir | M-1 · 1 Ekim 2026. Kod Laravel'in mailer soyutlamasını kullanıyor; kanal yalnızca `.env`. Seçenekler ve SPF/DKIM notu `docs/10` → *Posta* | 10.30 |
+| **K96** | Kullanıcıya giden mailler **Türkçe** (K21'in istisnası). Dil `config/davetkart.php` → `mail.locale` | M-1 · 1 Ekim 2026. K21 API yanıtları için *tek dil* diyordu; mail bir yanıt değil, kullanıcının okuyacağı metin | 10.34 |
+| **K97** | Hesap silinince **anonimleştir**: kullanıcı, davetiyeleri, LCV'leri, medyası (dosyalarıyla) silinir; `orders` satırı kalır, `user_id = NULL` (`nullOnDelete`) | H-1 · 1 Ekim 2026. Muhasebe kaydı kullanıcıdan uzun yaşar (K82) | 10.38–10.41 |
+| **K98** | Saklama süreleri: çöp kutusundaki davetiye **30 gün** · misafir verisi etkinlikten **6 ay** · iletişim mesajı **12 ay**. Gece 03:45'te `data:purge` | S-1 · 1 Ekim 2026. Sayılar config'te (E6), testlerde sabit | 10.42–10.45 |
 | **D-5** ✅ | E-postada `İ` → **`i`** (seçenek a), tek kaynaklı `EmailNormalizer`. ASCII dışını reddetmek **değil** | 27 Eylül 2026. Türkçe klavyeli kullanıcıyı cezalandırmaz; büyük sağlayıcılar zaten ASCII dışı yerel kısım kabul etmiyor | 10.12–10.15 |
 
 ### 2.2 `ef7c692`'de uygulanmış, karar kaydına geçmemiş (10.0'da kayda geçer)
@@ -88,9 +92,9 @@ Eksik olan yalnızca PHP 8.5 ile `composer check` kaydı (10.0).
 | # | Soru | Öneri | Bloke ettiği adım |
 |---|---|---|---|
 | ~~**D-5**~~ | ~~E-postada `İ`~~ → ✅ cevaplandı (27 Eylül, seçenek a), §2.1 | — | — |
-| **M-1** | Mail kanalı (K79): Amazon SES mi, alan adının SMTP'si mi? Mailler hangi dilde? (K21 API için *tek dil* diyor, ama mail kullanıcıya giden metindir) | SES (AWS rehberiyle uyumlu) · mail dili Türkçe, K21'in istisnası olarak kayda geçer | 10.30 → tüm Dilim D'nin parola kısmı |
-| **H-1** | Hesap silinince ne olur? | **Anonimleştir**: kişisel veri silinir, `orders` satırı muhasebe için kalır (bugün `orders.user_id` `cascadeOnDelete` — kullanıcı silinirse sipariş kayıtları da silinir, K82 ile çelişir) | 10.38 |
-| **S-1** | Saklama süreleri: silinmiş davetiye kaç gün, etkinlikten sonra misafir verisi (ad, mesaj, foto) kaç ay, iletişim mesajı kaç ay? | 30 gün · 6 ay · 12 ay | 10.42 |
+| ~~**M-1**~~ ✅ K95 · K96 | Mail kanalı (K79): Amazon SES mi, alan adının SMTP'si mi? Mailler hangi dilde? (K21 API için *tek dil* diyor, ama mail kullanıcıya giden metindir) | SES (AWS rehberiyle uyumlu) · mail dili Türkçe, K21'in istisnası olarak kayda geçer | 10.30 → tüm Dilim D'nin parola kısmı |
+| ~~**H-1**~~ ✅ K97 | Hesap silinince ne olur? | **Anonimleştir**: kişisel veri silinir, `orders` satırı muhasebe için kalır (bugün `orders.user_id` `cascadeOnDelete` — kullanıcı silinirse sipariş kayıtları da silinir, K82 ile çelişir) | 10.38 |
+| ~~**S-1**~~ ✅ K98 | Saklama süreleri: silinmiş davetiye kaç gün, etkinlikten sonra misafir verisi (ad, mesaj, foto) kaç ay, iletişim mesajı kaç ay? | 30 gün · 6 ay · 12 ay | 10.42 |
 | **P-1** | Fiyat kartı vaatleri — aşağıdaki kanıtlara bak | Karar senin | 10.66 |
 
 #### P-1'in kanıtları
@@ -216,23 +220,31 @@ Misafirlerin kişisel verileri süresiz duruyor.
 
 | # | Dosya | İş | Karar | Test |
 |---|---|---|---|---|
-| **10.30** | `config/mail.php` · `.env.example` · `docs/10` | Mail kanalı ve dili. SES ise `MAIL_MAILER=ses` + `aws/aws-sdk-php` | **M-1** | `php artisan tinker` → test maili |
-| **10.31** | `app/Enums/ErrorCode.php` (+ `contracts/`, FE `errors.json` ×10) | `PASSWORD_RESET_INVALID` (400 ya da 422 — bu adımda tartışılır) | — | `errors:export --check` |
-| **10.32** | `ForgotPasswordRequest` + `SendPasswordResetLinkAction` | `POST /api/auth/forgot-password` → **her durumda 202** (enumeration yok, `docs/08` §3.1), `throttle:auth` | — | 10.36 |
-| **10.33** | `ResetPasswordRequest` + `ResetPasswordAction` | `POST /api/auth/reset-password` (token + e-posta + yeni parola). Başarıda **tüm** token'lar iptal | — | 10.36 |
-| **10.34** | `AppServiceProvider` | `ResetPassword::createUrlUsing()` → frontend URL'i (`/sifre-sifirla?token=…&email=…`). Mail şablonu M-1'in diliyle | M-1 | 10.36 |
-| **10.35** | `AuthController` + `routes/api.php` | İki uç `auth` grubunun `throttle:auth` alt grubunda | — | 10.36 |
-| **10.36** | `tests/Feature/PasswordResetTest.php` (yeni) | Kayıtlı/kayıtsız e-posta **aynı** yanıt (A2) · `Notification::fake()` · geçersiz/süresi dolmuş token · eski token'lar 401 · throttle | — | — |
-| **10.37** | **FE** `ForgotPasswordPage` · `ResetPasswordPage` · `auth.ts` · `LoginPage` linki | — | — | Elle |
-| **10.38** | Karar kaydı + `database/migrations/…_make_orders_user_id_nullable.php` | H-1 anonimleştirme seçilirse: `orders.user_id` nullable + `nullOnDelete` (muhasebe kaydı kullanıcıdan uzun yaşar) | **H-1** | `migrate` |
-| **10.39** | `app/Actions/Auth/DeleteAccountAction.php` (yeni) | Parola onayı → davetiyeler **Action üzerinden** kalıcı silinir (DB `cascade` model olaylarını ve dosyaları atlar: disk sızıntısı) → medya dosyaları → token'lar → kullanıcı anonimleşir/silinir | H-1 | 10.41 |
-| **10.40** | `AuthController::destroy` + `DELETE /api/auth/me` | 204 | — | 10.41 |
-| **10.41** | `tests/Feature/AccountDeletionTest.php` (yeni) | Yanlış parola 422 · davetiye/LCV/medya satırı **ve dosyası** gider · `orders` kalır · token 401 · başka kullanıcıya dokunulmaz | — | — |
-| **10.42** | Karar kaydı + `config/davetkart.php` → `retention` | S-1'in sayıları config'e (E6: iş tercihi) | **S-1** | — |
-| **10.43** | `app/Console/Commands/PurgeExpiredData.php` (yeni) | `data:purge --dry-run`: süresi dolan silinmiş davetiyeler + etkinliği geçmiş davetiyelerin misafir verisi + eski iletişim mesajları. **Önce dosya, sonra satır** (PruneOrphanMedia deseni) | S-1 | 10.45 |
-| **10.44** | `routes/console.php` | Günlük, gece, `withoutOverlapping` + `onOneServer` | — | `schedule:list` |
-| **10.45** | `tests/Feature/MaintenanceTest.php` | Sınırın bir gün öncesi/sonrası · dosyalar silinir · `orders` dokunulmaz | — | — |
-| **10.46** | **FE** hesap ayarları (silme düğmesi, parola onayı) + `legal/` KVKK metni | Metnin **içeriği** senin/hukukçunun işi, kod değil | — | Elle |
+| **10.30** ✅ | `config/mail.php` · `.env.example` · `docs/10` | Mail kanalı ve dili. SES ise `MAIL_MAILER=ses` + `aws/aws-sdk-php` | **M-1** | `php artisan tinker` → test maili |
+| **10.31** ✅ | `app/Enums/ErrorCode.php` (+ `contracts/`, FE `errors.json` ×10) | `PASSWORD_RESET_INVALID` (400 ya da 422 — bu adımda tartışılır) | — | `errors:export --check` |
+| **10.32** ✅ | `ForgotPasswordRequest` + `SendPasswordResetLinkAction` | `POST /api/auth/forgot-password` → **her durumda 202** (enumeration yok, `docs/08` §3.1), `throttle:auth` | — | 10.36 |
+| **10.33** ✅ | `ResetPasswordRequest` + `ResetPasswordAction` | `POST /api/auth/reset-password` (token + e-posta + yeni parola). Başarıda **tüm** token'lar iptal | — | 10.36 |
+| **10.34** ✅ | `AppServiceProvider` | `ResetPassword::createUrlUsing()` → frontend URL'i (`/sifre-sifirla?token=…&email=…`). Mail şablonu M-1'in diliyle | M-1 | 10.36 |
+| **10.35** ✅ | `AuthController` + `routes/api.php` | İki uç `auth` grubunun `throttle:auth` alt grubunda | — | 10.36 |
+| **10.36** ✅ | `tests/Feature/PasswordResetTest.php` (yeni) | Kayıtlı/kayıtsız e-posta **aynı** yanıt (A2) · `Notification::fake()` · geçersiz/süresi dolmuş token · eski token'lar 401 · throttle | — | — |
+| **10.37** ✅ | **FE** `ForgotPasswordPage` · `ResetPasswordPage` · `auth.ts` · `LoginPage` linki | — | — | Elle |
+| **10.38** ✅ | Karar kaydı + `database/migrations/…_make_orders_user_id_nullable.php` | H-1 anonimleştirme seçilirse: `orders.user_id` nullable + `nullOnDelete` (muhasebe kaydı kullanıcıdan uzun yaşar) | **H-1** | `migrate` |
+| **10.39** ✅ | `app/Actions/Auth/DeleteAccountAction.php` (yeni) | Parola onayı → davetiyeler **Action üzerinden** kalıcı silinir (DB `cascade` model olaylarını ve dosyaları atlar: disk sızıntısı) → medya dosyaları → token'lar → kullanıcı anonimleşir/silinir | H-1 | 10.41 |
+| **10.40** ✅ | `AuthController::destroy` + `DELETE /api/auth/me` | 204 | — | 10.41 |
+| **10.41** ✅ | `tests/Feature/AccountDeletionTest.php` (yeni) | Yanlış parola 422 · davetiye/LCV/medya satırı **ve dosyası** gider · `orders` kalır · token 401 · başka kullanıcıya dokunulmaz | — | — |
+| **10.42** ✅ | Karar kaydı + `config/davetkart.php` → `retention` | S-1'in sayıları config'e (E6: iş tercihi) | **S-1** | — |
+| **10.43** ✅ | `app/Console/Commands/PurgeExpiredData.php` (yeni) | `data:purge --dry-run`: süresi dolan silinmiş davetiyeler + etkinliği geçmiş davetiyelerin misafir verisi + eski iletişim mesajları. **Önce dosya, sonra satır** (PruneOrphanMedia deseni) | S-1 | 10.45 |
+| **10.44** ✅ | `routes/console.php` | Günlük, gece, `withoutOverlapping` + `onOneServer` | — | `schedule:list` |
+| **10.45** ✅ | `tests/Feature/MaintenanceTest.php` | Sınırın bir gün öncesi/sonrası · dosyalar silinir · `orders` dokunulmaz | — | — |
+| **10.46** ✅ | **FE** hesap ayarları (silme düğmesi, parola onayı) + `legal/` KVKK metni | Metnin **içeriği** senin/hukukçunun işi, kod değil | — | Elle |
+
+> ✅ Dilim D'nin kodu yazıldı (1 Ekim). Kararlar **K95–K98** (§2.1). Backend `composer check`
+> **447/447**, frontend `npm run check` yeşil. Frontend adımları İsmail'in numaralandırmasıyla
+> **FE 10.14–10.17** (10.37 → FE 10.16, 10.46 → FE 10.17; FE 10.14 ve 10.15 plan dışı). Sapmalar
+> (S28–S37) ve yeni bulgular → **§9.4**. En önemlisi: hesap silmede siparişler kalıyor ama
+> sahipsiz (`user_id = NULL`), ve gizlilik metni (`PrivacyPage`) saklama süreleri konusunda
+> kodla **çelişiyor** (hukukçunun işi, değiştirilmedi).
+
 
 ---
 
@@ -243,15 +255,21 @@ A, B ve C'deki test adımlarıyla aynı dosyalara dokunanlar o adımla birleşti
 
 | # | Dosya | Hayatta kalan mutantlar (denetimden) |
 |---|---|---|
-| **10.47** | `PublicInvitationTest` | 🔴 **Cache anahtarından `id` çıkarılınca yeşil**. Tüm davetiyeler tek cache girdisine düşse (çiftler arası sızıntı) hiçbir test kırılmıyor · `names/venue/mapUrl` boş dönse yeşil · `date` ISO'ya dönse yeşil · `show_rsvp=false` iken `rsvpDeadline` sızsa yeşil (C6) |
-| **10.48** | `InvitationTest` | İstek eşlemesinden `names`, `venue`, `mapUrl`, `iban`/`bankName`/`accountHolder`, `showGift` düşürülse yeşil · liste sıralaması · oyuncak veri |
-| **10.49** | `PaywallTest` | `SubscriptionTier::price()` → 1 yeşil (beklenen aynı fonksiyonla hesaplanıyor; sabit **24900** yazılmalı) · `currency` → USD yeşil · `show_envelope` Gold→Standart yeşil |
-| **10.50** | `MediaTest` | İçerik MIME'ı yalnızca `UploadedFile::fake()` ile sınanıyor. Gerçek baytlı dosyalarla: PHP-as-JPG, SVG, polyglot |
-| **10.51** | `ContactTest` | Saatlik kova silinse yeşil · NUL · Türkçe veri |
-| **10.52** | `AssistantTest` | `retryAfter` yalnızca `assertIsInt` → `travelTo` ile sabitlenmeli |
-| **10.53** | `HardeningTest` | HSTS bloğu silinse yeşil → `https://localhost` isteğiyle otomatik test |
-| **10.54** | Kılavuzlar | `rehber/tests/Feature/HardeningTest.md` · `MaintenanceTest.md` (K18 borcu) — 🟡 `MaintenanceTest.md` 10.5'te yazıldı, `HardeningTest.md` bekliyor |
-| **10.54b** 🆕 | `MaintenanceTest` | `every_scheduled_command_guards_against_overlapping` **boş yeşil**: `mutexName()` her iş için dolu döner, `withoutOverlapping()` silinse de geçer (10.5'te kum havuzunda kanıtlandı). `onOneServer()` hiç sınanmıyor. Doğrusu: `assertTrue($event->withoutOverlapping)` · `assertTrue($event->onOneServer)` |
+| **10.47** ✅ | `PublicInvitationTest` | 🔴 **Cache anahtarından `id` çıkarılınca yeşil**. Tüm davetiyeler tek cache girdisine düşse (çiftler arası sızıntı) hiçbir test kırılmıyor · `names/venue/mapUrl` boş dönse yeşil · `date` ISO'ya dönse yeşil · `show_rsvp=false` iken `rsvpDeadline` sızsa yeşil (C6) |
+| **10.48** ✅ | `InvitationTest` | İstek eşlemesinden `names`, `venue`, `mapUrl`, `iban`/`bankName`/`accountHolder`, `showGift` düşürülse yeşil · liste sıralaması · oyuncak veri |
+| **10.49** ✅ | `PaywallTest` | `SubscriptionTier::price()` → 1 yeşil (beklenen aynı fonksiyonla hesaplanıyor; sabit **24900** yazılmalı) · `currency` → USD yeşil · `show_envelope` Gold→Standart yeşil |
+| **10.50** ✅ | `MediaTest` | İçerik MIME'ı yalnızca `UploadedFile::fake()` ile sınanıyor. Gerçek baytlı dosyalarla: PHP-as-JPG, SVG, polyglot |
+| **10.51** ✅ | `ContactTest` | Saatlik kova silinse yeşil · NUL · Türkçe veri |
+| **10.52** ✅ | `AssistantTest` | `retryAfter` yalnızca `assertIsInt` → `travelTo` ile sabitlenmeli |
+| **10.53** ✅ | `HardeningTest` | HSTS bloğu silinse yeşil → `https://localhost` isteğiyle otomatik test |
+| **10.54** ✅ | Kılavuzlar | `rehber/tests/Feature/HardeningTest.md` · `MaintenanceTest.md` (K18 borcu) — 🟡 `MaintenanceTest.md` 10.5'te yazıldı, `HardeningTest.md` bekliyor |
+| **10.54b** 🆕 ✅ | `MaintenanceTest` | `every_scheduled_command_guards_against_overlapping` **boş yeşil**: `mutexName()` her iş için dolu döner, `withoutOverlapping()` silinse de geçer (10.5'te kum havuzunda kanıtlandı). `onOneServer()` hiç sınanmıyor. Doğrusu: `assertTrue($event->withoutOverlapping)` · `assertTrue($event->onOneServer)` |
+
+> ✅ Dilim E bitti (1 Ekim). `composer check` **473/473** (447'den +26). Denetimin bu dokuz
+> satırda hayatta bıraktığı mutantların hepsi öldü; adım başına mutasyon tabloları ilgili
+> kılavuzlarda. Yeni bulgu: medyada `mimetypes:` kuralı silinse fotoğraflar `dimensions`
+> kuralına takılıyordu, ama **video** türünde tek savunma oydu (S41). → **§9.5**
+
 
 ---
 
@@ -579,3 +597,131 @@ Dizi geçici bir index'te baştan sona oynatıldı: **her adım `tsc` ile yeşil
   bırakılacak tekil sipariş yok. Paket satışı açılırsa (10.58) uyarının dili bu ayrımı öğrenmeli.
 - **Z (10.84) belge borcu, eklendi:** `docs/11` Ek A'ya `GET /orders`, `GET /orders/{order}`; `docs/03` / `docs/05`
   ağaçlarına `OrderController`, `OrderPolicy`, `OrderTest`; frontend F8'e `/odeme/basarili` senaryosu.
+
+### 9.4 Dilim D — 1 Ekim 2026 (kod yazıldı · backend ve frontend yeşil)
+
+**Kararlar:** M-1 → **K95** (kanal deploy'da) + **K96** (mail Türkçe) · H-1 → **K97** (anonimleştir) ·
+S-1 → **K98** (30 gün · 6 ay · 12 ay). Dördü de önerilen seçenek.
+
+**Commit'ler** — İsmail atıyor, adım adım. Birden çok adıma dokunan dosyalar (`config/davetkart.php`,
+`AuthController`, `routes/api.php`, `MaintenanceTest`, frontend'de `auth.ts`, `App.tsx`,
+`verify-endpoints.ts`) adım sınırlarında alınmış görüntülerden ayrıldı. Her adım
+`.git/faz10-dilim-d/*.patch` olarak hazırlandı ve `git apply --cached` ile stage'leniyor.
+
+| Adım | Depo | Başlık |
+|---|---|---|
+| 10.30 | backend | `10.30 - feat(mail): Add the frontend URL and mail locale, keep the channel provider-agnostic` |
+| 10.31 | backend | `10.31 - feat(errors): Add PASSWORD_RESET_INVALID` |
+| 10.32 | backend | `10.32 - feat(auth): Send a password reset link without revealing who has an account` |
+| 10.33 | backend | `10.33 - feat(auth): Reset the password and revoke every token` |
+| 10.34 | backend | `10.34 - feat(auth): Send the reset link as a queued Turkish mail to the frontend` |
+| 10.35 | backend | `10.35 - feat(auth): Expose forgot-password and reset-password under the auth throttle` |
+| 10.36 | backend | `10.36 - test(auth): Prove the password reset is enumeration-safe and single-use` |
+| 10.38 | backend | `10.38 - feat(orders): Keep orders when their owner is deleted` |
+| 10.39 | backend | `10.39 - feat(auth): Delete an account with its invitations, files and tokens` |
+| 10.40 | backend | `10.40 - feat(auth): Expose DELETE /auth/me behind a password confirmation` |
+| 10.41 | backend | `10.41 - test(auth): Prove account deletion removes files and keeps anonymous orders` |
+| 10.42 | backend | `10.42 - feat(config): Add the retention periods` |
+| 10.43 | backend | `10.43 - feat(maintenance): Purge expired personal data` |
+| 10.44 | backend | `10.44 - feat(schedule): Run the data purge nightly at 03:45` |
+| 10.45 | backend | `10.45 - test(maintenance): Prove the purge boundaries and that orders survive` |
+| FE 10.14 | frontend | `10.14 - fix(payments): Address the user formally on the payment return page` |
+| FE 10.15 | frontend | `10.15 - feat(errors): Add PASSWORD_RESET_INVALID and the current_password rule` |
+| FE 10.16 | frontend | `10.16 - feat(auth): Add the forgot-password and reset-password pages` |
+| FE 10.17 | frontend | `10.17 - feat(account): Add the account page with password-confirmed deletion` |
+
+**Doğrulama (B7):**
+
+| Ne | Nerede | Sonuç |
+|---|---|---|
+| `composer check` | İsmail'in makinesi, PHP 8.5.8 + PostgreSQL 18.4 | 422 → **447** |
+| `npm run check` (lint + build + 8 doğrulama) | Aynı makine | Yeşil · `verify:errors` +2 kontrol · `verify:endpoints` +3 uç · `verify:state` +3 kontrol |
+| Mutasyon, backend | Aynı makine | 27 mutasyon (parola sıfırlama 9 · hesap silme 8 · `data:purge` 10): 26 kırıldı, **1 eşdeğer** (`onlyTrashed` → `withTrashed`, `MaintenanceTest.md` §8) |
+| Mutasyon, frontend | Aynı makine | 6 (FE 10.15: 3 · FE 10.16: 2 · FE 10.17: 1): hepsi kırıldı. İlki ilk denemede **kaçtı**: Türkçe metin silinince i18n İngilizce'ye düştü; denetim anahtar düzeyine taşındı |
+| Tarayıcı | Vite, API erişilemez bir portta | `/sifremi-unuttum`, `/sifre-sifirla` (form ve *"geçersiz"* hâli), `/hesap` (iki adımlı form) gözle görüldü. Uçtan uca akış (mail → bağlantı → yeni şifre, gerçek silme) **koşmadı** → Z (10.83). Betikler: `ForgotPasswordPage.md` §5 · `ResetPasswordPage.md` §6 · `AccountPage.md` §6 |
+
+**Plandan sapmalar ve eklemeler — onayını bekliyor:**
+
+| # | Adım | Plan ne diyordu | Ne yapıldı | Neden |
+|---|---|---|---|---|
+| S28 | 10.34 | `AppServiceProvider` → `ResetPassword::createUrlUsing()` | Kendi bildirim sınıfı `ResetPasswordNotification` (`ShouldQueue`, Türkçe, `resetUrl()` override) + `User::sendPasswordResetNotification()` | `createUrlUsing` global bir statik kanca; sınıf test edilebilir ve kuyruğa gider (15 saniye kuralı). Adres config'ten, Host başlığından değil (*reset poisoning*, testte kanıtlı) |
+| S29 | 10.31 | *"400 ya da 422, bu adımda tartışılır"* | **422**, tek kod, alan yok | İstek biçimsel olarak geçerli (400 bozuk istek içindir, K91). Alan bildirmek *"adres doğru, token yanlış"* bilgisini sızdırırdı (H6) |
+| S30 | 10.30 | `config/mail.php` · `.env.example` | + `config/davetkart.php` → `frontend.url` (varsayılan `http://localhost:3000`) ve `mail.locale` · + `lang/tr.json` (10.34'te) | Maildeki bağlantı mutlak olmalı. Laravel mail şablonunun *"Hello!"*, *"Regards,"* metinleri `lang/` olmadan İngilizce kalıyordu |
+| S31 | 10.40 | `DELETE /api/auth/me` | + `throttle:auth` | Parola onayı, çalınmış bir token'la parola denemenin yolu olmasın |
+| S32 | 10.39 | *"… → medya dosyaları → token'lar → kullanıcı"* | **Satırlar** transaction içinde, **dosyalar commit'ten sonra** · davetiyeler model üzerinden `forceDelete()` · sıfırlama token'ı da silinir | Geri dönüşü olmayan bir kullanıcı işleminde yarım kalan iş *"hesap duruyor, dosyalar gitti"* olmamalı. DB `cascade` model olaylarını atlar: cache temizlenmezdi (mutasyon M1 yalnızca cache testinden kırıldı) |
+| S33 | 10.43 | *"Etkinliği geçmiş davetiyelerin misafir verisi"* | LCV satırları + misafir medyası (dosyalarıyla); davetiye ve galeri kalır; `event_at = NULL` dokunulmaz | Galeri sahibin verisi. Tarihsiz davetiyenin etkinliği *"bitmedi"* değil *"bilinmiyor"* (N4) |
+| S34 | FE 10.14 | — | Ödeme dönüş sayfasının metinleri *"sen"* → *"siz"* | Uygulamanın geri kalanı *"siz"* diyor; Dilim C'de tutarsız yazılmıştı. Parola maili de *"siz"* |
+| S35 | FE 10.16 | `auth.ts` + iki sayfa | + `logout({ revoke })` / `signOut({ revoke })` | Şifre sıfırlama ve hesap silme token'ı sunucuda zaten siliyor; iptal isteği yalnızca 401 dönerdi |
+| S36 | FE 10.17 | *"Hesap ayarları + `legal/` KVKK metni"* | `/hesap` sayfası, girişi panelde · KVKK metnine **dokunulmadı** | Metnin içeriği hukuki (plan da öyle diyor). Çelişkiler aşağıda bulgu olarak |
+| S37 | — | — | Adım sınırlarında görüntü + adım başına yama | Birden çok adıma dokunan dosyalar `git add` ile ayrılamıyordu. Yamalar geçici bir index'te sırayla oynatıldı; sonda index = çalışma ağacı |
+
+**Yeni bulgular:**
+
+- 🔴 **Gizlilik metni kodla çelişiyor** (frontend `src/pages/legal/PrivacyPage.tsx` → *Saklama Süreleri*):
+  *"hesabın silinmesinden itibaren yasal zamanaşımı süresi boyunca"* (kod: hemen siler) ·
+  *"yayın bitiminden itibaren 6 ay"* (kod: **etkinlikten** 6 ay, yalnızca misafir verisi) ·
+  30 günlük çöp kutusu ve 12 aylık iletişim süresi metinde yok. Hangi yöne düzeltileceği hukuki karar.
+- **Geliştirme veritabanı:** `php artisan migrate` (yeni `orders.user_id` nullable migration'ı).
+- **Deploy sırası:** backend **önce**. Frontend'in yeni sayfaları backend uçları olmadan 404 alır.
+- **Mail için kuyruk işçisi şart:** bildirim `ShouldQueue`. İşçi yoksa *"bağlantı gönderdik"* denir ama mail
+  hiç gitmez. SES seçilirse deploy'da `composer require aws/aws-sdk-php` ve SPF/DKIM (`docs/10` → *Posta*).
+- **K84:** `data:purge`'ün ilk koşusu elle ve `--dry-run` ile. Faz 10'dan önce hiçbir şey silinmediği için
+  ilk gerçek koşu birikmiş verinin hepsini bir kerede siler.
+- **Terim:** arayüz *"şifre"* (giriş/kayıt formları), backend maili ve hata metinleri *"parola"*. Kullanıcı
+  mailde *"Parolamı Sıfırla"*ya basıp *"Yeni Şifrenizi Belirleyin"* sayfasına geliyor. Tek terime inmek
+  ayrı bir metin geçişi (Dilim H'ye aday).
+- **Frontend commit numaraları:** §9.3'te 10.26–10.29 diye listelenen frontend adımları **10.26, 10.11, 10.12,
+  10.13** numaralarıyla atıldı. Dilim D'nin frontend'i bu yüzden FE 10.14'ten devam ediyor.
+- **10.79b kararı hâlâ açık.**
+
+### 9.5 Dilim E — 1 Ekim 2026 (test denetiminin kalan dosyaları · `composer check` 473/473)
+
+**Commit'ler:**
+
+| Adım | Başlık |
+|---|---|
+| 10.47 | `10.47 - test(public): Prove each invitation has its own cache entry` |
+| 10.48 | `10.48 - test(invitations): Prove every field reaches its column and the list order` |
+| 10.49 | `10.49 - test(paywall): Hard-code the published prices and module tiers` |
+| 10.50 | `10.50 - test(media): Validate real bytes, not the client's MIME claim` |
+| 10.51 | `10.51 - test(contact): Prove the hourly bucket with Turkish data` |
+| 10.52 | `10.52 - test(assistant): Pin the clock and assert exact retry hints` |
+| 10.53 | `10.53 - test(hardening): Prove HSTS is sent over HTTPS` |
+| 10.54 | `10.54 - docs(tests): Add the HardeningTest guide` |
+| 10.54b | `10.54b - test(schedule): Assert the overlap and one-server flags` |
+| — | `docs(phase10): Record the Dilim D and E progress, deviations and findings` (bu dosya + `TEST-DENETIMI`) |
+
+**Mutasyon özeti** (1 Ekim 2026, İsmail'in makinesi; tablolar kılavuzlarda):
+
+| Adım | Dosya | Mutasyon | Önce yeşil olan | Şimdi |
+|---|---|---|---|---|
+| 10.47 | PublicInvitationTest | 8 | 8 | 8 kırıldı |
+| 10.48 | InvitationTest | 16 | 15 | 16 kırıldı |
+| 10.49 | PaywallTest | 9 | 7 | 9 kırıldı |
+| 10.50 | MediaTest | 4 | 3 | 4 kırıldı |
+| 10.51 | ContactTest | 4 | 3 | 3 kırıldı · **1 eşdeğer** |
+| 10.52 | AssistantTest | 4 | 4 | 4 kırıldı |
+| 10.53 | HardeningTest | 4 (+ Faz 9'un 7'si yeniden) | 3 | 11 kırıldı |
+| 10.54b | MaintenanceTest | 3 | 3 | 3 kırıldı |
+
+**Sapmalar ve eklemeler:**
+
+| # | Adım | Plan ne diyordu | Ne yapıldı | Neden |
+|---|---|---|---|---|
+| S38 | 10.47 | Dört mutant | + `subtitle`, `palette` · + LCV ayarlarının **varlık** testi (T6) | Yokluk testi tek başına koşulu `if (false)` yapan mutantı öldürmez |
+| S39 | 10.48 | Eşleme · sıralama · oyuncak veri | + `null_clears_a_field_and_absence_leaves_it` | `array_key_exists` → `isset` mutantı da yeşildi (kodda gerekçesi yazılıydı, testi yoktu) |
+| S40 | 10.49 | *"Sabit 24900"* | Elit testi **54900** + üç planın fiyatı veri sağlayıcıyla (24900 · 39900 · 54900) + altı modülün planı | 24900 Standart'ın fiyatı; sınanan sipariş Elit'ti. Modül haritası bir bütün olarak kilitlendi |
+| S41 | 10.50 | PHP-as-JPG · SVG · polyglot | + **misafirin PHP "videosu"** | `mimetypes:` silinince fotoğraf testleri `dimensions` yüzünden yine 422 aldı. Videoda piksel sınırı yok; mutant altında kimliksiz misafir `.mp4` adıyla PHP kodu yükleyebiliyordu (201) |
+| S42 | 10.51 | Saatlik kova · NUL · Türkçe | NUL **eklenmedi** · + karakter/bayt sınırı testi | NUL 10.20'den beri `MalformedInputTest`'te bütün rota gruplarında. Saatlik ve dakikalık anahtar aynı yazılsa Laravel `fallbackKey()` ile ayırıyor: eşdeğer mutant |
+| S43 | 10.53 | `HardeningTest` | + `SecurityHeaders.md`'deki *"yalnızca elle doğrulanır"* cümlesi düzeltildi | Yanlıştı; aynı adımda düzeltilmesi gereken belge |
+| S44 | 10.54 | `HardeningTest.md` · `MaintenanceTest.md` | Yalnızca `HardeningTest.md`; Faz 9'un mutasyonları yeniden koşturuldu | `MaintenanceTest.md` 10.5'te yazılmıştı |
+
+**Yeni bulgular:**
+
+- **Windows Defender** web-shell'e benzeyen test yüklerini (`system($_GET…)`) karantinaya alıyor; test 500
+  görüyordu. Yük zararsız bir `echo`'ya çevrildi (`MediaTest.md` → Faz 10). Üretimde bir AV yüklenen
+  dosyayı doğrulama sırasında silerse kullanıcı 500 görür.
+- **Mutasyon koşucusu:** filtre `Tests\Feature\X` biçiminde verilince Windows kabuğunda **0 test** koştu ve
+  sonuç `0/0` göründü (denetim §4'ün uyarısı). Sıfır testli bir sonuç *"öldü"* değil *"ölçülmedi"*dir.
+- **CORS varsayılanı** `http://localhost:5173`, `FRONTEND_URL` varsayılanı `http://localhost:3000`. Geliştirmede
+  Vite API'yi proxy'lediği için CORS devreye girmiyor; üretimde `CORS_ALLOWED_ORIGINS` mutlaka yazılmalı.

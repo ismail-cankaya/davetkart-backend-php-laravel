@@ -43,15 +43,15 @@ asistan kotası gün sınırı UTC (bilinen açık karar #4).
 | Dosya | Hayatta kalan mutantlar (kanıtlı) | Öncelik | Durum |
 |---|---|---|---|
 | **RsvpTest** | 18/34 → **0/34** | — | ✅ Yeniden yazıldı (46 metot, 86 vaka, 7 kırmızı = K-2/K-5/K-6/K-7) |
-| **InvitationTest** | İstek eşlemesinden `names`, `venue`+`mapUrl`, `iban`/`bankName`/`accountHolder`, `showGift` düşürülünce hepsi yeşil; liste sıralaması; K-1 hiç sınanmıyor; oyuncak veri (`Dugunumuz`) | 🔴 1 | 🟡 K-1 PaywallTest'te (10.2) · K-7/K-8 §11'de (10.19) · istek eşlemesi, sıralama, oyuncak veri → Dilim E **10.48** |
-| **PublicInvitationTest** | 🔴 Cache anahtarından `id` çıkarılınca (tüm davetiyeler tek cache girdisi = çiftler arası sızıntı) yeşil; `names`/`venue`/`mapUrl` boş dönse yeşil; `date` ISO'ya dönse yeşil; `show_rsvp=false` iken `rsvpDeadline`/`askMenuPreference` sızsa yeşil (C6) | 🔴 2 | ⬜ |
-| **PaywallTest** | `SubscriptionTier::price()` → `1` yeşil (beklenen değer aynı fonksiyonla hesaplanıyor); `currency` → `USD` yeşil; `show_envelope` Gold→Standart yeşil; K-1, K-4 yok | 🔴 3 | ⬜ |
+| **InvitationTest** | İstek eşlemesinden `names`, `venue`+`mapUrl`, `iban`/`bankName`/`accountHolder`, `showGift` düşürülünce hepsi yeşil; liste sıralaması; K-1 hiç sınanmıyor; oyuncak veri (`Dugunumuz`) | 🔴 1 | ✅ K-1 PaywallTest'te (10.2) · K-7/K-8 §11'de (10.19) · Faz 10 · **10.48**: istek eşlemesi (13 alan, veritabanından), `null` temizleme, sıralama, Türkçe veri |
+| **PublicInvitationTest** | 🔴 Cache anahtarından `id` çıkarılınca (tüm davetiyeler tek cache girdisi = çiftler arası sızıntı) yeşil; `names`/`venue`/`mapUrl` boş dönse yeşil; `date` ISO'ya dönse yeşil; `show_rsvp=false` iken `rsvpDeadline`/`askMenuPreference` sızsa yeşil (C6) | 🔴 2 | ✅ Faz 10 · **10.47** (8/8 mutant) |
+| **PaywallTest** | `SubscriptionTier::price()` → `1` yeşil (beklenen değer aynı fonksiyonla hesaplanıyor); `currency` → `USD` yeşil; `show_envelope` Gold→Standart yeşil; K-1, K-4 yok | 🔴 3 | ✅ Faz 10 · K-1 (10.2) · K-4 (10.7) · **10.49**: fiyatlar ve modül haritası sabit (9/9) |
 | **AuthTest** | K-3; NUL; iki testte `actingAs()` (T10 ihlali); ASCII isimler; 429 başlığı | 🟠 4 | ✅ Faz 10: K-3 (10.15) · `actingAs()` → `withToken()` (10.11) · Türkçe adlar (10.15) · NUL ve 429 başlığı `MalformedInputTest`'te (10.20) · + token ömrü (10.11) |
-| **MediaTest** | Güçlü (LCV medyası mutantları öldü). İçerikten MIME doğrulaması yalnızca `UploadedFile::fake()` ile — sahte dosya bildirilen MIME'ı raporlar, `getClientMimeType()` mutantı yeşil. Gerçek baytlı dosyayla (PHP-as-JPG, SVG, polyglot) otomatik test mümkün | 🟡 5 | ⬜ |
-| **ContactTest** | Saatlik kova silinince yeşil; NUL; Türkçe veri | 🟡 6 | ⬜ |
-| **AssistantTest** | `retryAfter` yalnızca `assertIsInt` → sabit `1` dönse yeşil (travelTo ile sabitlenebilir); oyuncak istemler | 🟡 7 | ⬜ |
-| **HardeningTest** | HSTS "yalnızca elle doğrulanır" deniyor — `https://localhost` ile otomatik test edilebiliyor; HSTS bloğu silinince yeşil | 🟡 8 | ⬜ |
-| MaintenanceTest · OptimizeUploadedImageTest · HealthTest · LocalServerEnvironmentTest · OrderScopeTest | Yüzeysel incelendi; örneklenen mutantlar öldü. Tam denetim yapılmadı | 🟢 | ⬜ |
+| **MediaTest** | Güçlü (LCV medyası mutantları öldü). İçerikten MIME doğrulaması yalnızca `UploadedFile::fake()` ile — sahte dosya bildirilen MIME'ı raporlar, `getClientMimeType()` mutantı yeşil. Gerçek baytlı dosyayla (PHP-as-JPG, SVG, polyglot) otomatik test mümkün | 🟡 5 | ✅ Faz 10 · **10.50**: gerçek baytlı beş test; videoda `mimetypes:` tek savunmaydı |
+| **ContactTest** | Saatlik kova silinince yeşil; NUL; Türkçe veri | 🟡 6 | ✅ Faz 10 · **10.51** (NUL 10.20'de `MalformedInputTest`'te) · anahtar mutantı eşdeğer |
+| **AssistantTest** | `retryAfter` yalnızca `assertIsInt` → sabit `1` dönse yeşil (travelTo ile sabitlenebilir); oyuncak istemler | 🟡 7 | ✅ Faz 10 · **10.52** (`retryAfter` 4/4) · oyuncak istemler kaldı |
+| **HardeningTest** | HSTS "yalnızca elle doğrulanır" deniyor — `https://localhost` ile otomatik test edilebiliyor; HSTS bloğu silinince yeşil | 🟡 8 | ✅ Faz 10 · **10.53** · kılavuz **10.54** |
+| MaintenanceTest · OptimizeUploadedImageTest · HealthTest · LocalServerEnvironmentTest · OrderScopeTest | Yüzeysel incelendi; örneklenen mutantlar öldü. Tam denetim yapılmadı | 🟢 | 🟡 MaintenanceTest: boş yeşil (`mutexName()`) bulundu ve düzeltildi, Faz 10 · **10.54b** · diğerleri ⬜ |
 
 ---
 
