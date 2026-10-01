@@ -55,6 +55,13 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('/me', [AuthController::class, 'me'])->name('me');
+
+        // Faz 10 (10.40): hesabi sil (K97). Parola onayi istedigi icin bir
+        // TAHMIN hedefi: calinmis bir token'la parola denenmesin diye
+        // throttle:auth (IP basina 20/dk, govdede e-posta yok -> 'anonim'|IP 5/dk).
+        Route::delete('/me', [AuthController::class, 'destroy'])
+            ->middleware('throttle:auth')
+            ->name('destroy');
     });
 });
 

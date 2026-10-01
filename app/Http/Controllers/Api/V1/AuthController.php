@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Auth\DeleteAccountAction;
 use App\Actions\Auth\LoginUserAction;
 use App\Actions\Auth\RegisterUserAction;
 use App\Actions\Auth\ResetPasswordAction;
 use App\Actions\Auth\RevokeTokenAction;
 use App\Actions\Auth\SendPasswordResetLinkAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\DeleteAccountRequest;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
@@ -72,6 +74,21 @@ final class AuthController extends Controller
         $credentials = $request->credentials();
 
         $action->handle($credentials['email'], $credentials['token'], $credentials['password']);
+
+        return response()->noContent();
+    }
+
+    /**
+     * Faz 10 (10.40): hesabi sil (K97). Parola onayi DeleteAccountRequest'te
+     * (`current_password`). Basarida 204: token'lar da gittigi icin istemcinin
+     * sonraki istegi 401 alir ve oturum duser.
+     */
+    public function destroy(DeleteAccountRequest $request, DeleteAccountAction $action): Response
+    {
+        /** @var User $user auth:sanctum burada null OLAMAYACAGINI garanti eder. */
+        $user = $request->user();
+
+        $action->handle($user);
 
         return response()->noContent();
     }

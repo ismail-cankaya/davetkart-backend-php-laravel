@@ -352,3 +352,17 @@ gitmediğini yanıt **söyleyemez**, söylememeli de (enumeration).
 kullanılmıyor, yanıt token taşımıyor. Gerekçe: [`ResetPasswordAction.md`](../../../../Actions/Auth/ResetPasswordAction.md) §2.
 
 İki uç da yönlendirme yapıyor, iş kuralı taşımıyor (CLAUDE.md §1).
+
+## 🆕 Faz 10 eklemesi — hesap silme ucu (10.40)
+
+| Metot | Uç | Yanıt |
+|---|---|---|
+| `destroy` | `DELETE /api/auth/me` | **204** · yanlış parola: 422 `current_password` |
+
+Gövde `{ "password": "…" }`. Parola onayı `DeleteAccountRequest`'te, silme işi
+`DeleteAccountAction`'da. Controller yalnızca yönlendiriyor. Başarıdan sonra
+kullanıcının bütün token'ları silindiği için istemcinin bir sonraki isteği 401 alır.
+
+**Neden `DELETE /auth/me`?** Kaynak *"oturumun sahibi olan hesap"*: `GET /auth/me`
+onu okuyor, `DELETE /auth/me` onu siliyor. Kimlik URL'de değil token'da, yani başka
+bir hesabı hedeflemek yapısal olarak mümkün değil (IDOR yok, Policy gerekmiyor).

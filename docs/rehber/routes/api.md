@@ -966,3 +966,16 @@ olmaları onları misafir ucu yapmıyor.
 ⚠️ Mutasyonla kanıtlandı (`PasswordResetTest`, M7): `forgot-password` grubun
 **dışına** taşınınca yalnızca hız sınırı testi kırılıyor. Rotanın yeri bir güvenlik
 kararı, düzen tercihi değil.
+
+### Hesap silme (10.40)
+
+```php
+Route::delete('/me', [AuthController::class, 'destroy'])
+    ->middleware('throttle:auth')
+    ->name('destroy');
+```
+
+`auth:sanctum` grubunda (kimlik şart) **ve** `throttle:auth` altında. Kimlikli uçların
+çoğunda auth sınırı yok (`AuthTest`'in kapsam testi bunu korur), çünkü onlar kimlik
+bilgisi kabul etmiyor. Bu uç ise parola alıyor: çalınmış bir token'la parola tahmini
+bir tehdit. Gövdede e-posta olmadığı için kova `anonim|IP` (5/dk) ve IP (20/dk).
