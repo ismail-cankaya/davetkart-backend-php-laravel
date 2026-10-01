@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Enums\OrderStatus;
+use App\Models\ContactMessage;
+use App\Models\Invitation;
 use App\Models\Media;
 use App\Models\Order;
 use App\Models\Rsvp;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
 use DateTimeInterface;
 use Illuminate\Console\Command;
@@ -44,6 +47,12 @@ final class MaintenanceTest extends TestCase
     private const LEGACY_DOTTED_I = "i\u{0307}smail.cankaya@gmail.com";
 
     private const CANONICAL = 'ismail.cankaya@gmail.com';
+
+    /**
+     * `data:purge` testlerinin sabit "simdi"si. Sinirlar buna gore yazildi:
+     * 30 gun -> 2026-09-01 · 6 ay -> 2026-04-01 · 12 ay -> 2025-10-01.
+     */
+    private const PURGE_NOW = '2026-10-01 12:00:00';
 
     /**
      * 🔴 Storage::fake() GERCEK diski hic gormez (Faz 6'nin storage:link dersi).
@@ -423,6 +432,137 @@ final class MaintenanceTest extends TestCase
         return $token;
     }
 
+    // ------------------------------------------------ data:purge (10.43)
+
+    /**
+     * Cop kutusu: 30 gun (K98). Sinirin iki yani — 31 gun once silinen
+     * kalici gider (dosyasiyla), 29 gun once silinen hala geri getirilebilir.
+     */
+    #[Test]
+    public function a_trashed_invitation_is_purged_with_its_files_after_thirty_days(): void
+    {
+        $this->travelTo(CarbonImmutable::parse(self::PURGE_NOW, 'UTC'));
+
+        $expired = $this->trashedInvitationAt('2026-08-31 12:00:00'); // 31 gun
+        $recent = $this->trashedInvitationAt('2026-09-02 12:00:00');  // 29 gun
+        $photo = $this->mediaWithFile(Media::factory()->for($expired)->createOne());
+
+        $this->runCommand('data:purge');
+
+        $this->assertSame(0, Invitation::withTrashed()->whereKey($expired->id)->count());
+        Storage::disk(Config::string('davetkart.media.disk'))->assertMissing($photo->path);
+        $this->assertTrue(Invitation::onlyTrashed()->whereKey($recent->id)->exists());
+    }
+
+    /** 🔴 Cop kutusunda OLMAYAN davetiye, ne kadar eski olursa olsun silinmez. */
+    #[Test]
+    public function a_live_invitation_is_never_purged(): void
+    {
+        $this->travelTo(CarbonImmutable::parse(self::PURGE_NOW, 'UTC'));
+        $live = Invitation::factory()->create(['created_at' => '2024-01-01 00:00:00']);
+
+        $this->runCommand('data:purge');
+
+        $this->assertModelExists($live);
+    }
+
+    /**
+     * Misafir verisi: etkinlikten 6 ay sonra. Yalnizca MISAFIRDEN toplanan
+     * gider (LCV + LCV medyasi); davetiye ve sahibinin galerisi kalir.
+     */
+    #[Test]
+    public function guest_data_is_purged_six_months_after_the_event(): void
+    {
+        $this->travelTo(CarbonImmutable::parse(self::PURGE_NOW, 'UTC'));
+        $disk = Storage::disk(Config::string('davetkart.media.disk'));
+
+        $old = Invitation::factory()->create(['event_at' => '2026-03-31 19:00:00']);    // 6 ay + 1 gun
+        $recent = Invitation::factory()->create(['event_at' => '2026-04-02 19:00:00']); // 6 ay - 1 gun
+        $undated = Invitation::factory()->create(['event_at' => null]);
+
+        $guestPhoto = $this->mediaWithFile(Media::factory()->rsvpPhoto()->for($old)->createOne());
+        $gallery = $this->mediaWithFile(Media::factory()->for($old)->createOne());
+        $oldRsvp = Rsvp::factory()->for($old)->create(['photo_media_id' => $guestPhoto->id]);
+        $recentRsvp = Rsvp::factory()->for($recent)->create();
+        $undatedRsvp = Rsvp::factory()->for($undated)->create();
+
+        $this->runCommand('data:purge');
+
+        $this->assertModelMissing($oldRsvp);
+        $this->assertModelMissing($guestPhoto);
+        $disk->assertMissing($guestPhoto->path);
+
+        // Sahibin verisi KALIR
+        $this->assertModelExists($old);
+        $this->assertModelExists($gallery);
+        $disk->assertExists($gallery->path);
+
+        // Sinirin oteki yani ve tarihsiz davetiye (N4)
+        $this->assertModelExists($recentRsvp);
+        $this->assertModelExists($undatedRsvp);
+    }
+
+    /** Iletisim mesaji: 12 ay. */
+    #[Test]
+    public function contact_messages_are_purged_after_twelve_months(): void
+    {
+        $this->travelTo(CarbonImmutable::parse(self::PURGE_NOW, 'UTC'));
+
+        $old = ContactMessage::factory()->create(['created_at' => '2025-09-30 12:00:00']);
+        $recent = ContactMessage::factory()->create(['created_at' => '2025-10-02 12:00:00']);
+
+        $this->runCommand('data:purge');
+
+        $this->assertModelMissing($old);
+        $this->assertModelExists($recent);
+    }
+
+    /** 🔴 Muhasebe kaydina DOKUNULMAZ: kalici silinen davetiyenin siparisi kalir (K82). */
+    #[Test]
+    public function orders_survive_the_purge(): void
+    {
+        $this->travelTo(CarbonImmutable::parse(self::PURGE_NOW, 'UTC'));
+
+        $expired = $this->trashedInvitationAt('2026-08-01 12:00:00');
+        $order = Order::factory()->forInvitation($expired)->paid()->create();
+
+        $this->runCommand('data:purge');
+
+        $this->assertModelExists($order);
+        $this->assertNull($order->refresh()->invitation_id);
+        $this->assertSame(OrderStatus::Paid, $order->status);
+    }
+
+    #[Test]
+    public function the_purge_dry_run_counts_but_deletes_nothing(): void
+    {
+        $this->travelTo(CarbonImmutable::parse(self::PURGE_NOW, 'UTC'));
+
+        $expired = $this->trashedInvitationAt('2026-08-01 12:00:00');
+        $message = ContactMessage::factory()->create(['created_at' => '2025-01-01 12:00:00']);
+
+        $this->runCommand('data:purge', ['--dry-run' => true]);
+
+        $this->assertTrue(Invitation::onlyTrashed()->whereKey($expired->id)->exists());
+        $this->assertModelExists($message);
+        $this->assertStringContainsString('1 davetiye kalici silindi (yazilmadi)', Artisan::output());
+    }
+
+    private function trashedInvitationAt(string $deletedAtUtc): Invitation
+    {
+        $invitation = Invitation::factory()->create();
+        $invitation->forceFill(['deleted_at' => $deletedAtUtc])->save();
+
+        return $invitation;
+    }
+
+    private function mediaWithFile(Media $media): Media
+    {
+        Storage::disk(Config::string('davetkart.media.disk'))->put($media->path, 'sahte-icerik');
+
+        return $media;
+    }
+
     // ------------------------------------------------------ ZAMANLAYICI (9.11)
 
     /**
@@ -454,6 +594,7 @@ final class MaintenanceTest extends TestCase
         $this->assertStringContainsString('orders:expire', $scheduled);
         $this->assertStringContainsString('media:prune-orphans', $scheduled);
         $this->assertStringContainsString('sanctum:prune-expired', $scheduled);
+        $this->assertStringContainsString('data:purge', $scheduled);
     }
 
     /**
@@ -473,6 +614,7 @@ final class MaintenanceTest extends TestCase
         $this->assertSame('0 * * * *', $this->expressionFor($expressions, 'orders:expire'));
         $this->assertSame('15 3 * * *', $this->expressionFor($expressions, 'media:prune-orphans'));
         $this->assertSame('0 0 * * *', $this->expressionFor($expressions, 'sanctum:prune-expired'));
+        $this->assertSame('45 3 * * *', $this->expressionFor($expressions, 'data:purge'));
     }
 
     /**

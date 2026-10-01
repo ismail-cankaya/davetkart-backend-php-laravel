@@ -4,7 +4,7 @@
 > **Faz:** 9 — Üretim hazırlığı, dosyalar 9.9 · 9.10 · 9.11 · 🆕 **Faz 10**, adım 10.5 (§5.1) · adım 10.11 (§6b) · adım 10.14 (§6c)
 > **Kılavuz yazımı:** 25 Eylül 2026 — **K18 borcu** (dosya Faz 9'da kılavuzsuz eklenmişti;
 > plan 10.54'ün yarısı burada kapandı, `HardeningTest.md` hâlâ bekliyor)
-> **Test sayısı:** 21 · **Test edilenler:** [`ExpireStaleOrders.md`](../../app/Console/Commands/ExpireStaleOrders.md) ·
+> **Test sayısı:** 27 · **Test edilenler:** [`ExpireStaleOrders.md`](../../app/Console/Commands/ExpireStaleOrders.md) ·
 > [`PruneOrphanMedia.md`](../../app/Console/Commands/PruneOrphanMedia.md) · [`routes/console.md`](../../routes/console.md) ·
 > `sanctum:prune-expired` (Laravel'in komutu, [`config/sanctum.md`](../../config/sanctum.md)) ·
 > [`NormalizeUserEmails.md`](../../app/Console/Commands/NormalizeUserEmails.md)
@@ -80,6 +80,7 @@ doğrulamayla görülür.
 | `media:prune-orphans` | 7 | [`PruneOrphanMedia`](../../app/Console/Commands/PruneOrphanMedia.md) |
 | 🆕 `sanctum:prune-expired` | 1 | Laravel'in komutu + bizim config'imiz + zamanlayıcıdaki argüman (§6b) |
 | 🆕 `users:normalize-emails` | 5 | [`NormalizeUserEmails`](../../app/Console/Commands/NormalizeUserEmails.md) (§6c) |
+| 🆕 `data:purge` | 6 | [`PurgeExpiredData`](../../app/Console/Commands/PurgeExpiredData.md) (§6e) |
 | Zamanlayıcı | 3 | [`routes/console.php`](../../routes/console.md) |
 
 ---
@@ -269,6 +270,36 @@ olurdu). Görünmez karakterle çalışırken **baytlara bak**.
 
 ---
 
+## 6e. 🆕 `data:purge` (Faz 10, 10.45 · K98)
+
+Saklama süresi dolan kişisel veriyi silen gece işi. Bütün testler aynı sabit
+"şimdi"yi kullanıyor (`PURGE_NOW = 2026-10-01 12:00 UTC`); sınırlar ona göre **elle**
+yazıldı:
+
+| Süre | Sınır | Silinen (sınırın öbür yanı) | Kalan |
+|---|---|---|---|
+| Çöp kutusu 30 gün | 2026-09-01 | 2026-08-31'de silinen | 2026-09-02'de silinen |
+| Misafir verisi 6 ay | 2026-04-01 | 2026-03-31'deki etkinlik | 2026-04-02'deki etkinlik |
+| İletişim 12 ay | 2025-10-01 | 2025-09-30'daki mesaj | 2025-10-02'deki mesaj |
+
+**Sınırlar neden sabit yazıldı?** Config'ten hesaplansaydı (`now()->subDays(config(…))`)
+süre değiştiğinde beklenen değer de değişir ve test yeşil kalırdı: test fonksiyonu
+kendisiyle karşılaştırmış olurdu (Dilim E 10.49'un `PaywallTest`'te bulduğu hata).
+Süreler kullanıcıya verilmiş bir söz; değişirse bu testler **bilerek** kırılmalı
+(mutasyon M6–M8).
+
+| Test | Soru | Kanıt |
+|---|---|---|
+| `a_trashed_invitation_is_purged_with_its_files_after_thirty_days` | 1 · 3 | 31 günlük gitti, **dosyası** da · 29 günlük çöp kutusunda |
+| `a_live_invitation_is_never_purged` | 2 | 2024'te açılmış canlı davetiye yerinde |
+| 🔴 `guest_data_is_purged_six_months_after_the_event` | 1 · 2 · 3 | LCV ve misafir fotoğrafı (dosyasıyla) gitti · davetiye ve **galeri** yerinde · sınırın öbür yanı ve tarihsiz davetiye yerinde |
+| `contact_messages_are_purged_after_twelve_months` | 1 · 3 | |
+| 🔴 `orders_survive_the_purge` | 2 | Kalıcı silinen davetiyenin siparişi kaldı (`invitation_id = NULL`, hâlâ `paid`) |
+| `the_purge_dry_run_counts_but_deletes_nothing` | 4 | Satırlar yerinde · çıktı *"1 davetiye kalıcı silindi (yazılmadı)"* |
+
+`trashedInvitationAt()`, çöp kutusuna atılma zamanını `forceFill(['deleted_at' => …])`
+ile geriye alıyor (`tokenIssuedAt()` ile aynı gerekçe: zamanı yalnızca test yazar).
+
 ## 7. Zamanlayıcı
 
 | Test | Neyi yakalar |
@@ -320,6 +351,23 @@ yazılsaydı bu mutasyon **hayatta kalırdı**.
 17. satır bilinen bir boşluk, eşdeğer mutant değil: koşul gerçek bir yarışı
 kapatıyor, ama o yarışı kuracak ikinci bir süreç testte yok.
 
+**Faz 10, 10.45 — `data:purge` (1 Ekim 2026, İsmail'in makinesi, PHP 8.5):**
+
+| # | Mutasyon (`PurgeExpiredData.php` · `config` · `routes/console.php`) | Kırılan |
+|---|---|---|
+| 21 | `onlyTrashed()` → `withTrashed()` | ⚪ **Hiçbiri: eşdeğer mutant.** Sorgu zaten `deleted_at < sınır` diye süzüyor; canlı davetiyenin `deleted_at`'i `NULL` ve hiçbir zaman eşleşmiyor |
+| 22 | Davetiye silinirken dosyalar silinmesin | çöp kutusu testi |
+| 23 | Galeri de misafir verisi sayılsın | misafir verisi testi |
+| 24 | Tarihsiz davetiye de "bitmiş" sayılsın | misafir verisi testi |
+| 25 | Misafir dosyası diskte kalsın | misafir verisi testi |
+| 26 | 30 → 28 gün | çöp kutusu testi |
+| 27 | 6 → 7 ay | misafir verisi testi |
+| 28 | 12 → 11 ay | iletişim testi |
+| 29 | `--dry-run` yazsın | dry-run testi |
+| 30 | Zamanlayıcıdan çıkarıldı | kayıt testi · sıklık testi |
+
+21. satıra rağmen `a_live_invitation_is_never_purged` duruyor: yarın biri süzgeci
+yanlış kolona (`created_at`) kurarsa canlı davetiyeler silinirdi ve o test kırılırdı.
 Dördüncü satır bir boşluk değil: mutasyon programın davranışını değiştirmiyor.
 Eşdeğer bir mutantı öldürecek test yazılamaz — ve yazılmaya çalışılmamalı.
 
@@ -364,7 +412,7 @@ burası). **B6**: bir savunmanın neyi kapatmadığı da yazılır.
 
 ```powershell
 php artisan test --filter=MaintenanceTest
-# 21 passed
+# 27 passed
 ```
 
 Mutasyon 13'ü elle dene: `routes/console.php`'de `--hours=24`'ü `--hours=720`
