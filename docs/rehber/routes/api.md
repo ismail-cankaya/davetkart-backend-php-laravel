@@ -944,3 +944,25 @@ Route::apiResource('orders', OrderController::class)
   yüz bayt. ETag'in kazandıracağı şey ölçülemeyecek kadar küçük.
 
 Ayrıntı: [`OrderController.md`](../app/Http/Controllers/Api/V1/OrderController.md).
+
+---
+
+## 🆕 Faz 10 eklemesi — parola sıfırlama (10.35)
+
+```php
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->name('password.forgot');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.reset');
+```
+
+İkisi de `auth` önekinin `throttle:auth` grubunda, `register` ve `login`'in yanında.
+Ortak noktaları: **kimliksiz** ve **e-posta alan** uçlar. Aynı kova (e-posta + IP
+başına 5/dk, IP başına 20/dk) üç tehdidi birden kesiyor: parola deneme, hesap tarama,
+mail bombalama.
+
+`/api/public/` öneki **yok**: K12'nin öneki misafire açık *içerik* uçları için
+(davetiye, LCV, iletişim). Kimlik uçları Faz 2'den beri `auth/` altında; kimliksiz
+olmaları onları misafir ucu yapmıyor.
+
+⚠️ Mutasyonla kanıtlandı (`PasswordResetTest`, M7): `forgot-password` grubun
+**dışına** taşınınca yalnızca hız sınırı testi kırılıyor. Rotanın yeri bir güvenlik
+kararı, düzen tercihi değil.

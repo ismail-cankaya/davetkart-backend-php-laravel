@@ -6,10 +6,14 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Auth\LoginUserAction;
 use App\Actions\Auth\RegisterUserAction;
+use App\Actions\Auth\ResetPasswordAction;
 use App\Actions\Auth\RevokeTokenAction;
+use App\Actions\Auth\SendPasswordResetLinkAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -46,6 +50,28 @@ final class AuthController extends Controller
         $user = $request->user();
 
         $action->handle($user);
+
+        return response()->noContent();
+    }
+
+    /**
+     * Faz 10 (10.35): sifirlama baglantisi iste. Hesap var olsa da olmasa da
+     * AYNI 202, govdesiz (enumeration yok, 08 §3.1). 202 = "istegin alindi,
+     * sonuc baska bir kanaldan (mail) gelecek".
+     */
+    public function forgotPassword(ForgotPasswordRequest $request, SendPasswordResetLinkAction $action): Response
+    {
+        $action->handle($request->normalizedEmail());
+
+        return response()->noContent(Response::HTTP_ACCEPTED);
+    }
+
+    /** Faz 10 (10.35): yeni parolayi kaydet. Basarida 204; yeni oturum ACILMAZ. */
+    public function resetPassword(ResetPasswordRequest $request, ResetPasswordAction $action): Response
+    {
+        $credentials = $request->credentials();
+
+        $action->handle($credentials['email'], $credentials['token'], $credentials['password']);
 
         return response()->noContent();
     }

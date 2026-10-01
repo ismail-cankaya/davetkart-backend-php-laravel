@@ -43,6 +43,12 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
     Route::middleware('throttle:auth')->group(function (): void {
         Route::post('/register', [AuthController::class, 'register'])->name('register');
         Route::post('/login', [AuthController::class, 'login'])->name('login');
+
+        // Faz 10 (10.35): parola sifirlama. Ayni kova (e-posta + IP basina
+        // 5/dk, IP basina 20/dk): ikisi de e-posta alan, kimliksiz uclar.
+        // forgot: hesap tarama / mail bombalama; reset: token deneme.
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->name('password.forgot');
+        Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.reset');
     });
 
     // Gecerli token gerektiren uclar: tehdit modeli farkli, throttle:auth YOK.

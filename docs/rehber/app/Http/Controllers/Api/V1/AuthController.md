@@ -334,3 +334,21 @@ curl.exe -X POST http://localhost:8000/api/auth/register `
 | Zarf politikası | `docs/03-MIMARI-PLAN.md` §4.2 · [`CLAUDE.md`](../../../../../../../CLAUDE.md) §2 |
 | Tek eylemli örnek | [`HealthController.md`](HealthController.md) |
 | Sıradaki dosya | `routes/api.php` (2.7) — 🎯 **ilk gerçek istek** |
+
+---
+
+## 🆕 Faz 10 eklemesi — parola sıfırlama uçları (10.35)
+
+| Metot | Uç | Yanıt |
+|---|---|---|
+| `forgotPassword` | `POST /api/auth/forgot-password` | **202**, gövdesiz. Hesap var da olsa yok da olsa aynı |
+| `resetPassword` | `POST /api/auth/reset-password` | **204**, gövdesiz · hata: 422 `PASSWORD_RESET_INVALID` |
+
+**Neden 202, 200 değil?** 202 = *"isteğin alındı, sonuç başka bir kanaldan
+gelecek"*. Sonuç (mail) kullanıcıya gelen kutusundan ulaşıyor ve gerçekten gidip
+gitmediğini yanıt **söyleyemez**, söylememeli de (enumeration).
+
+**Neden sıfırlama yeni bir oturum açmıyor?** `session()` yardımcısı burada
+kullanılmıyor, yanıt token taşımıyor. Gerekçe: [`ResetPasswordAction.md`](../../../../Actions/Auth/ResetPasswordAction.md) §2.
+
+İki uç da yönlendirme yapıyor, iş kuralı taşımıyor (CLAUDE.md §1).
