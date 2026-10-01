@@ -1,7 +1,7 @@
 # `app/Http/Resources/OrderResource.php`
 
 > **Kod dosyası:** `app/Http/Resources/OrderResource.php`
-> **Faz:** 7 — Ödeme ve paywall, dosya 7.13
+> **Faz:** 7 — Ödeme ve paywall, dosya 7.13 · 🆕 **Faz 10, adım 10.24** (dosyanın sonu)
 > **Sözleşme:** `davetkart-frontent/src/types.ts` → `CheckoutResult`
 
 ---
@@ -157,3 +157,51 @@ kırılmaz) bu fazda **kapatılmış** hâli.
 ## 8. Sırada ne var?
 
 **7.14 — Controller'lar.** İki uç, iki tehdit modeli.
+
+---
+
+## 🆕 Faz 10 eklemesi — `invitationId`, `createdAt`, `paidAt` (10.24)
+
+> **Kullanan:** `GET /api/orders` ve `GET /api/orders/{order}` ([`OrderController.md`](../Controllers/Api/V1/OrderController.md), 10.23) ·
+> checkout yanıtı (değişmedi, alanlar ek olarak geliyor)
+> **Test:** [`tests/Feature/OrderTest.md`](../../../tests/Feature/OrderTest.md)
+
+```json
+{
+  "orderId": "01j…", "tier": "gold", "status": "paid",
+  "invitationId": "01j…",
+  "createdAt": "2026-09-30T14:02:11+00:00",
+  "paidAt": "2026-09-30T14:03:40+00:00"
+}
+```
+
+| Alan | Neden şimdi | `null` ne demek |
+|---|---|---|
+| `invitationId` | Dönüş sayfası *"hangi davetiyeyi yayınlayabilirsin"* diyebilsin | Paket siparişi ya da serbest bırakılmış tekil sipariş (K82) |
+| `createdAt` | Liste sıralaması, *"ne zaman"* | — (her siparişte dolu) |
+| `paidAt` | *"Ödemen onaylandı"* ekranının tarihi | Henüz ödenmedi (`pending`, `failed`, `expired`) |
+
+### Faz 9'da neden yoktu?
+
+Bu dosyanın başındaki beyaz liste açıklaması `paid_at`'i *"sunum kararı; bugün
+hiçbir ekran okumuyor"* diye dışarıda bırakmıştı. Kural değişmedi, **şart** değişti:
+artık onu okuyan bir ekran var (10.27). Beyaz liste bir yasak listesi değil, *"şu an
+kim neye ihtiyaç duyuyor"* sorusunun cevabıdır.
+
+### Hâlâ dışarıda olanlar
+
+| Alan | Neden |
+|---|---|
+| `provider` / `provider_ref` | 🔴 Sağlayıcı iç kimliği, idempotans anahtarı. Test ham gövdede arıyor (10.25) |
+| `user_id` | İstemci zaten kendisi |
+| `amount_minor` / `currency` | Fiyatın tek kaynağı frontend kataloğu. Fatura ucu doğunca kendi Resource'u (C4) |
+| `expires_at` | Hiçbir ekran okumuyor |
+| `scope` | İç kural (`OrderScope`). `invitationId` dışarıya yeterince söylüyor |
+
+### `null` neden gönderiliyor? (C7 ile çelişmiyor mu?)
+
+§4'teki C7 kuralı: *"opsiyonel alan yoksa **hiç gitmez**"*. O kural `redirectUrl` gibi
+**bağlama göre var olan** alanlar içindi: sipariş listesinde bir ödeme bağlantısı
+kavramı yok, anahtar da yok. `paidAt` ise **her siparişin** alanıdır. `null`,
+*"henüz ödenmedi"* bilgisini taşır (N4); anahtarı düşürmek, frontend'e
+*"bu siparişte ödeme tarihi diye bir şey yok"* demek olurdu.

@@ -22,7 +22,14 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *                              gondermek, iki fiyatin ayrisabildigi bir ekran
  *                              uretirdi. Fatura ucu dogunca (Faz 9) o uc kendi
  *                              Resource'unu alir (C4)
- *   paid_at / expires_at     -> sunum kararlari; bugun hicbir ekran okumuyor
+ *   expires_at               -> sunum karari; hicbir ekran okumuyor
+ *   scope                    -> "paket mi tekil mi" invitationId'den okunabilir
+ *                              kadariyla yeterli; kapsam enum'u bir ic kural
+ *
+ * Faz 10 (10.24) ile EKLENENLER — odeme donus sayfasi ve siparis listesi icin:
+ *   invitationId -> hangi davetiyeye ait (null: paket ya da serbest birakilmis)
+ *   createdAt    -> listede siralama ve "ne zaman" sorusu
+ *   paidAt       -> "odendi" ekraninin tarihi (null: odenmedi)
  *
  * `redirectUrl` bir SIPARIS ALANI DEGIL: CheckoutResult DTO'sundan geliyor ve
  * yalnizca checkout yanitinda bulunuyor (E1 — turetilmis/gecici veri).
@@ -61,6 +68,14 @@ final class OrderResource extends JsonResource
             'orderId' => (string) $this->id,
             'tier' => $this->tier->value,
             'status' => $this->status->value,
+
+            // Faz 10 (10.24). Uc alan da HER ZAMAN var, degeri null olabilir:
+            // C7 yalnizca `redirectUrl` gibi baglama gore VAR OLAN alanlar
+            // icindir. Bunlar her siparisin alanlari; "yok" ile "henuz
+            // odenmedi" ayni sey degil (N4).
+            'invitationId' => $this->invitation_id,
+            'createdAt' => $this->created_at?->toIso8601String(),
+            'paidAt' => $this->paid_at?->toIso8601String(),
         ];
 
         // C7: opsiyonel alan YOKSA HIC GITMEZ; `null` gondermek
