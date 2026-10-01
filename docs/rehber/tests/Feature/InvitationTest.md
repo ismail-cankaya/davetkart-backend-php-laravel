@@ -424,3 +424,64 @@ yani hiçbir şey kanıtlamayan bir vaka yok.
 bir söz: değişirse bu test **bilerek** kırılmalı.
 
 Mutasyonlar: [`InvitationResource.md`](../../app/Http/Resources/InvitationResource.md) → *Faz 10 eklemesi*.
+
+---
+
+## 13. 🆕 Faz 10 (10.48): istek eşlemesi, sıralama, gerçekçi veri
+
+`TEST-DENETIMI` §2 bu dosyayı 🔴 birinci öncelik olarak işaretlemişti. K-1, K-7, K-8
+önceki adımlarda kapandı (PaywallTest §11, bu dosyanın §11'i). Kalan üç boşluk bu adımda
+kapandı; dosya 28 → 31 test.
+
+| Test | Hayatta kalan mutant (önce) |
+|---|---|
+| `store_maps_every_design_field_to_its_column` | `COLUMN_MAP`'ten `names`, `venue`, `mapUrl`, `bankName`, `accountHolder`, `iban`, `showGift` (ve 6 alan daha) silinse yeşil |
+| `null_clears_a_field_and_absence_leaves_it` | `array_key_exists` → `isset` yeşil (kodda gerekçesi yazılıydı, testi yoktu) |
+| `index_lists_the_most_recently_edited_first` | `latest('updated_at')` → `latest('created_at')` ya da `oldest()` yeşil |
+
+### 13.1 Neden haritadan silinen satır sessiz?
+
+`InvitationRequest::COLUMN_MAP` bir **beyaz liste** (C1): listede olmayan alan hata
+vermez, düşer. Bu, `phoneBackground` gibi türetilmiş alanlar için doğru davranış.
+Ama aynı davranış, yanlışlıkla silinen bir satırı da görünmez yapar. Kullanıcı mekânı
+yazar, otomatik kaydetme 200 döner, mekân hiçbir zaman kaydedilmez.
+
+Test **veritabanına** bakıyor. Yanıta bakmak yetmezdi: create akışında yanıt kaydedilen
+modelden üretilir; düşen alan yanıtta da olmaz ama bu, kontrol ettiğimiz şey değil.
+Hangi alanın hangi kolona gittiği sorusunun cevabı tabloda.
+
+`giftOptions` bu testte yok: `json` kolonunda PostgreSQL'in eşitlik operatörü yok.
+O alanı `integer_gift_options_are_saved_as_numbers` modelden okuyor.
+
+### 13.2 `null` ve yokluk farkı
+
+| İstek | Anlamı | Sonuç |
+|---|---|---|
+| `{"venue": null}` | *"Mekânı temizle"* | `venue = NULL` |
+| `venue` anahtarı yok | *"Mekâna dokunma"* | Değer kalır (`names` ile sınanıyor) |
+
+`isset($data['venue'])` `null` için `false` döner; kullanıcı bir alanı **temizleyemezdi**.
+
+### 13.3 Sıralama testinin kurgusu
+
+Oluşturma sırası, düzenleme sırasının **tersi**. Böylece iki yanlış uygulama birden elenir:
+`created_at`'e göre sıralama ve sıralamasız sorgu (PostgreSQL ekleme sırasını garanti
+etmez ama küçük tablolarda genellikle onu verir; sıralamasız bir sorgu bu testi oluşturma
+sırasıyla, yani ters sırayla döndürür).
+
+### 13.4 Oyuncak veri
+
+`payload()`'ın varsayılan başlığı `Dugunumuz` → `Düğünümüz`. Yeni testler `Ayşe & Çağrı`,
+`Çırağan Sarayı, Beşiktaş`, `Türkiye İş Bankası`: çok baytlı karakter, `İ`, `&`. ASCII
+veriyle geçen bir test, `İ` gibi bir karakterde kırılan kodu (K-3) göremezdi.
+
+### 13.5 Mutasyon kanıtı (1 Ekim 2026)
+
+16 mutasyon, 16'sı öldü; eski dosyaya karşı 15'i **yeşildi** (`mapUrl`'yi 10.19'un `a_web_map_url_is_saved`'i zaten yakalıyordu). Haritadan 13 satır (her biri `store_maps_…`'i kırıyor; `venue`
+ayrıca `null_clears_…`'i, `mapUrl` ayrıca `a_web_map_url_is_saved`'i) · `isset` ·
+`latest('created_at')` · `oldest('updated_at')`.
+
+> **Koşucu notu:** PHPUnit filtresi `Tests\Feature\InvitationTest` biçiminde verilince
+> Windows kabuğunda ters bölüler bozuldu ve **0 test** koştu; koşucu `0/0` yazdı. Denetimin
+> §4'teki uyarısının aynısı. Filtre `InvitationTest` yapıldı (PublicInvitationTest de
+> eşleşiyor, zararsız). Sayısı sıfır olan bir mutasyon sonucu *"öldü"* değil, *"ölçülmedi"*dir.

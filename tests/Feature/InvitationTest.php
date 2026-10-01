@@ -80,6 +80,39 @@ final class InvitationTest extends TestCase
             ->assertJsonCount(2, 'data.0.invitation.timelineEvents');
     }
 
+    /**
+     * Faz 10 (10.48): en son DUZENLENEN ustte.
+     *
+     * Olusturma sirasi duzenleme sirasinin TERSI kuruldu: `latest('created_at')`
+     * ya da siralamasiz sorgu (PostgreSQL ekleme sirasini garanti etmez ama
+     * genelde onu verir) bu testi gecemez.
+     */
+    #[Test]
+    public function index_lists_the_most_recently_edited_first(): void
+    {
+        $ayse = User::factory()->create();
+
+        $ilkOlusan = Invitation::factory()->for($ayse)->create([
+            'created_at' => '2026-09-01 10:00:00',
+            'updated_at' => '2026-09-30 10:00:00',
+        ]);
+        $ikinci = Invitation::factory()->for($ayse)->create([
+            'created_at' => '2026-09-02 10:00:00',
+            'updated_at' => '2026-09-20 10:00:00',
+        ]);
+        $sonOlusan = Invitation::factory()->for($ayse)->create([
+            'created_at' => '2026-09-03 10:00:00',
+            'updated_at' => '2026-09-10 10:00:00',
+        ]);
+
+        $ids = $this->withToken($this->tokenFor($ayse))
+            ->getJson(route('invitations.index'))
+            ->assertOk()
+            ->json('data.*.id');
+
+        $this->assertSame([$ilkOlusan->id, $ikinci->id, $sonOlusan->id], $ids);
+    }
+
     // --------------------------------------------------------- OLUSTURMA
 
     #[Test]
@@ -95,7 +128,7 @@ final class InvitationTest extends TestCase
             ]))
             ->assertCreated()
             ->assertJsonPath('data.status', InvitationStatus::Saved->value)
-            ->assertJsonPath('data.invitation.title', 'Dugunumuz')
+            ->assertJsonPath('data.invitation.title', 'Düğünümüz')
             ->assertJsonCount(1, 'data.invitation.timelineEvents');
 
         $this->assertDatabaseHas('invitations', [
@@ -145,6 +178,97 @@ final class InvitationTest extends TestCase
             ->assertJsonPath('error.code', ErrorCode::ValidationFailed->value);
 
         $this->assertArrayHasKey('invitation.categoryId', $response->json('error.fields'));
+    }
+
+    /**
+     * Faz 10 (10.48): her tasarim alani KENDI kolonuna yazilir.
+     *
+     * Denetimde (TEST-DENETIMI §2) COLUMN_MAP'ten `names`, `venue`, `mapUrl`,
+     * banka alanlari ve `showGift` silinse dosya yesil kaliyordu. Haritadan
+     * bir satir silinince alan sessizce DUSER (beyaz liste, C1) ve istek yine
+     * 201 doner. Iddia veritabanina bakar: yanit ayni Resource'tan gectigi
+     * icin tek basina kanit degil.
+     *
+     * `giftOptions` burada yok: json kolonunda esitlik operatoru yok;
+     * `integer_gift_options_are_saved_as_numbers` modelden okuyor.
+     */
+    #[Test]
+    public function store_maps_every_design_field_to_its_column(): void
+    {
+        $ayse = User::factory()->create();
+
+        $id = $this->withToken($this->tokenFor($ayse))
+            ->postJson(route('invitations.store'), $this->payload([
+                'subtitle' => 'Bu mutlu günümüzde sizi de aramızda görmek isteriz',
+                'names' => 'Ayşe & Çağrı',
+                'venue' => 'Çırağan Sarayı, Beşiktaş',
+                'mapUrl' => self::HARITA,
+                'date' => '2026-08-21T19:00',
+                'timezone' => 'Europe/Istanbul',
+                'showEnvelope' => true,
+                'showTimer' => true,
+                'showTimeline' => true,
+                'showGallery' => true,
+                'showGift' => true,
+                'showRSVP' => true,
+                'bankName' => 'Türkiye İş Bankası',
+                'accountHolder' => 'Ayşe Yılmaz',
+                'iban' => 'TR330006100519786457841326',
+                'rsvpDeadline' => '2026-08-01',
+                'askMenuPreference' => true,
+            ]))
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->assertDatabaseHas('invitations', [
+            'id' => $id,
+            'category_id' => 'dugun',
+            'preset_id' => 'moda-gece',
+            'palette' => 'midnight',
+            'title' => 'Düğünümüz',
+            'subtitle' => 'Bu mutlu günümüzde sizi de aramızda görmek isteriz',
+            'names' => 'Ayşe & Çağrı',
+            'venue' => 'Çırağan Sarayı, Beşiktaş',
+            'map_url' => self::HARITA,
+            'event_at' => '2026-08-21 19:00:00',
+            'timezone' => 'Europe/Istanbul',
+            'show_envelope' => true,
+            'show_timer' => true,
+            'show_timeline' => true,
+            'show_gallery' => true,
+            'show_gift' => true,
+            'show_rsvp' => true,
+            'bank_name' => 'Türkiye İş Bankası',
+            'account_holder' => 'Ayşe Yılmaz',
+            'iban' => 'TR330006100519786457841326',
+            'rsvp_deadline' => '2026-08-01',
+            'ask_menu_preference' => true,
+        ]);
+    }
+
+    /**
+     * Faz 10 (10.48): `null` alani TEMIZLER, yoklugu dokunmaz.
+     *
+     * `invitationAttributes()` `array_key_exists` kullaniyor; `isset`
+     * kullansaydi `null` gelen alan atlanir ve kullanici mekani silemezdi.
+     * Gerekce kodda yaziliydi, testi yoktu.
+     */
+    #[Test]
+    public function null_clears_a_field_and_absence_leaves_it(): void
+    {
+        $ayse = User::factory()->create();
+        $inv = Invitation::factory()->for($ayse)->create([
+            'venue' => 'Çırağan Sarayı',
+            'names' => 'Ayşe & Çağrı',
+        ]);
+
+        $this->withToken($this->tokenFor($ayse))
+            ->putJson(route('invitations.update', $inv), $this->payload(['venue' => null]))
+            ->assertOk();
+
+        $inv->refresh();
+        $this->assertNull($inv->venue);
+        $this->assertSame('Ayşe & Çağrı', $inv->names);
     }
 
     // ------------------------------------------------------- SAHIPLIK 🔴
@@ -562,7 +686,7 @@ final class InvitationTest extends TestCase
                 'categoryId' => 'dugun',
                 'imageTheme' => 'moda-gece',
                 'palette' => 'midnight',
-                'title' => 'Dugunumuz',
+                'title' => 'Düğünümüz',
             ], $overrides),
         ];
     }
