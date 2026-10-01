@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Notifications\ResetPasswordNotification;
 use App\Support\EmailNormalizer;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use SensitiveParameter;
 
 // Fiillable: Sadece bu alanlar değiştirilebilir.
 // Hidden: Bu alanlar JSON cevirmede gizlenir.
@@ -53,6 +55,21 @@ class User extends Authenticatable
             // Atama aninda varsayilan hash surucusuyle (Argon2id, K32) hash'lenir.
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Laravel'in parola araci sifirlama token'ini uretince bunu cagirir.
+     * Faz 10 (10.34): Laravel'in Ingilizce, `route('password.reset')` arayan
+     * bildirimi yerine bizimki: Turkce, kuyruktan, frontend'e giden bagla.
+     *
+     * Parametre tipsiz: CanResetPassword sozlesmesi tipsiz tanimliyor ve
+     * uygulayan sinif onu DARALTAMAZ (PHP bunu derleme aninda reddeder).
+     *
+     * @param  string  $token
+     */
+    public function sendPasswordResetNotification(#[SensitiveParameter] $token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 
     /**

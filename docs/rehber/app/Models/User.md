@@ -579,3 +579,27 @@ Ayrıntı: [`TimelineEvent.md`](TimelineEvent.md) §5.
 | Kod standartları | [`CLAUDE.md`](../../../../CLAUDE.md) §1, §3 |
 | Önceki faz özeti | [`fazlar/FAZ-1.md`](../../fazlar/FAZ-1.md) |
 | Sıradaki dosya | `database/factories/UserFactory.php` (2.2) |
+
+---
+
+## 🆕 Faz 10 eklemesi — `sendPasswordResetNotification()` (10.34)
+
+```php
+public function sendPasswordResetNotification(#[SensitiveParameter] $token): void
+{
+    $this->notify(new ResetPasswordNotification($token));
+}
+```
+
+Taban sınıfın (`Illuminate\Foundation\Auth\User`) `CanResetPassword` trait'i bu
+metodu zaten tanımlıyor ve Laravel'in İngilizce, `route('password.reset')` arayan
+bildirimini gönderiyor. Burada ezildi: Türkçe, kuyruktan, frontend'e giden bağlantıyla
+([`ResetPasswordNotification.md`](../Notifications/ResetPasswordNotification.md)).
+
+**Parametre neden tipsiz?** `CanResetPassword` sözleşmesi metodu
+`sendPasswordResetNotification($token)` diye tipsiz tanımlıyor. Uygulayan sınıf bir
+parametrenin tipini **daraltamaz** (`string $token` yazılsaydı PHP sınıfı yüklerken
+ölümcül hata verirdi: Liskov ilkesi). Tip `@param string` docblock'unda.
+
+`#[SensitiveParameter]`: bir istisna yığın izine düşerse token değeri log'a
+**yazılmaz**, `Object(SensitiveParameterValue)` olarak görünür.
