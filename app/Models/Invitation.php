@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\InvitationStatus;
 use App\Enums\MediaKind;
 use App\Events\InvitationChanged;
+use Carbon\CarbonImmutable;
 use Database\Factories\InvitationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -223,5 +224,23 @@ class Invitation extends Model
         }
 
         return collect($ordered);
+    }
+
+    /**
+     * Odenmis TEKIL siparisin hakkinin serbest birakilabilecegi son an (K82).
+     * `null` = davetiye hic yayinlanmadi; hak harcanmadi, pencere sorusu yok.
+     *
+     * 🔴 Kuralin TEK kaynagi (Faz 10, 10.21): DeleteInvitationAction silme
+     * aninda buna bakar, InvitationResource ayni degeri `releasableUntil`
+     * olarak sahibine gosterir. Frontend "3 gun"u kendisi hesaplasaydi,
+     * config degistiginde silme uyarisi ile gercek davranis sessizce
+     * ayrisirdi.
+     *
+     * Bir SURE, bir takvim gunu degil: saat dilimi girmez
+     * (DeleteInvitationAction kilavuzu, K71'in tersi).
+     */
+    public function releaseWindowEndsAt(): ?CarbonImmutable
+    {
+        return $this->published_at?->addDays(Config::integer('davetkart.orders.release_window_days'));
     }
 }

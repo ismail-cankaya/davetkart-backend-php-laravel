@@ -1,7 +1,7 @@
 # `app/Models/Invitation.php`
 
 > **Kod dosyası:** `app/Models/Invitation.php`
-> **Faz:** 3 — Invitation dilimi, dosya 3.4
+> **Faz:** 3 — Invitation dilimi, dosya 3.4 · 🆕 **Faz 10, adım 10.21** (`releaseWindowEndsAt()`, dosyanın sonu)
 > **Bağlantılı:** [`User.md`](User.md) · [`InvitationStatus.md`](../Enums/InvitationStatus.md)
 
 ---
@@ -715,3 +715,33 @@ davetiyenin dosyasına işaret edebilirdi. Kolon `array` cast'iyle okunur.
 Galeri yazan iki Action da `save()` çağırır → `updated` → `InvitationChanged` →
 `ClearInvitationCache`. §11'deki karar üçüncü kez karşılığını buldu: hiçbir
 medya Action'ı `Cache::forget()` çağırmıyor.
+
+---
+
+## 🆕 Faz 10 eklemesi — `releaseWindowEndsAt()` (10.21)
+
+```php
+public function releaseWindowEndsAt(): ?CarbonImmutable
+{
+    return $this->published_at?->addDays(Config::integer('davetkart.orders.release_window_days'));
+}
+```
+
+Ödenmiş tekil siparişin hakkının serbest bırakılabileceği **son an** (K82).
+`null`: davetiye hiç yayınlanmadı.
+
+**Neden modelde?** `Media::url()` ile aynı gerekçe (E1): bir kolon değil,
+kolonlardan ve config'ten **türetilen** bir değer, ve iki yer onu soruyor:
+
+- `DeleteInvitationAction::releaseWindowIsOpen()`: silme anında kuralı **uygular**
+- `InvitationResource` → `releasableUntil`: silmeden önce sahibine **gösterir**
+
+İkisi ayrı ayrı `addDays(...)` yazsaydı kural iki yerde olurdu (C3). Biri
+değişip öbürü unutulduğunda kullanıcıya gösterilen tarih ile gerçek davranış
+ayrışırdı ve hiçbir test bunu fark etmezdi.
+
+**Neden `?->`?** `published_at` `null` olabilir (taslak). Null-safe operatör
+`null` döndürür ve bu tam olarak doğru cevap: *"pencere yok, hak harcanmadı"*.
+
+**Saat dilimi yok:** bu bir **süre** hesabı (yayından 72 saat), takvim günü
+değil. Ayrıntı: [`DeleteInvitationAction.md`](../Actions/Invitation/DeleteInvitationAction.md) §3.

@@ -8,6 +8,7 @@ use App\Enums\ErrorCode;
 use App\Enums\InvitationStatus;
 use App\Models\Invitation;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -374,6 +375,55 @@ final class InvitationTest extends TestCase
         $this->assertArrayNotHasKey('invitationId', $data['invitation']['timelineEvents'][0]);
         $this->assertArrayNotHasKey('userId', $data['invitation']);
         $this->assertArrayNotHasKey('publishedAt', $data['invitation']);
+
+        // Faz 10 (10.21): ust duzeyin beyaz listesi. Sunucu ustverisi burada,
+        // tasarim `invitation` altinda; yeni bir alan ancak bu satir
+        // degistirilerek eklenebilir.
+        $this->assertSame(
+            ['id', 'status', 'updatedAt', 'publishedAt', 'releasableUntil', 'invitation'],
+            array_keys($data),
+        );
+    }
+
+    /**
+     * Faz 10 (10.21): sahibi yayin anini ve odenen hakkin serbest
+     * birakilabilecegi son ani gorur (silme uyarisi, frontend F7.2).
+     *
+     * Beklenen tarihler SABIT yaziliyor (Dilim E 10.49'un dersi): config'ten
+     * hesaplansaydi pencere 30 gune cikarilsa da test yesil kalirdi. 3 gun
+     * kullaniciya verilmis bir ticari soz; degisirse bu test bilerek kirilmali.
+     */
+    #[Test]
+    public function the_owner_sees_the_publish_time_and_the_release_deadline(): void
+    {
+        $ayse = User::factory()->create();
+        $inv = Invitation::factory()->for($ayse)->published()->create([
+            'published_at' => CarbonImmutable::parse('2026-09-20 10:00:00', 'UTC'),
+        ]);
+
+        $this->withToken($this->tokenFor($ayse))
+            ->getJson(route('invitations.show', $inv))
+            ->assertOk()
+            ->assertJsonPath('data.publishedAt', '2026-09-20T10:00:00+00:00')
+            ->assertJsonPath('data.releasableUntil', '2026-09-23T10:00:00+00:00');
+    }
+
+    /** T6: hic yayinlanmamis davetiyede ikisi de null — ama anahtarlar YINE var. */
+    #[Test]
+    public function an_unpublished_invitation_has_no_publish_time_or_deadline(): void
+    {
+        $ayse = User::factory()->create();
+        $inv = Invitation::factory()->for($ayse)->create();
+
+        $data = $this->withToken($this->tokenFor($ayse))
+            ->getJson(route('invitations.show', $inv))
+            ->assertOk()
+            ->json('data');
+
+        $this->assertArrayHasKey('publishedAt', $data);
+        $this->assertArrayHasKey('releasableUntil', $data);
+        $this->assertNull($data['publishedAt']);
+        $this->assertNull($data['releasableUntil']);
     }
 
     /** Hata, hangi program satirinin bozuk oldugunu SOYLEMELI. */

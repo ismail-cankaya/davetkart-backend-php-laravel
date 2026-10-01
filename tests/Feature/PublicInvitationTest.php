@@ -202,16 +202,27 @@ final class PublicInvitationTest extends TestCase
             ->assertJsonMissingPath('data.invitation.galleryImages');
     }
 
-    /** C5: misafirin isine yaramayan sunucu ustverisi gonderilmez. */
+    /**
+     * C5: misafirin isine yaramayan sunucu ustverisi gonderilmez.
+     *
+     * Faz 10 (10.21): sahibin Resource'una `publishedAt` ve `releasableUntil`
+     * eklendi. Ham govdede aranir: yol bazli iddia yalnizca baktigi yeri
+     * gorur, alan baska bir duzeyde sizsa da yesil kalirdi.
+     */
     #[Test]
     public function server_metadata_is_not_exposed(): void
     {
         $inv = $this->published();
 
-        $this->getJson($this->url($inv))
+        $response = $this->getJson($this->url($inv))
             ->assertOk()
             ->assertJsonMissingPath('data.status')
             ->assertJsonMissingPath('data.updatedAt');
+
+        $body = (string) $response->getContent();
+
+        $this->assertStringNotContainsString('publishedAt', $body);
+        $this->assertStringNotContainsString('releasableUntil', $body);
     }
 
     /**

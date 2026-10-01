@@ -172,6 +172,18 @@ sözleşmesini değiştirir ve K20 gereği yanıt metin taşıyamaz; doğru çö
 dilimin dışında. **B4** gereği kayda geçiyorum: bugün backend doğru davranıyor
 ama kullanıcıya **anlatmıyor**. `FAZ-9.md` §açık kararlar'a girecek.
 
+> 🟡 **Faz 10 (10.21) — silmeden ÖNCE kapandı, sonrası açık.** `InvitationResource`
+> artık `publishedAt` ve `releasableUntil` taşıyor. Frontend silme onayında
+> *"hakkınız 23 Eylül 10:00'a kadar serbest kalır"* ya da *"hakkınız yanacak"*
+> diyebiliyor (10.28). Silme **sonrası** için bir *"siparişlerim"* ucu Dilim C'de
+> geliyor (10.23). 204 yanıtı değişmedi.
+>
+> Kuralın kendisi de tek yere taşındı: `releaseWindowIsOpen()` artık tarihi
+> kendisi hesaplamıyor, `Invitation::releaseWindowEndsAt()`'e soruyor. Sahibine
+> gösterilen tarih ile burada uygulanan kural **aynı satır**. Mutasyonla
+> kanıtlandı: modelde pencere kaldırılınca hem bu Action'ın testi hem
+> `InvitationTest`'in tarih testi kırılıyor.
+
 ---
 
 ## 9. Sık yapılan hatalar
@@ -220,6 +232,8 @@ $o2->refresh()->invitation_id;             // 🔴 hâlâ $inv2->id — yandı
 ```
 
 **Mutasyon denemesi (T16):** `releaseWindowIsOpen()`'ı `return true;` yap.
+*(Faz 10'dan beri pencerenin sonu `Invitation::releaseWindowEndsAt()`'te; oradaki
+`addDays(...)`'ı kaldırmak da aynı testi kırar.)*
 A2.7'deki *"3 gün geçmiş davetiyenin hakkı yanar"* testi **kırmızıya
 dönmeli**.
 

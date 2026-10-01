@@ -13,7 +13,11 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *
  * Sunucu ustverisi burada, kullanicinin tasarimi `invitation` altinda.
  * Ayrim istek govdesiyle simetrik: { invitation: {...} } gonderilir,
- * { id, status, updatedAt, invitation: {...} } doner.
+ * { id, status, updatedAt, publishedAt, releasableUntil, invitation: {...} } doner.
+ *
+ * 🔴 YALNIZCA sahibin Resource'u. Public yanit (PublicInvitationResource)
+ * bu iki tarihi TASIMAZ (C5): misafirin bir davetiyenin ne zaman yayinlandigini
+ * ya da odemenin geri alinabilirligini bilmesi icin bir sebep yok.
  * Ayrintili aciklama: docs/rehber/app/Http/Resources/InvitationResource.md
  *
  * @mixin Invitation
@@ -29,6 +33,17 @@ final class InvitationResource extends JsonResource
             'id' => $this->id,
             'status' => $this->status->value,
             'updatedAt' => $this->updated_at?->toIso8601String(),
+
+            // Faz 10 (10.21): silme uyarisi (frontend F7.2) kesin tarih
+            // verebilsin. `updatedAt` vekil OLAMAZ: yayindan sonraki tek bir
+            // duzenleme onu tazeler ve kullaniciya yanlis guvence verirdi.
+            'publishedAt' => $this->published_at?->toIso8601String(),
+
+            // Bu andan ONCE silinirse tekil siparisin hakki serbest kalir,
+            // sonra silinirse yanar (K82). Kural modelde, burada yalnizca
+            // gosteriliyor; frontend "3 gun"u bilmek zorunda kalmiyor.
+            'releasableUntil' => $this->releaseWindowEndsAt()?->toIso8601String(),
+
             'invitation' => new InvitationPayloadResource($this->resource),
         ];
     }

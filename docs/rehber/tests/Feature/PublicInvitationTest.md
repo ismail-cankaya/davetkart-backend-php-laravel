@@ -480,3 +480,19 @@ dosyada duruyor). Orada iki iş var:
 
 Ardından faz kapanışı: `FAZ-4.md`, `FAZ-4-ELLE-DOGRULAMA.md` ve
 `PHP-LARAVEL-SETUP.md` güncellemesi.
+
+---
+
+## 🆕 Faz 10 (10.21): yeni sahip alanları sızmıyor
+
+`server_metadata_is_not_exposed` genişletildi. Sahibin Resource'una `publishedAt` ve
+`releasableUntil` eklendi. Public yanıtın **ham gövdesinde** ikisinin de geçmediği
+iddia ediliyor:
+
+```php
+$this->assertStringNotContainsString('publishedAt', $body);
+$this->assertStringNotContainsString('releasableUntil', $body);
+```
+
+Yol bazlı iddia (`assertJsonMissingPath('data.publishedAt')`) yalnızca baktığı
+yeri görür. Alan `data.invitation.publishedAt` altında sızsa yeşil kalırdı.

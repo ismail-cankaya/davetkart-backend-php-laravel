@@ -406,3 +406,21 @@ olduğunu kanıtlıyor (§3.2'deki kural).
 
 Her veri seti ayrı ayrı kırıldı: listede *"zaten başka bir sebeple reddedilen"*,
 yani hiçbir şey kanıtlamayan bir vaka yok.
+
+---
+
+## 12. 🆕 Faz 10 (10.21): `publishedAt` ve `releasableUntil`
+
+| Test | Ne kanıtlar |
+|---|---|
+| `response_matches_the_frontend_contract` (genişletildi) | Üst düzeyin **beyaz listesi**: `['id', 'status', 'updatedAt', 'publishedAt', 'releasableUntil', 'invitation']`. Yeni bir alan ancak bu satır değiştirilerek eklenebilir |
+| `the_owner_sees_the_publish_time_and_the_release_deadline` | `2026-09-20T10:00:00+00:00` → pencere `2026-09-23T10:00:00+00:00` |
+| `an_unpublished_invitation_has_no_publish_time_or_deadline` | T6: ikisi de `null`, ama anahtarlar **var** (frontend `undefined` ile `null`'ı ayırt etmek zorunda kalmıyor) |
+
+**Beklenen tarih neden sabit yazıldı?** Config'ten hesaplansaydı
+(`addDays(config(...))`) pencere 30 güne çıkarıldığında beklenen değer de 30 güne
+çıkar ve test yeşil kalırdı. Test fonksiyonu kendisiyle karşılaştırmış olurdu
+(Dilim E 10.49'un `PaywallTest`'te bulduğu hata). *"3 gün"* kullanıcıya verilmiş
+bir söz: değişirse bu test **bilerek** kırılmalı.
+
+Mutasyonlar: [`InvitationResource.md`](../../app/Http/Resources/InvitationResource.md) → *Faz 10 eklemesi*.

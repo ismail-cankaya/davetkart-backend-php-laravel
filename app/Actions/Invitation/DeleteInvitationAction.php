@@ -6,7 +6,6 @@ namespace App\Actions\Invitation;
 
 use App\Models\Invitation;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -82,14 +81,12 @@ final class DeleteInvitationAction
      */
     private function releaseWindowIsOpen(Invitation $invitation): bool
     {
-        // Hic yayinlanmadiysa hak zaten harcanmadi: kullanici odedi ama
-        // davetiye hic ortaya cikmadi. Pencere sorusu bile sorulmaz.
-        if ($invitation->published_at === null) {
-            return true;
-        }
+        // Pencerenin sonu modelde hesaplaniyor (Faz 10, 10.21): sahibine
+        // gosterilen `releasableUntil` ile BURADA uygulanan kural ayni satir.
+        $endsAt = $invitation->releaseWindowEndsAt();
 
-        return $invitation->published_at
-            ->addDays(Config::integer('davetkart.orders.release_window_days'))
-            ->isFuture();
+        // null: hic yayinlanmadi, hak zaten harcanmadi — kullanici odedi ama
+        // davetiye hic ortaya cikmadi. Pencere sorusu bile sorulmaz.
+        return $endsAt === null || $endsAt->isFuture();
     }
 }

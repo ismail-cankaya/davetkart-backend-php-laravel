@@ -1,7 +1,7 @@
 # `app/Http/Resources/InvitationResource.php`
 
 > **Kod dosyası:** `app/Http/Resources/InvitationResource.php`
-> **Faz:** 3 — Invitation dilimi, dosya 3.9 (1/3)
+> **Faz:** 3 — Invitation dilimi, dosya 3.9 (1/3) · 🆕 **Faz 10, adım 10.21** (dosyanın sonu)
 > **Kardeşleri:** [`InvitationPayloadResource.md`](InvitationPayloadResource.md) ·
 > [`TimelineEventResource.md`](TimelineEventResource.md)
 > **Bağlantılı:** [`UserResource.md`](UserResource.md) — Resource temelleri orada
@@ -186,3 +186,87 @@ yok — Resource döndürünce Laravel zaten ekler.
 [`InvitationPayloadResource.md`](InvitationPayloadResource.md) — 24 alanlık
 tasarım verisi, `phoneBackground` türetimi, iki tarih biçimi ve 🔴 **hediye
 verisinin neden burada maskelenmediği.**
+
+---
+
+## 🆕 Faz 10 eklemesi — `publishedAt` ve `releasableUntil` (10.21)
+
+> **Kaynak:** gözden geçirme raporu §2.1 · frontend F7.2 (`DashboardPage` silme uyarısı)
+> **Test:** `InvitationTest` → `the_owner_sees_the_publish_time_and_the_release_deadline` ·
+> `an_unpublished_invitation_has_no_publish_time_or_deadline` · `PublicInvitationTest` →
+> `server_metadata_is_not_exposed`
+
+```php
+'publishedAt'     => $this->published_at?->toIso8601String(),
+'releasableUntil' => $this->releaseWindowEndsAt()?->toIso8601String(),
+```
+
+```json
+{
+  "id": "01J…", "status": "published",
+  "updatedAt": "2026-09-21T08:12:00+00:00",
+  "publishedAt": "2026-09-20T10:00:00+00:00",
+  "releasableUntil": "2026-09-23T10:00:00+00:00",
+  "invitation": { … }
+}
+```
+
+### Neden ikisi de üst düzeyde?
+
+§1'deki ayrımın aynısı: sunucunun ürettiği **üstveri** üst düzeyde, kullanıcının
+**tasarımı** `invitation` altında. İstek gövdesi `{ invitation: {...} }` gönderiyor.
+Yayın zamanı `invitation` altında olsaydı, bir `PUT` onu geri gönderir ve sunucu
+yok saysa bile sözleşme *"bu alan yazılabilir"* izlenimi verirdi.
+
+### Neden `updatedAt` yetmiyordu?
+
+Frontend silme uyarısında *"yayından bu yana 3 gün geçti mi?"* sorusunu
+cevaplayamıyordu. `updatedAt` vekil **olamaz**: yayından sonraki tek bir düzenleme
+(ör. bir yazım düzeltmesi) onu tazeler ve kullanıcıya *"hakkınız serbest kalır"*
+diye **yanlış güvence** verirdi. Frontend bu yüzden iki olasılığı birden anlatıyordu.
+
+### Neden `releasableUntil` da? (plandan sapma)
+
+Plan (10.21) yalnızca `publishedAt` diyordu; frontend `publishedAt + 3 gün`ü
+kendisi hesaplayacaktı. Ama *"3 gün"* bir ticari söz ve `config/davetkart.php` →
+`orders.release_window_days`'te duruyor. O config'in yorumu bunu açıkça
+yasaklıyor: *"'kaç gün' sorusunun tek bir doğru cevabı var ve o cevap repoda."*
+Frontend'e ikinci bir `3` yazmak, config değiştiğinde uyarı ile gerçek davranışın
+**sessizce** ayrışması demek.
+
+Çözüm: pencerenin sonunu modelde bir kez hesaplamak
+(`Invitation::releaseWindowEndsAt()`, E1: türetilen değer) ve iki yerde kullanmak:
+
+| Kim | Ne için |
+|---|---|
+| `DeleteInvitationAction` | Silme anında **uygulamak** |
+| `InvitationResource` | Silmeden önce **göstermek** |
+
+| `releasableUntil` | Anlamı |
+|---|---|
+| `null` | Hiç yayınlanmadı: hak harcanmadı, silmek hakkı serbest bırakır |
+| Gelecekte bir an | O ana kadar silinirse hak serbest kalır |
+| Geçmişte bir an | Hak yanar |
+
+> **B6:** Alan **pencereyi** söyler, siparişin **türünü** değil. Davetiye bir
+> paket siparişiyle (`scope = account`) açılmışsa serbest bırakılacak tekil bir
+> sipariş yoktur (`OrderScope::isReleasable()`). Bugün frontend paket satın
+> almayı göstermiyor (10.58); paket açılırsa uyarının diline bu ayrım eklenmeli.
+
+### 🔴 Public yanıtta yok (C5)
+
+`PublicInvitationResource` ayrı bir sınıf ve bu iki alanı taşımıyor. Misafirin bir
+davetiyenin ne zaman yayınlandığını ya da ödemenin geri alınabilirliğini bilmesi
+için bir sebep yok. Test ham gövdede arıyor: alan başka bir düzeyde sızsa bile
+yakalanır.
+
+### Mutasyon kanıtı (1 Ekim 2026)
+
+| Mutasyon | Kırılan |
+|---|---|
+| `release_window_days` 3 → 30 | tarih testi · `PaywallTest::deleting_after_the_window_burns_the_paid_order` |
+| `releaseWindowEndsAt()` pencereyi eklemesin | tarih testi · `PaywallTest::deleting_within_the_window_releases_the_paid_order` |
+| `releasableUntil` = `publishedAt` | tarih testi |
+
+İlk iki satırda **iki** test birden kırılıyor: gösterilen tarih ile uygulanan
+kural gerçekten aynı yerden geliyor.
