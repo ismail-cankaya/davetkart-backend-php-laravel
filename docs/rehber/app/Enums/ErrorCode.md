@@ -505,3 +505,46 @@ Faz 1'de yazılan 19 kodun beşi bugün ilk kez gerçek bir çağıran buldu.
 | `SLUG_TAKEN` (409) | 🔴 **K40 onu geçersiz kıldı**: `invitations.id` zaten ULID ve paylaşılan linkin kendisi; ayrı bir slug ikinci bir kimlik olurdu. Silinmedi — bir kod adı yayınlandıktan sonra **sözleşmedir** (`docs/08` §5.1) ve frontend'in çeviri anahtarı kırılır |
 | `INVITATION_LOCKED` (403) | *"Yayınlanmış davetiye düzenlenemez"* kuralı için ayrılmış; o kural henüz **verilmedi** |
 | `TOKEN_EXPIRED` (401) | Sanctum süresiz token üretiyor; Faz 9'da süre gelirse |
+
+---
+
+## 🆕 Faz 10 eklemesi — `PASSWORD_RESET_INVALID` (10.31)
+
+| Kod | HTTP | `params` | Ne zaman |
+|---|---|---|---|
+| `PASSWORD_RESET_INVALID` | **422** | yok | `POST /auth/reset-password`: token yanlış, süresi dolmuş (60 dk) ya da e-posta kayıtlı değil |
+
+### Neden 400 değil 422?
+
+Plan (10.31) bu sorunun adımda tartışılmasını istedi. `docs/08`'in ayrımı:
+
+| HTTP | Anlamı | Örnek |
+|---|---|---|
+| 400 | İstek **biçimsel** olarak bozuk; içeriğine bakılamaz | Yarım JSON (`MALFORMED_REQUEST`) |
+| 422 | Biçim sağlam, **içerik** kabul edilemez | Kısa parola, kayıtlı e-posta, geçersiz sıfırlama token'ı |
+
+Sıfırlama isteği JSON olarak sağlam ve doğrulamadan (`ResetPasswordRequest`) geçiyor.
+Reddedilen şey token'ın **anlamı**. `REGISTRATION_FAILED` ile aynı sınıf.
+
+### 🔴 Neden tek kod ve neden `fields` yok? (H6)
+
+Laravel'in parola aracı (*password broker*) üç ayrı sebep döndürür: token geçersiz,
+kullanıcı yok, sıfırlama çok sık denendi. Üçü ayrı kod alsaydı:
+
+```
+POST /auth/reset-password { email: "ayse@…", token: "rastgele" }
+  → USER_NOT_FOUND   ⇒ Ayşe kayıtlı değil
+  → TOKEN_INVALID    ⇒ Ayşe kayıtlı
+```
+
+Sıfırlama formu bir **hesap tarayıcısına** dönerdi (`docs/08` §3.1). Tek kod, tek
+mesaj: *"Bağlantı geçersiz ya da süresi dolmuş; yeni bir bağlantı iste."* Kullanıcı
+için doğru eylem üç durumda da aynı.
+
+`params` beyaz listesi bu yüzden boş (`allowedParams()` → `default => []`).
+
+### Frontend
+
+`contracts/error-codes.json` 21'den 22 koda çıktı (`php artisan errors:export`).
+Frontend'in kopyası (`src/contracts/error-codes.json`) ve `tr`/`en` `errors.json`
+metinleri frontend adımında güncellendi; `npm run verify:errors` eksik metni yakalar.

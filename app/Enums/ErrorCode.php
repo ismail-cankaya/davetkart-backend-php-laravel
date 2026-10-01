@@ -45,6 +45,18 @@ enum ErrorCode: string
     case ValidationFailed = 'VALIDATION_FAILED';
     case RegistrationFailed = 'REGISTRATION_FAILED';
 
+    /**
+     * Parola sifirlama baglantisi gecersiz (Faz 10, 10.31).
+     *
+     * Neden 400 degil 422? Istek BICIMSEL olarak saglam ve dogrulamayi geciyor;
+     * reddedilen sey icerigin ANLAMI. REGISTRATION_FAILED ile ayni sinif.
+     *
+     * 🔴 Tek kod, uc sebep: token yanlis, suresi dolmus (60 dk) ya da e-posta
+     * kayitli degil. Ayrilsaydi sifirlama formu bir hesap tarayicisina donerdi
+     * (H6, 08 §3.1). Frontend'in tek mesaji: "baglanti gecersiz, yenisini iste".
+     */
+    case PasswordResetInvalid = 'PASSWORD_RESET_INVALID';
+
     // 429 — hiz siniri VE zamana bagli kota
     case RateLimited = 'RATE_LIMITED';
 
@@ -95,7 +107,8 @@ enum ErrorCode: string
             self::FileTooLarge => 413,
 
             self::ValidationFailed,
-            self::RegistrationFailed => 422,
+            self::RegistrationFailed,
+            self::PasswordResetInvalid => 422,
 
             self::RateLimited,
             self::AssistantQuotaExceeded => 429,
