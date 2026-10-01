@@ -106,3 +106,44 @@ karsisi bossa o davranis **test edilmiyor** demektir.
 ## 7. Sirada ne var?
 
 [`ContactTest.md`](ContactTest.md) — dorduncu auth'suz yazma yolunun kaniti.
+
+---
+
+## 🆕 Faz 10 (10.52) — `retryAfter` artık bir sayı, bir tip değil
+
+İki testte `retryAfter` yalnızca `assertIsInt` ile sınanıyordu. Gerekçe yorumdaydı: saniye
+değeri testin koştuğu saate bağlı, sabit bir sayı beklemek testi saate bağlardı. Doğru bir
+kaygı, yanlış bir çözüm: tip iddiası sözleşmenin yarısı. `TEST-DENETIMI` §2: sabit `1`
+dönse yeşil.
+
+### Çözüm: saati sabitle, sayıyı yaz
+
+```php
+$this->travelTo(CarbonImmutable::parse('2026-10-01 22:00:00', 'UTC'));
+// …kota dolu…
+->assertJsonPath('error.params.retryAfter', 7200)
+->assertHeader('Retry-After', '7200');
+```
+
+Saat testin içinde sabitlenince beklenen değer de sabitlenir: gün UTC gece yarısı yenilenir
+(açık karar #4), 22:00'de iki saat kalır. `travelTo` kullanım satırı **oluşturulmadan önce**
+çağrılıyor: fabrika `usage_date`'i `now()`'dan alıyor, sıra ters olsaydı satır gerçek günün
+tarihiyle yazılırdı ve kota dolmamış görünürdü.
+
+Sağlayıcı arızasının 30 saniyesi bir sınıf sabiti (`AiProviderException::RETRY_AFTER_SECONDS`);
+o da elle yazıldı. `0` dönse istemciye *"hemen tekrar dene"* denmiş olurdu: arıza anında
+sağlayıcıyı istekle doldurmak.
+
+Başlık (`Retry-After`) da aynı değerle sınanıyor. K-5'in genel kanıtı `MalformedInputTest`'te;
+burada değerin **gövdeyle aynı** olduğu görülüyor.
+
+### Mutasyon kanıtı (1 Ekim 2026)
+
+| Mutasyon | Önce | Şimdi kıran |
+|---|---|---|
+| `secondsUntilReset()` → `1` | 🟢 yeşil | kota testi |
+| `addDay()->startOfDay()` → `endOfDay()` (bir saniye eksik) | 🟢 | kota testi (7199 ≠ 7200) |
+| `addDay()` yok (geçmişteki gece yarısı → `max(1, …)` = 1) | 🟢 | kota testi |
+| `RETRY_AFTER_SECONDS` 30 → 0 | 🟢 | sağlayıcı testi |
+
+Test sayısı değişmedi (21); iki test güçlendi.

@@ -135,6 +135,13 @@ final class AssistantTest extends TestCase
     #[Test]
     public function the_quota_rejection_carries_the_limit_and_a_retry_hint(): void
     {
+        // Faz 10 (10.52): saat SABITLENDI. Once yalnizca `assertIsInt`
+        // vardi: saniye kostugu saate gore degisiyordu ve sabit bir sayi
+        // beklenemiyordu. Ama "bir tam sayi" sozlesmenin yarisi; `1` donse de
+        // yesildi (TEST-DENETIMI §2). Saat sabitken beklenen deger de sabit:
+        // gun UTC gece yarisi yenilenir (acik karar #4), 22:00'de 2 saat kalir.
+        $this->travelTo(CarbonImmutable::parse('2026-10-01 22:00:00', 'UTC'));
+
         $this->bindReplyingProvider();
         Config::set('davetkart.assistant.daily_message_limit_per_user', 3);
 
@@ -143,12 +150,9 @@ final class AssistantTest extends TestCase
 
         $response = $this->ask($user, 'merhaba')->assertStatus(429);
 
-        $response->assertJsonPath('error.params.limit', 3);
-
-        // Saniye degeri kostugu saate gore degisir; sabit bir sayi
-        // beklemek testi saate baglardi (8.0'daki ayni ders). Sozlesmenin
-        // vaadi "bir tam sayi doner" — dogrulanan bu.
-        $this->assertIsInt($response->json('error.params.retryAfter'));
+        $response->assertJsonPath('error.params.limit', 3)
+            ->assertJsonPath('error.params.retryAfter', 7200)
+            ->assertHeader('Retry-After', '7200');
     }
 
     #[Test]
@@ -222,11 +226,14 @@ final class AssistantTest extends TestCase
     {
         $this->bindFailingProvider();
 
-        $response = $this->ask(User::factory()->create(), 'merhaba')
+        // Faz 10 (10.52): 30 saniye bir HTTP nezaket degeri (sinif sabiti).
+        // Sabit yazildi: `assertIsInt` 0 donse de yesildi ve 0, istemciye
+        // "hemen tekrar dene" demek, yani ariza aninda saglayiciyi doldurmak.
+        $this->ask(User::factory()->create(), 'merhaba')
             ->assertStatus(503)
-            ->assertJsonPath('error.code', ErrorCode::ProviderUnavailable->value);
-
-        $this->assertIsInt($response->json('error.params.retryAfter'));
+            ->assertJsonPath('error.code', ErrorCode::ProviderUnavailable->value)
+            ->assertJsonPath('error.params.retryAfter', 30)
+            ->assertHeader('Retry-After', '30');
     }
 
     /** H8: saglayicinin ham hatasi yanitta ASLA gorunmez. */
