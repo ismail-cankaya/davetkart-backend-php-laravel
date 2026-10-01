@@ -42,7 +42,9 @@ return [
         'tolerance_seconds' => 300, // replay attack penceresi
     ],
 
-    // Ödenmemiş order'ın geçerlilik süresi (dakika). Süre dolunca 'failed' işaretlenir.
+    // Ödenmemiş order'ın geçerlilik süresi (dakika). Süre dolunca `orders:expire`
+    // onu 'expired' işaretler (Faz 10, K89 — 'failed' DEĞİL: geç gelen ödeme
+    // siparişi yine 'paid' yapabilir).
     'order_expires_after_minutes' => 30,
 
 ];
