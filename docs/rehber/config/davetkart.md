@@ -599,3 +599,37 @@ yükler ([`../app/Jobs/OptimizeUploadedImage.md`](../app/Jobs/OptimizeUploadedIm
 > 256 MB'da durur) doğru hamle `memory_limit`'i düşürmek **ve**
 > `max_dimension_px`'i onunla birlikte indirmektir. İkisi birbirine bağlı:
 > piksel tavanı, belleğin ne kadarının gerekeceğini belirliyor.
+
+---
+
+## 🆕 Faz 10 eklemesi — `frontend` ve `mail` (10.30)
+
+```php
+'frontend' => [
+    'url' => env('FRONTEND_URL', 'http://localhost:3000'),
+    'password_reset_path' => '/sifre-sifirla',
+],
+
+'mail' => [
+    'locale' => 'tr',
+],
+```
+
+| Anahtar | Ne | Neden burada |
+|---|---|---|
+| `frontend.url` | Frontend'in kök adresi | Maildeki bağlantılar **mutlak** olmalı. Ortama göre değişir (yerel 3000, üretim gerçek alan adı), bu yüzden `env()` |
+| `frontend.password_reset_path` | Sıfırlama sayfasının yolu | Frontend rotasıyla (`/sifre-sifirla`) birlikte değişen bir sözleşme. Ortama göre değişmez, bu yüzden `env()` **yok** |
+| `mail.locale` | Kullanıcıya giden mailin dili | **K96**: Türkçe, K21'in bilinçli istisnası. Bir ürün kararı (E6), ortam farkı değil |
+
+**Neden `APP_URL` değil?** `APP_URL` **API'nin** adresi (`api.davetkart.com`):
+medya URL'leri ve Laravel'in ürettiği bağlantılar onu kullanır. Parola sıfırlama
+sayfası ise **frontend'de** (`davetkart.com/sifre-sifirla`). İki adres farklı alan
+adlarında; birini öbürüne vekil saymak üretimde kırık bir bağlantı demek.
+
+**Neden `CORS_ALLOWED_ORIGINS`'ten türetilmiyor?** O bir **liste** (birden çok origin
+olabilir: önizleme ortamları, yerel). Hangisinin maile yazılacağını bir listeden
+tahmin etmek, açık bir ayardan daha kırılgan.
+
+**Yerel varsayılan neden 3000?** Frontend `vite --port=3000` ile açılıyor ve API'yi
+Vite proxy'si üzerinden çağırıyor (`vite.config.ts`). Yerelde tarayıcının gördüğü
+adres 3000.

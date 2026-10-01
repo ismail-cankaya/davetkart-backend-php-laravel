@@ -191,4 +191,20 @@ return [
         ],
     ],
 
+    // Faz 10 (10.30): frontend'in kok adresi. Maildeki baglantilar MUTLAK
+    // olmak zorunda (parola sifirlama). Adres istegin Host basligindan DEGIL
+    // buradan okunur: baslik istemcinin elinde (trustedproxy.md §4, B6).
+    // Gelistirmede Vite 3000'de, API'yi proxy'liyor (frontend vite.config.ts).
+    'frontend' => [
+        'url' => env('FRONTEND_URL', 'http://localhost:3000'),
+        'password_reset_path' => '/sifre-sifirla',
+    ],
+
+    // Kullaniciya giden mail (K96): TEK dil, Turkce. K21'in (API tek dil,
+    // metin dondurmez) BILINCLI istisnasi: mail kullanicinin dogrudan okudugu
+    // bir metin ve kullanicinin dil tercihi bugun saklanmiyor.
+    'mail' => [
+        'locale' => 'tr',
+    ],
+
 ];

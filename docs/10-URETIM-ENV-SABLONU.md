@@ -184,11 +184,31 @@ SENTRY_SEND_DEFAULT_PII=false
 # RAPORLANMAZ; yalnizca 5xx gider. Bkz. rehber/bootstrap/app.md §2.7.
 
 # --- Posta -------------------------------------------------------------------
-# 🔴 K79 hala acik: bildirim kanali secilmedi. 'log' birakmak, gonderilmeyen
-# bir e-postanin en azindan IZINI birakir — sessizce kaybolmasindan iyidir.
+# 🔴 Faz 10 (K95): kod saglayicidan BAGIMSIZ; saglayici burada, deploy'da
+# secilir. Faz 10'dan beri GERCEKTEN mail giden bir akis var: parola
+# sifirlama. 'log' birakilirsa kullanici sifirlama baglantisini HIC almaz
+# (tek izi laravel.log). Yayindan ONCE asagidakilerden biri doldurulmali:
+#
+#   A) Amazon SES (AWS rehberiyle uyumlu):
+#        composer require aws/aws-sdk-php
+#        MAIL_MAILER=ses
+#        AWS_ACCESS_KEY_ID=…  AWS_SECRET_ACCESS_KEY=…  AWS_DEFAULT_REGION=eu-central-1
+#        (SES'te gonderen alan adi/adres DOGRULANMIS olmali; sandbox'tan cikilmali)
+#   B) Alan adinin SMTP'si:
+#        MAIL_MAILER=smtp  MAIL_HOST=…  MAIL_PORT=587  MAIL_SCHEME=null
+#        MAIL_USERNAME=…  MAIL_PASSWORD=…
+#
+# Her iki yolda: alan adinin SPF + DKIM kayitlari, yoksa mail spam'e duser.
+# Mail kuyruktan gider (ResetPasswordNotification ShouldQueue): queue:work
+# calismiyorsa mail de GITMEZ (bkz. Kuyruk).
 MAIL_MAILER=log
 MAIL_FROM_ADDRESS="bilgi@davetkart.com"
 MAIL_FROM_NAME="${APP_NAME}"
+
+# 🔴 Frontend'in kok adresi (Faz 10, 10.30). Maildeki parola sifirlama
+# baglantisi bundan uretilir; yanlissa kullanici baglantiya tiklayinca
+# bos bir sayfaya ya da gelistirme sunucusuna gider. Sonda '/' YOK.
+FRONTEND_URL=https://davetkart.com
 
 # --- Yerel ayarlar -----------------------------------------------------------
 DAVETKART_DEFAULT_TIMEZONE=Europe/Istanbul
