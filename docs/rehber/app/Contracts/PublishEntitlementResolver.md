@@ -378,3 +378,37 @@ parası bu davetiyeyi açmaz. Test bozuk veriyi elle kuruyor
 **Testler (`PaywallTest`):** `an_unclaimed_package_grants_nothing_on_its_own` ·
 `a_package_publishes_exactly_one_invitation` · `a_claimed_package_is_released_like_any_single_order` ·
 `the_migration_turns_old_packages_into_unclaimed_orders`.
+
+---
+
+## 🆕 Faz 10 (10.66b) — `highestTiersFor()`: aynı soru, tek sorguda
+
+Sahibin listesi her davetiye için imza kararını soruyor (`ResolveBrandingAction::forMany()`). Her
+davetiye için `highestTierFor()` çağırmak N+1 olurdu. Arayüze ikinci bir yöntem eklendi:
+
+```php
+public function highestTiersFor(iterable $invitations): array;   // [davetiye kimliği => ?plan]
+```
+
+### Kural yine tek yerde
+
+`highestTierFor($inv)` artık `highestTiersFor([$inv])[$inv->id]` döndürüyor. İki yöntemin iki ayrı
+sorgusu olsaydı bir gün biri değişir, öbürü değişmezdi (C3). Yayın, iade ve kota kararları da aynı
+toplu sorgudan geçiyor; `PaywallTest`'in bütün hak testleri onu sınıyor.
+
+### Sahip koşulu hâlâ sorguda (P3)
+
+Liste farklı sahiplerin davetiyelerini içerebilir. Davetiyeler sahibine göre gruplanıyor ve her grup
+kendi parantezinde:
+
+```sql
+WHERE status IN (...)
+  AND ((user_id = 1 AND invitation_id IN (...)) OR (user_id = 2 AND invitation_id IN (...)))
+```
+
+Sahip PHP'de karşılaştırılsaydı başkasının siparişi en azından belleğe gelirdi (§4). Gruplar arasında
+`OR` yerine `AND` yazılsaydı iki sahipli bir listede hiçbir davetiye hak almazdı.
+
+**Test:** `PaywallTest::the_batch_answers_each_invitation_by_its_own_owner`: Ayşe'nin Gold'u, Mehmet'in
+Standart'ı ve Mehmet'in Ayşe'nin davetiyesine yanlış bağlanmış Elit siparişi. Mutasyonlar (2 Ekim 2026):
+grupları `AND` ile bağla · sahip koşulunu sil · en yükseği değil en düşüğü tut: üçü de kırıldı.

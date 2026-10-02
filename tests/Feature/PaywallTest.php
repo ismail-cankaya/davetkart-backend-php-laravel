@@ -260,6 +260,24 @@ final class PaywallTest extends TestCase
             ->assertJsonPath('error.code', ErrorCode::PaymentRequired->value);
     }
 
+    /**
+     * Faz 10 (10.66b): yayın bağsız Elit paketini bağlar; yanıt imza kararını
+     * yayından SONRA verir. Önce sorulsaydı editör imzayı göstermeye devam ederdi.
+     */
+    #[Test]
+    public function publishing_with_an_elit_package_returns_the_record_without_branding(): void
+    {
+        [$user, $invitation] = $this->ownedInvitation();
+
+        Order::factory()->paid()->tier(SubscriptionTier::Elit)->package()
+            ->create(['user_id' => $user->id]);
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('invitations.publish', $invitation))
+            ->assertOk()
+            ->assertJsonPath('data.invitation.showBranding', false);
+    }
+
     /** Faz 10 (10.58): eski 'account' satırları bağsız tekil siparişe çevrilir. */
     #[Test]
     public function the_migration_turns_old_packages_into_unclaimed_orders(): void
@@ -295,6 +313,34 @@ final class PaywallTest extends TestCase
             ->create(['invitation_id' => $invitation->id]);
 
         $this->assertNull($this->entitlements()->highestTierFor($invitation));
+    }
+
+    /**
+     * Faz 10 (10.66b): toplu soru her davetiyeyi KENDİ sahibinin siparişiyle
+     * eşler. Mehmet'in Ayşe'nin davetiyesine yanlış bağlanmış Elit siparişi
+     * Ayşe'nin planını yükseltmez; iki sahibin koşulu birbirine karışmaz.
+     */
+    #[Test]
+    public function the_batch_answers_each_invitation_by_its_own_owner(): void
+    {
+        [$ayse, $ayseninki] = $this->ownedInvitation();
+        [$mehmet, $mehmetinki] = $this->ownedInvitation();
+        $siparissiz = Invitation::factory()->create(['user_id' => $ayse->id]);
+
+        Order::factory()->paid()->tier(SubscriptionTier::Gold)->forInvitation($ayseninki)->create();
+        Order::factory()->paid()->tier(SubscriptionTier::Standart)->forInvitation($mehmetinki)->create();
+        Order::factory()->paid()->tier(SubscriptionTier::Elit)
+            ->create(['user_id' => $mehmet->id, 'invitation_id' => $ayseninki->id]);
+
+        $this->assertSame(
+            [
+                $ayseninki->id => SubscriptionTier::Gold,
+                $mehmetinki->id => SubscriptionTier::Standart,
+                $siparissiz->id => null,
+            ],
+            $this->entitlements()->highestTiersFor([$ayseninki, $mehmetinki, $siparissiz]),
+        );
+        $this->assertSame([], $this->entitlements()->highestTiersFor([]));
     }
 
     #[Test]

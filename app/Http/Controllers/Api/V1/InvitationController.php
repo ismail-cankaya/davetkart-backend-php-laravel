@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Actions\Invitation\CreateInvitationAction;
 use App\Actions\Invitation\DeleteInvitationAction;
 use App\Actions\Invitation\PublishInvitationAction;
+use App\Actions\Invitation\ResolveBrandingAction;
 use App\Actions\Invitation\UpdateInvitationAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Invitation\StoreInvitationRequest;
@@ -31,7 +32,7 @@ use Illuminate\Support\Facades\Gate;
 final class InvitationController extends Controller
 {
     /** Kullanicinin davetiyeleri; en son duzenlenen ustte. */
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request, ResolveBrandingAction $branding): AnonymousResourceCollection
     {
         Gate::authorize('viewAny', Invitation::class);
 
@@ -45,11 +46,20 @@ final class InvitationController extends Controller
             ->latest('updated_at')
             ->get();
 
-        return InvitationResource::collection($invitations);
+        // 10.66b: imza kararı bütün liste için tek sorguda (N+1 yok).
+        $shown = $branding->forMany($invitations);
+
+        return InvitationResource::collection($invitations->map(
+            fn (Invitation $invitation): InvitationResource => InvitationResource::make($invitation)
+                ->withBranding($shown[$invitation->getKey()]),
+        ));
     }
 
-    public function store(StoreInvitationRequest $request, CreateInvitationAction $action): JsonResponse
-    {
+    public function store(
+        StoreInvitationRequest $request,
+        CreateInvitationAction $action,
+        ResolveBrandingAction $branding,
+    ): JsonResponse {
         Gate::authorize('create', Invitation::class);
 
         /** @var User $user */
@@ -61,31 +71,32 @@ final class InvitationController extends Controller
             $request->timelineEvents(),
         );
 
-        return (new InvitationResource($invitation))
+        return $this->present($invitation, $branding)
             ->response()
             ->setStatusCode(JsonResponse::HTTP_CREATED);
     }
 
     /** Sahibin duzenleme icin okumasi. Baskasinin kaydinda 404 doner (H7). */
-    public function show(Invitation $invitation): InvitationResource
+    public function show(Invitation $invitation, ResolveBrandingAction $branding): InvitationResource
     {
         Gate::authorize('view', $invitation);
 
-        return new InvitationResource($invitation->load(['timelineEvents', 'galleryMedia']));
+        return $this->present($invitation->load(['timelineEvents', 'galleryMedia']), $branding);
     }
 
     public function update(
         UpdateInvitationRequest $request,
         Invitation $invitation,
         UpdateInvitationAction $action,
+        ResolveBrandingAction $branding,
     ): InvitationResource {
         Gate::authorize('update', $invitation);
 
-        return new InvitationResource($action->handle(
+        return $this->present($action->handle(
             $invitation,
             $request->invitationAttributes(),
             $request->timelineEvents(),
-        ));
+        ), $branding);
     }
 
     /**
@@ -100,15 +111,21 @@ final class InvitationController extends Controller
      * okuyup durumu 'published' olarak gosterebilsin (ayri bir "yayinlandi"
      * zarfi ikinci bir sozlesme olurdu).
      */
-    public function publish(Invitation $invitation, PublishInvitationAction $action): InvitationResource
-    {
+    public function publish(
+        Invitation $invitation,
+        PublishInvitationAction $action,
+        ResolveBrandingAction $branding,
+    ): InvitationResource {
         Gate::authorize('publish', $invitation);
 
         // 🔴 load() ZORUNLU: Action kilitli bir YENIDEN OKUMA yapiyor ve o
         // ornek iliskileri tasimiyor. Kati kip yerelde LazyLoadingViolation
         // firlatir (3.9); uretimde ise sessiz bir N+1 olurdu.
-        return new InvitationResource(
+        // 10.66b: yayın bağsız bir paketi bağlayabilir (K99); imza kararı
+        // yayından SONRA sorulur.
+        return $this->present(
             $action->handle($invitation)->load(['timelineEvents', 'galleryMedia']),
+            $branding,
         );
     }
 
@@ -126,5 +143,14 @@ final class InvitationController extends Controller
         $action->handle($invitation);
 
         return response()->noContent();
+    }
+
+    /**
+     * Sahibin kaydı, imza kararıyla birlikte (Faz 10, 10.66b · K102).
+     * Editör önizlemesi misafirin göreceği imzayı göstersin.
+     */
+    private function present(Invitation $invitation, ResolveBrandingAction $branding): InvitationResource
+    {
+        return InvitationResource::make($invitation)->withBranding($branding->handle($invitation));
     }
 }

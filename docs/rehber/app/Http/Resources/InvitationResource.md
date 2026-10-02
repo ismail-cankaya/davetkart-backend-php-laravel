@@ -270,3 +270,13 @@ yakalanır.
 
 İlk iki satırda **iki** test birden kırılıyor: gösterilen tarih ile uygulanan
 kural gerçekten aynı yerden geliyor.
+
+---
+
+## 🆕 Faz 10 eklemesi — `withBranding()` (10.66b · K102)
+
+Sahibin kaydı da misafirinki gibi `invitation.showBranding` taşıyor: editör önizlemesi misafirin
+göreceği imzayı göstersin. Karar bir iş kuralı (*"Elit imzasızdır"*), bu yüzden kaynak onu hesaplamıyor;
+controller `ResolveBrandingAction`'dan alıp `withBranding()` ile veriyor ve kaynak onu
+`InvitationPayloadResource`'a geçiriyor. Varsayılan `true`: unutulan bir çağrı imzayı gösterir, vaat
+edilmeyen bir şeyi (imzasız yayın) vermez.

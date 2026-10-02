@@ -8,6 +8,7 @@ use App\Contracts\PublishEntitlementResolver;
 use App\Enums\SubscriptionTier;
 use App\Models\Invitation;
 use App\Models\Order;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Yayin hakkini `orders` tablosundan okur: bu davetiyeye BAGLI odenmis
@@ -25,17 +26,49 @@ final class OrderEntitlementResolver implements PublishEntitlementResolver
 {
     public function highestTierFor(Invitation $invitation): ?SubscriptionTier
     {
+        return $this->highestTiersFor([$invitation])[$invitation->getKey()];
+    }
+
+    /**
+     * Faz 10 (10.66b): tek davetiyelik soru da buradan geçer, kural tek yerde kalır.
+     *
+     * @param  iterable<Invitation>  $invitations
+     *
+     * @return array<string, SubscriptionTier|null>
+     */
+    public function highestTiersFor(iterable $invitations): array
+    {
+        $highest = [];
+        $idsByOwner = [];
+
+        foreach ($invitations as $invitation) {
+            $highest[$invitation->getKey()] = null;
+            $idsByOwner[$invitation->user_id][] = $invitation->getKey();
+        }
+
+        if ($highest === []) {
+            return [];
+        }
+
+        // Sahip koşulu sorguda kalır (P3): her davetiye yalnızca KENDİ
+        // sahibinin siparişiyle eşleşir. İç closure parantez koyar (§4.2).
         $orders = Order::query()
             ->grantingPublishRight()
-            ->where('user_id', $invitation->user_id)
-            ->where('invitation_id', $invitation->getKey())
+            ->where(function (Builder $query) use ($idsByOwner): void {
+                foreach ($idsByOwner as $userId => $invitationIds) {
+                    $query->orWhere(function (Builder $query) use ($userId, $invitationIds): void {
+                        $query->where('user_id', $userId)->whereIn('invitation_id', $invitationIds);
+                    });
+                }
+            })
             ->get();
 
-        $highest = null;
-
         foreach ($orders as $order) {
-            if ($highest === null || $order->tier->rank() > $highest->rank()) {
-                $highest = $order->tier;
+            $id = (string) $order->invitation_id;
+            $current = $highest[$id];
+
+            if ($current === null || $order->tier->rank() > $current->rank()) {
+                $highest[$id] = $order->tier;
             }
         }
 

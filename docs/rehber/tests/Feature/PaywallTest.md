@@ -551,3 +551,15 @@ Dokuzu da öldü. Eski dosyaya karşı yeniden koşturuldu: yedisi bu adımdan �
 
 **Mutasyon (2 Ekim 2026):** tema kuralı yok · tema modülü ezsin · listeden bir tema düşsün ·
 ödemede olay yok · her durumda olay: beşi de kırıldı.
+
+---
+
+## 17. 🆕 Faz 10 — sahibin önizlemesinde imza (10.66b · K102)
+
+| Test | İddia |
+|---|---|
+| `the_batch_answers_each_invitation_by_its_own_owner` | `highestTiersFor()` her davetiyeyi kendi sahibinin siparişiyle eşliyor; yanlış bağlanmış başkasının Elit'i sayılmıyor; boş liste `[]` |
+| `publishing_with_an_elit_package_returns_the_record_without_branding` | Yayın bağsız Elit paketini bağlıyor ve yanıt `showBranding = false` |
+
+**Mutasyon (2 Ekim 2026):** grupları `AND` ile bağla · sahip koşulunu sil · en düşük planı tut · kararı
+yayından önce sor: dördü de kırıldı.

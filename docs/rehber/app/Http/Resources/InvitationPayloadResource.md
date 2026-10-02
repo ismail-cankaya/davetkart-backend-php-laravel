@@ -402,3 +402,15 @@ Intl.DateTimeFormat().resolvedOptions().timeZone   // 'Europe/Istanbul'
 ```
 
 Ayrıntı: `FAZ-7.md` §8.
+
+---
+
+## 🆕 Faz 10 eklemesi — `showBranding` (10.66b · K102)
+
+| Alan | Kaynak | Not |
+|---|---|---|
+| `showBranding` | `withBranding()` (varsayılan `true`) | Kullanıcı yazmaz; istek gövdesinde gelse de yok sayılır (beyaz liste) |
+
+`galleryImages` gibi **sunucunun** alanı: frontend `toPayload()`'da onu gövdeden çıkarıyor
+(FE 10.21). Misafir sürümündeki (`PublicInvitationResource`) alanla aynı ad, aynı yer: frontend'de tek
+bir koşul iki ekrana da hizmet ediyor.

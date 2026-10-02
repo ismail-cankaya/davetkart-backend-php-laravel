@@ -25,9 +25,23 @@ final class ResolveBrandingAction
     /** İmza gösterilecekse true. */
     public function handle(Invitation $invitation): bool
     {
-        $whiteLabel = SubscriptionTier::from(Config::string('davetkart.branding.white_label_tier'));
-        $owned = $this->entitlements->highestTierFor($invitation);
+        return $this->forMany([$invitation])[$invitation->getKey()];
+    }
 
-        return $owned === null || ! $owned->covers($whiteLabel);
+    /**
+     * Aynı karar, sahibin listesindeki bütün davetiyeler için tek sorguda (10.66b).
+     *
+     * @param  iterable<Invitation>  $invitations
+     *
+     * @return array<string, bool> davetiye kimliği => imza gösterilsin mi
+     */
+    public function forMany(iterable $invitations): array
+    {
+        $whiteLabel = SubscriptionTier::from(Config::string('davetkart.branding.white_label_tier'));
+
+        return array_map(
+            static fn (?SubscriptionTier $owned): bool => $owned === null || ! $owned->covers($whiteLabel),
+            $this->entitlements->highestTiersFor($invitations),
+        );
     }
 }

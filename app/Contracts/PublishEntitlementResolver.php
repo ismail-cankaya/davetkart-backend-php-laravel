@@ -50,4 +50,14 @@ interface PublishEntitlementResolver
      * @return SubscriptionTier|null Sahip olunan en yuksek plan; `null` = odeme yok.
      */
     public function highestTierFor(Invitation $invitation): ?SubscriptionTier;
+
+    /**
+     * Aynı soru, birden çok davetiye için tek sorguda (Faz 10, 10.66b).
+     * Sahibin listesi her davetiye için ayrı sorgu açmasın (N+1).
+     *
+     * @param  iterable<Invitation>  $invitations
+     *
+     * @return array<string, SubscriptionTier|null> davetiye kimliği => sahip olunan en yüksek plan
+     */
+    public function highestTiersFor(iterable $invitations): array;
 }

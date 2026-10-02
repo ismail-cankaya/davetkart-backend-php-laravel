@@ -24,6 +24,17 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 final class InvitationResource extends JsonResource
 {
+    /** Faz 10 (10.66b): imza kararı ResolveBrandingAction'dan gelir; varsayılan göster. */
+    private bool $showBranding = true;
+
+    /** Önizlemede "DavetKart ile hazırlandı" imzası gösterilsin mi? */
+    public function withBranding(bool $show): self
+    {
+        $this->showBranding = $show;
+
+        return $this;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -44,7 +55,7 @@ final class InvitationResource extends JsonResource
             // gosteriliyor; frontend "3 gun"u bilmek zorunda kalmiyor.
             'releasableUntil' => $this->releaseWindowEndsAt()?->toIso8601String(),
 
-            'invitation' => new InvitationPayloadResource($this->resource),
+            'invitation' => (new InvitationPayloadResource($this->resource))->withBranding($this->showBranding),
         ];
     }
 }

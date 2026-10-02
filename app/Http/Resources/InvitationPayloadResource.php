@@ -22,6 +22,17 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 final class InvitationPayloadResource extends JsonResource
 {
+    /** Faz 10 (10.66b): imza kararı ResolveBrandingAction'dan gelir; varsayılan göster. */
+    private bool $showBranding = true;
+
+    /** Önizlemede "DavetKart ile hazırlandı" imzası gösterilsin mi? */
+    public function withBranding(bool $show): self
+    {
+        $this->showBranding = $show;
+
+        return $this;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -57,6 +68,10 @@ final class InvitationPayloadResource extends JsonResource
             'showGallery' => $this->show_gallery,
             'showGift' => $this->show_gift,
             'showRSVP' => $this->show_rsvp,
+
+            // Faz 10 (10.66b): sunucunun kararı, kullanıcı yazmaz. Sahibin
+            // önizlemesi misafirin göreceği imzayı göstersin (K102).
+            'showBranding' => $this->showBranding,
 
             'bankName' => $this->bank_name ?? '',
             'accountHolder' => $this->account_holder ?? '',

@@ -424,3 +424,20 @@ kuralı geldiğinde `update` kilitlenecek, `publish` kilitlenmemeli.
 
 Üçü de **H10**'a uyuyor: controller hata **yanıtı** üretmiyor, exception
 fırlıyor ve biçim kararı `ApiExceptionRenderer`'da tek yerde veriliyor.
+
+---
+
+## 🆕 Faz 10 eklemesi — imza kararı (10.66b · K102)
+
+Beş uç da kaydı `present()` üzerinden döndürüyor: `InvitationResource::make($inv)->withBranding(...)`.
+Karar `ResolveBrandingAction`'dan geliyor; controller yalnızca iki eylemi sırayla çağırıyor (K3).
+
+| Uç | Nasıl |
+|---|---|
+| `index` | `forMany()`: bütün liste için **tek** `orders` sorgusu (N+1 yok) |
+| `store` · `show` · `update` | `present()` |
+| `publish` | `present()`, yayından **sonra**: yayın bağsız Elit paketini bağlayabilir (K99) |
+
+`index`'te `InvitationResource::collection()` hazır kaynaklardan oluşan bir koleksiyon alıyor; Laravel ilk
+öğe zaten `InvitationResource` ise yeniden sarmıyor (`ResourceCollection::collectResource`).
+Ayrıntı: [`../../../../Actions/Invitation/ResolveBrandingAction.md`](../../../../Actions/Invitation/ResolveBrandingAction.md) §6.

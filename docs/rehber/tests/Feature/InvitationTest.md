@@ -497,3 +497,21 @@ ayrıca `null_clears_…`'i, `mapUrl` ayrıca `a_web_map_url_is_saved`'i) · `is
 
 Hata zarfı birebir karşılaştırılıyor: kural adı (`iban`) frontend'in metin anahtarı; ad değişirse
 frontend genel *"geçerli değil"* metnine düşer. Mutasyon: kural istekten silinince ilk test kırılıyor.
+
+---
+
+## 15. 🆕 Faz 10 (10.66b · K102): sahibin kaydında imza kararı
+
+| Test | İddia |
+|---|---|
+| `the_owner_sees_the_same_branding_as_the_guests` (3 vaka) | Siparişsiz · Gold → `true`, Elit → `false` |
+| `an_update_returns_the_branding_decision` | Otomatik kaydın yanıtı da kararı taşıyor (Elit → `false`) |
+| `the_list_carries_each_invitations_branding_without_a_query_per_invitation` | Listede her davetiye kendi kararıyla · iki ve beş davetiyede de `orders`'a **tek** sorgu |
+
+### Neden toplam sorgu sayısı değil?
+
+İlk yazım iki isteğin toplam sorgu sayısını karşılaştırıyordu ve kırmızı yandı (6 ≠ 7). Sebep N+1
+değil: Sanctum `last_used_at`'i aynı saniyede ikinci kez yazmıyor, ilk istekte bir `UPDATE` fazla.
+Test yalnızca `from "orders"` sorgularını sayıyor; ölçülen şey tam olarak bu yöntemin N+1'i.
+
+Mutasyonlar: [`../../app/Actions/Invitation/ResolveBrandingAction.md`](../../app/Actions/Invitation/ResolveBrandingAction.md) §6.

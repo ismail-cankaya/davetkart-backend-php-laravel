@@ -6,10 +6,13 @@ namespace Tests\Feature;
 
 use App\Enums\ErrorCode;
 use App\Enums\InvitationStatus;
+use App\Enums\SubscriptionTier;
 use App\Models\Invitation;
+use App\Models\Order;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -550,6 +553,84 @@ final class InvitationTest extends TestCase
         $this->assertNull($data['releasableUntil']);
     }
 
+    /**
+     * Faz 10 (10.66b · K102): sahibin önizlemesi misafirin göreceği imzayı
+     * gösterir. Alan sahibin kaydında da HER ZAMAN var (C7).
+     *
+     * @param  list<SubscriptionTier>  $paid
+     */
+    #[Test]
+    #[DataProvider('brandingByPlan')]
+    public function the_owner_sees_the_same_branding_as_the_guests(array $paid, bool $shown): void
+    {
+        $ayse = User::factory()->create();
+        $inv = Invitation::factory()->for($ayse)->published()->create();
+
+        foreach ($paid as $tier) {
+            Order::factory()->paid()->tier($tier)->forInvitation($inv)->create();
+        }
+
+        $this->withToken($this->tokenFor($ayse))
+            ->getJson(route('invitations.show', $inv))
+            ->assertOk()
+            ->assertJsonPath('data.invitation.showBranding', $shown);
+    }
+
+    /** @return array<string, array{list<SubscriptionTier>, bool}> */
+    public static function brandingByPlan(): array
+    {
+        return [
+            'siparişsiz' => [[], true],
+            'Gold' => [[SubscriptionTier::Gold], true],
+            'Elit' => [[SubscriptionTier::Elit], false],
+        ];
+    }
+
+    /** 10.66b: otomatik kaydın yanıtı da kararı taşır; editör her kayıtta onu alır. */
+    #[Test]
+    public function an_update_returns_the_branding_decision(): void
+    {
+        $ayse = User::factory()->create();
+        $inv = Invitation::factory()->for($ayse)->published()->create();
+        Order::factory()->paid()->tier(SubscriptionTier::Elit)->forInvitation($inv)->create();
+
+        $this->withToken($this->tokenFor($ayse))
+            ->putJson(route('invitations.update', $inv), $this->payload(['title' => 'Yeni Başlık']))
+            ->assertOk()
+            ->assertJsonPath('data.invitation.showBranding', false);
+    }
+
+    /**
+     * 10.66b: listedeki her davetiye KENDİ kararını taşır ve karar bütün liste
+     * için tek sorguda verilir: beş davetiyede de `orders`'a tek sorgu (N+1 yok).
+     */
+    #[Test]
+    public function the_list_carries_each_invitations_branding_without_a_query_per_invitation(): void
+    {
+        $ayse = User::factory()->create();
+        $elit = Invitation::factory()->for($ayse)->published()->create();
+        $taslak = Invitation::factory()->for($ayse)->create();
+        Order::factory()->paid()->tier(SubscriptionTier::Elit)->forInvitation($elit)->create();
+        $token = $this->tokenFor($ayse);
+
+        [$data, $orderQueries] = $this->listWithQueryCount($token);
+
+        $branding = array_column(
+            array_map(static fn (array $record): array => [$record['id'], $record['invitation']['showBranding']], $data),
+            1,
+            0,
+        );
+        $this->assertSame(false, $branding[$elit->id]);
+        $this->assertSame(true, $branding[$taslak->id]);
+        $this->assertSame(1, $orderQueries);
+
+        Invitation::factory()->for($ayse)->count(3)->create();
+
+        [, $orderQueries] = $this->listWithQueryCount($token);
+
+        $this->assertSame(1, $orderQueries);
+    }
+
     /** Hata, hangi program satirinin bozuk oldugunu SOYLEMELI. */
     #[Test]
     public function an_invalid_timeline_time_is_reported_with_its_index(): void
@@ -703,6 +784,35 @@ final class InvitationTest extends TestCase
     private function tokenFor(User $user): string
     {
         return $user->createToken('api')->plainTextToken;
+    }
+
+    /**
+     * Sahibin listesi ve isteğin `orders` tablosuna attığı sorgu sayısı.
+     *
+     * Toplam sorgu sayısı kıyaslanamıyor: Sanctum `last_used_at`'i aynı
+     * saniyede ikinci kez yazmıyor, iki istek arasında bir UPDATE farkı doğuyor.
+     *
+     * @return array{0: list<array<string, mixed>>, 1: int}
+     */
+    private function listWithQueryCount(string $token): array
+    {
+        $this->forgetAuthState();
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        /** @var list<array<string, mixed>> $data */
+        $data = $this->withToken($token)
+            ->getJson(route('invitations.index'))
+            ->assertOk()
+            ->json('data');
+
+        $orderQueries = count(array_filter(
+            array_column(DB::getQueryLog(), 'query'),
+            static fn (string $sql): bool => str_contains($sql, 'from "orders"'),
+        ));
+        DB::disableQueryLog();
+
+        return [$data, $orderQueries];
     }
 
     /**
