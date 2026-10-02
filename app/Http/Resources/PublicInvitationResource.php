@@ -21,6 +21,17 @@ use Illuminate\Support\Facades\Config;
  */
 final class PublicInvitationResource extends JsonResource
 {
+    /** Faz 10 (10.66): imza kararı ResolveBrandingAction'dan gelir; varsayılan göster. */
+    private bool $showBranding = true;
+
+    /** "DavetKart ile hazırlandı" imzası gösterilsin mi? */
+    public function withBranding(bool $show): self
+    {
+        $this->showBranding = $show;
+
+        return $this;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -76,6 +87,9 @@ final class PublicInvitationResource extends JsonResource
             'showGallery' => $this->show_gallery,
             'showGift' => $this->show_gift,
             'showRSVP' => $this->show_rsvp,
+
+            // Faz 10 (10.66 · K102): Elit'te "DavetKart ile hazırlandı" yok.
+            'showBranding' => $this->showBranding,
         ];
 
         // 🔴 C4: kapali modulun VERISI govdeye hic girmez — bos string olarak

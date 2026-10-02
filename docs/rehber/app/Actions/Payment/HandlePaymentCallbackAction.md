@@ -452,3 +452,11 @@ commit ediliyor ya da hiçbiri.
 
 Yalnızca **iade**: başarısız bir yükseltme siparişi davetiyeye dokunmuyor. Gerekçe ve testler:
 [`WithdrawUncoveredInvitationAction.md`](../Invitation/WithdrawUncoveredInvitationAction.md).
+
+---
+
+## 🆕 Faz 10 (10.66 · K102) — hak değişince public önbellek yenilenir
+
+Sipariş `paid` ya da `refunded` olduğunda ve bir davetiyeye bağlıysa `InvitationChanged` yayınlanıyor.
+Misafir sayfasının imzası (Elit'te yok) siparişe bağlı ve davetiye satırı değişmediği için önbellek
+kendiliğinden düşmüyordu. Başarısız ya da süresi dolan sipariş hakkı değiştirmediği için olay yok.

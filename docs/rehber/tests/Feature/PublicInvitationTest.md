@@ -555,3 +555,12 @@ dizgiyi aramak boş yeşil üretirdi (denetim §4'ün notu).
 `an_uppercase_id_opens_the_same_invitation_and_cache_entry`: büyük harfli adres 200 ve **küçük
 harfli** önbellek anahtarı dolu. İkinci iddia olmasaydı, anahtarı küçültmeyi unutan bir kod da
 yeşil kalırdı ve güncellemeden sonra büyük harfli adres eski davetiyeyi göstermeye devam ederdi.
+
+---
+
+## 🆕 Faz 10 (10.66 · K102): `showBranding`
+
+`the_branding_follows_the_paid_plan` (5 vaka): siparişsiz, Standart, Gold → imza **var**; Elit ve
+Gold + Elit → **yok**. Alan her vakada mevcut (`assertJsonPath`).
+
+**Mutasyon:** imza hep görünsün · eşik Gold'a insin · kaynak hep `true` yazsın: üçü de kırıldı.

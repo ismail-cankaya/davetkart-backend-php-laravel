@@ -388,3 +388,11 @@ if ($this->show_gallery) {
 | Eager load | `ResolvePublicInvitationAction` → `with(['timelineEvents', 'galleryMedia'])` |
 
 Ayrıntı: [`PublicGalleryImageResource.md`](PublicGalleryImageResource.md).
+
+---
+
+## 🆕 Faz 10 (10.66 · K102) — `showBranding`
+
+Bayraklarla birlikte **her zaman** gelen bir alan: `true` = *"DavetKart ile hazırlandı"* imzası
+çizilir. Kararı kaynak vermiyor; `withBranding()` ile `ResolveBrandingAction`'dan alıyor (iş kuralı
+kaynakta durmaz). Varsayılan `true`: çağıran unutursa vaat edilmeyen bir şey verilmez, imza görünür.

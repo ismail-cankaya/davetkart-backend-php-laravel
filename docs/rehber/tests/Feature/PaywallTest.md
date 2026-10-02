@@ -537,3 +537,17 @@ Dokuzu da öldü. Eski dosyaya karşı yeniden koşturuldu: yedisi bu adımdan �
 | `published_at` silinmesin | ilk test |
 | Log `info`'ya düşsün (üretimde yazılmaz) | ilk test |
 | Kontrol her durum değişiminde çalışsın | `a_failed_upgrade_…` (ilk koşuda **hayatta kaldı**, test bunun için eklendi) |
+
+---
+
+## 16. 🆕 Faz 10 — fiyat kartı vaatleri (10.66 · K102)
+
+| Test | İddia |
+|---|---|
+| `a_premium_theme_requires_at_least_gold` | Videolu tema → Gold · + galeri → Elit · sıradan tema → Standart |
+| `the_premium_themes_are_the_thirteen_video_themes` | Liste **sabit**: 13 kimlik, hepsi `gold` |
+| `a_standart_order_cannot_publish_a_premium_theme` | Uçtan uca 402 `PAYWALL_TIER_INSUFFICIENT`, `requiredTier = gold` |
+| `a_paid_or_refunded_order_refreshes_its_invitations_public_page` | `failed` → olay yok · `paid` → `InvitationChanged` |
+
+**Mutasyon (2 Ekim 2026):** tema kuralı yok · tema modülü ezsin · listeden bir tema düşsün ·
+ödemede olay yok · her durumda olay: beşi de kırıldı.

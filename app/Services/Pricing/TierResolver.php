@@ -54,7 +54,44 @@ final class TierResolver
             }
         }
 
+        // Faz 10 (10.66 · K102): premium temalar (videolu) en az Gold ister.
+        $presetTier = $this->presetTiers()[$invitation->preset_id] ?? null;
+
+        if ($presetTier !== null && $presetTier->rank() > $required->rank()) {
+            $required = $presetTier;
+        }
+
         return $required;
+    }
+
+    /**
+     * config('davetkart.preset_tiers') haritasini tiplere cevirir (Faz 10, 10.66).
+     *
+     * Modul haritasiyla ayni refleks: taninmayan plan adi sessizce "bedava"
+     * sayilmaz, gurultulu patlar. Listede olmayan tema Standart'ta da yayinlanir.
+     *
+     * @return array<string, SubscriptionTier>
+     */
+    private function presetTiers(): array
+    {
+        $map = [];
+
+        /** @var array<string, mixed> $configured */
+        $configured = Config::array('davetkart.preset_tiers');
+
+        foreach ($configured as $preset => $value) {
+            $tier = is_string($value) ? SubscriptionTier::tryFrom($value) : null;
+
+            if ($tier === null) {
+                throw new RuntimeException(
+                    "Configuration error: davetkart.preset_tiers.{$preset} is not a valid tier.",
+                );
+            }
+
+            $map[$preset] = $tier;
+        }
+
+        return $map;
     }
 
     /**

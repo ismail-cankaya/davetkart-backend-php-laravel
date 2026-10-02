@@ -250,3 +250,28 @@ satırındaki `>` yerine `<` yaz. `php artisan test --filter=PaywallTest`
 **7.9 — `app/Contracts/PublishEntitlementResolver.php`** ve uygulaması. K42'nin
 tam karşılığı: yayın hakkı **iki kaynaktan** (tekil alım + paket alım) ama
 **tek arayüzden** sorulur.
+
+---
+
+## 🆕 Faz 10 (10.66 · K102) — premium tema en az Gold
+
+```php
+$presetTier = $this->presetTiers()[$invitation->preset_id] ?? null;
+```
+
+Fiyat kartı Standart'a *"Temel şablon koleksiyonu"*, Gold ve Elit'e *"Premium tema koleksiyonu"*
+diyordu ama hiçbir tema plana bağlı değildi: Standart her temayı yayınlayabiliyordu (P-1'in ikinci
+maddesi). İsmail'in kararı (1 Ekim 2026): **premium = arka planı video olan 13 tema.**
+
+| Kural | Kaynak |
+|---|---|
+| Modül → plan | `davetkart.module_tiers` (değişmedi) |
+| 🆕 Tema → plan | `davetkart.preset_tiers` (13 tema → `gold`) |
+| Sonuç | ikisinin **en yükseği** |
+
+Galeri açık premium bir tema yine Elit ister; tema kuralı modül kuralını aşağı çekemez (mutasyon:
+*"tema modülü ezsin"* kırılıyor). Listede olmayan tema her planda yayınlanır. Tanınmayan plan adı
+modül haritasındaki gibi **gürültülü** patlar.
+
+Frontend'deki ikiz (`getRequiredTier`) aynı kuralı `TEMPLATE_PRESETS[].minimumTier`'dan okuyor (FE 10.20).
+Listenin kendisi `PaywallTest::the_premium_themes_are_the_thirteen_video_themes`'te **sabit** yazılı.

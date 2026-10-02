@@ -6,6 +6,8 @@ namespace App\Actions\Payment;
 
 use App\Actions\Invitation\WithdrawUncoveredInvitationAction;
 use App\Enums\OrderStatus;
+use App\Events\InvitationChanged;
+use App\Models\Invitation;
 use App\Models\Order;
 use App\Services\Payment\PaymentNotification;
 use Illuminate\Support\Facades\DB;
@@ -111,6 +113,16 @@ final class HandlePaymentCallbackAction
                     'order_id' => $order->id,
                     'provider_ref' => $order->provider_ref,
                 ]);
+            }
+
+            // Faz 10 (10.66 · K102): hak değişti (ödendi ya da iade). Misafir
+            // sayfasının imzası buna bağlı; önbellek commit'ten sonra düşsün.
+            if ($order->status->hasBeenPaid() && $order->invitation_id !== null) {
+                $changed = Invitation::query()->find($order->invitation_id);
+
+                if ($changed !== null) {
+                    event(new InvitationChanged($changed));
+                }
             }
 
             // Faz 10 (10.61 · K100): iade edilen sipariş bir davetiyeye bağlıysa

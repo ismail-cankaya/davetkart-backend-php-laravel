@@ -675,3 +675,15 @@ aynı commit'te güncellenmeli.
 
 Gerekçe ve testler: `tests/Feature/RateLimitTest.md`. Kısaca: 300 kişilik bir davetiye aynı
 akşam gönderiliyor ve salonda herkes aynı Wi-Fi'da.
+
+---
+
+## 🆕 Faz 10 (10.66 · K102) — `branding` ve `preset_tiers`
+
+| Anahtar | Değer | Ne |
+|---|---|---|
+| `branding.white_label_tier` | `elit` | Bu plan ve üstü ödenmiş davetiyede misafir sayfası *"DavetKart ile hazırlandı"* göstermez (`ResolveBrandingAction.md`) |
+| `preset_tiers` | 13 videolu tema → `gold` | Premium tema en az Gold ister (`TierResolver.md` → *Faz 10*) |
+
+İkisi de satış kararı (E6): fiyat kartı değişirse yalnızca burası değişir. Testler listeyi ve
+eşikleri sabit yazdığı için değişiklik bilerek yapılmak zorunda.

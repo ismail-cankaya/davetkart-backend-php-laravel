@@ -20,6 +20,13 @@ return [
 
     'currency' => 'TRY',
 
+    // Faz 10 (10.66 · K102): "Logosuz ozel yayin" (fiyat karti, Elit). Bu plan
+    // ve ustu odenmis davetiyede misafir sayfasi "DavetKart ile hazirlandi"
+    // imzasini gostermez.
+    'branding' => [
+        'white_label_tier' => 'elit',
+    ],
+
     // Saat dilimi belirtmemis davetiyelerin varsayilani (K63).
     // Bir IS TERCIHIDIR (E6): pazar degisirse kod degismemeli.
     'default_timezone' => env('DAVETKART_DEFAULT_TIMEZONE', 'Europe/Istanbul'),
@@ -32,6 +39,27 @@ return [
         'show_timeline' => 'gold',
         'show_timer' => 'standart',
         'show_rsvp' => 'standart',
+    ],
+
+    // Faz 10 (10.66 · K102): tema -> gereken en dusuk plan. Fiyat karti Standart'a
+    // "Temel sablon koleksiyonu", Gold ve Elit'e "Premium tema koleksiyonu" diyor.
+    // Premium = arka plani VIDEO olan temalar (Ismail'in karari, 1 Ekim 2026).
+    // Listede olmayan tema her planda yayinlanir. Kimlikler frontend
+    // src/data.ts -> TEMPLATE_PRESETS ile ayni; frontend'te `minimumTier`.
+    'preset_tiers' => [
+        'dugun-gokyuzu' => 'gold',
+        'dugun-mum-isigi' => 'gold',
+        'dugun-gul-yapraklari' => 'gold',
+        'dugun-deniz-isiltisi' => 'gold',
+        'dugun-sahil' => 'gold',
+        'dugun-onyx' => 'gold',
+        'kina-bordo' => 'gold',
+        'nisan-sampanya' => 'gold',
+        'sunnet-yildiz' => 'gold',
+        'dogum-gunu-konfeti' => 'gold',
+        'mezuniyet-lacivert' => 'gold',
+        'baby-shower-kabarcik' => 'gold',
+        'parti-aurora' => 'gold',
     ],
 
     // LCV limitleri. Kota SUM(guest_count) ile kıyaslanır, COUNT(*) ile değil.

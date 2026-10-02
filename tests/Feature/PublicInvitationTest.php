@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Enums\ErrorCode;
+use App\Enums\SubscriptionTier;
 use App\Events\InvitationChanged;
 use App\Listeners\ClearInvitationCache;
 use App\Models\Invitation;
 use App\Models\Media;
+use App\Models\Order;
 use App\Models\User;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,6 +18,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Testing\TestResponse;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -197,6 +200,41 @@ final class PublicInvitationTest extends TestCase
             ->assertJsonPath('data.invitation.showRSVP', false);
 
         $this->assertStringNotContainsString('2026-08-01', $this->body($response));
+    }
+
+    /**
+     * Faz 10 (10.66 · K102): "DavetKart ile hazırlandı" imzası plana bağlı.
+     *
+     * Fiyat kartı Elit'e "Logosuz özel yayın" vaat ediyor. Alan HER ZAMAN
+     * geliyor (C7): eksik olsaydı frontend onu "göster" diye yorumlayacak.
+     *
+     * @param  list<SubscriptionTier>  $paid
+     */
+    #[Test]
+    #[DataProvider('brandingByPlan')]
+    public function the_branding_follows_the_paid_plan(array $paid, bool $shown): void
+    {
+        $inv = $this->published();
+
+        foreach ($paid as $tier) {
+            Order::factory()->paid()->tier($tier)->forInvitation($inv)->create();
+        }
+
+        $this->getJson($this->url($inv))
+            ->assertOk()
+            ->assertJsonPath('data.invitation.showBranding', $shown);
+    }
+
+    /** @return array<string, array{list<SubscriptionTier>, bool}> */
+    public static function brandingByPlan(): array
+    {
+        return [
+            'siparişsiz' => [[], true],
+            'Standart' => [[SubscriptionTier::Standart], true],
+            'Gold' => [[SubscriptionTier::Gold], true],
+            'Elit' => [[SubscriptionTier::Elit], false],
+            'Gold + Elit' => [[SubscriptionTier::Gold, SubscriptionTier::Elit], false],
+        ];
     }
 
     /** T6: yoklugun karsiligi. Tarih yalnizca gun: LCV gun sonuna kadar acik. */

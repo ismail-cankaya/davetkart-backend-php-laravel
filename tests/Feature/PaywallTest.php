@@ -13,6 +13,7 @@ use App\Enums\OrderScope;
 use App\Enums\OrderStatus;
 use App\Enums\RsvpStatus;
 use App\Enums\SubscriptionTier;
+use App\Events\InvitationChanged;
 use App\Models\Invitation;
 use App\Models\Order;
 use App\Models\User;
@@ -26,6 +27,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\TestResponse;
 use Mockery;
@@ -131,6 +133,62 @@ final class PaywallTest extends TestCase
             'geri sayim standart' => ['show_timer', SubscriptionTier::Standart],
             'lcv standart' => ['show_rsvp', SubscriptionTier::Standart],
         ];
+    }
+
+    /**
+     * Faz 10 (10.66 · K102): premium (videolu) tema en az Gold ister.
+     *
+     * Modül kuralıyla birleşir: galeri açık premium tema yine Elit.
+     */
+    #[Test]
+    public function a_premium_theme_requires_at_least_gold(): void
+    {
+        $resolver = app(TierResolver::class);
+
+        $this->assertSame(
+            SubscriptionTier::Gold,
+            $resolver->requiredFor(Invitation::factory()->create(['preset_id' => 'dugun-gokyuzu'])),
+        );
+        $this->assertSame(
+            SubscriptionTier::Elit,
+            $resolver->requiredFor(Invitation::factory()->create(['preset_id' => 'dugun-gokyuzu', 'show_gallery' => true])),
+        );
+        $this->assertSame(
+            SubscriptionTier::Standart,
+            $resolver->requiredFor(Invitation::factory()->create(['preset_id' => 'moda-gece'])),
+        );
+    }
+
+    /**
+     * K102: premium liste = arka planı VİDEO olan 13 tema (İsmail'in kararı).
+     *
+     * Sabit yazıldı (10.49'un dersi): liste bir satış vaadi; frontend
+     * `TEMPLATE_PRESETS`'te aynı 13 tema `minimumTier: 'gold'` taşıyor.
+     */
+    #[Test]
+    public function the_premium_themes_are_the_thirteen_video_themes(): void
+    {
+        $this->assertEqualsCanonicalizing([
+            'dugun-gokyuzu', 'dugun-mum-isigi', 'dugun-gul-yapraklari', 'dugun-deniz-isiltisi',
+            'dugun-sahil', 'dugun-onyx', 'kina-bordo', 'nisan-sampanya', 'sunnet-yildiz',
+            'dogum-gunu-konfeti', 'mezuniyet-lacivert', 'baby-shower-kabarcik', 'parti-aurora',
+        ], array_keys(Config::array('davetkart.preset_tiers')));
+
+        $this->assertSame(['gold'], array_values(array_unique(Config::array('davetkart.preset_tiers'))));
+    }
+
+    /** Uçtan uca: Standart'la premium tema yayınlanamaz, 402 Gold ister. */
+    #[Test]
+    public function a_standart_order_cannot_publish_a_premium_theme(): void
+    {
+        [$user, $invitation] = $this->ownedInvitation(['preset_id' => 'parti-aurora']);
+        Order::factory()->paid()->tier(SubscriptionTier::Standart)->forInvitation($invitation)->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('invitations.publish', $invitation))
+            ->assertStatus(402)
+            ->assertJsonPath('error.code', ErrorCode::PaywallTierInsufficient->value)
+            ->assertJsonPath('error.params.requiredTier', SubscriptionTier::Gold->value);
     }
 
     // --------------------------------------- PublishEntitlementResolver (7.9)
@@ -948,6 +1006,31 @@ final class PaywallTest extends TestCase
             ->assertNoContent();
 
         $this->assertSame(InvitationStatus::Published, $invitation->refresh()->status);
+    }
+
+    /**
+     * Faz 10 (10.66 · K102): ödeme ya da iade davetiyenin public önbelleğini
+     * yeniler. Misafir sayfasının imzası (Elit'te yok) plana bağlı; olay
+     * olmasaydı yükseltmeden sonra imza 6 saat (TTL) görünmeye devam ederdi.
+     * Başarısız bir ödeme hakkı değiştirmez: olay yok.
+     */
+    #[Test]
+    public function a_paid_or_refunded_order_refreshes_its_invitations_public_page(): void
+    {
+        [, $invitation] = $this->publishedInvitation(SubscriptionTier::Gold);
+        Order::factory()->tier(SubscriptionTier::Elit)->forInvitation($invitation)->create(['provider_ref' => 'ref-ust']);
+        Order::factory()->tier(SubscriptionTier::Elit)->forInvitation($invitation)->create(['provider_ref' => 'ref-red']);
+
+        Event::fake([InvitationChanged::class]);
+
+        $this->signedWebhook(['providerRef' => 'ref-red', 'status' => 'failed'])->assertNoContent();
+        Event::assertNotDispatched(InvitationChanged::class);
+
+        $this->signedWebhook(['providerRef' => 'ref-ust', 'status' => 'paid'])->assertNoContent();
+        Event::assertDispatched(
+            InvitationChanged::class,
+            fn (InvitationChanged $event): bool => $event->invitation->is($invitation),
+        );
     }
 
     /** Bağsız (henüz kullanılmamış) paketin iadesi hiçbir davetiyeye dokunmaz. */

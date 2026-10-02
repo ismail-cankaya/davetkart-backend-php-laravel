@@ -363,3 +363,12 @@ URL'e bağlı değil. Rota **K12**'nin uygulaması olacak:
 Bu bir *fail-safe* tasarımı: `auth:sanctum`'u yanlışlıkla unutmak bir davetiyeyi
 herkese açmak demektir. Öneki ayırmak, "açık" olmayı bir **unutmanın sonucu**
 olmaktan çıkarıp **açıkça işaretlenmiş bir istisna** hâline getirir.
+
+---
+
+## 🆕 Faz 10 (10.66 · K102) — imza kararı önbelleğe giriyor
+
+Önbellek kapanışı artık iki eylemi sırayla çağırıyor: davetiyeyi çözümle
+(`ResolvePublicInvitationAction`), imzayı sor (`ResolveBrandingAction`). Karar yanıtla birlikte
+önbelleğe yazılıyor; plan değiştiğinde (ödeme, iade) `HandlePaymentCallbackAction` bağlı davetiye
+için `InvitationChanged` yayınlıyor ve önbellek commit'ten sonra düşüyor.
