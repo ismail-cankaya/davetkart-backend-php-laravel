@@ -16,6 +16,7 @@ use App\Services\Payment\PaymentGateway;
 use App\Services\Pricing\OrderEntitlementResolver;
 use App\Services\Rsvp\SubscriptionRsvpQuotaResolver;
 use App\Support\EmailNormalizer;
+use App\Support\IpBucket;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
@@ -173,7 +174,7 @@ class AppServiceProvider extends ServiceProvider
 
         return [
             Limit::perMinute(Config::integer('davetkart.rsvp.rate_limit.per_ip_per_minute'))
-                ->by('rsvp-ip|'.$request->ip()),
+                ->by('rsvp-ip|'.IpBucket::of($request->ip())),
 
             Limit::perHour(Config::integer('davetkart.rsvp.rate_limit.per_invitation_per_hour'))
                 ->by('rsvp-inv|'.$invitation),
@@ -204,7 +205,7 @@ class AppServiceProvider extends ServiceProvider
 
         return [
             Limit::perMinute(Config::integer('davetkart.media.rate_limit.guest_per_ip_per_minute'))
-                ->by('media-ip|'.$request->ip()),
+                ->by('media-ip|'.IpBucket::of($request->ip())),
 
             Limit::perHour(Config::integer('davetkart.media.rate_limit.guest_per_invitation_per_hour'))
                 ->by('media-inv|'.$invitation),
@@ -242,7 +243,7 @@ class AppServiceProvider extends ServiceProvider
 
         $identity = $user !== null
             ? 'user|'.$user->id
-            : 'ip|'.$request->ip();   // savunma amacli yedek; normalde erisilmez
+            : 'ip|'.IpBucket::of($request->ip());   // savunma amacli yedek; normalde erisilmez
 
         return [
             Limit::perMinute(
@@ -269,7 +270,7 @@ class AppServiceProvider extends ServiceProvider
      */
     private function contactLimits(Request $request): array
     {
-        $ip = (string) $request->ip();
+        $ip = IpBucket::of($request->ip());
 
         return [
             Limit::perMinute(
@@ -300,7 +301,7 @@ class AppServiceProvider extends ServiceProvider
     private function apiLimits(Request $request): array
     {
         return [
-            Limit::perMinute(60)->by('api|'.$request->ip()),
+            Limit::perMinute(60)->by('api|'.IpBucket::of($request->ip())),
         ];
     }
 
@@ -320,8 +321,8 @@ class AppServiceProvider extends ServiceProvider
         $identity = is_string($email) ? EmailNormalizer::normalize($email) : 'anonim';
 
         return [
-            Limit::perMinute(5)->by($identity.'|'.$request->ip()),
-            Limit::perMinute(20)->by((string) $request->ip()),
+            Limit::perMinute(5)->by($identity.'|'.IpBucket::of($request->ip())),
+            Limit::perMinute(20)->by(IpBucket::of($request->ip())),
         ];
     }
 

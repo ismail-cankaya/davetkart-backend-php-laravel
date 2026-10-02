@@ -784,3 +784,12 @@ gerekir.
 > çalışmaya devam eder.
 
 **Test:** `tests/Feature/LocalServerEnvironmentTest.php`
+
+---
+
+## 🆕 Faz 10 (10.60 · K104) — IP anahtarı `IpBucket` üzerinden
+
+Bütün IP anahtarlı sınırlayıcılar (`rsvp`, `media`, `contact`, `auth`, `api`, asistanın yedek
+kolu) artık `$request->ip()`'yi doğrudan değil `IpBucket::of($request->ip())` ile kullanıyor:
+IPv6 adresleri `/64` önekine indiriliyor. Gerekçe: [`IpBucket.md`](../Support/IpBucket.md).
+Bağlantı testleri: `RateLimitTest` (LCV, medya, iletişim).

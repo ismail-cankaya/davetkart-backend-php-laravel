@@ -37,9 +37,13 @@ return [
     // LCV limitleri. Kota SUM(guest_count) ile kıyaslanır, COUNT(*) ile değil.
     'rsvp' => [
         'max_guests_per_entry' => 10,
+        // Faz 10 (10.60 · K104): 300 kişilik bir düğün davetiyesi aynı akşam
+        // gönderilir; eski sayılar (IP 10/dk, davetiye 60/saat) ilk saatte
+        // gelen yanıtların bir kısmını 429 ile geri çeviriyordu. Salonda
+        // herkes aynı Wi-Fi'da, yani aynı IP'de.
         'rate_limit' => [
-            'per_ip_per_minute' => 10,
-            'per_invitation_per_hour' => 60,
+            'per_ip_per_minute' => 20,
+            'per_invitation_per_hour' => 300,
         ],
         'poll_interval_seconds' => 15,
     ],
@@ -52,9 +56,11 @@ return [
         // ve daha DAR: orada honeypot ilk savunmaydi, dosya yuklemede oyle bir
         // katman YOK (bkz. StoreGuestMediaAction kilavuzu §2). Ustelik bir
         // istek yuzlerce KB degil onlarca MB tasiyor.
+        // Faz 10 (10.60 · K104): salon Wi-Fi'ı (tek IP) ve düğün gecesi için
+        // büyütüldü (eski: IP 5/dk, davetiye 40/saat). LCV'den yine dar.
         'rate_limit' => [
-            'guest_per_ip_per_minute' => 5,
-            'guest_per_invitation_per_hour' => 40,
+            'guest_per_ip_per_minute' => 15,
+            'guest_per_invitation_per_hour' => 150,
         ],
 
         // 🔴 Bir misafir yuklemesinin, hicbir LCV yanitina baglanmadan diskte

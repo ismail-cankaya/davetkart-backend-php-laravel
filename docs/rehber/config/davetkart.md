@@ -661,3 +661,17 @@ başka, üretimde başka bir süre, metnin bir ortamda yalan söylemesi demek.
 **Değiştirmek:** sayı burada değişir ve test **bilerek** kırılır
 (`MaintenanceTest`'in sınır tarihleri sabit yazıldı, 10.49'un dersi). Aydınlatma metni
 aynı commit'te güncellenmeli.
+
+---
+
+## 🆕 Faz 10 (10.60 · K104) — LCV ve misafir medyası hız sınırları büyüdü
+
+| Anahtar | Önce | Şimdi |
+|---|---|---|
+| `rsvp.rate_limit.per_ip_per_minute` | 10 | 20 |
+| `rsvp.rate_limit.per_invitation_per_hour` | 60 | 300 |
+| `media.rate_limit.guest_per_ip_per_minute` | 5 | 15 |
+| `media.rate_limit.guest_per_invitation_per_hour` | 40 | 150 |
+
+Gerekçe ve testler: `tests/Feature/RateLimitTest.md`. Kısaca: 300 kişilik bir davetiye aynı
+akşam gönderiliyor ve salonda herkes aynı Wi-Fi'da.
