@@ -30,6 +30,9 @@ Artisan::command('inspire', function () {
 | Scheduler). Bu dosya "ne zaman" der; "calistir" diyen sey isletim sistemidir.
 | Ayrintili aciklama: docs/rehber/routes/console.md
 |
+| Faz 10 (10.55 · K103): her iş Sentry Cron Monitors'a "başladım / bittim"
+| bildirir. İş zamanında koşmazsa ya da hata verirse Sentry uyarır.
+|
 */
 
 // Odeme penceresi dolmus bekleyen siparisler (9.9).
@@ -41,7 +44,8 @@ Artisan::command('inspire', function () {
 Schedule::command('orders:expire')
     ->hourly()
     ->withoutOverlapping()
-    ->onOneServer();
+    ->onOneServer()
+    ->sentryMonitor('orders-expire');
 
 // Hicbir LCV'ye baglanmamis misafir yuklemeleri (9.10).
 //
@@ -57,7 +61,8 @@ Schedule::command('orders:expire')
 Schedule::command('media:prune-orphans')
     ->dailyAt('03:15')
     ->withoutOverlapping()
-    ->onOneServer();
+    ->onOneServer()
+    ->sentryMonitor('media-prune-orphans');
 
 // Suresi dolmus Sanctum token'lari.
 //
@@ -77,7 +82,8 @@ Schedule::command('media:prune-orphans')
 Schedule::command('sanctum:prune-expired --hours=24')
     ->daily()
     ->withoutOverlapping()
-    ->onOneServer();
+    ->onOneServer()
+    ->sentryMonitor('sanctum-prune-expired');
 
 // Saklama suresi dolan kisisel veri (Faz 10, 10.43 · K98): cop kutusundaki
 // davetiye 30 gun, misafir verisi etkinlikten 6 ay, iletisim mesaji 12 ay.
@@ -88,4 +94,5 @@ Schedule::command('sanctum:prune-expired --hours=24')
 Schedule::command('data:purge')
     ->dailyAt('03:45')
     ->withoutOverlapping()
-    ->onOneServer();
+    ->onOneServer()
+    ->sentryMonitor('data-purge');

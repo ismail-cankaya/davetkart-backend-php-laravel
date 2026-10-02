@@ -4,7 +4,7 @@
 > **Faz:** 9 — Üretim hazırlığı, dosyalar 9.9 · 9.10 · 9.11 · 🆕 **Faz 10**, adım 10.5 (§5.1) · adım 10.11 (§6b) · adım 10.14 (§6c)
 > **Kılavuz yazımı:** 25 Eylül 2026 — **K18 borcu** (dosya Faz 9'da kılavuzsuz eklenmişti;
 > plan 10.54'ün yarısı burada kapandı, `HardeningTest.md` hâlâ bekliyor)
-> **Test sayısı:** 28 · **Test edilenler:** [`ExpireStaleOrders.md`](../../app/Console/Commands/ExpireStaleOrders.md) ·
+> **Test sayısı:** 29 · **Test edilenler:** [`ExpireStaleOrders.md`](../../app/Console/Commands/ExpireStaleOrders.md) ·
 > [`PruneOrphanMedia.md`](../../app/Console/Commands/PruneOrphanMedia.md) · [`routes/console.md`](../../routes/console.md) ·
 > `sanctum:prune-expired` (Laravel'in komutu, [`config/sanctum.md`](../../config/sanctum.md)) ·
 > [`NormalizeUserEmails.md`](../../app/Console/Commands/NormalizeUserEmails.md)
@@ -308,6 +308,7 @@ ile geriye alıyor (`tokenIssuedAt()` ile aynı gerekçe: zamanı yalnızca test
 | `each_maintenance_command_runs_at_its_intended_cadence` | Sıklık da sözleşmedir: `0 * * * *` · `15 3 * * *` · `0 0 * * *` |
 | ✅ `every_scheduled_command_guards_against_overlapping` | Bir işten `withoutOverlapping()` silinmesini (10.54b'de düzeltildi, §8.1) |
 | 🆕 `every_scheduled_command_runs_on_one_server` | Bir işten `onOneServer()` silinmesini (10.54b) |
+| 🆕 `every_scheduled_command_reports_to_a_sentry_monitor` | Bir işin Sentry izleyicisinin silinmesini ya da adının değişmesini (10.55 · K103, `routes/console.md`) |
 
 ---
 
@@ -430,7 +431,7 @@ büyümenin sigortası ve Faz 9'dan beri her işte yazılıydı, ama hiç sınan
 
 ```powershell
 php artisan test --filter=MaintenanceTest
-# 28 passed
+# 29 passed
 ```
 
 Mutasyon 13'ü elle dene: `routes/console.php`'de `--hours=24`'ü `--hours=720`

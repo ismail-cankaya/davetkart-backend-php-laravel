@@ -166,6 +166,8 @@ yazılıyor. **B6**: bir savunmanın neyi kapatmadığı da yazılır.
 Bugünkü asgari cevap `FAZ-9-ELLE-DOGRULAMA.md`'de: kurulumdan sonra
 `schedule:list` çıktısı **gözle** doğrulanacak ve ertesi gün tabloya bakılacak.
 
+> ✅ **Faz 10 (10.55 · K103) — kapandı.** Sentry Cron Monitors seçildi; ayrıntı en altta.
+
 ---
 
 ## 6. Sık yapılan hatalar
@@ -261,3 +263,63 @@ hiçbir şey silinmediği için ilk gerçek koşu birikmiş verinin hepsini bir 
 Zamanlayıcıda artık **dört** iş var. §7'deki `schedule:list` beklentisi:
 `orders:expire` (saatlik) · `media:prune-orphans` (03:15) · `sanctum:prune-expired`
 (günlük) · `data:purge` (03:45).
+
+---
+
+## 🆕 Faz 10 eklemesi — Sentry Cron Monitors (10.55 · K103)
+
+§5'in açık deliği: zamanlayıcı durursa hiçbir iş koşmaz ve kimse fark etmez. Seçilen
+çözüm Sentry'nin zamanlanmış iş izlemesi. Her işin sonuna tek satır eklendi:
+
+```php
+Schedule::command('data:purge')
+    ->dailyAt('03:45')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->sentryMonitor('data-purge');
+```
+
+### Nasıl çalışıyor?
+
+`sentryMonitor()` paketin (`sentry/sentry-laravel`) zamanlayıcıya eklediği bir makro. İşe
+üç geri çağrı bağlar:
+
+| An | Sentry'ye giden |
+|---|---|
+| İş başlarken (`before`) | *"başladım"* + işin sıklığı (`0 * * * *` gibi) |
+| Başarıyla bitince | *"bitti, tamam"* |
+| Hata verince | *"bitti, hata"* |
+
+Sentry sıklığı bildiği için **beklenen** zamanı hesaplar. *"Başladım"* beklenen zamanda
+gelmezse (zamanlayıcı durdu, sunucu kapandı, cron hiç kurulmadı) uyarı üretir. §5'teki
+üçüncü seçeneğin *"kendi kendini izleyen sistem"* sorunu burada yok: izleyen taraf
+sunucunun dışında.
+
+### Neden sabit adlar?
+
+Ad verilmezse paket adı komut satırından türetir: `sanctum:prune-expired --hours=24`
+için ad argümanı da içerir. Argüman bir gün değişirse Sentry bunu **yeni** bir iş sanar,
+eski izleyici *"koşmadı"* diye uyarmaya başlar ve geçmiş kopar. Sabit ad bunu önler.
+
+| İş | İzleyici |
+|---|---|
+| `orders:expire` | `orders-expire` |
+| `media:prune-orphans` | `media-prune-orphans` |
+| `sanctum:prune-expired --hours=24` | `sanctum-prune-expired` |
+| `data:purge` | `data-purge` |
+
+### DSN boşken ne olur?
+
+Makro her zaman kayıtlı (paketin `register()`'ı DSN'e bakmaz), ama Sentry'ye bildirim
+yalnızca DSN doluyken gider. Geliştirmede ve testlerde hiçbir şey değişmez, ağa çıkılmaz.
+
+### Bilinen sınırlar (B6)
+
+- **Ücret:** Sentry planının izleyici kotası deploy öncesi kontrol edilmeli (`docs/10`).
+- **Sentry'nin kendisi kapalıysa** uyarı da gelmez. Bu, dışarıdan izlemenin kabul edilen
+  bedeli.
+- **Uyarının kime gideceği** Sentry panelinde ayarlanır, kodda değil.
+
+**Test:** `MaintenanceTest::every_scheduled_command_reports_to_a_sentry_monitor`. Her işin
+*"başladım"* geri çağrısını ve izleyici adını doğruluyor. Mutasyon: bir işten
+`sentryMonitor()` silinince ya da ad verilmeyince kırılıyor.

@@ -182,6 +182,11 @@ SENTRY_TRACES_SAMPLE_RATE=
 SENTRY_SEND_DEFAULT_PII=false
 # Faz 10 (10.16): 4xx is istisnalari (yanlis parola, 402, kota) Sentry'ye
 # RAPORLANMAZ; yalnizca 5xx gider. Bkz. rehber/bootstrap/app.md §2.7.
+# Faz 10 (10.55 · K103): DSN doluysa dort zamanlanmis is Sentry > Crons'ta
+# kendiliginden izleyici olusturur (orders-expire, media-prune-orphans,
+# sanctum-prune-expired, data-purge). Is zamaninda kosmazsa ya da hata
+# verirse Sentry uyarir. Yayindan ONCE: planin kac izleyiciye izin verdigine
+# bak; dort izleyici ucretsiz kotayi asabilir.
 
 # --- Posta -------------------------------------------------------------------
 # 🔴 Faz 10 (K95): kod saglayicidan BAGIMSIZ; saglayici burada, deploy'da

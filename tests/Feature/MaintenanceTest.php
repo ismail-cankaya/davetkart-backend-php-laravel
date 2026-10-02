@@ -12,9 +12,11 @@ use App\Models\Order;
 use App\Models\Rsvp;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Closure;
 use Database\Factories\UserFactory;
 use DateTimeInterface;
 use Illuminate\Console\Command;
+use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -23,6 +25,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\PersonalAccessToken;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionFunction;
+use ReflectionProperty;
 use Tests\TestCase;
 
 /**
@@ -670,6 +674,50 @@ final class MaintenanceTest extends TestCase
                 sprintf('Zamanlanmis is onOneServer() tasimiyor: %s', $event->command),
             );
         }
+    }
+
+    /**
+     * Faz 10 (10.55 · K103): her iş bir Sentry izleyicisine bağlı.
+     *
+     * İzleyicinin adı da sınanıyor: Sentry'deki geçmiş bu ada bağlı,
+     * ad değişirse izleme sıfırdan başlar.
+     */
+    #[Test]
+    public function every_scheduled_command_reports_to_a_sentry_monitor(): void
+    {
+        $monitors = [];
+
+        foreach (app(Schedule::class)->events() as $event) {
+            preg_match('/[\'"]artisan[\'"]\s+(\S+)/', (string) $event->command, $matches);
+            $monitors[$matches[1] ?? (string) $event->command] = $this->sentryMonitorSlug($event);
+        }
+
+        $this->assertSame([
+            'orders:expire' => 'orders-expire',
+            'media:prune-orphans' => 'media-prune-orphans',
+            'sanctum:prune-expired' => 'sanctum-prune-expired',
+            'data:purge' => 'data-purge',
+        ], $monitors);
+    }
+
+    /** `sentryMonitor()` makrosunun işe eklediği "başladım" çağrısının izleyici adı. */
+    private function sentryMonitorSlug(Event $event): ?string
+    {
+        $callbacks = (new ReflectionProperty(Event::class, 'beforeCallbacks'))->getValue($event);
+
+        foreach (is_array($callbacks) ? $callbacks : [] as $callback) {
+            if (! $callback instanceof Closure) {
+                continue;
+            }
+
+            $variables = (new ReflectionFunction($callback))->getStaticVariables();
+
+            if (array_key_exists('startCheckIn', $variables)) {
+                return is_string($variables['monitorSlug']) ? $variables['monitorSlug'] : null;
+            }
+        }
+
+        return null;
     }
 
     /**
