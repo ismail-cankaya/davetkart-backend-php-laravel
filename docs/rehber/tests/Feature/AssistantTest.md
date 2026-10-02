@@ -147,3 +147,18 @@ burada değerin **gövdeyle aynı** olduğu görülüyor.
 | `RETRY_AFTER_SECONDS` 30 → 0 | 🟢 | sağlayıcı testi |
 
 Test sayısı değişmedi (21); iki test güçlendi.
+
+---
+
+## 🆕 Faz 10 (10.56) — varsayılan sürücü `null`
+
+| Test | İddia |
+|---|---|
+| `the_provider_defaults_to_null_when_the_environment_is_silent` | `AI_PROVIDER` hiçbir yerde yokken `config/ai.php` → `default` = `'null'` |
+
+Test `config/ai.php`'yi değişkeni **bilerek boşaltarak** okuyor (`$_ENV`, `$_SERVER`,
+`putenv`), sonra eski değerleri geri yüklüyor. Sebep: testler `.env`'i de okur. Geliştiricinin
+kendi `.env`'inde `AI_PROVIDER=gemini` varsa `config('ai.default')`'a bakan bir test o değeri
+görür ve **varsayılanı** hiç sınamamış olurdu.
+
+Mutasyon: varsayılan `gemini`'ye geri çekilince kırılıyor.

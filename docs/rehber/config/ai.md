@@ -19,7 +19,7 @@ Tarayıcı → POST /api/assistant/chat → GeminiProvider (anahtar burada) → 
 
 | Anahtar | Ne işe yarar |
 |---|---|
-| `default` | Aktif sağlayıcı: `gemini` \| `null`. ⚠️ Koddaki varsayılan **`gemini`** (`env('AI_PROVIDER', 'gemini')`); `.env.example` ise `null` yazıyor ve *"varsayılan null'dır"* diyor — ikisi ayrışmış (23 Eylül gözden geçirmesi) |
+| `default` | Aktif sağlayıcı: `gemini` \| `null`. ✅ Faz 10 (10.56): koddaki varsayılan **`null`** (`env('AI_PROVIDER', 'null')`). 23 Eylül gözden geçirmesinin bulduğu ayrışma (kod `gemini`, `.env.example` ve `docs/11` `null`) kapandı. Gerekçe: yapılandırması eksik bir sunucu faturalı çağrı yapmasın. Üretimde `AI_PROVIDER=gemini` açıkça yazılır (`docs/10`). Test: `AssistantTest::the_provider_defaults_to_null_when_the_environment_is_silent` |
 | `providers.gemini.api_key` | 🔴 Sır. Yalnızca `GeminiProvider` okur |
 | `providers.gemini.model` | Model adı — **`gemini-2.5-flash`** (21 Eylül 2026'dan beri). Takma ad (`-latest`) kullanılmaz |
 | `providers.null` | Sağlayıcı yokken sabit yanıt döndüren yedek sürücü |

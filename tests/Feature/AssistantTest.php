@@ -251,6 +251,37 @@ final class AssistantTest extends TestCase
         $this->assertStringNotContainsString('stub', $body);
     }
 
+    /**
+     * Faz 10 (10.56): ortam AI_PROVIDER söylemezse sürücü `null`.
+     *
+     * Değişken bilerek boşaltılıyor: testler `.env`'i de okur ve geliştiricinin
+     * kendi değeri sonucu değiştirmemeli.
+     */
+    #[Test]
+    public function the_provider_defaults_to_null_when_the_environment_is_silent(): void
+    {
+        $saved = [$_ENV['AI_PROVIDER'] ?? null, $_SERVER['AI_PROVIDER'] ?? null, getenv('AI_PROVIDER')];
+        unset($_ENV['AI_PROVIDER'], $_SERVER['AI_PROVIDER']);
+        putenv('AI_PROVIDER');
+
+        try {
+            $config = require config_path('ai.php');
+        } finally {
+            [$env, $server, $process] = $saved;
+            if ($env !== null) {
+                $_ENV['AI_PROVIDER'] = $env;
+            }
+            if ($server !== null) {
+                $_SERVER['AI_PROVIDER'] = $server;
+            }
+            if ($process !== false) {
+                putenv('AI_PROVIDER='.$process);
+            }
+        }
+
+        $this->assertSame('null', is_array($config) ? ($config['default'] ?? null) : null);
+    }
+
     /** K70: bilinmeyen surucu SESSIZ bir varsayilana dusmez. */
     #[Test]
     public function an_unknown_driver_is_rejected(): void

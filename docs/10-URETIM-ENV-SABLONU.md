@@ -165,6 +165,10 @@ PAYMENT_SUCCESS_URL=https://davetkart.com/odeme/basarili
 PAYMENT_FAILURE_URL=https://davetkart.com/odeme/hata
 
 # --- AI asistan --------------------------------------------------------------
+# Faz 10 (10.56): kodun varsayilani 'null' (aga cikmayan sabit cevap). Bu
+# satir yazilmazsa asistan calisir gorunur ama gercek cevap vermez.
+# Yayinin ILK GUNU uretim anahtariyla bir soru sorup gercek cevap geldigini
+# dogrula: Google 2.5 modellerine erisimi hesap bazinda kisitlayabiliyor.
 AI_PROVIDER=gemini
 GEMINI_API_KEY=
 # Model adi SABITLENIR ('latest' takma adi yok). config/ai.php varsayilani

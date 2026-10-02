@@ -12,7 +12,9 @@ declare(strict_types=1);
 
 return [
 
-    'default' => env('AI_PROVIDER', 'gemini'),
+    // Faz 10 (10.56): ortam söylemezse ağa çıkmayan 'null' sürücüsü.
+    // Üretimde AI_PROVIDER=gemini açıkça yazılır (docs/10).
+    'default' => env('AI_PROVIDER', 'null'),
 
     'providers' => [
 
