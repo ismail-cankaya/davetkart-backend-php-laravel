@@ -737,3 +737,10 @@ değişen üç şey:
   `each_listed_reply_carries_only_whitelisted_fields` kırmızı yandı: liste kodu taşımamalı.
 - Honeypot testi: gerçek ve sahte yanıt `id` **ve** `editCode` dışında birebir aynı; iki kodun
   uzunluğu da aynı (bot kodsuz bir yanıtla *"yakalandın"* sinyali almasın).
+
+---
+
+## 🆕 Faz 10 (10.63): büyük harfli davetiye kimliği
+
+`an_uppercase_invitation_id_still_takes_the_reply`: QR kodu adresi büyük harfe çevirse de LCV
+aynı davetiyeye yazılıyor (`ResolvePublicInvitationAction.md` → *Faz 10*).

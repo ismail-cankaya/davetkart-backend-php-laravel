@@ -25,7 +25,9 @@ final class ResolvePublicInvitationAction
     public function handle(string $id): Invitation
     {
         return Invitation::query()
-            ->whereKey($id)
+            // Faz 10 (10.63): ULID harf duyarsız, kayıtlar küçük harfle saklı.
+            // QR okuyucular adresi büyük harfe çevirebiliyor.
+            ->whereKey(strtolower($id))
             ->where('status', InvitationStatus::Published)
             // Faz 3 sapmasi surduruluyor: Resource iliskiye DOGRUDAN erisir.
             // Burada yuklenmezse yerelde LazyLoadingViolation firlar (3.9).

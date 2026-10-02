@@ -101,7 +101,9 @@ class Invitation extends Model
      */
     public static function publicCacheKey(string $id): string
     {
-        return Config::string('davetkart.cache.key_prefix').':public-invitation:'.$id;
+        // Faz 10 (10.63): büyük harfli istek ayrı ve hiç temizlenmeyen bir
+        // girdi açmasın; dinleyici küçük harfli kimlikle siler.
+        return Config::string('davetkart.cache.key_prefix').':public-invitation:'.strtolower($id);
     }
 
     /** @return BelongsTo<User, $this> */

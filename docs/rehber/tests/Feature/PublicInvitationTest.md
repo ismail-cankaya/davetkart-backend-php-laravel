@@ -547,3 +547,11 @@ dizgiyi aramak boş yeşil üretirdi (denetim §4'ün notu).
 | M8 | `'palette' => 'midnight'` | tasarım testi |
 
 Önceki dosyayla sekizi de yeşildi.
+
+---
+
+## 🆕 Faz 10 (10.63): büyük harfli kimlik
+
+`an_uppercase_id_opens_the_same_invitation_and_cache_entry`: büyük harfli adres 200 ve **küçük
+harfli** önbellek anahtarı dolu. İkinci iddia olmasaydı, anahtarı küçültmeyi unutan bir kod da
+yeşil kalırdı ve güncellemeden sonra büyük harfli adres eski davetiyeyi göstermeye devam ederdi.

@@ -745,3 +745,10 @@ ayrışırdı ve hiçbir test bunu fark etmezdi.
 
 **Saat dilimi yok:** bu bir **süre** hesabı (yayından 72 saat), takvim günü
 değil. Ayrıntı: [`DeleteInvitationAction.md`](../Actions/Invitation/DeleteInvitationAction.md) §3.
+---
+
+## 🆕 Faz 10 (10.63) — `publicCacheKey()` kimliği küçültüyor
+
+`strtolower($id)`: büyük harfli bir istek (`/public/invitations/01J…`) küçük harfli olanla **aynı**
+önbellek girdisine düşüyor. Ayrı bir girdi açsaydı `ClearInvitationCache` onu hiç silmezdi.
+Ayrıntı: `ResolvePublicInvitationAction.md` → *Faz 10*.

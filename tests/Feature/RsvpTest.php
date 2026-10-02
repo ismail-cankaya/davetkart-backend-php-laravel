@@ -272,6 +272,17 @@ final class RsvpTest extends TestCase
         $this->assertDatabaseCount('rsvps', 0);
     }
 
+    /** Faz 10 (10.63): QR kodu adresi büyük harfe çevirse de LCV aynı davetiyeye yazılır. */
+    #[Test]
+    public function an_uppercase_invitation_id_still_takes_the_reply(): void
+    {
+        $dugun = $this->dugunDavetiyesi();
+
+        $this->lcvGonder(strtoupper($dugun->id), $this->lcvFormu())->assertCreated();
+
+        $this->assertDatabaseHas('rsvps', ['invitation_id' => $dugun->id, 'guest_name' => 'Şeyma Şen']);
+    }
+
     /** @return iterable<string, array{string}> */
     public static function bicimsizKimlikler(): iterable
     {

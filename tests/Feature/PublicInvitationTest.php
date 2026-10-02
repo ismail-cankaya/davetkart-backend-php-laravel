@@ -348,6 +348,28 @@ final class PublicInvitationTest extends TestCase
     }
 
     /**
+     * Faz 10 (10.63): büyük harfli kimlik de aynı davetiyeyi açar.
+     *
+     * ULID harf duyarsız; QR okuyucular adresi büyük harfe çevirebiliyor.
+     * Önceden rota biçimi geçiyor ama davetiye bulunamıyordu (404).
+     * Aynı önbellek girdisine düşmeli: ayrı bir girdi açılsaydı dinleyici
+     * (küçük harfli kimlikle siler) onu hiç temizlemezdi ve misafir eski
+     * davetiyeyi görmeye devam ederdi.
+     */
+    #[Test]
+    public function an_uppercase_id_opens_the_same_invitation_and_cache_entry(): void
+    {
+        $inv = $this->published(['names' => 'Ayşe & Çağrı']);
+
+        $this->getJson(route('public.invitations.show', strtoupper($inv->id)))
+            ->assertOk()
+            ->assertJsonPath('data.id', $inv->id)
+            ->assertJsonPath('data.invitation.names', 'Ayşe & Çağrı');
+
+        $this->assertTrue(Cache::has(Invitation::publicCacheKey($inv->id)));
+    }
+
+    /**
      * 🔴 Faz 10 (10.47): her davetiyenin KENDI cache girdisi var.
      *
      * Denetimde anahtardan `$id` cikarilinca bu dosya yesil kaldi. O hatayla

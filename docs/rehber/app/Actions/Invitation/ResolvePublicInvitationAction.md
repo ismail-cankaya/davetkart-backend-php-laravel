@@ -421,3 +421,25 @@ olacak:
 Somut olarak: `show_gift = false` iken `iban`, `bankName`, `accountHolder`
 alanları misafire **hiç gitmeyecek** — boş string olarak değil, anahtar olarak
 da yok. Sahibin kendi editöründe ise (3.9) aynı alanlar görünmeye devam edecek.
+
+---
+
+## 🆕 Faz 10 (10.63) — büyük harfli kimlik
+
+```php
+->whereKey(strtolower($id))
+```
+
+ULID'ler harf duyarsız (Crockford base32), ama `HasUlids` küçük harfle üretiyor ve PostgreSQL'de
+karşılaştırma harf duyarlı. `whereUlid` rota kısıtı büyük harfi geçiriyordu, sorgu bulamıyordu:
+**404**. QR okuyucular (alfanümerik kip daha küçük kod üretir) ve bazı mesajlaşma uygulamaları
+adresi büyük harfe çevirebiliyor: misafir *"davetiye bulunamadı"* görüyordu.
+
+Düzeltme tek noktada, çünkü `ResolveOpenRsvpInvitationAction` (LCV, misafir medyası, LCV
+güncelleme) de bu eyleme delege ediyor. Önbellek anahtarı da küçültülüyor
+(`Invitation::publicCacheKey()`): büyük harfli istek ayrı bir girdi açsaydı, dinleyici (küçük
+harfli kimlikle siler) onu hiç temizlemez ve misafir güncellemeden sonra eski davetiyeyi görürdü.
+
+Testler: `PublicInvitationTest::an_uppercase_id_opens_the_same_invitation_and_cache_entry` ·
+`RsvpTest::an_uppercase_invitation_id_still_takes_the_reply`. Mutasyon: çözücüden `strtolower`
+silinince ikisi, anahtardan silinince ilki kırılıyor.
