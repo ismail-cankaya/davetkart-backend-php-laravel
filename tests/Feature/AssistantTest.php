@@ -138,8 +138,10 @@ final class AssistantTest extends TestCase
         // Faz 10 (10.52): saat SABITLENDI. Once yalnizca `assertIsInt`
         // vardi: saniye kostugu saate gore degisiyordu ve sabit bir sayi
         // beklenemiyordu. Ama "bir tam sayi" sozlesmenin yarisi; `1` donse de
-        // yesildi (TEST-DENETIMI §2). Saat sabitken beklenen deger de sabit:
-        // gun UTC gece yarisi yenilenir (acik karar #4), 22:00'de 2 saat kalir.
+        // yesildi (TEST-DENETIMI §2). Saat sabitken beklenen deger de sabit.
+        // Faz 10 (10.57 · K106): gün İstanbul'da yenilenir. 22:00 UTC,
+        // İstanbul'da ertesi günün 01:00'i; bir sonraki gece yarısına 23 saat
+        // var. UTC'ye göre hesaplasaydı 2 saat (7200) derdi.
         $this->travelTo(CarbonImmutable::parse('2026-10-01 22:00:00', 'UTC'));
 
         $this->bindReplyingProvider();
@@ -151,8 +153,8 @@ final class AssistantTest extends TestCase
         $response = $this->ask($user, 'merhaba')->assertStatus(429);
 
         $response->assertJsonPath('error.params.limit', 3)
-            ->assertJsonPath('error.params.retryAfter', 7200)
-            ->assertHeader('Retry-After', '7200');
+            ->assertJsonPath('error.params.retryAfter', 82800)
+            ->assertHeader('Retry-After', '82800');
     }
 
     #[Test]
@@ -172,17 +174,25 @@ final class AssistantTest extends TestCase
         $this->ask(User::factory()->create(), 'merhaba')->assertOk();
     }
 
-    /** Butce GUNLUK: dunku dolu sayac bugunu kilitlemez. */
+    /**
+     * Butce GUNLUK: dunku dolu sayac bugunu kilitlemez.
+     *
+     * Faz 10 (10.57 · K106): gün İstanbul'da başlar. 21:30 UTC, İstanbul'da
+     * 2 Ekim 00:30. UTC'ye göre hâlâ 1 Ekim olduğu için 1 Ekim'in dolu
+     * sayacı UTC'li bir hesapta kullanıcıyı kilitlerdi.
+     */
     #[Test]
     public function yesterdays_usage_does_not_count_today(): void
     {
+        $this->travelTo(CarbonImmutable::parse('2026-10-01 21:30:00', 'UTC'));
+
         $this->bindReplyingProvider();
         Config::set('davetkart.assistant.daily_message_limit_per_user', 1);
 
         $user = User::factory()->create();
 
         AssistantUsage::factory()
-            ->on(CarbonImmutable::now()->subDay()->toDateString())
+            ->on('2026-10-01')
             ->spent(1)
             ->create(['user_id' => $user->id]);
 
@@ -192,7 +202,7 @@ final class AssistantTest extends TestCase
         $this->assertDatabaseCount('assistant_usages', 2);
         $this->assertDatabaseHas('assistant_usages', [
             'user_id' => $user->id,
-            'usage_date' => CarbonImmutable::now()->toDateString(),
+            'usage_date' => '2026-10-02',
             'message_count' => 1,
         ]);
     }

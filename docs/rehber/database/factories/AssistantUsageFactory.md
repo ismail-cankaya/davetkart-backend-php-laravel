@@ -42,3 +42,16 @@ kaynagi olarak kaliyor.
 `definition()` icin `@return` **bilerek** yok: ust siniftan devralinir ve
 tip **daha iyi** olur (**ders 19** — kovaryans docblock kopyalayarak
 bozulur).
+
+---
+
+## 🆕 Faz 10 (10.57 · K106) — varsayılan tarih İstanbul'da
+
+```php
+'usage_date' => CarbonImmutable::now(Config::string('davetkart.default_timezone'))->toDateString(),
+```
+
+Kotanın günü İstanbul'a geçti (`AskAssistantAction.md` §5.1). Fabrika UTC'de kalsaydı, testler
+her gün 21:00–24:00 UTC arasında koşarken satırı eylemin *"dünü"*ne yazardı. O saatlerde kota
+dolu görünmez ve kota testleri kırılırdı. Saate bağlı, ara sıra kırmızı bir test en pahalı test
+türüdür: sebebi aranırken kod suçlanır.

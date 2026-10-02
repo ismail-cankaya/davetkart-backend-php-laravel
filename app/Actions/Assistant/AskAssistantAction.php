@@ -111,19 +111,20 @@ final class AskAssistantAction
     }
 
     /**
-     * Kotanin gunu — UYGULAMANIN saat diliminde (config/app.php: UTC).
+     * Kotanın günü: davetkart.default_timezone'da (İstanbul) bugünün tarihi.
      *
-     * 🔴 B6 — bunun kapatMADIGI sey: Istanbul'daki bir kullanici icin kota
-     * gece yarisi degil SABAH 03:00'te yenilenir. Davetiyenin saat dilimini
-     * (K71) burada KULLANMIYORUZ, cunku o alan bir ETKINLIGIN yerel saatini
-     * anlatir; asistan sohbetinin bir etkinligi yok. Kullanicinin kendi
-     * saat dilimi ise hicbir yerde saklanmiyor (users tablosunda boyle bir
-     * kolon yok). Ihtiyac dogarsa dogru cozum o kolonu eklemektir; bugun
-     * eklemek, hicbir yerden okunmayan bir alan uretirdi (ders 26).
+     * Faz 10 (10.57 · K106): önceden UTC'ydi ve kota İstanbul'da 03:00'te
+     * yenileniyordu. Gerekçe: docs/rehber/app/Actions/Assistant/AskAssistantAction.md
      */
     private function today(): string
     {
-        return CarbonImmutable::now()->toDateString();
+        return $this->now()->toDateString();
+    }
+
+    /** Kotanın saat dilimindeki "şimdi". */
+    private function now(): CarbonImmutable
+    {
+        return CarbonImmutable::now(Config::string('davetkart.default_timezone'));
     }
 
     /**
@@ -135,7 +136,7 @@ final class AskAssistantAction
      */
     private function secondsUntilReset(): int
     {
-        $now = CarbonImmutable::now();
+        $now = $this->now();
 
         return max(1, $now->addDay()->startOfDay()->getTimestamp() - $now->getTimestamp());
     }

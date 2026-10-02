@@ -8,6 +8,7 @@ use App\Models\AssistantUsage;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Config;
 
 /**
  * Test icin sahte gunluk sayac uretir.
@@ -30,7 +31,8 @@ class AssistantUsageFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'usage_date' => CarbonImmutable::now()->toDateString(),
+            // Kotanın günüyle aynı saat dilimi (10.57).
+            'usage_date' => CarbonImmutable::now(Config::string('davetkart.default_timezone'))->toDateString(),
             'message_count' => 0,
         ];
     }

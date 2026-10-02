@@ -93,6 +93,9 @@ siniri ile kota birbirinin yerine gecmez.
 
 ## 5. Gun siniri hangi saat diliminde?
 
+> 🆕 **Faz 10 (10.57 · K106): İstanbul'da.** Aşağıdaki ilk iki paragraf Faz 8'in hâlini
+> anlatıyor; güncel durum bölümün sonunda.
+
 Uygulamanin saat diliminde — `config/app.php` → **UTC**.
 
 **B6 — kapatMADIGI sey:** Istanbul'daki kullanici icin kota gece yarisi
@@ -103,6 +106,38 @@ Neden davetiyenin `timezone`'u (K71) kullanilmadi? Cunku o alan bir
 Kullanicinin kendi dilimi ise hicbir yerde saklanmiyor (`users` tablosunda
 boyle bir kolon yok). Ihtiyac dogarsa dogru cozum o kolonu eklemektir;
 bugun eklemek hicbir yerden okunmayan bir alan uretirdi (**ders 26**).
+
+### 5.1 🆕 Faz 10 (10.57 · K106): gün İstanbul'da başlar
+
+İsmail'in kararı (1 Ekim 2026): kota İstanbul gece yarısında yenilensin. Kullanıcının kendi
+dilimi hâlâ saklanmıyor; seçilen dilim, ürünün **pazarının** dilimi:
+`config/davetkart.php` → `default_timezone` (davetiyelerin varsayılanıyla aynı değer, E6).
+
+```php
+private function now(): CarbonImmutable
+{
+    return CarbonImmutable::now(Config::string('davetkart.default_timezone'));
+}
+```
+
+`today()` (sayacın satırı) ve `secondsUntilReset()` (`Retry-After`) **ikisi de** buradan
+okuyor. Birini unutmak sessiz bir tutarsızlık olurdu: sayaç İstanbul gününde, *"şu kadar
+saniye sonra"* UTC gece yarısına göre. Mutasyonla görüldü: yalnızca birini UTC'ye çekmek
+de bir testi kırıyor.
+
+`AssistantUsageFactory`'nin varsayılan tarihi de aynı dilime geçti. Geçmeseydi her gün
+21:00–24:00 UTC arasında koşan bir test, satırı **dünün** tarihine yazar ve kota dolu
+görünmezdi: saate bağlı, ara sıra kırmızı bir test.
+
+| An (UTC) | İstanbul | Sayacın günü | `Retry-After` |
+|---|---|---|---|
+| 1 Ekim 18:00 | 1 Ekim 21:00 | 1 Ekim | 10800 (3 saat) |
+| 1 Ekim 21:30 | 2 Ekim 00:30 | **2 Ekim** | 84600 |
+| 1 Ekim 22:00 | 2 Ekim 01:00 | 2 Ekim | 82800 |
+
+**Testler:** `the_quota_rejection_carries_the_limit_and_a_retry_hint` (22:00 UTC → 82800;
+UTC'li bir hesap 7200 derdi) · `yesterdays_usage_does_not_count_today` (21:30 UTC'de 1 Ekim'in
+dolu sayacı kilitlemiyor; UTC'li bir hesapta kilitlerdi).
 
 ---
 

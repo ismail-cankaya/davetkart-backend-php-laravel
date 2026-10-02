@@ -162,3 +162,23 @@ kendi `.env`'inde `AI_PROVIDER=gemini` varsa `config('ai.default')`'a bakan bir 
 görür ve **varsayılanı** hiç sınamamış olurdu.
 
 Mutasyon: varsayılan `gemini`'ye geri çekilince kırılıyor.
+
+---
+
+## 🆕 Faz 10 (10.57 · K106) — gün İstanbul'da
+
+İki test bu kararın kanıtı oldu:
+
+| Test | Sabit an | UTC'li hesap ne derdi | İstanbul'lu hesap |
+|---|---|---|---|
+| `the_quota_rejection_carries_the_limit_and_a_retry_hint` | 1 Ekim 22:00 UTC | `retryAfter` 7200 | **82800** |
+| `yesterdays_usage_does_not_count_today` | 1 Ekim 21:30 UTC | 1 Ekim'in dolu sayacı kilitler | Gün 2 Ekim, yeni satır |
+
+İkinci test önce `CarbonImmutable::now()->subDay()` kullanıyordu, yani gerçek saate bağlıydı.
+Artık sabit bir anda ve elle yazılmış tarihlerle (`'2026-10-01'`, `'2026-10-02'`) koşuyor.
+
+| Mutasyon (`AskAssistantAction`) | Kırılan |
+|---|---|
+| `now()` UTC | iki test |
+| Yalnızca `today()` UTC | iki test |
+| Yalnızca `secondsUntilReset()` UTC | kota testi |
