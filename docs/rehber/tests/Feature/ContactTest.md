@@ -146,3 +146,17 @@ bir kaynak olurdu.
 limitleri bulur ve her birine `fallbackKey()` verir (anahtara süreyi ekler). İki kova
 anahtarları aynı yazılsa da ayrı sayar. Test bunu yakalayamaz çünkü davranış değişmiyor;
 anahtarları yine de ayrı yazmak okuyana niyeti söylüyor.
+
+---
+
+## 🆕 Faz 10 (10.65) — `contact:list`
+
+| Test | İddia |
+|---|---|
+| `the_list_command_shows_the_newest_messages_first` | Tablo birebir: en yeni üstte, İstanbul saati, Türkçe ad, uzun mesaj 80 karakterde kısaltılmış |
+| `the_list_command_filters_by_day_and_limit` | `--since` İstanbul gece yarısından başlıyor (20:59 UTC dışarıda, 21:00 UTC içeride) · `--limit` |
+| 🔴 `control_characters_in_a_message_are_made_visible` | `\e[2J` ve C1 `\x9B` görünür kılınıyor; ham dizi çıktıda yok |
+| `an_invalid_since_date_is_refused` | Biçimsiz tarih → çıkış kodu 2 (`INVALID`) |
+
+Komut `contactList()` yardımcısıyla çağrılıyor: `artisan()` `PendingCommand|int` döndürüyor ve
+PHPStan tipi daraltmadan zinciri kabul etmiyor. Ayrıntı: `ListContactMessages.md`.

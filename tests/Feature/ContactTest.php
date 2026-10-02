@@ -7,11 +7,14 @@ namespace Tests\Feature;
 use App\Enums\ContactSubject;
 use App\Enums\ErrorCode;
 use App\Http\Requests\Contact\ContactRequest;
+use App\Models\ContactMessage;
 use App\Support\IpHasher;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Testing\PendingCommand;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -292,7 +295,85 @@ final class ContactTest extends TestCase
         $this->submit()->assertNoContent();
     }
 
+    // ------------------------------------------- contact:list (Faz 10, 10.65)
+
+    /** En yeni üstte; saat İstanbul'da; uzun mesaj kısaltılır. */
+    #[Test]
+    public function the_list_command_shows_the_newest_messages_first(): void
+    {
+        ContactMessage::factory()->create([
+            'name' => 'Ayşe Yılmaz',
+            'subject' => ContactSubject::Support,
+            'message' => 'Davetiyem açılmıyor.',
+            'created_at' => '2026-09-29 08:00:00',
+        ]);
+        ContactMessage::factory()->create([
+            'name' => 'Şükrü İnce',
+            'email' => 'sukru@example.test',
+            'subject' => ContactSubject::Pricing,
+            'message' => str_repeat('Elit plan hakkında bilgi almak istiyorum. ', 3),
+            'created_at' => '2026-09-30 21:30:00',
+        ]);
+
+        $this->contactList()
+            ->expectsTable(['Tarih', 'Konu', 'Ad', 'E-posta', 'Mesaj'], [
+                ['2026-10-01 00:30', 'pricing', 'Şükrü İnce', 'sukru@example.test', Str::limit(str_repeat('Elit plan hakkında bilgi almak istiyorum. ', 3), 80)],
+                ['2026-09-29 11:00', 'support', 'Ayşe Yılmaz', 'deniz@example.test', 'Davetiyem açılmıyor.'],
+            ])
+            ->assertSuccessful();
+    }
+
+    /** `--since` günü İstanbul'da başlatır; `--limit` sayıyı keser. */
+    #[Test]
+    public function the_list_command_filters_by_day_and_limit(): void
+    {
+        ContactMessage::factory()->create(['name' => 'Eski', 'created_at' => '2026-09-30 20:59:00']);   // İstanbul 23:59, 30 Eylül
+        ContactMessage::factory()->create(['name' => 'Yeni 1', 'created_at' => '2026-09-30 21:00:00']); // İstanbul 00:00, 1 Ekim
+        ContactMessage::factory()->create(['name' => 'Yeni 2', 'created_at' => '2026-10-01 09:00:00']);
+
+        $this->contactList(['--since' => '2026-10-01'])
+            ->expectsOutputToContain('Yeni 1')
+            ->doesntExpectOutputToContain('Eski')
+            ->assertSuccessful();
+
+        $this->contactList(['--limit' => 1])
+            ->expectsOutputToContain('Yeni 2')
+            ->doesntExpectOutputToContain('Yeni 1')
+            ->assertSuccessful();
+    }
+
+    /**
+     * 🔴 Mesaj misafirden gelir: terminal kontrol karakterleri yazdırılmaz,
+     * görünür kılınır. "\e[2J" ekranı silerdi; "\e]8;;…" sahte bir bağlantı
+     * gösterebilirdi.
+     */
+    #[Test]
+    public function control_characters_in_a_message_are_made_visible(): void
+    {
+        ContactMessage::factory()->create(['message' => "Merhaba\e[2Jgizli\u{9B}31m"]);
+
+        $this->contactList(['--full' => true])
+            ->expectsOutputToContain('Merhaba\u001b[2Jgizli\u009b31m')
+            ->doesntExpectOutputToContain("\e[2J")
+            ->assertSuccessful();
+    }
+
+    #[Test]
+    public function an_invalid_since_date_is_refused(): void
+    {
+        $this->contactList(['--since' => 'dun'])->assertExitCode(2);
+    }
+
     // ---------------------------------------------------------- YARDIMCI
+
+    /** @param  array<string, mixed>  $options */
+    private function contactList(array $options = []): PendingCommand
+    {
+        $command = $this->artisan('contact:list', $options);
+        $this->assertInstanceOf(PendingCommand::class, $command);
+
+        return $command;
+    }
 
     /**
      * @param  array<string, mixed>  $overrides
