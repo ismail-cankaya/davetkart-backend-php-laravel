@@ -6,6 +6,8 @@ namespace App\Actions\Rsvp;
 
 use App\Enums\MediaKind;
 use App\Models\Invitation;
+use App\Models\Rsvp;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 /**
  * Misafirin LCV'sine iliştirdiği medya kimliğini doğrular; geçersizse null döner.
@@ -13,9 +15,10 @@ use App\Models\Invitation;
  * Faz 10 (10.59): SubmitRsvpAction'ın içinden çıkarıldı; güncelleme
  * (UpdateRsvpAction) aynı kuralı kullanıyor ve kural iki yerde duramaz (C3).
  *
- * Iki kosul birden aranir ve ikisi de sorgunun KAPSAMINDA (P3 ailesi):
+ * Uc kosul birden aranir ve ucu de sorgunun KAPSAMINDA (P3 ailesi):
  *   1. Medya BU davetiyeye ait mi   -> $invitation->media() iliskisi
  *   2. Beklenen TURDE mi            -> where('kind', ...)
+ *   3. Baska bir yanita bagli DEGIL mi (Faz 10, 10.64) -> whereNotExists(rsvps)
  *
  * 🔴 Ikincisi olmasaydi misafir kendi yukledigi rsvp_video kimligini
  * photoMediaId olarak gonderebilir, ya da (davetiyeye ait oldugu icin)
@@ -34,7 +37,10 @@ use App\Models\Invitation;
  */
 final class ResolveGuestMediaAction
 {
-    public function handle(Invitation $invitation, ?string $mediaId, MediaKind $kind): ?string
+    /**
+     * @param  Rsvp|null  $owner  Güncellenen yanıt: ona zaten bağlı medya serbest.
+     */
+    public function handle(Invitation $invitation, ?string $mediaId, MediaKind $kind, ?Rsvp $owner = null): ?string
     {
         if ($mediaId === null) {
             return null;
@@ -43,6 +49,18 @@ final class ResolveGuestMediaAction
         $belongs = $invitation->media()
             ->whereKey($mediaId)
             ->where('kind', $kind)
+            // Faz 10 (10.64): başka bir yanıta bağlı medya kimsenin değil.
+            // Kimliği bilen bir misafir başkasının fotoğrafını kendi yanıtına
+            // iliştiremesin.
+            ->whereNotExists(function (QueryBuilder $query) use ($owner): void {
+                $query->selectRaw('1')
+                    ->from('rsvps')
+                    ->where(function (QueryBuilder $linked): void {
+                        $linked->whereColumn('rsvps.photo_media_id', 'media.id')
+                            ->orWhereColumn('rsvps.video_media_id', 'media.id');
+                    })
+                    ->when($owner !== null, fn (QueryBuilder $other) => $other->where('rsvps.id', '!=', $owner?->getKey()));
+            })
             ->exists();
 
         return $belongs ? $mediaId : null;

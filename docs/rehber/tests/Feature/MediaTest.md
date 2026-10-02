@@ -518,3 +518,13 @@ sırasında silerse kullanıcı 500 görür. Linux sunucuda beklenmez; not olara
 \* §5'teki eski test M4 altında da 422 aldı (`dimensions`) ve yeşil kaldı.
 
 Dosya 41 → 46 test.
+
+---
+
+## 🆕 Faz 10 (10.64) — başka bir yanıta bağlı medya
+
+`media_already_attached_to_another_reply_is_silently_dropped` (fotoğraf + video): ilk misafir
+medyayı kendi yanıtına bağlıyor; ikinci misafir aynı kimliği gönderiyor → 201, yanıtında URL
+yok, satırında kolon boş; ilk yanıt etkilenmiyor. Neden iki vaka: ilk sürüm yalnızca fotoğrafı
+sınıyordu ve sorgudan video kolonunu silen mutant yeşil kaldı. Gerekçe: `SubmitRsvpAction.md` →
+*Faz 10 (10.64)*.

@@ -518,3 +518,25 @@ bir şey yok; sınırların **tanımı** farklı (**ders 42**).
 
 İki yardımcının gerekçe yorumları bu dosyadaki eski yerlerinden aynen taşındı; bu kılavuzun
 §4 (medya) ve kota bölümleri onlar için de geçerli. Güncelleme akışı: [`UpdateRsvpAction.md`](UpdateRsvpAction.md).
+
+---
+
+## 🆕 Faz 10 (10.64) — başka bir yanıta bağlı medya düşer
+
+`ResolveGuestMediaAction`'a üçüncü koşul eklendi: medya **başka bir yanıta bağlı olmamalı**
+(`whereNotExists` → `rsvps.photo_media_id` ya da `rsvps.video_media_id`).
+
+Önceden davetiyeye ait ve doğru türde olması yetiyordu. Bir misafir başka bir misafirin medya
+kimliğini öğrenirse (kimlikler ULID, tahmin edilemez; ama örneğin ortak bir cihazda görülebilir)
+o fotoğrafı kendi yanıtına iliştirebiliyordu. Davranış öncekiyle aynı biçimde **sessiz**: kimlik
+düşer, yanıt 201, hata yok (L2).
+
+Güncellemede (`UpdateRsvpAction`) yanıtın **kendisi** hariç tutuluyor (`owner:`): yoksa misafir
+yanıtını her güncellediğinde kendi fotoğrafını kaybederdi.
+
+| Mutasyon | Kırılan |
+|---|---|
+| Bağlılık koşulu silindi | `MediaTest::media_already_attached_…` (fotoğraf) |
+| Yalnızca fotoğraf kolonuna bakılsın | aynı testin **video** vakası (ilk sürümde hayatta kaldı; test veri sağlayıcıya çevrildi) |
+| Kendi yanıtı hariç tutulmasın | `RsvpEditTest::the_update_keeps_the_guests_own_photo` |
+| Güncelleme `owner` geçmesin | aynı test |

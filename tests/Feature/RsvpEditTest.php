@@ -8,6 +8,7 @@ use App\Enums\ErrorCode;
 use App\Enums\RsvpStatus;
 use App\Enums\SubscriptionTier;
 use App\Models\Invitation;
+use App\Models\Media;
 use App\Models\Order;
 use App\Models\Rsvp;
 use App\Models\User;
@@ -180,6 +181,30 @@ final class RsvpEditTest extends TestCase
         $this->assertArrayNotHasKey('editCode', (array) $liste->json('data.0'));
         $this->assertStringNotContainsString($ilk['editCode'], (string) $liste->getContent());
         $this->assertStringNotContainsString(hash('sha256', $ilk['editCode']), (string) $liste->getContent());
+    }
+
+    /**
+     * Faz 10 (10.64): misafirin KENDİ yanıtına bağlı fotoğraf güncellemede
+     * korunur. "Başka bir yanıta bağlı medya düşer" kuralı kendi yanıtını
+     * hariç tutmasaydı, misafir yanıtını her güncellediğinde fotoğrafını
+     * kaybederdi.
+     */
+    #[Test]
+    public function the_update_keeps_the_guests_own_photo(): void
+    {
+        $davetiye = $this->davetiye();
+        $foto = Media::factory()->rsvpPhoto()->create(['invitation_id' => $davetiye->id]);
+
+        $ilk = $this->postJson(
+            route('public.invitations.rsvps.store', $davetiye),
+            $this->form(['photoMediaId' => $foto->id]),
+        )->assertCreated()->json('data');
+
+        $this->guncelle($davetiye, $ilk['id'], $ilk['editCode'], ['guestCount' => 2, 'photoMediaId' => $foto->id])
+            ->assertOk()
+            ->assertJsonPath('data.photoUrl', $foto->url());
+
+        $this->assertDatabaseHas('rsvps', ['id' => $ilk['id'], 'photo_media_id' => $foto->id]);
     }
 
     #[Test]

@@ -36,3 +36,13 @@ Zaman `RsvpTest` ile aynı ana sabitlendi (20 Eylül 2026 12:00 UTC, son tarih 1
 | M7 | Bot boş kod alsın | `RsvpTest`'in honeypot testi |
 | M8 | Güncelleme rotasından hız sınırı kalksın | hız sınırı testi |
 | M9 | Güncelleme yeni satır açsın (`replicate()`) | tek satır testi · kota testi |
+
+---
+
+## 🆕 10.64 eklemesi
+
+| Test | İddia |
+|---|---|
+| `the_update_keeps_the_guests_own_photo` | Misafirin **kendi** yanıtına bağlı fotoğraf güncellemede korunuyor. *"Başka bir yanıta bağlı medya düşer"* kuralı (10.64) kendi yanıtını hariç tutmasaydı, misafir yanıtını her güncellediğinde fotoğrafını kaybederdi |
+
+Dosya artık 11 test.

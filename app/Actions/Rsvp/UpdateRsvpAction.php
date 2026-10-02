@@ -62,11 +62,11 @@ final class UpdateRsvpAction
         $rsvp->fill($attributes);
 
         $rsvp->photo_media_id = $this->guestMedia->handle(
-            $invitation, $mediaIds['photo'], MediaKind::RsvpPhoto,
+            $invitation, $mediaIds['photo'], MediaKind::RsvpPhoto, owner: $rsvp,
         );
 
         $rsvp->video_media_id = $this->guestMedia->handle(
-            $invitation, $mediaIds['video'], MediaKind::RsvpVideo,
+            $invitation, $mediaIds['video'], MediaKind::RsvpVideo, owner: $rsvp,
         );
 
         DB::transaction(function () use ($invitation, $rsvp): void {

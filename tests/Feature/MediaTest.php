@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use LogicException;
 use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -827,6 +828,45 @@ final class MediaTest extends TestCase
             ->assertJsonPath('data.photoUrl', $media->url());
 
         $this->assertDatabaseHas('rsvps', ['photo_media_id' => $media->id]);
+    }
+
+    /**
+     * 🔴 Faz 10 (10.64): BAŞKA bir misafirin yanıtına bağlı medya sessizce düşürülür.
+     *
+     * Önceden davetiyeye ait ve doğru türde olması yetiyordu: kimliği bilen
+     * bir misafir başkasının fotoğrafını kendi yanıtına iliştirebiliyordu.
+     * 201 ve ayırt edilemez (aynı gerekçe, L2); kanıtı kolon taşıyor.
+     */
+    #[Test]
+    #[DataProvider('guestMediaSlots')]
+    public function media_already_attached_to_another_reply_is_silently_dropped(string $kind, string $field, string $column, string $urlKey): void
+    {
+        $inv = $this->openInvitation();
+        $media = Media::factory()->{$kind}()->create(['invitation_id' => $inv->id]);
+
+        $first = $this->postJson($this->rsvpUrl($inv), $this->rsvpPayload([$field => $media->id]))
+            ->assertCreated()
+            ->json('data.id');
+
+        $second = $this->postJson($this->rsvpUrl($inv), $this->rsvpPayload([
+            'guestName' => 'Selin Aksoy',
+            $field => $media->id,
+        ]))
+            ->assertCreated()
+            ->assertJsonMissingPath('data.'.$urlKey)
+            ->json('data.id');
+
+        $this->assertDatabaseHas('rsvps', ['id' => $first, $column => $media->id]);
+        $this->assertDatabaseHas('rsvps', ['id' => $second, $column => null]);
+    }
+
+    /** @return array<string, array{string, string, string, string}> */
+    public static function guestMediaSlots(): array
+    {
+        return [
+            'fotoğraf' => ['rsvpPhoto', 'photoMediaId', 'photo_media_id', 'photoUrl'],
+            'video' => ['rsvpVideo', 'videoMediaId', 'video_media_id', 'videoUrl'],
+        ];
     }
 
     /**
