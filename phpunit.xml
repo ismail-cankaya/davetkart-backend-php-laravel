@@ -26,55 +26,58 @@
     </source>
 
     <php>
-        <env name="APP_ENV" value="testing"/>
-        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <!-- 🔴 Faz 10 (10.79b): butun satirlar <server>, <env> DEGIL. Laravel
+             env'i once $_SERVER'dan okur; kabukta ya da CI'da tanimli gercek
+             bir degisken orada durur ve <env>'i (force="true" ile bile) ezer.
+             DB_DATABASE icin bu, RefreshDatabase'in YANLIS veritabaninin
+             tablolarini silmesi demekti. <server> $_SERVER'a yazar ve kazanir.
+             Ayrintisi: docs/rehber/phpunit.md §4. -->
+        <server name="APP_ENV" value="testing"/>
+        <server name="APP_MAINTENANCE_DRIVER" value="file"/>
 
         <!-- K19: testte de PostgreSQL. Ayri veritabani, cunku RefreshDatabase
              her kosuda tablolari siler ve yeniden kurar. -->
-        <env name="DB_CONNECTION" value="pgsql"/>
-        <env name="DB_DATABASE" value="davetkart_test"/>
-        <env name="DB_URL" value=""/>
+        <server name="DB_CONNECTION" value="pgsql"/>
+        <server name="DB_DATABASE" value="davetkart_test"/>
+        <server name="DB_URL" value=""/>
         <!-- DB_HOST / DB_PORT / DB_USERNAME / DB_PASSWORD .env'den gelir.
              Bu dosya repoda oldugu icin buraya PAROLA YAZILMAZ. -->
 
         <!-- Testler hizli ve yan etkisiz kosmali: her sey bellekte. -->
-        <env name="CACHE_STORE" value="array"/>
-        <env name="SESSION_DRIVER" value="array"/>
-        <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="MAIL_MAILER" value="array"/>
-        <env name="BROADCAST_CONNECTION" value="null"/>
-        <env name="FILESYSTEM_DISK" value="local"/>
+        <server name="CACHE_STORE" value="array"/>
+        <server name="SESSION_DRIVER" value="array"/>
+        <server name="QUEUE_CONNECTION" value="sync"/>
+        <server name="MAIL_MAILER" value="array"/>
+        <server name="BROADCAST_CONNECTION" value="null"/>
+        <server name="FILESYSTEM_DISK" value="local"/>
 
         <!-- Hash maliyeti testte dusuk: burada guvenlik degil hiz onemli.
              K32 ile surucu Argon2id oldugu icin ARGON_* degerleri belirleyici;
              BCRYPT_ROUNDS artik etkisiz ama surucu geri alinirsa diye duruyor.
              64 MB / 4 tur uretim degeridir; her testte odenirse suite dakikalara cikar. -->
-        <env name="HASH_DRIVER" value="argon2id"/>
-        <env name="ARGON_MEMORY" value="1024"/>
-        <env name="ARGON_TIME" value="1"/>
-        <env name="ARGON_THREADS" value="1"/>
-        <env name="BCRYPT_ROUNDS" value="4"/>
+        <server name="HASH_DRIVER" value="argon2id"/>
+        <server name="ARGON_MEMORY" value="1024"/>
+        <server name="ARGON_TIME" value="1"/>
+        <server name="ARGON_THREADS" value="1"/>
+        <server name="BCRYPT_ROUNDS" value="4"/>
 
         <!-- K21: backend tek dil konusur. -->
-        <env name="APP_LOCALE" value="en"/>
-        <env name="APP_FALLBACK_LOCALE" value="en"/>
+        <server name="APP_LOCALE" value="en"/>
+        <server name="APP_FALLBACK_LOCALE" value="en"/>
 
         <!-- K20 sizinti testleri icin uretim kipi varsayilan. Debug blogunu
              test eden senaryolar config(['app.debug' => true]) ile acar. -->
-        <env name="APP_DEBUG" value="false"/>
+        <server name="APP_DEBUG" value="false"/>
 
         <!-- 🔴 Faz 10 (10.17): testler Sentry'ye ASLA olay gondermez; bilerek
-             firlatilan istisnalar da dahil.
-             <server>, <env> DEGIL: Laravel env'i once $_SERVER'dan okur ve
-             gercek bir ortam degiskeni (CI, kabuk) orada durur. <env> —
-             force="true" ile bile — yalnizca $_ENV ve putenv'e yazar, yani
-             CI'daki bir DSN'i EZEMEZ. 10.17'de denendi (kilavuz §4.1).
+             firlatilan istisnalar da dahil. <server> burada ilk kez denendi
+             (kilavuz §4.1); 10.79b onu butun satirlara yaydi.
              Bos deger SENTRY_DSN yedegine de dusmez: env() "" dondurur,
              null degil; config "" verince SDK kendi varsayilanini okumaz. -->
         <server name="SENTRY_LARAVEL_DSN" value=""/>
 
-        <env name="PULSE_ENABLED" value="false"/>
-        <env name="TELESCOPE_ENABLED" value="false"/>
-        <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <server name="PULSE_ENABLED" value="false"/>
+        <server name="TELESCOPE_ENABLED" value="false"/>
+        <server name="NIGHTWATCH_ENABLED" value="false"/>
     </php>
 </phpunit>

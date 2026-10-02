@@ -103,10 +103,34 @@ Sebep: Laravel env'i önce `$_SERVER`'dan okur, `<env>` oraya yazmaz. Ayrıntı:
 
 ```powershell
 php artisan test --filter=TestSuiteIsolationTest
-# 3 passed
+# 4 passed
 
 # CI'ı taklit et: kabukta bir DSN varken de yeşil kalmalı
 $env:SENTRY_LARAVEL_DSN = 'https://abc@o1.ingest.example.invalid/1'
 php artisan test --filter=TestSuiteIsolationTest
 Remove-Item Env:SENTRY_LARAVEL_DSN
 ```
+
+---
+
+## 5. 🆕 Faz 10 (10.79b): testler kendi veritabanında
+
+`the_test_suite_runs_on_its_own_database`: `database.default = pgsql` ve veritabanı adı `davetkart_test`.
+`phpunit.xml`'in bütün satırları `<server>`'a taşındı ([`phpunit.md`](../../phpunit.md) §4).
+
+Sentry testi gibi bu da ancak ortamda bir değer varken anlam kazanıyor. Deneme **var olmayan** bir adla
+yapıldı ki eski yapılandırmada bile hiçbir tablo silinmesin:
+
+| `phpunit.xml` | Kabukta `DB_DATABASE=davetkart_yok_10_79b` | Sonuç (2 Ekim 2026) |
+|---|---|---|
+| eski (`<env>`) | evet | ❌ test kırmızı: `davetkart_yok_10_79b` |
+| yeni (`<server>`) | evet (+ `APP_ENV=local`, `CACHE_STORE=file`) | ✅ 4/4 yeşil · `artisan test` ile de |
+
+```powershell
+$env:DB_DATABASE = 'davetkart_yok'
+php artisan test --filter=TestSuiteIsolationTest   # yeşil kalmalı
+Remove-Item Env:DB_DATABASE
+```
+
+> ⚠️ Bu denemeyi **gerçek** bir veritabanı adıyla yapmayın. Kural tutmazsa `RefreshDatabase` o
+> veritabanının tablolarını siler; bu dosyanın önlemeye çalıştığı şey tam olarak o.

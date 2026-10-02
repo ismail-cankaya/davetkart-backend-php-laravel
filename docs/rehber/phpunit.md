@@ -104,6 +104,9 @@ Bu, sık kafa karıştıran bir konu:
 3. .env dosyası                              ← en zayıf
 ```
 
+> 🆕 **Faz 10 (10.79b):** bu tablo `<env>` içindi. Bugün `phpunit.xml`'deki bütün satırlar
+> `<server>` ve sıra şöyle: **`<server>`** > gerçek ortam değişkeni > `.env`. Sebep §4.1'de.
+
 **Neden bu sırada çalışıyor?** PHPUnit, Laravel açılmadan **önce** `<env>`
 girdilerini ortama yazar. Laravel sonra `.env`'i okur — ama kullandığı Dotpenv
 kütüphanesi **var olan değişkenlerin üzerine yazmaz**. Böylece `phpunit.xml`
@@ -154,9 +157,13 @@ Bu yüzden Sentry satırı `<server>`:
 
 > 🔴 **Aynı sonuç `DB_DATABASE` için de geçerli ve daha tehlikeli.** Kabukta ya
 > da CI'da `DB_DATABASE` tanımlıysa testler **o** veritabanında koşar ve
-> `RefreshDatabase` onun tablolarını siler. Bugün `<env>` ile duruyor; tablonun
-> 1. satırı bunu *"bilinçli"* sayıyordu. `<server>`'a taşımak ayrı bir karar
-> (Faz 10 planına not düşüldü).
+> `RefreshDatabase` onun tablolarını siler.
+>
+> ✅ **10.79b'de kapandı (2 Ekim 2026):** `<php>` bölümündeki **bütün** satırlar
+> `<server>`. Yalnızca `DB_DATABASE` değil: `APP_ENV=local` ya da `CACHE_STORE=file`
+> gibi bir kabuk değişkeni de testi sessizce başka bir ortamda koşturabilirdi.
+> Bedeli: CI test veritabanının adını ortamdan değiştiremez, `davetkart_test`'i
+> oluşturur. Kanıt: [`TestSuiteIsolationTest.md`](tests/Feature/TestSuiteIsolationTest.md) §5.
 
 #### Boş değer neden `SENTRY_DSN` yedeğine düşmüyor?
 

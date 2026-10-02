@@ -42,6 +42,20 @@ final class TestSuiteIsolationTest extends TestCase
         $this->assertNull(SentrySdk::getCurrentHub()->getClient()?->getOptions()->getDsn());
     }
 
+    /**
+     * 🔴 Faz 10 (10.79b): testler HER ZAMAN kendi veritabaninda kosar.
+     *
+     * Kabukta ya da CI'da DB_DATABASE tanimliyken <env> satiri ezilir ve
+     * RefreshDatabase O veritabaninin tablolarini siler. Sentry testi gibi bu
+     * da ancak ortamda bir deger varken anlam kazanir (kilavuz §4).
+     */
+    #[Test]
+    public function the_test_suite_runs_on_its_own_database(): void
+    {
+        $this->assertSame('pgsql', Config::get('database.default'));
+        $this->assertSame('davetkart_test', Config::get('database.connections.pgsql.database'));
+    }
+
     /** Sahtesi kurulmamis bir cagri aga degil HATAYA duser. */
     #[Test]
     public function an_http_call_without_a_fake_fails_instead_of_reaching_the_network(): void
