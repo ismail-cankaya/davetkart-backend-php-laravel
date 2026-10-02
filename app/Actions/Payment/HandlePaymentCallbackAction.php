@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Payment;
 
+use App\Actions\Invitation\WithdrawUncoveredInvitationAction;
 use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Services\Payment\PaymentNotification;
@@ -37,6 +38,10 @@ use Illuminate\Support\Facades\Log;
  */
 final class HandlePaymentCallbackAction
 {
+    public function __construct(
+        private readonly WithdrawUncoveredInvitationAction $withdraw,
+    ) {}
+
     /**
      * @return Order|null Islenen siparis; `null` = bu referansla siparis yok.
      */
@@ -105,6 +110,17 @@ final class HandlePaymentCallbackAction
                 Log::warning('Late payment accepted for an expired order', [
                     'order_id' => $order->id,
                     'provider_ref' => $order->provider_ref,
+                ]);
+            }
+
+            // Faz 10 (10.61 · K100): iade edilen sipariş bir davetiyeye bağlıysa
+            // ve onu kapsayan başka ödenmiş sipariş yoksa davetiye yayından kalkar.
+            if ($order->status === OrderStatus::Refunded
+                && $order->invitation_id !== null
+                && $this->withdraw->handle($order->invitation_id)) {
+                Log::warning('Invitation unpublished after a refund', [
+                    'invitation_id' => $order->invitation_id,
+                    'order_id' => $order->id,
                 ]);
             }
 

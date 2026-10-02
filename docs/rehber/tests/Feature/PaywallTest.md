@@ -514,3 +514,26 @@ Dokuzu da öldü. Eski dosyaya karşı yeniden koşturuldu: yedisi bu adımdan �
 | Resolver bağsız siparişleri de saysın | 8 test (paket ve serbest sipariş testlerinin hepsi) |
 | Resolver'dan `user_id` koşulu silindi | `another_users_order_grants_nothing_even_if_bound_here` (ilk denemede **hiçbiri**: eski test paket kolunu sınıyordu, yeniden yazıldı) |
 | Migration hiçbir satırı çevirmesin | migration testi |
+
+---
+
+## 15. 🆕 Faz 10 — iade yayından kaldırır (10.61 · K100)
+
+| Test | İddia |
+|---|---|
+| 🔴 `a_refund_unpublishes_an_invitation_left_without_cover` | Tek sipariş iade: taslak, `published_at` boş, public 404, `Log::warning` bağlamıyla |
+| `a_refund_keeps_an_invitation_another_order_still_covers` | Gold (yeterli) + Elit iade: yayında kalır |
+| `a_refund_unpublishes_when_the_remaining_order_is_too_cheap` | Galeri (Elit) + kalan Gold: kalkar |
+| `a_failed_upgrade_does_not_unpublish_the_invitation` | Harita değişmiş, yükseltme başarısız: yayında kalır |
+| `refunding_an_unclaimed_package_touches_no_invitation` | Bağsız paketin iadesi hiçbir davetiyeye dokunmaz |
+
+**Mutasyon (1 Ekim 2026):**
+
+| Mutasyon | Kırılan |
+|---|---|
+| İade davetiyeye hiç bakmasın | iki *"kalkar"* testi |
+| Kapsama kontrolü silinsin (her iadede kalksın) | *"başka sipariş yetiyor"* |
+| *"Herhangi bir sipariş yeter"* | *"kalan sipariş ucuz"* |
+| `published_at` silinmesin | ilk test |
+| Log `info`'ya düşsün (üretimde yazılmaz) | ilk test |
+| Kontrol her durum değişiminde çalışsın | `a_failed_upgrade_…` (ilk koşuda **hayatta kaldı**, test bunun için eklendi) |

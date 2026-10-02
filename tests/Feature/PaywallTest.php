@@ -861,6 +861,109 @@ final class PaywallTest extends TestCase
         $this->assertSame($stamp->getTimestamp(), $order->paid_at?->getTimestamp());
     }
 
+    /**
+     * 🔴 Faz 10 (10.61 · K100): iade, davetiyeyi kapsayan TEK siparişse
+     * davetiye yayından kalkar ve taslağa döner.
+     *
+     * Public sayfa önceden okunmuyor: önbelleği temizleyen dinleyici commit
+     * sonrası koşar ve testin transaction'ı hiç commit edilmez
+     * (PublicInvitationTest kılavuzu §6). Zincirin o halkası orada sınanıyor.
+     */
+    #[Test]
+    public function a_refund_unpublishes_an_invitation_left_without_cover(): void
+    {
+        [, $invitation] = $this->publishedInvitation(SubscriptionTier::Elit, ['show_gallery' => true]);
+        $order = Order::query()->where('invitation_id', $invitation->id)->sole();
+
+        $logger = Log::spy();
+
+        $this->signedWebhook(['providerRef' => $order->provider_ref, 'status' => 'refunded'])
+            ->assertNoContent();
+
+        $invitation->refresh();
+        $this->assertSame(InvitationStatus::Saved, $invitation->status);
+        $this->assertNull($invitation->published_at);
+
+        $this->getJson(route('public.invitations.show', $invitation))->assertNotFound();
+
+        $logger->shouldHaveReceived('warning', [
+            'Invitation unpublished after a refund',
+            Mockery::on(fn (array $context): bool => $context === [
+                'invitation_id' => $invitation->id,
+                'order_id' => $order->id,
+            ]),
+        ]);
+    }
+
+    /** K100: başka bir ödenmiş sipariş hâlâ yetiyorsa davetiye yayında kalır. */
+    #[Test]
+    public function a_refund_keeps_an_invitation_another_order_still_covers(): void
+    {
+        [, $invitation] = $this->publishedInvitation(SubscriptionTier::Gold, ['show_timeline' => true]);
+        $refunded = Order::factory()->paid()->tier(SubscriptionTier::Elit)
+            ->forInvitation($invitation)->create(['provider_ref' => 'ref-yukseltme']);
+
+        $this->signedWebhook(['providerRef' => $refunded->provider_ref, 'status' => 'refunded'])
+            ->assertNoContent();
+
+        $this->assertSame(InvitationStatus::Published, $invitation->refresh()->status);
+    }
+
+    /**
+     * K100: kalan sipariş davetiyenin GEREKTİRDİĞİ planı karşılamıyorsa
+     * (galeri Elit ister, kalan Gold) davetiye yine kalkar.
+     */
+    #[Test]
+    public function a_refund_unpublishes_when_the_remaining_order_is_too_cheap(): void
+    {
+        [, $invitation] = $this->publishedInvitation(SubscriptionTier::Gold, ['show_gallery' => true]);
+        $refunded = Order::factory()->paid()->tier(SubscriptionTier::Elit)
+            ->forInvitation($invitation)->create(['provider_ref' => 'ref-elit']);
+
+        $this->signedWebhook(['providerRef' => $refunded->provider_ref, 'status' => 'refunded'])
+            ->assertNoContent();
+
+        $this->assertSame(InvitationStatus::Saved, $invitation->refresh()->status);
+    }
+
+    /**
+     * K100 yalnızca İADEDE çalışır.
+     *
+     * Fiyat haritası değişince yayındaki davetiye kendi planının üstünde
+     * kalabilir; K88 bunu bilerek serbest bırakıyor
+     * (`a_published_invitation_stays_editable_when_the_price_map_changes`).
+     * Böyle bir davetiyenin yükseltme siparişi BAŞARISIZ olursa davetiye
+     * yayından kalkmamalı: para geri verilmedi, sadece yükseltme olmadı.
+     */
+    #[Test]
+    public function a_failed_upgrade_does_not_unpublish_the_invitation(): void
+    {
+        [, $invitation] = $this->publishedInvitation(SubscriptionTier::Gold, ['show_timeline' => true]);
+        Config::set('davetkart.module_tiers.show_timeline', 'elit');
+
+        Order::factory()->tier(SubscriptionTier::Elit)->forInvitation($invitation)
+            ->create(['provider_ref' => 'ref-yukseltme-red']);
+
+        $this->signedWebhook(['providerRef' => 'ref-yukseltme-red', 'status' => 'failed'])
+            ->assertNoContent();
+
+        $this->assertSame(InvitationStatus::Published, $invitation->refresh()->status);
+    }
+
+    /** Bağsız (henüz kullanılmamış) paketin iadesi hiçbir davetiyeye dokunmaz. */
+    #[Test]
+    public function refunding_an_unclaimed_package_touches_no_invitation(): void
+    {
+        [$user, $invitation] = $this->publishedInvitation(SubscriptionTier::Standart);
+        $package = Order::factory()->paid()->tier(SubscriptionTier::Elit)->package()
+            ->create(['user_id' => $user->id, 'provider_ref' => 'ref-paket']);
+
+        $this->signedWebhook(['providerRef' => $package->provider_ref, 'status' => 'refunded'])
+            ->assertNoContent();
+
+        $this->assertSame(InvitationStatus::Published, $invitation->refresh()->status);
+    }
+
     /** 🔴 Bilinmeyen referans 204 alir: 404 saglayiciyi sonsuza kadar retry ettirir. */
     #[Test]
     public function an_unknown_provider_ref_is_accepted_silently(): void

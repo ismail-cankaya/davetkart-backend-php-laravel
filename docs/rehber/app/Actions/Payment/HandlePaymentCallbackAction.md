@@ -440,3 +440,15 @@ Get-Content storage\logs\laravel.log -Tail 5
 satırı görünür, `WARNING` süzülür. Uyarıyı da görmek için kendi `.env`'inde
 `LOG_LEVEL=warning` yap (ya da `debug`) ve `php artisan config:clear` çalıştır.
 §13.6'nın aynı dersi, bu kez yerelde: seviye, satırı kimin göreceğini seçer.
+
+---
+
+## 🆕 Faz 10 (10.61 · K100) — iade davetiyeyi yayından kaldırabilir
+
+Sipariş `refunded`'a geçtiğinde ve bir davetiyeye bağlıysa `WithdrawUncoveredInvitationAction`
+çağrılıyor: kalan ödenmiş siparişler davetiyenin gerektirdiği planı karşılamıyorsa davetiye taslağa
+dönüyor ve `Log::warning` bırakılıyor. Aynı transaction içinde: iade ile yayından kaldırma birlikte
+commit ediliyor ya da hiçbiri.
+
+Yalnızca **iade**: başarısız bir yükseltme siparişi davetiyeye dokunmuyor. Gerekçe ve testler:
+[`WithdrawUncoveredInvitationAction.md`](../Invitation/WithdrawUncoveredInvitationAction.md).
