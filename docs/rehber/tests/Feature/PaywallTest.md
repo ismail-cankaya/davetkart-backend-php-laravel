@@ -490,3 +490,27 @@ Yeni veri sağlayıcı haritanın **tamamını** kilitliyor.
 | geri sayım standart → gold | 1 |
 
 Dokuzu da öldü. Eski dosyaya karşı yeniden koşturuldu: yedisi bu adımdan önce **yeşildi**; kuruş çevrimini ve hediye → gold'u eski testler de yakalıyordu. Dosya 62 → 71 vaka.
+
+---
+
+## 14. 🆕 Faz 10 — paket tek davetiye (10.58 · K99)
+
+| Test | Önce | Şimdi |
+|---|---|---|
+| `a_package_order_grants_the_tier_account_wide` | Paket hesabın tüm davetiyelerini açar | **Silindi** → `an_unclaimed_package_grants_nothing_on_its_own` |
+| 🆕 `a_package_publishes_exactly_one_invitation` | — | İlk yayın paketi bağlar; ikinci davetiye 402 `PAYMENT_REQUIRED` |
+| `another_users_package_does_not_grant_publish_rights` | Başkasının paketi | → `another_users_order_grants_nothing_even_if_bound_here`: bozuk veri elle kuruluyor, `user_id` savunması sınanıyor |
+| `the_highest_paid_tier_wins` | Bağlı Standart + paket Elit | İki **bağlı** sipariş |
+| `deleting_an_invitation_does_not_touch_a_package_order` | Silme paketi etkilemez | → `a_claimed_package_is_released_like_any_single_order` |
+| `publishing_does_not_claim_when_a_package_already_covers_it` | Paket yetiyorsa serbest sipariş harcanmaz | → `…_when_a_bound_order_already_covers_it`: davetiyenin kendi siparişi yetiyorsa paket harcanmaz |
+| 🆕 `the_migration_turns_old_packages_into_unclaimed_orders` | — | Eski `'account'` satırı çevriliyor |
+| `the_package_checkout_creates_an_order_without_an_invitation` | — | + `scope = 'invitation'` |
+
+**Mutasyon (1 Ekim 2026):**
+
+| Mutasyon | Kırılan |
+|---|---|
+| Davetiyesiz sipariş yine `'account'` | checkout testi |
+| Resolver bağsız siparişleri de saysın | 8 test (paket ve serbest sipariş testlerinin hepsi) |
+| Resolver'dan `user_id` koşulu silindi | `another_users_order_grants_nothing_even_if_bound_here` (ilk denemede **hiçbiri**: eski test paket kolunu sınıyordu, yeniden yazıldı) |
+| Migration hiçbir satırı çevirmesin | migration testi |

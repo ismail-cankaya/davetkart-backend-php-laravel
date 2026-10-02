@@ -299,3 +299,18 @@ mümkün hâle gelirdi: `Account` + dolu davetiye. Bir değişmezi, çağıranı
 Yedek savunma yine de var ve veritabanında:
 `orders_account_scope_has_no_invitation_check`. Kural iki katmanda birden duruyor
 — biri niyeti (`Action`), diğeri imkânı (`CHECK`) kapatıyor.
+
+---
+
+## 🆕 Faz 10 (10.58 · K99) — kapsam hep `'invitation'`
+
+```php
+$order->scope = OrderScope::Invitation;
+```
+
+Davetiyesiz (fiyat sayfasından) alınan sipariş artık **bağsız tekil sipariş**: `invitation_id`
+boş, ilk yayında bağlanır. `POST /payments/checkout` ucu ve frontend akışı değişmedi; değişen
+yalnızca siparişin ne açtığı. Gerekçe: `PublishEntitlementResolver.md` → *Faz 10*.
+
+Mutasyon: kapsam yeniden `$invitation === null ? Account : Invitation` yazılınca
+`the_package_checkout_creates_an_order_without_an_invitation` kırılıyor.

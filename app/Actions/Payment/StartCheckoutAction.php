@@ -128,9 +128,11 @@ final class StartCheckoutAction
         // alindigini kesin olarak biliyor (K64'un iki ucu) ve sonuc kolona
         // YAZILIYOR. Sinirda bir kez turet, sakla; her okumada yeniden
         // turetme (ders 30'un veri katmanindaki hali).
-        $order->scope = $invitation === null
-            ? OrderScope::Account
-            : OrderScope::Invitation;
+        //
+        // Faz 10 (10.58 · K99): paket de tek davetiyelik. Davetiyesiz alınan
+        // sipariş bağlanmamış bir tekil sipariştir; ilk yayında o davetiyeye
+        // bağlanır (ClaimReleasedOrderAction). 'account' kapsamı artık yazılmıyor.
+        $order->scope = OrderScope::Invitation;
 
         $order->tier = $tier;
         $order->status = OrderStatus::default();

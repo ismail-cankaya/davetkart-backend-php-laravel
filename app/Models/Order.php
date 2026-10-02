@@ -86,33 +86,10 @@ class Order extends Model
     }
 
     /**
-     * Sahibinin HERHANGI bir davetiyesine hak veren siparisler (paket).
-     *
-     * 🔴 Yukaridakinin birebir ikizi: kural sorguda degil ENUM'da. Hangi
-     * kapsamin hesap genelini actigini OrderScope::grantsAcrossAccount()
-     * soyler; bu kapsam yalnizca onu SQL'e cevirir. `where('scope','account')`
-     * yazsaydik kural sorgunun icine gomulur ve ucuncu bir kapsam eklendigi
-     * gun (kampanya, hediye ceki) kopyalari uc dosyada aranirdi (C3).
-     *
-     * @param  Builder<Order>  $query
-     */
-    public function scopeGrantingAcrossAccount(Builder $query): void
-    {
-        $across = array_values(array_filter(
-            OrderScope::cases(),
-            static fn (OrderScope $scope): bool => $scope->grantsAcrossAccount(),
-        ));
-
-        $query->whereIn('scope', array_column($across, 'value'));
-    }
-
-    /**
      * Hakki bir davetiyeden GERI ALINABILIR siparisler.
      *
-     * Ucuncu kez ayni desen: kural enum'da (OrderScope::isReleasable()),
-     * bu kapsam yalnizca SQL'e ceviriyor. Paket siparisleri disarida kalir —
-     * zaten bir davetiyeye bagli degiller, dolayisiyla serbest birakilacak
-     * bir baglari da yok.
+     * Kural enum'da (OrderScope::isReleasable()), bu kapsam yalnizca SQL'e
+     * ceviriyor.
      *
      * @param  Builder<Order>  $query
      */

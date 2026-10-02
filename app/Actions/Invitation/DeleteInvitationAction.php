@@ -48,12 +48,13 @@ final class DeleteInvitationAction
                 ->firstOrFail();
 
             if ($this->releaseWindowIsOpen($fresh)) {
-                // Kapsam DEGISMIYOR, yalnizca bag kopuyor. `scope` kolonu
-                // 'invitation' kaldigi icin bu satir OrderEntitlementResolver'in
-                // paket koluna DUSMEZ — Faz 9'un kapattigi delik tam buydu.
+                // Kapsam DEGISMIYOR, yalnizca bag kopuyor. Bagsiz siparis
+                // hicbir davetiyeye hak vermez; sahibi bir sonraki yayinda
+                // onu yeniden baglar.
                 //
-                // releasable(): paket siparisleri disarida kalir (zaten bagli
-                // degiller). Kural enum'da: OrderScope::isReleasable().
+                // releasable(): kural enum'da (OrderScope::isReleasable()).
+                // Faz 10 (K99): bir davetiyeye baglanmis paket de tekil
+                // siparis gibi serbest kalir.
                 $fresh->orders()->releasable()->update(['invitation_id' => null]);
             }
 

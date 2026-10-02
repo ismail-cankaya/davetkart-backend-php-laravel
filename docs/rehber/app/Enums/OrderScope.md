@@ -221,3 +221,16 @@ yolu sınıyor demektir.
 enum'dan beslenen CHECK kısıtı, `scope='account'` iken `invitation_id`'nin
 `NULL` olmasını zorlayan ikinci CHECK (**E11** — çok kolonlu değişmez kısıta
 yazılır) ve mevcut satırların geri doldurulması.
+
+---
+
+## 🆕 Faz 10 (10.58 · K99) — `'account'` artık yazılmıyor
+
+Paket de tek davetiyelik oldu (`PublishEntitlementResolver.md` → *Faz 10*). Fiyat sayfasından
+alınan sipariş `'invitation'` kapsamıyla ve davetiyesiz doğuyor; ilk yayında bağlanıyor.
+
+- `grantsAcrossAccount()` **kaldırıldı**, `Order::scopeGrantingAcrossAccount()` da. Hiçbir
+  kapsam artık hesap geneline hak vermiyor.
+- `case Account` **duruyor**: CHECK kısıtı (`scope IN (...)` ve *"account ise davetiye yok"*)
+  ve eski migration'lar ona başvuruyor. Eski satırlar 2026_10_02 migration'ıyla çevrildi.
+- `isReleasable()` değişmedi: yalnızca `'invitation'`.

@@ -214,3 +214,12 @@ reddettiği farkı hiç görmeden yanlış bir test yazar.
 > siparişi komutun **kendisiyle** üretiyor (`pending` + geçmiş `expires_at` →
 > `orders:expire`). Böylece test, durumu elle koymak yerine gerçek yolu sınıyor.
 > Çağıranı olmayan bir state yazılmadı (ders 26; `released()` notunun aynısı).
+
+---
+
+## 🆕 Faz 10 (10.58 · K99) — varsayılan ve `package()` artık bağsız tekil sipariş
+
+Varsayılan kapsam `'account'` → `'invitation'` (davetiyesiz). `package()` aynı biçimi üretiyor ve
+`released()` ile davranış olarak özdeş; adı, testte *"fiyat sayfasından alındı"* niyetini okutmak
+için duruyor. Kullanan testler (`OrderTest`, `AccountDeletionTest`) davetiyesiz bir sipariş
+istiyordu; yeni tanımla da geçerli kaldılar.

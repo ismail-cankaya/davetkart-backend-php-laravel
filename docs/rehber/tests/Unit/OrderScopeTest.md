@@ -106,3 +106,13 @@ kurulumundan bile hızlı biter.
 | **Feature testi** | Uygulamayı gerçek bir istek gibi baştan sona koşturan test |
 | **Backed enum** | Her case'in ham bir değeri olan enum |
 | **`from()` / `tryFrom()`** | İlki geçersiz değerde `ValueError` fırlatır, ikincisi `null` döner |
+
+---
+
+## 🆕 Faz 10 (10.58 · K99)
+
+`only_the_account_scope_grants_rights_across_the_account` **silindi**: yüklem
+(`grantsAcrossAccount()`) kaldırıldı. `the_two_predicates_answer_different_questions` →
+`adding_a_scope_forces_a_review`: tek yüklem kaldığı için *"iki yüklem birbirinin değili değil"*
+cümlesinin karşılığı kalmadı; test yine üçüncü bir kapsam eklendiğinde kırmızı yanıyor ve K99'u
+hatırlatıyor.

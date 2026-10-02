@@ -37,23 +37,12 @@ final class OrderScopeTest extends TestCase
     }
 
     /**
-     * Hesap geneline hak veren TEK kapsam 'account'.
-     *
-     * Bu yuklem OrderEntitlementResolver'in paket kolunu besliyor;
-     * `Order::scopeGrantingAcrossAccount()` yalnizca onu SQL'e ceviriyor.
-     */
-    #[Test]
-    public function only_the_account_scope_grants_rights_across_the_account(): void
-    {
-        $this->assertTrue(OrderScope::Account->grantsAcrossAccount());
-        $this->assertFalse(OrderScope::Invitation->grantsAcrossAccount());
-    }
-
-    /**
      * Serbest birakilabilen TEK kapsam 'invitation'.
      *
-     * Paket zaten hicbir davetiyeye bagli degildir; koparilacak bir bagi da
-     * yoktur. DeleteInvitationAction bu soruyu ilk sirada sorar (L1).
+     * Faz 10 (10.58 · K99): 'account' artik yazilmiyor ve eski satirlar
+     * cevrildi; hicbir satir o kapsamda degil. Yine de serbest birakilabilir
+     * SAYILMAZ: CHECK kisiti o kapsamdaki satirin davetiyesi olmasini yasaklar.
+     * DeleteInvitationAction bu soruyu ilk sirada sorar (L1).
      */
     #[Test]
     public function only_the_invitation_scope_is_releasable(): void
@@ -63,25 +52,19 @@ final class OrderScopeTest extends TestCase
     }
 
     /**
-     * 🔴 Iki yuklem BIRBIRININ DEGILI DEGIL — bugun oyle gorunseler bile.
+     * Ucuncu bir kapsam (kampanya kodu, hediye ceki) eklendigi gun bu test
+     * kirmizi yanar ve "isReleasable()'i ve K99'u gozden gecir" der.
      *
-     * `isReleasable()`'i `! grantsAcrossAccount()` diye yazmak cazipti ve iki
-     * degerli bir enumda ayni sonucu verirdi. Yazilmadi: ucuncu bir kapsam
-     * (kampanya kodu) hem hesap genelinde gecerli hem de bir davetiyeye
-     * baglanabilir olabilir. Iki AYRI soru, iki AYRI cevap.
-     *
-     * Bu test o ayrimin bilincli oldugunu belgeler; ucuncu case eklendigi gun
-     * kirmizi yanarak "burayi da dusun" der (T6: bir davranisin hem varligi
-     * hem yoklugu test edilir).
+     * Faz 10 (10.58): ikinci yuklem `grantsAcrossAccount()` K99 ile kaldirildi.
      */
     #[Test]
-    public function the_two_predicates_answer_different_questions(): void
+    public function adding_a_scope_forces_a_review(): void
     {
         $this->assertCount(
             2,
             OrderScope::cases(),
-            'Ucuncu bir kapsam eklendi: grantsAcrossAccount() ve isReleasable() '
-            .'yuklemlerini AYRI AYRI gozden gecir; biri digerinin degili degildir.',
+            'Ucuncu bir kapsam eklendi: isReleasable()\'i ve paketin tek davetiye '
+            .'kuralini (K99) gozden gecir.',
         );
     }
 

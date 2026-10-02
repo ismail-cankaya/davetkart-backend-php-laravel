@@ -73,17 +73,18 @@ final class PublishInvitationAction
             // odenen bedeli (show_* ayri kolonlar) burada karsiligini buluyor.
             $required = $this->tiers->requiredFor($fresh);
 
-            // 4. KATMAN — sahip olunan plan. Tekil ve paket alim tek arayuzden
-            // soruluyor (K42); bu Action iki kaynagin varligini bile bilmiyor.
+            // 4. KATMAN — sahip olunan plan: bu davetiyeye bagli odenmis
+            // siparisler.
             $owned = $this->entitlements->highestTierFor($fresh);
 
-            // 4b. SERBEST HAKKI BAGLA (Faz 9).
+            // 4b. SERBEST HAKKI BAGLA (Faz 9). Faz 10 (K99): fiyat sayfasindan
+            // alinan paket de burada baglanir.
             //
             // 🔴 Yalnizca eldeki hak YETMIYORSA denenir. Ters sirada yazsaydik
-            // (once bagla, sonra sor), paketi olan bir kullanici her yayinda
-            // serbest bir tekil siparisini de harcardi — sahip oldugu hak
-            // zaten yeterliyken. Bir tuketim adimi, tuketmeden once
-            // "gerekli mi" diye sorar.
+            // (once bagla, sonra sor), davetiyesinin zaten yeterli bir
+            // siparisi olan kullanici her yayinda bagsiz bir siparisini de
+            // harcardi. Bir tuketim adimi, tuketmeden once "gerekli mi" diye
+            // sorar.
             //
             // Kosullu calismasi bir OPTIMIZASYON DEGIL, bir IS KURALIDIR.
             if ($owned === null || ! $owned->covers($required)) {

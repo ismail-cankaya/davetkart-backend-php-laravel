@@ -25,27 +25,19 @@ enum OrderScope: string
     /** Tek bir davetiye icin alindi. Hak, o an bagli oldugu davetiyede durur. */
     case Invitation = 'invitation';
 
-    /** Hesap icin alindi (paket). Hicbir davetiyeye baglanmaz. */
-    case Account = 'account';
-
     /**
-     * Bu kapsam, sahibinin HERHANGI bir davetiyesine yayin hakki verir mi?
+     * Eski paket alimi: hesabin tum davetiyelerini aciyordu.
      *
-     * OrderStatus::grantsPublishRight() ile ayni desen: "hangi degerler sayilir"
-     * sorusu SQL'de degil enum'da cevaplanir. OrderEntitlementResolver bu
-     * yuklemi kullanarak kapsamlari suzer; yarin ucuncu bir kapsam eklenirse
-     * (kampanya, hediye kodu) sorgu degismez, yalnizca bu metot degisir.
+     * Faz 10 (10.58 · K99): artik YAZILMIYOR. Paket de tek davetiyelik ve
+     * 'invitation' kapsamiyla, bagsiz acilir. Eski satirlar
+     * 2026_10_02_100000 migration'iyla cevrildi; deger CHECK kisiti ve eski
+     * migration'lar icin duruyor.
      */
-    public function grantsAcrossAccount(): bool
-    {
-        return $this === self::Account;
-    }
+    case Account = 'account';
 
     /**
      * Bu kapsamdaki bir siparisin hakki bir davetiyeden GERI ALINABILIR mi?
      *
-     * Yalnizca tekil siparisler icin anlamli: paket zaten hicbir davetiyeye
-     * bagli degildir, dolayisiyla serbest birakilacak bir bagi da yoktur.
      * Silme akisi (DeleteInvitationAction) once bunu sorar, sonra 3 gunluk
      * pencereye bakar.
      */

@@ -47,11 +47,9 @@ class OrderFactory extends Factory
             'user_id' => User::factory(),
             'invitation_id' => null,
 
-            // Varsayilan PAKET oldugu icin kapsam da 'account'. Ikisi BIRLIKTE
-            // degisir — orders_account_scope_has_no_invitation_check aksini
-            // kabul etmez. paid()/paid_at ciftiyle ayni desen: kisit burada
-            // bir engel degil, bir OGRETMEN.
-            'scope' => OrderScope::Account,
+            // Varsayilan: bagsiz tekil siparis (fiyat sayfasindan alinan paket,
+            // K99). Ilk yayinda bir davetiyeye baglanir.
+            'scope' => OrderScope::Invitation,
 
             'tier' => $tier,
             'status' => OrderStatus::default(),
@@ -158,12 +156,17 @@ class OrderFactory extends Factory
         ]);
     }
 
-    /** PAKET alim: hesabin tamamini acar (K42). Varsayilan zaten budur. */
+    /**
+     * PAKET alim: davetiyesiz, fiyat sayfasindan (K99). Varsayilan zaten budur.
+     *
+     * Faz 10'dan once hesabin tamamini aciyordu; artik released() ile ayni
+     * bicim: ilk yayinda bir davetiyeye baglanir.
+     */
     public function package(): static
     {
         return $this->state(fn (array $attributes): array => [
             'invitation_id' => null,
-            'scope' => OrderScope::Account,
+            'scope' => OrderScope::Invitation,
         ]);
     }
 

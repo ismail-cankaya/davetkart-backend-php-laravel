@@ -157,9 +157,12 @@ final class PaywallTest extends TestCase
         );
     }
 
-    /** 🔴 K42'nin ikinci kolu: paket alim hesabin TUM davetiyelerini acar. */
+    /**
+     * Faz 10 (10.58 · K99): bagsiz paket kendi basina hicbir davetiyeye hak
+     * vermez. Faz 9'a kadar hesabin TUM davetiyelerini aciyordu.
+     */
     #[Test]
-    public function a_package_order_grants_the_tier_account_wide(): void
+    public function an_unclaimed_package_grants_nothing_on_its_own(): void
     {
         $user = User::factory()->create();
         $invitation = Invitation::factory()->create(['user_id' => $user->id]);
@@ -167,19 +170,71 @@ final class PaywallTest extends TestCase
         Order::factory()->paid()->tier(SubscriptionTier::Elit)->package()
             ->create(['user_id' => $user->id]);
 
-        $this->assertSame(
-            SubscriptionTier::Elit,
-            $this->entitlements()->highestTierFor($invitation),
-        );
+        $this->assertNull($this->entitlements()->highestTierFor($invitation));
     }
 
-    /** 🔴 IDOR'un odeme katmanindaki hali: baskasinin paketi bu davetiyeyi acmaz. */
+    /**
+     * 🔴 Faz 10 (10.58 · K99): paket TEK davetiye yayinlar.
+     *
+     * Ilk yayin paketi o davetiyeye baglar; ikinci davetiye icin hak kalmaz.
+     * Fiyat sayfasindaki fiyatlar davetiye basina.
+     */
     #[Test]
-    public function another_users_package_does_not_grant_publish_rights(): void
+    public function a_package_publishes_exactly_one_invitation(): void
+    {
+        [$user, $first] = $this->ownedInvitation();
+        $second = Invitation::factory()->create(['user_id' => $user->id]);
+
+        $package = Order::factory()->paid()->tier(SubscriptionTier::Elit)->package()
+            ->create(['user_id' => $user->id]);
+
+        $token = $this->tokenFor($user);
+
+        $this->withToken($token)
+            ->postJson(route('invitations.publish', $first))
+            ->assertOk();
+
+        $this->assertSame($first->id, $package->refresh()->invitation_id);
+
+        $this->withToken($token)
+            ->postJson(route('invitations.publish', $second))
+            ->assertStatus(402)
+            ->assertJsonPath('error.code', ErrorCode::PaymentRequired->value);
+    }
+
+    /** Faz 10 (10.58): eski 'account' satırları bağsız tekil siparişe çevrilir. */
+    #[Test]
+    public function the_migration_turns_old_packages_into_unclaimed_orders(): void
+    {
+        $legacy = Order::factory()->paid()->tier(SubscriptionTier::Elit)
+            ->create(['scope' => OrderScope::Account]);
+
+        $migration = require database_path('migrations/2026_10_02_100000_convert_package_orders_to_unattached.php');
+        if (! is_object($migration) || ! method_exists($migration, 'up')) {
+            $this->fail('Migration dosyası bir migration nesnesi döndürmedi.');
+        }
+        $migration->up();
+
+        $legacy->refresh();
+        $this->assertSame(OrderScope::Invitation, $legacy->scope);
+        $this->assertNull($legacy->invitation_id);
+    }
+
+    /**
+     * 🔴 IDOR'un odeme katmanindaki hali: baskasinin siparisi bu davetiyeyi acmaz.
+     *
+     * Faz 10 (K99): hak artik bagli siparisten geliyor. Baskasinin siparisi
+     * normal bir akisla bu davetiyeye baglanamaz; test bozuk veriyi elle
+     * kuruyor ve resolver'daki `user_id` kosulunun (savunma katmani) onu yine
+     * de reddettigini gosteriyor.
+     */
+    #[Test]
+    public function another_users_order_grants_nothing_even_if_bound_here(): void
     {
         $invitation = Invitation::factory()->create();
 
-        Order::factory()->paid()->tier(SubscriptionTier::Elit)->package()->create();
+        Order::factory()->paid()->tier(SubscriptionTier::Elit)
+            ->create(['invitation_id' => $invitation->id]);
 
         $this->assertNull($this->entitlements()->highestTierFor($invitation));
     }
@@ -225,8 +280,8 @@ final class PaywallTest extends TestCase
 
         Order::factory()->paid()->tier(SubscriptionTier::Standart)
             ->forInvitation($invitation)->create();
-        Order::factory()->paid()->tier(SubscriptionTier::Elit)->package()
-            ->create(['user_id' => $user->id]);
+        Order::factory()->paid()->tier(SubscriptionTier::Elit)
+            ->forInvitation($invitation)->create();
 
         $this->assertSame(
             SubscriptionTier::Elit,
@@ -667,9 +722,11 @@ final class PaywallTest extends TestCase
             ->assertJsonStructure(['data' => ['orderId', 'tier', 'status', 'redirectUrl']])
             ->assertJsonPath('data.status', OrderStatus::Pending->value);
 
+        // Faz 10 (K99): 'account' degil, bagsiz tekil siparis.
         $this->assertDatabaseHas('orders', [
             'user_id' => $user->id,
             'invitation_id' => null,
+            'scope' => OrderScope::Invitation->value,
             'tier' => SubscriptionTier::Gold->value,
         ]);
     }
@@ -1094,26 +1151,28 @@ final class PaywallTest extends TestCase
         $this->assertNull($order->refresh()->invitation_id);
     }
 
-    /** Paket siparisi zaten bagli degil; silme ona dokunmaz (releasable()). */
+    /**
+     * Faz 10 (10.58 · K99): bir davetiyeye baglanmis paket, tekil siparis
+     * gibi serbest kalir ve sonraki davetiyeyi yayinlar.
+     */
     #[Test]
-    public function deleting_an_invitation_does_not_touch_a_package_order(): void
+    public function a_claimed_package_is_released_like_any_single_order(): void
     {
-        $user = User::factory()->create();
-        $invitation = Invitation::factory()->create(['user_id' => $user->id]);
-        $other = Invitation::factory()->create(['user_id' => $user->id]);
+        [$user, $other] = $this->ownedInvitation();
+        $invitation = Invitation::factory()->published()->create(['user_id' => $user->id]);
 
         $package = Order::factory()->paid()->tier(SubscriptionTier::Elit)->package()
-            ->create(['user_id' => $user->id]);
+            ->create(['user_id' => $user->id, 'invitation_id' => $invitation->id]);
 
         app(DeleteInvitationAction::class)->handle($invitation);
 
-        $package->refresh();
+        $this->assertNull($package->refresh()->invitation_id);
 
-        $this->assertSame(OrderScope::Account, $package->scope);
-        $this->assertSame(
-            SubscriptionTier::Elit,
-            $this->entitlements()->highestTierFor($other),
-        );
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('invitations.publish', $other))
+            ->assertOk();
+
+        $this->assertSame($other->id, $package->refresh()->invitation_id);
     }
 
     /** Uctan uca: serbest hak yeni bir davetiyede kullanilabiliyor mu? */
@@ -1172,18 +1231,20 @@ final class PaywallTest extends TestCase
     /**
      * Eldeki hak yetiyorsa serbest siparis HARCANMAZ.
      *
-     * Ters sirada yazilsaydi (once bagla, sonra sor) paketi olan kullanici
-     * her yayinda bir tekil siparisini de yakardi.
+     * Ters sirada yazilsaydi (once bagla, sonra sor) davetiyesi icin zaten
+     * odemis kullanici her yayinda bagsiz bir siparisini (paketini) de
+     * yakardi. Faz 10 (K99): eldeki hak artik yalnizca davetiyeye bagli
+     * siparisten gelebilir.
      */
     #[Test]
-    public function publishing_does_not_claim_when_a_package_already_covers_it(): void
+    public function publishing_does_not_claim_when_a_bound_order_already_covers_it(): void
     {
         [$user, $invitation] = $this->ownedInvitation();
 
-        Order::factory()->paid()->tier(SubscriptionTier::Elit)->package()
-            ->create(['user_id' => $user->id]);
+        Order::factory()->paid()->tier(SubscriptionTier::Elit)
+            ->forInvitation($invitation)->create();
 
-        $released = Order::factory()->paid()->tier(SubscriptionTier::Standart)->released()
+        $released = Order::factory()->paid()->tier(SubscriptionTier::Standart)->package()
             ->create(['user_id' => $user->id]);
 
         $this->withToken($this->tokenFor($user))

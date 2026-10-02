@@ -332,3 +332,49 @@ scope = 'account'                                  →  paket
 scope = 'invitation' AND invitation_id = <id>      →  tekil, bağlı
 scope = 'invitation' AND invitation_id IS NULL     →  tekil, serbest (hak vermez)
 ```
+
+---
+
+## 🆕 Faz 10 (10.58 · K99) — paket artık tek davetiyelik
+
+İsmail'in kararı (1 Ekim 2026): **paket alımı tek bir davetiye yayınlar.** Fiyat sayfasındaki
+fiyatlar davetiye başına; *"549 TL'ye sınırsız davetiye"* hiçbir yerde vaat edilmemişti, ama
+kod (K42'nin ikinci kolu) tam olarak onu yapıyordu.
+
+### Ne değişti?
+
+| | Faz 9 | Faz 10 |
+|---|---|---|
+| Fiyat sayfasından (davetiyesiz) alınan sipariş | `scope='account'` | `scope='invitation'`, `invitation_id = NULL` |
+| Hak | Hesabın **bütün** davetiyeleri | Hiçbiri, ta ki bir davetiyeye bağlanana kadar |
+| Bağlanma | — | İlk yayında, `ClaimReleasedOrderAction` |
+| `OrderEntitlementResolver` | `scope='account' OR invitation_id = :id` | yalnızca `invitation_id = :id` |
+
+Yeni bir mekanizma yazılmadı. Faz 9'da silinen davetiyeden serbest kalan siparişi yeni bir
+davetiyeye bağlayan mekanizma (`ClaimReleasedOrderAction`) zaten vardı: *bağsız, ödenmiş,
+tekil sipariş → ilk yayında bağlan*. Fiyat sayfasından alınan paket artık o biçimde doğuyor ve
+aynı yoldan geçiyor. Silinirse (3 günlük pencere içinde) yine serbest kalıyor.
+
+### Neden `'account'` satırına `invitation_id` yazılmadı?
+
+`orders_account_scope_has_no_invitation_check` kısıtı buna izin vermez:
+`scope='account'` olan satırın davetiyesi olamaz. Kısıtı kaldırıp `'account'`'u bağlanabilir
+yapmak da mümkündü, ama `scope`'un iki anlamı olurdu (*nereden alındı* ve *ne açar*). Tek
+anlam bıraktık: her sipariş tek davetiyelik, `scope` artık hep `invitation`.
+
+### Eski satırlar
+
+`2026_10_02_100000_convert_package_orders_to_unattached` migration'ı varolan `'account'`
+satırlarını `'invitation'`'a çeviriyor (davetiyeleri zaten yok). Üretimde böyle satır yok;
+geliştirme veritabanları için.
+
+### `user_id` koşulu neden kaldı?
+
+Sipariş zaten davetiyeye bağlı; normal bir akış başkasının siparişini bu davetiyeye
+bağlayamaz. Koşul bir **savunma katmanı**: bağ bir hatayla yanlış kurulsa bile başkasının
+parası bu davetiyeyi açmaz. Test bozuk veriyi elle kuruyor
+(`another_users_order_grants_nothing_even_if_bound_here`); koşul silinince kırılıyor.
+
+**Testler (`PaywallTest`):** `an_unclaimed_package_grants_nothing_on_its_own` ·
+`a_package_publishes_exactly_one_invitation` · `a_claimed_package_is_released_like_any_single_order` ·
+`the_migration_turns_old_packages_into_unclaimed_orders`.
