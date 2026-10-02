@@ -538,3 +538,14 @@ ikinci yarısı.
 
 > `integer` kuralının `strict` parametresi hata zarfına **sızmaz**
 > (`RULE_PARAM_NAMES['integer'] = []`, K-5). Test bunu da iddia ediyor.
+
+---
+
+## 🆕 Faz 10 (10.62 · K105) — `invitation.iban` → `iban` kuralı
+
+```php
+'invitation.iban' => ['sometimes', 'nullable', 'string', 'max:34', 'iban'],
+```
+
+Her kayıtta biçim + mod-97 (`Iban.md`). Boşluk ve küçük harf kabul ediliyor; değer yazıldığı gibi
+saklanıyor. Boş (`null`) hâlâ geçerli: hediye modülü kapalıyken IBAN zorunlu değil.

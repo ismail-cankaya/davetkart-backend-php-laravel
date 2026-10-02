@@ -16,6 +16,7 @@ use App\Services\Payment\PaymentGateway;
 use App\Services\Pricing\OrderEntitlementResolver;
 use App\Services\Rsvp\SubscriptionRsvpQuotaResolver;
 use App\Support\EmailNormalizer;
+use App\Support\Iban;
 use App\Support\IpBucket;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -27,6 +28,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -126,6 +128,21 @@ class AppServiceProvider extends ServiceProvider
         $this->configureCommands();
         $this->configureLocalServer();
         $this->configureRateLimiting();
+        $this->configureValidationRules();
+    }
+
+    /**
+     * Uygulamanın kendi doğrulama kuralları (Faz 10, 10.62).
+     *
+     * Kural nesnesi değil, ADI olan bir kural: hata zarfına {"rule":"iban"}
+     * olarak çıkar, sınıf adı sözleşmeye sızmaz (D6).
+     */
+    private function configureValidationRules(): void
+    {
+        Validator::extend(
+            'iban',
+            static fn (string $attribute, mixed $value): bool => is_string($value) && Iban::isValid($value),
+        );
     }
 
     /**

@@ -485,3 +485,15 @@ ayrıca `null_clears_…`'i, `mapUrl` ayrıca `a_web_map_url_is_saved`'i) · `is
 > Windows kabuğunda ters bölüler bozuldu ve **0 test** koştu; koşucu `0/0` yazdı. Denetimin
 > §4'teki uyarısının aynısı. Filtre `InvitationTest` yapıldı (PublicInvitationTest de
 > eşleşiyor, zararsız). Sayısı sıfır olan bir mutasyon sonucu *"öldü"* değil, *"ölçülmedi"*dir.
+
+---
+
+## 14. 🆕 Faz 10 (10.62 · K105): IBAN her kayıtta doğrulanır
+
+| Test | İddia |
+|---|---|
+| `a_mistyped_iban_is_rejected_on_save` | Tek hanesi yanlış IBAN: 422, hata zarfı birebir `{"invitation.iban":[{"rule":"iban"}]}`, satırdaki eski IBAN değişmedi |
+| `a_grouped_iban_is_saved_as_typed` | `TR33 0006 …` geçerli ve **yazıldığı gibi** dönüyor |
+
+Hata zarfı birebir karşılaştırılıyor: kural adı (`iban`) frontend'in metin anahtarı; ad değişirse
+frontend genel *"geçerli değil"* metnine düşer. Mutasyon: kural istekten silinince ilk test kırılıyor.

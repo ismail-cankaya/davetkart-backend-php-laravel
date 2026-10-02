@@ -665,6 +665,39 @@ final class InvitationTest extends TestCase
         $this->assertSame([500, 1000], $inv->refresh()->gift_options);
     }
 
+    /**
+     * Faz 10 (10.62 · K105): IBAN her kayıtta biçim + mod-97 denetiminden geçer.
+     *
+     * Kural ADI sözleşmenin parçası (D6): frontend `validation.rules.iban`
+     * metnini bu adla bulur. Satır değişmez: geçersiz IBAN hiç yazılmaz.
+     */
+    #[Test]
+    public function a_mistyped_iban_is_rejected_on_save(): void
+    {
+        $ayse = User::factory()->create();
+        $inv = Invitation::factory()->for($ayse)->create(['iban' => 'TR330006100519786457841326']);
+
+        $this->withToken($this->tokenFor($ayse))
+            ->putJson(route('invitations.update', $inv), $this->payload(['iban' => 'TR330006100519786457841327']))
+            ->assertUnprocessable()
+            ->assertJsonPath('error.fields', ['invitation.iban' => [['rule' => 'iban']]]);
+
+        $this->assertSame('TR330006100519786457841326', $inv->refresh()->iban);
+    }
+
+    /** Dörtlü gruplanmış IBAN geçerli ve YAZILDIĞI GİBİ saklanır: otomatik kaydetme alanı değiştirmez. */
+    #[Test]
+    public function a_grouped_iban_is_saved_as_typed(): void
+    {
+        $ayse = User::factory()->create();
+        $inv = Invitation::factory()->for($ayse)->create();
+
+        $this->withToken($this->tokenFor($ayse))
+            ->putJson(route('invitations.update', $inv), $this->payload(['iban' => 'TR33 0006 1005 1978 6457 8413 26']))
+            ->assertOk()
+            ->assertJsonPath('data.invitation.iban', 'TR33 0006 1005 1978 6457 8413 26');
+    }
+
     // ------------------------------------------------------- YARDIMCILAR
 
     private function tokenFor(User $user): string

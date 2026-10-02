@@ -793,3 +793,14 @@ Bütün IP anahtarlı sınırlayıcılar (`rsvp`, `media`, `contact`, `auth`, `a
 kolu) artık `$request->ip()`'yi doğrudan değil `IpBucket::of($request->ip())` ile kullanıyor:
 IPv6 adresleri `/64` önekine indiriliyor. Gerekçe: [`IpBucket.md`](../Support/IpBucket.md).
 Bağlantı testleri: `RateLimitTest` (LCV, medya, iletişim).
+
+---
+
+## 🆕 Faz 10 (10.62 · K105) — `configureValidationRules()`
+
+```php
+Validator::extend('iban', static fn (string $attribute, mixed $value): bool => is_string($value) && Iban::isValid($value));
+```
+
+Uygulamanın ilk kendi doğrulama kuralı. Nesne değil **adlı** kural: hata zarfına `{"rule":"iban"}`
+olarak çıkıyor, sınıf adı sözleşmeye sızmıyor (D6). Gerekçe: [`Iban.md`](../Support/Iban.md).

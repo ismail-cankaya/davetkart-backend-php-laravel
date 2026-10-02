@@ -99,7 +99,11 @@ abstract class InvitationRequest extends FormRequest
 
             'invitation.bankName' => ['sometimes', 'nullable', 'string', 'max:80'],
             'invitation.accountHolder' => ['sometimes', 'nullable', 'string', 'max:120'],
-            'invitation.iban' => ['sometimes', 'nullable', 'string', 'max:34'],
+            // Faz 10 (10.62 · K105): her kayitta bicim + mod-97. Bosluk ve kucuk
+            // harf kabul edilir; deger yazildigi gibi saklanir (Iban::isValid
+            // kendi icinde normalize eder). max:34 kolonun boyu: dortlu
+            // gruplanmis TR IBAN'i 32 karakter, sigar.
+            'invitation.iban' => ['sometimes', 'nullable', 'string', 'max:34', 'iban'],
             'invitation.giftOptions' => ['sometimes', 'nullable', 'array', 'max:10'],
             // Faz 10 (10.19, K92): `strict` — duz `integer` true'yu 1, "500"u 500
             // sayar ve degeri OLDUGU GIBI kaydeder; public yanit frontend'e
