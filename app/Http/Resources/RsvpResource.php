@@ -29,12 +29,26 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * ve listeyi ceken sahibe (200). C4 (ayri okuyucu, ayri Resource) burada
  * gerekmiyor: iki taraf da AYNI alanlari gormeli, cunku misafir zaten kendi
  * yazdigi veriyi geri aliyor.
+ *
+ * Faz 10 (10.59 · K101): tek fark `editCode`. Yalnizca misafirin kendi
+ * gonderim/guncelleme yanitinda, withEditCode() ile eklenir; sahibin
+ * listesinde HIC yok.
  * Ayrintili aciklama: docs/rehber/app/Http/Resources/RsvpResource.md
  *
  * @mixin Rsvp
  */
 final class RsvpResource extends JsonResource
 {
+    private ?string $editCode = null;
+
+    /** Misafirin düzenleme kodunu yanıta ekler (yalnızca misafirin kendi yanıtı). */
+    public function withEditCode(string $editCode): self
+    {
+        $this->editCode = $editCode;
+
+        return $this;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -65,6 +79,9 @@ final class RsvpResource extends JsonResource
             'videoUrl' => $this->whenNotNull($this->videoMedia?->url()),
 
             'createdAt' => $this->created_at?->toIso8601String(),
+
+            // Faz 10 (10.59): yalnizca withEditCode() cagrildiysa; yoksa anahtar da yok.
+            'editCode' => $this->when($this->editCode !== null, $this->editCode),
         ];
     }
 }

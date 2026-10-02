@@ -724,3 +724,16 @@ dosyada bu mutant **yaşıyordu**. Sonra geri al (`git checkout -- app/`).
 Denetimin sıradaki test dosyası
 **`InvitationTest.php`** — orada bu dosyadakilerden daha ağır bir bulgu var
 (yayından sonra paywall aşılıyor); ayrıntı denetim raporunda.
+
+---
+
+## 🆕 Faz 10 (10.59 · K101) — yanıtta `editCode`
+
+Misafirin kendi gönderim yanıtı artık bir düzenleme kodu taşıyor (`RsvpEditTest.md`). Bu dosyada
+değişen üç şey:
+
+- Anahtar sabitleri ikiye ayrıldı: `YANIT_ANAHTARLARI` (sahibin listesi, kodsuz) ve
+  `MISAFIR_YANIT_ANAHTARLARI` (+ `editCode`). Tek sabite eklendiğinde
+  `each_listed_reply_carries_only_whitelisted_fields` kırmızı yandı: liste kodu taşımamalı.
+- Honeypot testi: gerçek ve sahte yanıt `id` **ve** `editCode` dışında birebir aynı; iki kodun
+  uzunluğu da aynı (bot kodsuz bir yanıtla *"yakalandın"* sinyali almasın).

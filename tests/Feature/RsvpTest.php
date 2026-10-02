@@ -50,6 +50,12 @@ final class RsvpTest extends TestCase
 
     private const array YANIT_ANAHTARLARI_MESAJLI = [...self::YANIT_ANAHTARLARI, 'message'];
 
+    // Faz 10 (10.59): misafirin KENDI gonderim yaniti duzenleme kodunu da tasir;
+    // sahibin listesi tasimaz (each_listed_reply_carries_only_whitelisted_fields).
+    private const array MISAFIR_YANIT_ANAHTARLARI = [...self::YANIT_ANAHTARLARI, 'editCode'];
+
+    private const array MISAFIR_YANIT_ANAHTARLARI_MESAJLI = [...self::YANIT_ANAHTARLARI_MESAJLI, 'editCode'];
+
     private ?User $gulsah = null;
 
     protected function setUp(): void
@@ -73,7 +79,7 @@ final class RsvpTest extends TestCase
             // Kucuk harfli ULID: HasUlids uretir, whereUlid rotasi ve frontend `id: string` bunu bekler.
             ->assertJsonPath('data.id', fn (string $id): bool => preg_match('/^[0-7][0-9a-hjkmnp-tv-z]{25}$/', $id) === 1));
 
-        $this->assertEqualsCanonicalizing(self::YANIT_ANAHTARLARI_MESAJLI, array_keys($data));
+        $this->assertEqualsCanonicalizing(self::MISAFIR_YANIT_ANAHTARLARI_MESAJLI, array_keys($data));
         $this->assertSame('Şeyma Şen', $data['guestName']);
         $this->assertSame(3, $data['guestCount']);
         $this->assertSame(RsvpStatus::Attending->value, $data['status']);
@@ -146,7 +152,7 @@ final class RsvpTest extends TestCase
             'message' => '',
         ])->assertCreated());
 
-        $this->assertEqualsCanonicalizing(self::YANIT_ANAHTARLARI, array_keys($data));
+        $this->assertEqualsCanonicalizing(self::MISAFIR_YANIT_ANAHTARLARI, array_keys($data));
         $this->assertSame('', $data['menuPreference']);
         $this->assertDatabaseHas('rsvps', [
             'id' => $data['id'],
@@ -459,10 +465,14 @@ final class RsvpTest extends TestCase
 
         $this->assertEqualsCanonicalizing(array_keys($gercek), array_keys($bot));
         $this->assertSame(
-            array_diff_key($gercek, ['id' => true]),
-            array_diff_key($bot, ['id' => true]),
+            array_diff_key($gercek, ['id' => true, 'editCode' => true]),
+            array_diff_key($bot, ['id' => true, 'editCode' => true]),
         );
         $this->assertTrue(Str::isUlid($bot['id']));
+
+        // Faz 10 (10.59): bot da gercek bicimde bir duzenleme kodu alir.
+        $this->assertIsString($bot['editCode']);
+        $this->assertSame(strlen($gercek['editCode']), strlen($bot['editCode']));
 
         // T14: botun "kimligi" hicbir yere yazilmadi.
         $this->assertDatabaseCount('rsvps', 1);

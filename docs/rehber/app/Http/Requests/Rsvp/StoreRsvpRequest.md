@@ -376,3 +376,15 @@ ait değil.
 iki koruma aynı yöne bakıyor ve biri diğerini gereksiz kılmıyor: harita
 *"hangi alan hangi kolona"*, `#[Fillable]` *"hangi kolon toplu atanabilir"*
 der.
+
+---
+
+## 🆕 Faz 10 (10.59 · K101) — kurallar `RsvpRequest`'e taşındı
+
+Misafir yanıtını artık güncelleyebiliyor (`UpdateRsvpRequest`). İki istek aynı biçim kurallarını
+paylaşıyor, bu yüzden kurallar, sütun haritası, `rsvpAttributes()` ve `mediaIds()` soyut bir
+taban sınıfa (`RsvpRequest`) taşındı. Yorumlar ve gerekçeler değişmeden onunla gitti; bu
+kılavuzun yukarıdaki bölümleri o sınıf için de geçerli.
+
+`StoreRsvpRequest`'te kalan tek şey **honeypot** (`HasHoneypot`): ilk gönderim botlara açık,
+güncelleme koda bağlı. `StoreRsvpRequest::HONEYPOT_FIELD` erişimi aynen çalışıyor.

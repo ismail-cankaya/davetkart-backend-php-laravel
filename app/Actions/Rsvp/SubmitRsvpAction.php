@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace App\Actions\Rsvp;
 
-use App\Contracts\RsvpQuotaResolver;
 use App\Enums\MediaKind;
-use App\Enums\RsvpStatus;
 use App\Exceptions\RsvpDeadlinePassedException;
 use App\Exceptions\RsvpQuotaExceededException;
-use App\Models\Invitation;
 use App\Models\Rsvp;
 use App\Support\IpHasher;
+use App\Support\RsvpEditCode;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 
@@ -35,13 +33,18 @@ use Illuminate\Support\Facades\DB;
  * tarih ucusu artik ResolveOpenRsvpInvitationAction'da; cunku misafirin MEDYA
  * yukleme ucu de tam olarak ayni uc kosulu istiyor ve kural iki yerde
  * duramaz (C3). Davranis birebir ayni kaldi — kaniti RsvpTest'in 29 testi.
+ *
+ * Faz 10 (10.59 · K101): 3. ve 4. katman ResolveGuestMediaAction ve
+ * EnsureRsvpQuotaAction'a tasindi (guncelleme de kullaniyor). Yanit artik
+ * misafirin duzenleme kodunu da tasiyor (RsvpSubmission).
  * Ayrintili aciklama: docs/rehber/app/Actions/Rsvp/SubmitRsvpAction.md
  */
 final class SubmitRsvpAction
 {
     public function __construct(
         private readonly ResolveOpenRsvpInvitationAction $resolveOpenInvitation,
-        private readonly RsvpQuotaResolver $quota,
+        private readonly ResolveGuestMediaAction $guestMedia,
+        private readonly EnsureRsvpQuotaAction $quota,
     ) {}
 
     /**
@@ -60,7 +63,7 @@ final class SubmitRsvpAction
         string $ip,
         bool $honeypotTripped,
         array $mediaIds = ['photo' => null, 'video' => null],
-    ): Rsvp {
+    ): RsvpSubmission {
         // 1. KATMAN — 🔴 En basta, cunku en ucuzu ve en cok isleyeni.
         // Bot ne bir sorgu actirir ne bir satir yazar; yine de basarili
         // gorunen bir yanit alir (5.4: sessizlik bir savunmadir).
@@ -79,27 +82,32 @@ final class SubmitRsvpAction
         // kodu tarafindan atanir (E7'nin ayni gerekcesi).
         $rsvp->ip_hash = IpHasher::hash($ip);
 
+        // Faz 10 (10.59): misafire bir kez gosterilen kod; satira yalnizca
+        // ozeti yazilir.
+        $editCode = RsvpEditCode::generate();
+        $rsvp->edit_code_hash = RsvpEditCode::hash($editCode);
+
         // 🔴 MEDYA BAGLAMA (Faz 6). Kimlik istemciden geldi ve BICIMSEL olarak
         // dogrulandi ('ulid'), ama MESRU oldugu bilinmiyor. Sahiplik burada
         // soruluyor — yabanci anahtar kisiti "boyle bir medya var mi"
         // sorusunu cevaplar, "BU DAVETIYEYE ait mi" sorusunu cevaplayamaz.
-        $rsvp->photo_media_id = $this->resolveGuestMedia(
+        $rsvp->photo_media_id = $this->guestMedia->handle(
             $invitation, $mediaIds['photo'], MediaKind::RsvpPhoto,
         );
 
-        $rsvp->video_media_id = $this->resolveGuestMedia(
+        $rsvp->video_media_id = $this->guestMedia->handle(
             $invitation, $mediaIds['video'], MediaKind::RsvpVideo,
         );
 
         // 4. KATMAN — kota. Kontrol ve yazma AYNI transaction icinde:
         // aralarinda baska bir istek araya girerse ikisi birden kotayi asardi.
         DB::transaction(function () use ($invitation, $rsvp): void {
-            $this->assertQuotaAvailable($invitation, $rsvp->guest_count);
+            $this->quota->handle($invitation, $rsvp->guest_count);
 
             $rsvp->save();
         });
 
-        return $rsvp;
+        return new RsvpSubmission($rsvp, $editCode);
     }
 
     /**
@@ -107,14 +115,16 @@ final class SubmitRsvpAction
      *
      * Donen nesne gercek bir ULID ve zaman damgasi tasir, yani yanit gecerli
      * bir kayittan AYIRT EDILEMEZ — ama hicbir yere yazilmadi. HasUlids
-     * kimligi veritabanina gitmeden uretebildigi icin bu mumkun.
+     * kimligi veritabanina gitmeden uretebildigi icin bu mumkun. Faz 10:
+     * duzenleme kodu da gercek bicimde uretiliyor; kodsuz bir yanit bota
+     * "yakalandin" derdi.
      *
      * 🔴 Buradaki tek "kaydedilmedi" kaniti testtir (T14: yaniti degil ETKIYI
      * dogrula). Yanit 201 oldugu icin baska hicbir sey sana soylemez.
      *
      * @param  array<string, mixed>  $attributes
      */
-    private function silentlyDiscard(array $attributes): Rsvp
+    private function silentlyDiscard(array $attributes): RsvpSubmission
     {
         $rsvp = new Rsvp($attributes);
 
@@ -122,74 +132,6 @@ final class SubmitRsvpAction
         $rsvp->created_at = now();
         $rsvp->updated_at = now();
 
-        return $rsvp;
-    }
-
-    /**
-     * 🔴 Kota COUNT(*) ile DEGIL SUM(guest_count) ile olculur.
-     *
-     * COUNT(*) olsaydi 100 kayit x 4 kisi = 400 misafir kotayi asmadan gecerdi
-     * (docs/09 §Faz 5). Frontend'in LiveRsvpPanel'i de ayni metrigi kullaniyor;
-     * iki taraf ayni seyi saymak ZORUNDA.
-     *
-     * Hangi durumlarin sayildigini enum soyler (K50), bu sorgu degil.
-     */
-    private function assertQuotaAvailable(Invitation $invitation, int $incomingGuests): void
-    {
-        $limit = $this->quota->limitFor($invitation);
-
-        // Sinirsiz plan: SORGU BILE ACILMAZ.
-        if ($limit === null) {
-            return;
-        }
-
-        // Ust kaydin satirini kilitle. Es zamanli iki gonderim ayni SUM'i okuyup
-        // ikisi de "yer var" diyebilirdi (check-then-act yaris kosulu, Faz 2 E2).
-        // PostgreSQL'in varsayilan READ COMMITTED seviyesinde SELECT'ler birbirini
-        // beklemez; bu kilit onlari siraya sokar.
-        Invitation::query()->whereKey($invitation->getKey())->lockForUpdate()->first();
-
-        $used = (int) $invitation->rsvps()
-            ->whereIn('status', RsvpStatus::quotaConsumingValues())
-            ->sum('guest_count');
-
-        if ($used + $incomingGuests > $limit) {
-            throw new RsvpQuotaExceededException;
-        }
-    }
-
-    /**
-     * Istemcinin verdigi medya kimligini DOGRULAR; gecersizse null doner.
-     *
-     * Iki kosul birden aranir ve ikisi de sorgunun KAPSAMINDA (P3 ailesi):
-     *   1. Medya BU davetiyeye ait mi   -> $invitation->media() iliskisi
-     *   2. Beklenen TURDE mi            -> where('kind', ...)
-     *
-     * 🔴 Ikincisi olmasaydi misafir kendi yukledigi rsvp_video kimligini
-     * photoMediaId olarak gonderebilir, ya da (davetiyeye ait oldugu icin)
-     * SAHIBIN GALERI fotografini kendi yanitina ilistirebilirdi.
-     *
-     * 🔴 Gecersiz kimlik EXCEPTION FIRLATMAZ, sessizce null olur. Gerekce
-     * bir kolaylik degil bir savunma: 403/422 donmek, saldirgana "bu kimlik
-     * gecerliydi ama senin degil" ile "bu kimlik hic yok" arasindaki farki
-     * ogretirdi — yani media tablosu ULID uzayindan taranabilir hale gelirdi
-     * (docs/08 §3.2'nin ayni gerekcesi). Misafir kendi gonderdigi kimligi
-     * zaten biliyor; yanitta fotografin gorunmemesi ona yeterli sinyal.
-     *
-     * Dogrulama kurali olarak yazilamazdi: FormRequest davetiyeyi henuz
-     * cozmemistir, dolayisiyla "hangi davetiye" sorusunun cevabi orada YOK.
-     */
-    private function resolveGuestMedia(Invitation $invitation, ?string $mediaId, MediaKind $kind): ?string
-    {
-        if ($mediaId === null) {
-            return null;
-        }
-
-        $belongs = $invitation->media()
-            ->whereKey($mediaId)
-            ->where('kind', $kind)
-            ->exists();
-
-        return $belongs ? $mediaId : null;
+        return new RsvpSubmission($rsvp, RsvpEditCode::generate());
     }
 }

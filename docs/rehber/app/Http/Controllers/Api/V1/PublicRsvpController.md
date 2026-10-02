@@ -136,3 +136,24 @@ ve belgelenmiş bir karardır.
 | İş kuralı | [`../../../Actions/Rsvp/SubmitRsvpAction.md`](../../../Actions/Rsvp/SubmitRsvpAction.md) |
 | Doğrulama | [`../../Requests/Rsvp/StoreRsvpRequest.md`](../../Requests/Rsvp/StoreRsvpRequest.md) |
 | Sözleşme | [`../../Resources/RsvpResource.md`](../../Resources/RsvpResource.md) |
+
+---
+
+## 🆕 Faz 10 (10.59 · K101) — `update()`
+
+```php
+Route::put('/invitations/{invitation}/rsvps/{rsvp}', [PublicRsvpController::class, 'update'])
+    ->whereUlid(['invitation', 'rsvp'])
+    ->middleware('throttle:rsvp');
+```
+
+| | `store()` | `update()` |
+|---|---|---|
+| Durum | 201 | 200 |
+| İstek | `StoreRsvpRequest` (honeypot'lu) | `UpdateRsvpRequest` (+ `editCode`) |
+| Eylem | `SubmitRsvpAction` | `UpdateRsvpAction` |
+| Yanıt | `RsvpResource` + `withEditCode()` | aynı |
+
+İki parametre de **string**, model değil: `store()`'daki gerekçeyle aynı. Route-model binding
+yayınlanmamış davetiyeyi ya da başka bir davetiyenin yanıtını da çözerdi ve görünürlük kararı
+eylemin dışına kaçardı. Controller `if` içermiyor.

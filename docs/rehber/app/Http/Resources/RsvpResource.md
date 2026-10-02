@@ -253,3 +253,20 @@ Faz 6 aynı ilkeyi medya tarafında uyguluyor: `photo_media_id` de yanıta
 **girmiyor**. Sahip için kimliğin bir anlamı yok — göreceği şey fotoğrafın
 kendisi. Kimliği vermek, `media` tablosunun iç kimlik uzayını sözleşmeye
 sızdırmak olurdu (**C1**: Resource bir beyaz listedir).
+
+---
+
+## 🆕 Faz 10 (10.59 · K101) — `editCode` yalnızca misafirin kendi yanıtında
+
+```php
+return (new RsvpResource($rsvp))->withEditCode($code);
+```
+
+`withEditCode()` çağrılmadıysa anahtar **hiç yok** (`when()`). Sahibin listesi
+(`RsvpController::index`) onu hiç çağırmıyor. Bu, sınıfın iki okuyucuya hizmet etmesinin (C4'ün
+burada neden gerekmediği) ilk istisnası: misafir kendi yanıtının anahtarını görüyor, sahip
+görmüyor.
+
+`RsvpTest`'teki anahtar sabitleri bu yüzden ikiye ayrıldı: `YANIT_ANAHTARLARI` (sahip) ve
+`MISAFIR_YANIT_ANAHTARLARI` (+ `editCode`). Ayrım yapılmadan güncellenince sahibin listesini
+sınayan test kırmızı yandı ve tam olarak bunu gösterdi.

@@ -503,3 +503,18 @@ bir şey yok; sınırların **tanımı** farklı (**ders 42**).
 | 🔴 Açıklık kuralı (6.13'te buradan çıktı) | [`ResolveOpenRsvpInvitationAction.md`](ResolveOpenRsvpInvitationAction.md) |
 | Görünürlük | [`../Invitation/ResolvePublicInvitationAction.md`](../Invitation/ResolvePublicInvitationAction.md) |
 | Tablo | [`../../../database/migrations/2026_08_28_120000_create_rsvps_table.md`](../../../database/migrations/2026_08_28_120000_create_rsvps_table.md) |
+
+---
+
+## 🆕 Faz 10 (10.59 · K101) — düzenleme kodu ve iki yardımcı
+
+| Değişiklik | Neden |
+|---|---|
+| Dönüş tipi `Rsvp` → `RsvpSubmission` (kayıt + kod) | Misafire kod yalnızca bu yanıtta bir kez ulaşıyor; veritabanında yalnızca özeti var |
+| Satıra `edit_code_hash` yazılıyor | `RsvpEditCode.md` |
+| Honeypot yolu da gerçek biçimde bir kod dönüyor | Kodsuz bir yanıt bota *"yakalandın"* derdi (L2). `RsvpTest`'in honeypot testi kodların uzunluğunu karşılaştırıyor |
+| 3. katman → `ResolveGuestMediaAction` | Güncelleme de aynı aidiyet kuralını kullanıyor (C3) |
+| 4. katman → `EnsureRsvpQuotaAction` | Güncelleme de kota soruyor, ama eski kişi sayısını **hariç** tutarak |
+
+İki yardımcının gerekçe yorumları bu dosyadaki eski yerlerinden aynen taşındı; bu kılavuzun
+§4 (medya) ve kota bölümleri onlar için de geçerli. Güncelleme akışı: [`UpdateRsvpAction.md`](UpdateRsvpAction.md).

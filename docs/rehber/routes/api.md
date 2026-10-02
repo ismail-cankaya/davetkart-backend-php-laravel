@@ -979,3 +979,12 @@ Route::delete('/me', [AuthController::class, 'destroy'])
 çoğunda auth sınırı yok (`AuthTest`'in kapsam testi bunu korur), çünkü onlar kimlik
 bilgisi kabul etmiyor. Bu uç ise parola alıyor: çalınmış bir token'la parola tahmini
 bir tehdit. Gövdede e-posta olmadığı için kova `anonim|IP` (5/dk) ve IP (20/dk).
+
+---
+
+## 🆕 Faz 10 (10.59 · K101) — `PUT /api/public/invitations/{invitation}/rsvps/{rsvp}`
+
+Misafir kendi LCV'sini ilk gönderimde aldığı düzenleme koduyla günceller. `public` grubunda,
+`throttle:rsvp` altında (gönderimle **aynı** kova: güncelleme de bir yazma). İki parametre
+`whereUlid` ile biçim denetiminden geçiyor; biçimsiz kimlik veritabanına gitmiyor.
+Ayrıntı: `PublicRsvpController.md` → *Faz 10*.

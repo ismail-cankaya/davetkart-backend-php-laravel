@@ -234,6 +234,13 @@ Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(func
         ->middleware('throttle:rsvp')
         ->name('invitations.rsvps.store');
 
+    // Faz 10 (10.59 · K101): misafir kendi yanıtını düzenleme koduyla günceller.
+    // Aynı hız kovası: güncelleme de bir yazma.
+    Route::put('/invitations/{invitation}/rsvps/{rsvp}', [PublicRsvpController::class, 'update'])
+        ->whereUlid(['invitation', 'rsvp'])
+        ->middleware('throttle:rsvp')
+        ->name('invitations.rsvps.update');
+
     /*
     | 🔴 Sistemin IKINCI auth'suz yazma yolu (Faz 6) — ve daha pahalisi.
     |
