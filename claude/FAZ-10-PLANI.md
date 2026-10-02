@@ -339,7 +339,7 @@ Her biri bağımsız. İki büyük dilim arasında nefes almak için iyi.
 | **10.77** | Ölü config: `davetkart.auth.*`, `rsvp.poll_interval_seconds` | Rapor §6.2 · ders 26 |
 | **10.78** | `phpstan.neon` → `phpVersion: 80500` · CI yorumu (`^8.3` → `^8.5`) · K1 satırına K87 notu | **K87** |
 | **10.79** | `composer.json` → `ext-pdo_pgsql` | Rapor §6.6 |
-| **10.79b** 🆕 | `phpunit.xml`: `DB_DATABASE` (ve kalan `<env>` satırları) → `<server>`. `<env>`, `force="true"` ile bile, kabukta/CI'da tanımlı gerçek bir ortam değişkenini **ezemiyor** (Laravel `$_SERVER`'ı önce okur, 10.17'de denendi). `DB_DATABASE=davetkart` tanımlı bir makinede testler geliştirme veritabanında koşar ve `RefreshDatabase` onun tablolarını **siler** | 10.17 · `rehber/phpunit.md` §4.1 |
+| **10.79b** 🆕 ✅ | `phpunit.xml`: `DB_DATABASE` (ve kalan `<env>` satırları) → `<server>`. `<env>`, `force="true"` ile bile, kabukta/CI'da tanımlı gerçek bir ortam değişkenini **ezemiyor** (Laravel `$_SERVER`'ı önce okur, 10.17'de denendi). `DB_DATABASE=davetkart` tanımlı bir makinede testler geliştirme veritabanında koşar ve `RefreshDatabase` onun tablolarını **siler** | 10.17 · `rehber/phpunit.md` §4.1 |
 | **10.80** | `SubscriptionTier::label()` — dokuz fazdır çağrılmıyor (P-1'in sonucuna bağlı: fatura metni doğarsa kalır) · 🆕 `OrderStatus::isFinal()` de Faz 7'den beri çağrılmıyor (10.3'te durum makinesinden türetildi, silinmedi) | Faz 9 açık #3 · ders 26 |
 | **10.81** | Git hijyeni: 4 ajan worktree'si, 178 commit geride dallar, `payment-servide` · frontend `.gitattributes` (530 sahte değişiklik) · `D:\Projects\davetkart\Claude outputs\FRONTEND-YAKALAMA-PLANI.md` (eski kopya) | Rapor §6.9-10 |
 
@@ -687,7 +687,7 @@ S-1 → **K98** (30 gün · 6 ay · 12 ay). Dördü de önerilen seçenek.
   ayrı bir metin geçişi (Dilim H'ye aday).
 - **Frontend commit numaraları:** §9.3'te 10.26–10.29 diye listelenen frontend adımları **10.26, 10.11, 10.12,
   10.13** numaralarıyla atıldı. Dilim D'nin frontend'i bu yüzden FE 10.14'ten devam ediyor.
-- **10.79b kararı hâlâ açık.**
+- ~~**10.79b kararı hâlâ açık.**~~ → ✅ 2 Ekim, bütün satırlar `<server>` (§9.7).
 
 ### 9.5 Dilim E — 1 Ekim 2026 (test denetiminin kalan dosyaları · `composer check` 473/473)
 
@@ -804,7 +804,64 @@ iade yayından kaldırır (K100) · misafire düzenleme kodu (K101) · P-1 karı
   `rsvps.edit_code_hash`).
 - **Deploy (`docs/10`):** `LOG_STACK=daily,sentry` · `AI_PROVIDER=gemini` artık **açıkça** yazılmalı
   (varsayılan `null`) · Sentry izleyici kotası · sıra yine backend önce.
-- **Editör önizlemesi** Elit sahibine imzayı gösteriyor (sahibin yanıtında `showBranding` yok). Misafir görmüyor.
-- **Frontend'de bileşen render eden doğrulama yok:** imza koşulu yalnızca tip ve elle doğrulamayla korunuyor.
-- **Hâlâ açık:** gizlilik metni (PrivacyPage) saklama süreleriyle çelişiyor (§9.4) · terim *"şifre"*/*"parola"* ·
-  10.79b.
+- ~~**Editör önizlemesi** Elit sahibine imzayı gösteriyor (sahibin yanıtında `showBranding` yok). Misafir görmüyor.~~
+  → ✅ 10.66b + FE 10.21 (§9.7).
+- ~~**Frontend'de bileşen render eden doğrulama yok:** imza koşulu yalnızca tip ve elle doğrulamayla korunuyor.~~
+  → ✅ FE 10.23 `verify:render` (§9.7).
+- **Hâlâ açık:** ~~gizlilik metni (PrivacyPage) saklama süreleriyle çelişiyor (§9.4)~~ ✅ FE 10.22 · terim
+  *"şifre"*/*"parola"* · ~~10.79b~~ ✅.
+
+### 9.7 Dilim F sonrası açıklar — 2 Ekim 2026 (`composer check` 551/551 · `npm run check` yeşil)
+
+İsmail §9.6'nın dört açık maddesinin kapatılmasını istedi: editör önizlemesindeki imza, tarayıcıda
+denenmemiş iki akış ve bileşen çizen testin yokluğu, gizlilik metni, 10.79b. *"Düzelt"* demesi 10.79b'nin
+onayı ve gizlilik metninin **kodun yönünde** (K97/K98) düzeltilmesi olarak okundu.
+
+**Commit'ler** — İsmail atıyor; hiçbir dosya iki adıma bölünmüyor, `git add` dosya dosya:
+
+| Adım | Depo | Başlık |
+|---|---|---|
+| 10.66b | backend | `10.66b - feat(invitations): Show the owner the same branding as the guests` |
+| 10.79b | backend | `10.79b - test(infra): Keep every phpunit.xml value above the shell environment` |
+| — | backend | `docs(phase10): Record the follow-up fixes after Dilim F` (bu dosya) |
+| FE 10.21 | frontend | `10.21 - feat(editor): Take the branding decision from the server` |
+| FE 10.22 | frontend | `10.22 - fix(legal): Match the privacy retention periods to the code` |
+| FE 10.23 | frontend | `10.23 - test(render): Render the templates, the preview and the RSVP form in Node` |
+
+FE 10.22, FE 10.23'ten **önce**: çizim betiği yeni gizlilik metnini denetliyor, ters sırada FE 10.23
+kendi başına kırmızı olurdu.
+
+**Doğrulama (B7):**
+
+| Ne | Sonuç |
+|---|---|
+| `composer check` (PHP 8.5.8 + PostgreSQL 18.4) | 543 → **551** · Pint · PHPStan L8 · `errors:export --check` |
+| `npm run check` | Yeşil · `verify:state` +6 (imza) · yeni `verify:render` 19 kontrol (251 şablon × 3 durum dahil) |
+| Mutasyon, backend | 9 mutasyon, hepsi kırıldı (`ResolveBrandingAction.md` §6, `PublishEntitlementResolver.md` 10.66b). `store`'daki eşdeğer |
+| Mutasyon, frontend | 12 mutasyon (imza 2 · LCV 3 · store 3 · `loadRecord` 1 · gizlilik 3), hepsi kırıldı |
+| 10.79b deneyi | Kabukta `DB_DATABASE=davetkart_yok_10_79b`: eski `<env>` → test kırmızı; yeni `<server>` → 4/4 yeşil (`phpunit` ve `artisan test`) |
+| Tarayıcı (Vite 3017 + geliştirme backend'i, 2 Ekim) | Elit: misafir sayfası ve editör önizlemesi alt bilgisi yalnızca adlar · Gold: ikisinde de imza · LCV: gönder → yenile → *"Yanıtımı Güncelle"* + açıklama → 4 kişiyle güncelle → sahibin listesinde **tek** satır, 4 kişi |
+
+**Sapmalar ve notlar:**
+
+| # | Adım | Ne yapıldı | Neden |
+|---|---|---|---|
+| S57 | 10.66b | `PublishEntitlementResolver`'a `highestTiersFor()`; `highestTierFor()` ona devrediyor | Sahibin listesi her davetiye için ayrı sorgu açardı (N+1, CLAUDE.md §4). İki ayrı sorgu kuralı ikiye bölerdi (C3). Sahip koşulu yine sorguda, sahibe göre gruplanmış (P3) |
+| S58 | 10.66b | Karar `invitation.showBranding`'de, üst düzeyde değil | Misafir yanıtıyla aynı yer: frontend'de tek koşul iki ekrana yetiyor |
+| S59 | 10.66b | Liste testi toplam sorguyu değil `orders` sorgularını sayıyor | Sanctum `last_used_at`'i aynı saniyede ikinci kez yazmıyor; toplam 6 ≠ 7 çıktı, N+1 değildi |
+| S60 | 10.79b | Yalnızca `DB_DATABASE` değil **bütün** `<env>` satırları | `APP_ENV`, `CACHE_STORE` gibi bir kabuk değişkeni de testi başka ortamda koşturabilirdi. Bedeli: CI veritabanı adını ortamdan değiştiremez |
+| S61 | FE 10.23 | Yeni bağımlılık yok: `react-dom/server` + `prerenderToNodeStream` | jsdom/Testing Library yerine React'in kendi sunucu çizicisi. Sunucuda zustand başlangıç durumunu okuyor; `syncServerSnapshot()` gerekti (`verify-render.md` §2.1) |
+| S62 | FE 10.22 | Metin **koda** uyduruldu, + davetiye içeriği ve tarihsiz davetiye maddeleri | Kod İsmail'in K97/K98 kararlarını uyguluyor. Hukukçu okuması yine gerekli (`PrivacyPage.md` §3) |
+
+**Yeni bulgular:**
+
+- **Tarayıcı aracı:** sekme arka planda kaldığı için (`visibilityState: hidden`) animasyonlar durdu ve LCV
+  gönderiminden sonraki *"Yanıtınız güncellendi"* başlığı ekrana gelmedi (`AnimatePresence mode="wait"`
+  formun çıkışını bekliyor). Sunucu tarafı ve formun iki hâli doğrulandı; başlık ön planda elle bakılacak → Z (10.83).
+- **Çerez Politikası** misafirin LCV düzenleme kodunu (`davetkart_rsvp_receipt:*`, FE 10.18) yerel depolama
+  listesinde anmıyor.
+- **10 yıl:** gizlilik metni işlem kayıtları için 10 yıl diyor; `orders` satırlarını süre dolunca silen bir iş yok.
+- **Deploy sırası:** serbest. FE 10.21 eski backend'le de çalışır (alan gelmezse imza çizilir, bugünkü davranış).
+- **Geliştirme veritabanında deneme verisi:** `e2e-imza-145011@ornek.test` hesabı, iki yayında davetiye
+  (Elit, Gold), iki ödenmiş sahte sipariş ve bir LCV. İstenirse `/hesap`'tan silinir (siparişler K97 gereği
+  sahipsiz kalır).
