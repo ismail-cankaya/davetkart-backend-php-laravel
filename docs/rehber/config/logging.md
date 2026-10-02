@@ -53,3 +53,44 @@ gigabaytlara ulaşıp diski doldurabilir, `daily` eski dosyaları otomatik siler
   bırakılırsa API yanıtını bozar.
 - Log yazmak diske yazmaktır; sıcak yollarda (public davetiye endpoint'i) aşırı
   log performansı düşürür.
+
+---
+
+## 🆕 Faz 10 (10.55b) — `sentry` kanalı
+
+```php
+'sentry' => [
+    'driver' => 'sentry',
+    'level' => 'critical',
+],
+```
+
+Üretimde yığına eklenir: `LOG_STACK=daily,sentry` (`docs/10`). Geliştirmede yığında yok,
+çünkü DSN boş ve gidecek yer yok.
+
+### Neden gerekiyordu?
+
+Sentry'ye iki yol var ve ikisi farklı şey taşıyor:
+
+| Yol | Ne taşır |
+|---|---|
+| `Integration::handles()` (`bootstrap/app.php`) | **İstisnalar** |
+| `sentry` log kanalı | **Log satırları** |
+
+`HandlePaymentCallbackAction`'daki *"para alındı, hak açılamadı"* bir istisna değil, bir
+`Log::critical` satırı (kod çalışmaya devam ediyor, sağlayıcıya 204 dönüyor). Faz 10'a
+kadar bu satır yalnızca sunucudaki log dosyasına düşüyordu: kimse okumazsa kimse bilmezdi.
+
+### Neden `critical`, neden `error` değil?
+
+Laravel yakalanmamış bir istisnayı **hem** Sentry'ye yollar **hem** log'a `error`
+seviyesinde yazar. Kanal `error`'u da alsaydı aynı hata Sentry'ye iki kez gelirdi: biri
+istisna, biri log satırı. Paketin kendiliğinden kaydettiği `sentry` kanalı seviyesiz
+(`debug`), yani olduğu gibi yığına eklemek her şeyi iki kez yollardı. Kendi tanımımız onu
+geçersiz kılıyor.
+
+**Kural:** istisna olmayan ama birinin **hemen** bakması gereken durum `Log::critical`.
+Gerisi `warning`/`error` ile dosyada kalır.
+
+**Test:** `ExceptionReportingTest::the_sentry_log_channel_takes_critical_but_not_error`.
+Mutasyon: seviye silinince, `error`'a ya da `emergency`'ye çekilince kırılıyor.

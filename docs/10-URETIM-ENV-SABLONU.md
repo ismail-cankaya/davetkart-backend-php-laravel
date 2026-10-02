@@ -134,7 +134,10 @@ REDIS_PORT=6379
 # LOG_LEVEL=debug uretimde HEM gurultu HEM sizinti riskidir (H8: saglayici
 # hatalari log'a gidiyor); 'warning' esik degeri.
 LOG_CHANNEL=stack
-LOG_STACK=daily
+# Faz 10 (10.55b): 'sentry' kanali yalnizca CRITICAL loglari Sentry'ye yollar
+# (ornek: "para alindi, hak acilamadi"). Istisnalar Sentry'ye zaten kendi
+# yolundan gider; seviye bu yuzden 'error' DEGIL, yoksa her hata iki kez gelir.
+LOG_STACK=daily,sentry
 LOG_LEVEL=warning
 LOG_DAILY_DAYS=14
 LOG_DEPRECATIONS_CHANNEL=null

@@ -377,6 +377,11 @@ ayarı ve plan dışı bir dosya (`config/logging.php`). FAZ-10 planına 10.55'i
 yanına yeni bir satır olarak eklendi — ikisi aynı soruyu çözüyor: *"bir şey
 ters gittiğinde haberim olsun."*
 
+> ✅ **Faz 10 (10.55b) — kapandı.** Kanal tam olarak yukarıdaki iki satırla tanımlandı
+> (`config/logging.md` → *Faz 10*), üretim şablonu `LOG_STACK=daily,sentry` oldu.
+> `ExceptionReportingTest::the_sentry_log_channel_takes_critical_but_not_error`
+> eşiği iki yönlü sınıyor.
+
 ### 13.8 Log bağlamı bir beyaz listedir (K14)
 
 Test bağlamı **birebir** doğruluyor:

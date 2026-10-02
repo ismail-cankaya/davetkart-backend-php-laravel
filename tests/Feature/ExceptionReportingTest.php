@@ -10,10 +10,17 @@ use App\Exceptions\AiProviderException;
 use App\Exceptions\InvalidCredentialsException;
 use App\Exceptions\PaymentProviderException;
 use App\Exceptions\PaywallViolationException;
+use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Log\Logger as IlluminateLogger;
 use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Support\Facades\Log;
+use Monolog\Level;
+use Monolog\Logger as MonologLogger;
+use Monolog\LogRecord;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
+use Sentry\Laravel\SentryHandler;
 use Tests\TestCase;
 
 /**
@@ -90,5 +97,33 @@ final class ExceptionReportingTest extends TestCase
             ->assertJsonPath('error.code', ErrorCode::InvalidCredentials->value);
 
         Exceptions::assertNotReported(InvalidCredentialsException::class);
+    }
+
+    /**
+     * Faz 10 (10.55b): `sentry` log kanalı yalnızca critical ve üstünü alır.
+     *
+     * Critical: "para alındı, hak açılamadı" gibi istisna olmayan alarmlar.
+     * Error alınmaz: istisnalar Sentry'ye zaten kendi yolundan gidiyor,
+     * error da alınsaydı her hata iki kez gelirdi.
+     */
+    #[Test]
+    public function the_sentry_log_channel_takes_critical_but_not_error(): void
+    {
+        $channel = Log::channel('sentry');
+        $this->assertInstanceOf(IlluminateLogger::class, $channel);
+
+        $logger = $channel->getLogger();
+        $this->assertInstanceOf(MonologLogger::class, $logger);
+
+        $handler = $logger->getHandlers()[0] ?? null;
+        $this->assertInstanceOf(SentryHandler::class, $handler);
+
+        $this->assertTrue($handler->isHandling($this->logRecord(Level::Critical)));
+        $this->assertFalse($handler->isHandling($this->logRecord(Level::Error)));
+    }
+
+    private function logRecord(Level $level): LogRecord
+    {
+        return new LogRecord(new DateTimeImmutable, 'test', $level, 'deneme');
     }
 }

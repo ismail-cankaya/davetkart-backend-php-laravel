@@ -96,3 +96,25 @@ php artisan test --filter=ExceptionReportingTest
 Kasten kır: `bootstrap/app.php`'deki `dontReportWhen` kuralını
 `fn (Throwable $e): bool => true,` yap. İki **varlık** testi kırılmalı. Kırılmıyorsa
 test kuralı değil, fake'i sınıyordur.
+
+---
+
+## 🆕 Faz 10 (10.55b) — `sentry` log kanalının eşiği
+
+| Test | İddia |
+|---|---|
+| `the_sentry_log_channel_takes_critical_but_not_error` | Kanalın işleyicisi `SentryHandler`; `critical` kaydını alır, `error` kaydını almaz |
+
+İki yönlü (T6): yalnızca *"critical alınır"* deseydik seviyesiz bir kanal (paketin
+varsayılanı) da yeşil kalırdı ve her istisna Sentry'ye iki kez giderdi. Yalnızca *"error
+alınmaz"* deseydik `emergency`'ye çekilmiş bir kanal da yeşil kalırdı ve *"para alındı,
+hak açılamadı"* uyarısı hiç gelmezdi.
+
+Test işleyicinin **eşiğini** soruyor (`isHandling()`), Sentry'ye gerçekten bir şey
+gönderildiğini değil: testte DSN boş ve ağa çıkılmıyor. Eşik, bu kararın ta kendisi.
+
+| Mutasyon (`config/logging.php`) | Kırılan |
+|---|---|
+| `level` satırı silindi (paket varsayılanı `debug`) | bu test |
+| `level` → `error` | bu test |
+| `level` → `emergency` | bu test |

@@ -125,6 +125,13 @@ return [
             'handler' => NullHandler::class,
         ],
 
+        // Faz 10 (10.55b): yalnızca critical ve üstü loglar Sentry'ye gider.
+        // Üretimde LOG_STACK=daily,sentry ile açılır (docs/10).
+        'sentry' => [
+            'driver' => 'sentry',
+            'level' => 'critical',
+        ],
+
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],
