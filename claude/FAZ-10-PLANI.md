@@ -77,6 +77,14 @@ Eksik olan yalnızca PHP 8.5 ile `composer check` kaydı (10.0).
 | **K96** | Kullanıcıya giden mailler **Türkçe** (K21'in istisnası). Dil `config/davetkart.php` → `mail.locale` | M-1 · 1 Ekim 2026. K21 API yanıtları için *tek dil* diyordu; mail bir yanıt değil, kullanıcının okuyacağı metin | 10.34 |
 | **K97** | Hesap silinince **anonimleştir**: kullanıcı, davetiyeleri, LCV'leri, medyası (dosyalarıyla) silinir; `orders` satırı kalır, `user_id = NULL` (`nullOnDelete`) | H-1 · 1 Ekim 2026. Muhasebe kaydı kullanıcıdan uzun yaşar (K82) | 10.38–10.41 |
 | **K98** | Saklama süreleri: çöp kutusundaki davetiye **30 gün** · misafir verisi etkinlikten **6 ay** · iletişim mesajı **12 ay**. Gece 03:45'te `data:purge` | S-1 · 1 Ekim 2026. Sayılar config'te (E6), testlerde sabit | 10.42–10.45 |
+| **K99** | Paket (davetiyesiz alınan sipariş) **tek davetiye** yayınlar: bağsız tekil sipariş olarak açılır, ilk yayında bağlanır (`ClaimReleasedOrderAction`). `'account'` kapsamı artık yazılmaz | 10.58 · 1 Ekim 2026. Fiyatlar davetiye başına; *"549 TL'ye sınırsız davetiye"* hiç vaat edilmemişti | 10.58 |
+| **K100** | İade, davetiyeyi kapsayan başka ödenmiş sipariş bırakmıyorsa davetiye **yayından kalkar** ve taslağa döner | 10.61 · Para geri verildiyse hizmet de durur. Yalnızca iadede; başarısız yükseltme dokunmaz | 10.61 |
+| **K101** | Misafire **düzenleme kodu**: aynı tarayıcıdan ikinci gönderim yeni satır açmaz, eskisini günceller (`PUT /public/invitations/{id}/rsvps/{rsvp}`). Kod yalnızca özetiyle saklanır | 10.59 · Kişi sayısı kotadan iki kez düşüyordu | 10.59 · FE 10.18 |
+| **K102** | P-1 **karışık**: Elit'te *"DavetKart ile hazırlandı"* yok · premium = **videolu 13 tema**, en az Gold · *"video galeri"* karttan çıkar | 10.66 · Logo ve tema vaadi ucuz ve satış değeri yüksek; video işleme/depolama pahalı | 10.66 · FE 10.20 |
+| **K103** | Zamanlanmış işler **Sentry Cron Monitors**'a bağlı (sabit izleyici adları) | 10.55 · Zamanlayıcı durursa kimse bilmiyordu (Faz 9 açık #1). İzleyici kotası deploy öncesi kontrol edilir | 10.55 |
+| **K104** | Hız sınırları düğüne göre: LCV IP 20/dk, davetiye 300/saat · medya IP 15/dk, davetiye 150/saat · IPv6 kovası **/64** | 10.60 · 300 kişilik davetiye aynı akşam gönderiliyor, salonda herkes aynı Wi-Fi'da | 10.60 |
+| **K105** | IBAN **her kayıtta** biçim + mod-97 ile doğrulanır (TR 26 karakter); değer yazıldığı gibi saklanır | 10.62 · İsmail önerilen "yayınlarken" yerine bunu seçti. Bedeli: yarım IBAN'la otomatik kayıt 422 alır; editör alanın altında uyarır | 10.62 · FE 10.19 |
+| **K106** | Asistanın günlük kotası **İstanbul** gece yarısında yenilenir (`default_timezone`) | 10.57 · UTC'de İstanbul 03:00'te yenileniyordu (açık karar #4) | 10.57 |
 | **D-5** ✅ | E-postada `İ` → **`i`** (seçenek a), tek kaynaklı `EmailNormalizer`. ASCII dışını reddetmek **değil** | 27 Eylül 2026. Türkçe klavyeli kullanıcıyı cezalandırmaz; büyük sağlayıcılar zaten ASCII dışı yerel kısım kabul etmiyor | 10.12–10.15 |
 
 ### 2.2 `ef7c692`'de uygulanmış, karar kaydına geçmemiş (10.0'da kayda geçer)
@@ -95,7 +103,7 @@ Eksik olan yalnızca PHP 8.5 ile `composer check` kaydı (10.0).
 | ~~**M-1**~~ ✅ K95 · K96 | Mail kanalı (K79): Amazon SES mi, alan adının SMTP'si mi? Mailler hangi dilde? (K21 API için *tek dil* diyor, ama mail kullanıcıya giden metindir) | SES (AWS rehberiyle uyumlu) · mail dili Türkçe, K21'in istisnası olarak kayda geçer | 10.30 → tüm Dilim D'nin parola kısmı |
 | ~~**H-1**~~ ✅ K97 | Hesap silinince ne olur? | **Anonimleştir**: kişisel veri silinir, `orders` satırı muhasebe için kalır (bugün `orders.user_id` `cascadeOnDelete` — kullanıcı silinirse sipariş kayıtları da silinir, K82 ile çelişir) | 10.38 |
 | ~~**S-1**~~ ✅ K98 | Saklama süreleri: silinmiş davetiye kaç gün, etkinlikten sonra misafir verisi (ad, mesaj, foto) kaç ay, iletişim mesajı kaç ay? | 30 gün · 6 ay · 12 ay | 10.42 |
-| **P-1** | Fiyat kartı vaatleri — aşağıdaki kanıtlara bak | Karar senin | 10.66 |
+| ~~**P-1**~~ ✅ K102 | Fiyat kartı vaatleri — aşağıdaki kanıtlara bak | Karar senin | 10.66 |
 
 #### P-1'in kanıtları
 
@@ -279,19 +287,26 @@ Kod adımından önce karar gelir. Önerim her satırda.
 
 | # | Konu | Öneri | Kod |
 |---|---|---|---|
-| **10.55** | Zamanlanmış işler koşmazsa kimse bilmiyor (Faz 9 açık #1) | Sentry **Cron Monitors**: `->sentryMonitor()` makrosu paketle geliyor | `routes/console.php`, 3 satır |
-| **10.55b** 🆕 | 10.6'nın `Log::critical`'ı (*"para alındı, hak açılamadı"*) **Sentry'ye gitmiyor**: `Integration::handles()` yalnızca istisnaları yollar, üretimde `LOG_STACK=daily` | `config/logging.php` → `'sentry' => ['driver' => 'sentry', 'level' => 'critical']` + üretim `.env` → `LOG_STACK=daily,sentry`. Seviye `critical` olmalı: paketin kendi kaydettiği kanal seviyesiz, istisnalar `error` ile log'a da yazıldığı için Sentry'ye **iki kez** giderdi | `config/logging.php` + `docs/10` (+ kılavuz) |
-| **10.56** | `AI_PROVIDER` varsayılanı `gemini`, belgesi `null` diyor (rapor §5.7) | Kodu `null` yap. Üretim anahtarıyla `gemini-2.5-flash`'ı ilk gün dene (Google 2.5 erişimini kısıtlıyor) | `config/ai.php` |
-| **10.57** | Asistan kotası günü UTC (İstanbul'da 03:00'te yenileniyor) | `davetkart.default_timezone` | `AskAssistantAction` + test |
-| **10.58** | **K43** — paket alım kaç yayın açar? Bugün sınırsız | Frontend paket satın almayı zaten göstermiyor. Karar verilene kadar `POST /payments/checkout` **kapatılsın** (ya da `orders.publish_quota`) | Route ya da migration + Action |
-| **10.59** | Aynı misafirin ikinci LCV'si ayrı satır, kota iki kez sayıyor | Misafire bir *yanıt kodu* (ULID) dönüp güncellemeye izin ver, ya da panelde aynı adı grupla | Karara göre |
-| **10.60** | Hız sınırları: LCV davetiye kovası saatte 60 · misafir medyası IP başına dakikada 5 (salon Wi-Fi/CGNAT) · IPv6'da `/64` kovası yok | Gerçek bir düğün senaryosuyla ölç. IPv6'da anahtarı `/64` önekine indir | `AppServiceProvider` + config |
-| **10.61** | İade yayını geri çekmiyor (#7) | K88'le birlikte bir okuma-anı kontrolü mü, yoksa iade webhook'unda `unpublish` mı? | Karara göre |
-| **10.62** | IBAN biçim/mod-97 doğrulaması yok | TR IBAN'ı için özel kural (yanlış IBAN = kaybolan hediye) | `InvitationRequest` + Rule |
-| **10.63** | Büyük harfli ULID `whereUlid`'den geçiyor ama bulunamıyor (QR kodu URL'i büyük harf yapabilir) | Public uçta `strtolower` | `ResolvePublicInvitationAction` |
-| **10.64** | Misafir, aynı davetiyedeki **başka misafirin** medyasını kendi LCV'sine iliştirebilir | *"Henüz bir LCV'ye bağlanmamış"* koşulu | `SubmitRsvpAction` |
-| **10.65** | `contact_messages` okunamıyor | Admin paneli yerine `contact:list` komutu | Yeni komut |
-| **10.66** | **P-1** — fiyat kartı vaatleri | §2.3'teki kanıtlar | Karara göre (FE ve/veya backend) |
+| **10.55** ✅ | Zamanlanmış işler koşmazsa kimse bilmiyor (Faz 9 açık #1) | Sentry **Cron Monitors**: `->sentryMonitor()` makrosu paketle geliyor | `routes/console.php`, 3 satır |
+| **10.55b** 🆕 ✅ | 10.6'nın `Log::critical`'ı (*"para alındı, hak açılamadı"*) **Sentry'ye gitmiyor**: `Integration::handles()` yalnızca istisnaları yollar, üretimde `LOG_STACK=daily` | `config/logging.php` → `'sentry' => ['driver' => 'sentry', 'level' => 'critical']` + üretim `.env` → `LOG_STACK=daily,sentry`. Seviye `critical` olmalı: paketin kendi kaydettiği kanal seviyesiz, istisnalar `error` ile log'a da yazıldığı için Sentry'ye **iki kez** giderdi | `config/logging.php` + `docs/10` (+ kılavuz) |
+| **10.56** ✅ | `AI_PROVIDER` varsayılanı `gemini`, belgesi `null` diyor (rapor §5.7) | Kodu `null` yap. Üretim anahtarıyla `gemini-2.5-flash`'ı ilk gün dene (Google 2.5 erişimini kısıtlıyor) | `config/ai.php` |
+| **10.57** ✅ | Asistan kotası günü UTC (İstanbul'da 03:00'te yenileniyor) | `davetkart.default_timezone` | `AskAssistantAction` + test |
+| **10.58** ✅ | **K43** — paket alım kaç yayın açar? Bugün sınırsız | Frontend paket satın almayı zaten göstermiyor. Karar verilene kadar `POST /payments/checkout` **kapatılsın** (ya da `orders.publish_quota`) | Route ya da migration + Action |
+| **10.59** ✅ | Aynı misafirin ikinci LCV'si ayrı satır, kota iki kez sayıyor | Misafire bir *yanıt kodu* (ULID) dönüp güncellemeye izin ver, ya da panelde aynı adı grupla | Karara göre |
+| **10.60** ✅ | Hız sınırları: LCV davetiye kovası saatte 60 · misafir medyası IP başına dakikada 5 (salon Wi-Fi/CGNAT) · IPv6'da `/64` kovası yok | Gerçek bir düğün senaryosuyla ölç. IPv6'da anahtarı `/64` önekine indir | `AppServiceProvider` + config |
+| **10.61** ✅ | İade yayını geri çekmiyor (#7) | K88'le birlikte bir okuma-anı kontrolü mü, yoksa iade webhook'unda `unpublish` mı? | Karara göre |
+| **10.62** ✅ | IBAN biçim/mod-97 doğrulaması yok | TR IBAN'ı için özel kural (yanlış IBAN = kaybolan hediye) | `InvitationRequest` + Rule |
+| **10.63** ✅ | Büyük harfli ULID `whereUlid`'den geçiyor ama bulunamıyor (QR kodu URL'i büyük harf yapabilir) | Public uçta `strtolower` | `ResolvePublicInvitationAction` |
+| **10.64** ✅ | Misafir, aynı davetiyedeki **başka misafirin** medyasını kendi LCV'sine iliştirebilir | *"Henüz bir LCV'ye bağlanmamış"* koşulu | `SubmitRsvpAction` |
+| **10.65** ✅ | `contact_messages` okunamıyor | Admin paneli yerine `contact:list` komutu | Yeni komut |
+| **10.66** ✅ | **P-1** — fiyat kartı vaatleri | §2.3'teki kanıtlar | Karara göre (FE ve/veya backend) |
+
+> ✅ Dilim F'nin kodu yazıldı (1–2 Ekim). Kararlar **K99–K106** (§2.1); sekiz kararın yedisi önerilen
+> seçenek, IBAN'da (K105) İsmail *"her kayıtta"*yı seçti. Backend `composer check` **543/543** (473'ten
+> +70), frontend `npm run check` yeşil. Frontend adımları **FE 10.18–10.20**. Sapmalar (S45–S56) ve yeni
+> bulgular → **§9.6**. En önemlisi: paket artık tek davetiyelik (K99) ve iade yayını geri çekiyor (K100);
+> ikisi birlikte *"ödenmeden yayında"* kalabilen son iki yolu kapatıyor.
+
 
 ---
 
@@ -725,3 +740,71 @@ S-1 → **K98** (30 gün · 6 ay · 12 ay). Dördü de önerilen seçenek.
   sonuç `0/0` göründü (denetim §4'ün uyarısı). Sıfır testli bir sonuç *"öldü"* değil *"ölçülmedi"*dir.
 - **CORS varsayılanı** `http://localhost:5173`, `FRONTEND_URL` varsayılanı `http://localhost:3000`. Geliştirmede
   Vite API'yi proxy'lediği için CORS devreye girmiyor; üretimde `CORS_ALLOWED_ORIGINS` mutlaka yazılmalı.
+
+### 9.6 Dilim F — 1–2 Ekim 2026 (kararlar K99–K106 · `composer check` 543/543)
+
+**Kararlar** (İsmail, 1 Ekim 2026; seçenekler sorulmadan önce açıklandı): paket tek davetiye (K99) ·
+iade yayından kaldırır (K100) · misafire düzenleme kodu (K101) · P-1 karışık, premium = videolu 13 tema
+(K102) · Sentry Cron Monitors (K103) · hız sınırları büyür + IPv6 /64 (K104) · IBAN **her kayıtta** (K105,
+önerilen *"yayınlarken"*di) · asistan günü İstanbul (K106). Açık hata düzeltmeleri (10.55b, 10.56, 10.63,
+10.64, 10.65, IPv6) sorulmadan yapıldı.
+
+**Commit'ler** — İsmail atıyor; her adım `.git/faz10-dilim-f/*.patch`, `git apply --cached` ile:
+
+| Adım | Depo | Başlık |
+|---|---|---|
+| 10.55 | backend | `10.55 - feat(schedule): Report every scheduled job to a Sentry cron monitor` |
+| 10.55b | backend | `10.55b - feat(logging): Send critical logs to Sentry` |
+| 10.56 | backend | `10.56 - fix(ai): Default the assistant provider to null` |
+| 10.57 | backend | `10.57 - feat(assistant): Reset the daily quota at Istanbul midnight` |
+| 10.58 | backend | `10.58 - feat(orders): Make a package publish a single invitation` |
+| 10.59 | backend | `10.59 - feat(rsvp): Let guests update their reply with an edit code` |
+| 10.60 | backend | `10.60 - feat(rate-limit): Fit guest limits to a wedding and bucket IPv6 by /64` |
+| 10.61 | backend | `10.61 - feat(payments): Unpublish an invitation a refund leaves uncovered` |
+| 10.62 | backend | `10.62 - feat(invitations): Validate the gift IBAN on every save` |
+| 10.63 | backend | `10.63 - fix(public): Accept uppercase invitation ids` |
+| 10.64 | backend | `10.64 - fix(rsvp): Refuse media already attached to another reply` |
+| 10.65 | backend | `10.65 - feat(contact): Add contact:list to read contact messages` |
+| 10.66 | backend | `10.66 - feat(pricing): Keep the white-label and premium theme promises` |
+| — | backend | `docs(phase10): Record the Dilim F decisions, progress and findings` (bu dosya) |
+| FE 10.18 | frontend | `10.18 - feat(rsvp): Update the guest's own reply instead of adding a second one` |
+| FE 10.19 | frontend | `10.19 - feat(invitations): Warn about an invalid gift IBAN while typing` |
+| FE 10.20 | frontend | `10.20 - feat(pricing): Keep the pricing card promises` |
+
+**Doğrulama (B7):**
+
+| Ne | Sonuç |
+|---|---|
+| `composer check` (PHP 8.5.8 + PostgreSQL 18.4) | 473 → **543** · Pint · PHPStan L8 · `errors:export --check` |
+| `npm run check` | Yeşil · `verify:state` +7 (kendi yanıtını güncelleme) · `verify:endpoints` +1 uç · `verify:payment` +19 (IBAN 14 + fiyat kartı 5) · `verify:errors` +1 kural |
+| Mutasyon, backend | 63 mutasyon, hepsi kırıldı. **Altısı ilk denemede hayatta kaldı** ve testi güçlendirdi: `user_id` savunması (10.58) · medya/iletişim sınırlayıcısının ham IP'ye dönmesi (10.60, mutasyondan önce fark edildi) · iade dışı durumda yayından kaldırma (10.61) · IBAN biçim kontrolü (10.62) · video kolonu (10.64) |
+| Mutasyon, frontend | 12 mutasyon, hepsi kırıldı. 404'e düşmeyi silen mutant betiği **çökertiyordu**; senaryo istisnayı kontrole çevirecek şekilde yeniden yazıldı |
+| Tarayıcı | *"Premium · Gold+"* rozeti yalnızca videolu temalarda (2 Ekim). İmzanın Elit'te kalkması ve LCV güncellemenin uçtan uca akışı **koşmadı** → Z (10.83) |
+
+**Plandan sapmalar ve eklemeler — onayını bekliyor:**
+
+| # | Adım | Plan ne diyordu | Ne yapıldı | Neden |
+|---|---|---|---|---|
+| S45 | 10.55 | `->sentryMonitor()`, 3 satır | Dört işe (data:purge dahil) **sabit adlı** izleyici · test geri çağrının varlığını ve adını yansımayla okuyor | Ad komut satırından türetilseydi `--hours=24` gibi bir argüman değiştiğinde Sentry geçmişi koparırdı |
+| S46 | 10.57 | `AskAssistantAction` + test | + `AssistantUsageFactory`'nin varsayılan tarihi de İstanbul | Fabrika UTC'de kalsaydı 21:00–24:00 UTC arasında koşan testler ara sıra kırılırdı |
+| S47 | 10.58 | Ucu kapat ya da `orders.publish_quota` | Paket **bağsız tekil sipariş** (mevcut bağlama mekanizması) · `grantsAcrossAccount()` ve resolver'ın paket kolu **kaldırıldı** · eski `'account'` satırlarını çeviren veri migration'ı | CHECK kısıtı `'account'` satırına davetiye yazmayı yasaklıyor; yeni mekanizma yazmak yerine Faz 9'unki kullanıldı |
+| S48 | 10.59 | Yanıt kodu ya da panelde gruplama | Kod `data.editCode`'da, **yalnızca** misafirin kendi yanıtında · Store/Update ortak `RsvpRequest` · medya ve kota kontrolleri ayrı eylemlere çıkarıldı · bot da sahte bir kod alıyor | Kural iki yerde durmasın (C3); kodsuz bot yanıtı *"yakalandın"* derdi |
+| S49 | 10.60 | LCV ve medya kovaları | `IpBucket` **bütün** IP anahtarlı sınırlayıcılara (auth, api, iletişim, asistan yedeği) · gömülü IPv4 ayrı | Gömülü IPv4'ler önek alınsaydı hepsi tek kovaya düşerdi |
+| S50 | 10.61 | Okuma anı kontrolü mü, webhook'ta mı? | Webhook'ta, ayrı `WithdrawUncoveredInvitationAction` · `published_at` da siliniyor · `Log::warning` | Kontrol plan karşılama sorusu (yayınla aynı); yalnızca iadede |
+| S51 | 10.62 | TR IBAN özel kuralı | Genel IBAN (TR'de 26 karakter) · değer **yazıldığı gibi** saklanıyor · `max:34` kaldı · adlı kural (`iban`, D6) · editörde anlık uyarı | Normalize edip saklamak otomatik kaydetmenin cevabıyla input'u bozardı; kolon 34 |
+| S52 | 10.63 | `strtolower` | + önbellek anahtarı da küçültülüyor | Büyük harfli istek hiç temizlenmeyen ayrı bir girdi açardı |
+| S53 | 10.64 | *"Henüz bağlanmamış"* koşulu | + güncellemede misafirin **kendi** medyası serbest | Yoksa misafir her güncellemede fotoğrafını kaybederdi |
+| S54 | 10.65 | `contact:list` | `--since` (İstanbul günü), `--limit`, `--full` · kontrol karakterleri (C1 dahil) görünür kılınıyor | Mesaj misafirden gelir ve terminale yazılır |
+| S55 | 10.66 | Karara göre | Public `showBranding` + ödeme/iade bağlı davetiyenin önbelleğini yeniliyor · premium liste config'te · tema kartında rozet | Önbellek 6 saat; yükseltmeden sonra imza o kadar görünürdü |
+| S56 | FE | — | Önceki oturumdan kalan Vite süreci 5179'da çalışıyordu (durdurma komutu alt süreci kapatmamış); bu adımda kapatıldı | Araç notu |
+
+**Yeni bulgular:**
+
+- **Geliştirme veritabanı:** `php artisan migrate` (iki yeni migration: paket siparişlerini çevirme,
+  `rsvps.edit_code_hash`).
+- **Deploy (`docs/10`):** `LOG_STACK=daily,sentry` · `AI_PROVIDER=gemini` artık **açıkça** yazılmalı
+  (varsayılan `null`) · Sentry izleyici kotası · sıra yine backend önce.
+- **Editör önizlemesi** Elit sahibine imzayı gösteriyor (sahibin yanıtında `showBranding` yok). Misafir görmüyor.
+- **Frontend'de bileşen render eden doğrulama yok:** imza koşulu yalnızca tip ve elle doğrulamayla korunuyor.
+- **Hâlâ açık:** gizlilik metni (PrivacyPage) saklama süreleriyle çelişiyor (§9.4) · terim *"şifre"*/*"parola"* ·
+  10.79b.
