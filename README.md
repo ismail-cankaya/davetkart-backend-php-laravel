@@ -61,6 +61,7 @@ ile 8000'e yollar; yerelde CORS devreye girmez.
 | `CLAUDE.md` | Bağlayıcı kod standartları |
 | `claude/FAZ-10-PLANI.md` | 🔴 **Sıradaki faz** — sertleştirme ve lansman eksikleri, 85 adım (10.0–10.84) |
 | `claude/GOZDEN-GECIRME-RAPORU.md` · `claude/TEST-DENETIMI-2026-09-24.md` | 23-24 Eylül gözden geçirme ve test denetimi — Faz 10'un kaynakları |
+| `claude/GOZDEN-GECIRME-2026-10-09-BACKEND.md` · `claude/GOZDEN-GECIRME-2026-10-09-FRONTEND.md` | 9 Ekim backend + frontend gözden geçirmesi ve API sözleşmesi karşılaştırması (`faz-10` @ `3d301e5`) |
 | `claude/FAZ-9-DEVIR.md` | Devir dosyası (yeni geliştirici / asistan) |
 | `docs/11-PROJE-TARIHCESI-VE-IS-AKISLARI.md` | Uçtan uca giriş: mimari, iş akışları, 22 uçluk harita |
 | `docs/08-HATA-SOZLESMESI.md` | Hata sözleşmesi |
