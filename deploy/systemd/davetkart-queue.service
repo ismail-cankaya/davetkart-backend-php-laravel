@@ -1,0 +1,26 @@
+# DavetKart kuyruk isci servisi. Ayrinti: docs/rehber/deploy/systemd/davetkart-queue.md
+# Kurulum: /etc/systemd/system/davetkart-queue.service  (Y9.1)
+[Unit]
+Description=DavetKart kuyruk isçisi (queue:work)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+# PHP-FPM ile AYNI kullanici: log ve cache dosyalarinin sahibi karismasin.
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/davetkart/backend
+ExecStart=/usr/bin/php artisan queue:work --tries=3 --timeout=60 --max-time=3600
+# 'always': --max-time ve queue:restart isciyi TEMIZ (kod 0) kapatir; yine de yeniden dogmali.
+Restart=always
+RestartSec=5
+# Gorsel kucultme 512M'a cikar; tavan, isci sizarsa Postgres'i OOM'dan korur.
+MemoryMax=768M
+TimeoutStopSec=90
+NoNewPrivileges=true
+PrivateTmp=true
+SyslogIdentifier=davetkart-queue
+
+[Install]
+WantedBy=multi-user.target
