@@ -8,7 +8,7 @@ use App\Enums\SubscriptionTier;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Odeme baslatma govdesinin dogrulanmasi — TEK ALAN: `tier`.
+ * Odeme baslatma govdesinin dogrulanmasi — `tier` ve istege bagli `giftCode` (Faz 11).
  *
  * 🔴 Govdede DAVETIYE KIMLIGI YOK. Aidiyet URL'nin YAPISINDA duruyor:
  *   POST /api/invitations/{invitation}/checkout  -> tekil alim
@@ -48,6 +48,12 @@ final class StoreCheckoutRequest extends FormRequest
             // diye sizar — Faz 3'te Password::min(8) tam olarak bu yuzden
             // 'min:8' string'ine cevrilmisti. Kural ADI sozlesmenin parcasidir.
             'tier' => ['required', 'string', 'in:'.implode(',', SubscriptionTier::values())],
+
+            // Faz 11. Bicim burada yalnizca kaba: uzunluk sinirinin ustu
+            // dogrulama degil savunma (hash'e 1 MB'lik metin gitmesin). Kodun
+            // gecerli olup olmadigini veritabani soyler; ayri bir regex
+            // "bicim hatasi" ile "kod yok" arasinda fark yaratirdi (D7).
+            'giftCode' => ['nullable', 'string', 'max:64'],
         ];
     }
 
@@ -58,5 +64,15 @@ final class StoreCheckoutRequest extends FormRequest
         $validated = $this->validated();
 
         return SubscriptionTier::from($validated['tier']);
+    }
+
+    /** Hediye kodu; yoksa ya da yalnizca bosluksa null. */
+    public function giftCode(): ?string
+    {
+        /** @var array{giftCode?: string|null} $validated */
+        $validated = $this->validated();
+        $code = trim((string) ($validated['giftCode'] ?? ''));
+
+        return $code === '' ? null : $code;
     }
 }

@@ -205,3 +205,34 @@ kim neye ihtiyaç duyuyor"* sorusunun cevabıdır.
 kavramı yok, anahtar da yok. `paidAt` ise **her siparişin** alanıdır. `null`,
 *"henüz ödenmedi"* bilgisini taşır (N4); anahtarı düşürmek, frontend'e
 *"bu siparişte ödeme tarihi diye bir şey yok"* demek olurdu.
+
+---
+
+## 🆕 Faz 11 (11.7): `discountMinor`
+
+Yalnızca **indirim varsa** (`discount_minor > 0`) yanıta girer (C7: bağlama göre var olan
+alan yoksa hiç gitmez):
+
+```json
+{ "data": { "orderId": "…", "tier": "gold", "status": "paid", …, "discountMinor": 39900 } }
+```
+
+### Neden `amountMinor` / `currency` eklenmedi?
+
+Prompt "OrderResource indirimi gösterir" diyordu. İlk sürümde `amountMinor`, `discountMinor`
+ve `currency` her siparişe eklendi ve üç mevcut test kırıldı:
+
+| Test | Neden kırıldı |
+|---|---|
+| `OrderTest::the_owner_reads_a_paid_order` | `assertExactJson`: alan listesi sabit |
+| `OrderTest::provider_internals_and_amounts_never_leak` | Gövdede `amount` kelimesi aranıyor |
+| `PaywallTest::the_checkout_response_never_exposes_the_provider_ref` | `assertJsonMissingPath('data.amountMinor')` |
+
+Bu testler yukarıdaki "açık karar"ı (tutar gönderilmez) kilitliyor ve Faz 11'in kuralı
+"mevcut testler **değiştirilmeden** yeşil" diyor. Çözüm: yalnızca `discountMinor`, yalnızca
+indirim varken. İndirimsiz siparişin yanıtı bayt bayt eskisiyle aynı. Ödenen tutar istemcide
+türetilir: katalog fiyatı − `discountMinor`.
+
+> **Açık soru (İsmail'e):** İndirimle birlikte "fiyat katalogda zaten var" gerekçesi
+> zayıfladı. Ödeme dönüş sayfası "ödenen: 199,50 ₺" göstermek isterse `amountMinor`'u açmak
+> gerekebilir. O gün `OrderTest`'teki tarama bilinçli olarak güncellenmeli.

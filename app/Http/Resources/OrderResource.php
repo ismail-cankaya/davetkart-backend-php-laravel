@@ -31,6 +31,12 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *   createdAt    -> listede siralama ve "ne zaman" sorusu
  *   paidAt       -> "odendi" ekraninin tarihi (null: odenmedi)
  *
+ * Faz 11 ile EKLENEN — hediye kodu indirimi:
+ *   discountMinor -> dusulen indirim (kurus, int). YALNIZCA indirim varsa gider
+ *                    (C7). Tutar alanlari hala YOK (yukaridaki acik karar ve
+ *                    OrderTest'in "amount" taramasi): istemci fiyati katalogdan,
+ *                    indirimi buradan bilir; odenen = fiyat − indirim.
+ *
  * `redirectUrl` bir SIPARIS ALANI DEGIL: CheckoutResult DTO'sundan geliyor ve
  * yalnizca checkout yanitinda bulunuyor (E1 — turetilmis/gecici veri).
  * Ayrintili aciklama: docs/rehber/app/Http/Resources/OrderResource.md
@@ -77,6 +83,11 @@ final class OrderResource extends JsonResource
             'createdAt' => $this->created_at?->toIso8601String(),
             'paidAt' => $this->paid_at?->toIso8601String(),
         ];
+
+        // Faz 11 · C7: indirimsiz sipariste alan hic gitmez.
+        if ($this->discount_minor > 0) {
+            $payload['discountMinor'] = $this->discount_minor;
+        }
 
         // C7: opsiyonel alan YOKSA HIC GITMEZ; `null` gondermek
         // `string | undefined` sozlesmesini kirardi (Faz 5).

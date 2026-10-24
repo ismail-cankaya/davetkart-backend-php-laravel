@@ -45,7 +45,7 @@ final class PaymentController extends Controller
         /** @var User $user auth:sanctum burada null OLAMAYACAGINI garanti eder. */
         $user = $request->user();
 
-        return $this->respond($action->handle($user, $invitation, $request->tier()));
+        return $this->respond($action->handle($user, $invitation, $request->tier(), $request->giftCode()));
     }
 
     /** PAKET alim: hesabin tamami icin plan satin al (K42). */
@@ -54,7 +54,7 @@ final class PaymentController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        return $this->respond($action->handle($user, null, $request->tier()));
+        return $this->respond($action->handle($user, null, $request->tier(), $request->giftCode()));
     }
 
     /** 201: yeni bir siparis KAYNAGI olustu (odeme henuz tamamlanmadi). */

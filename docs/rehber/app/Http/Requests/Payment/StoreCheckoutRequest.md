@@ -197,3 +197,28 @@ curl -X POST http://127.0.0.1:8000/api/invitations/01arz3ndektsv4rrffq69g5fav/ch
 **7.14 — `PaymentController` + `PublicPaymentWebhookController`.** İki uç, iki
 tehdit modeli: biri `auth:sanctum` arkasında, diğeri internete açık ve tek
 savunması imza.
+
+---
+
+## 🆕 Faz 11 (11.7): `giftCode` alanı
+
+```php
+'giftCode' => ['nullable', 'string', 'max:64'],
+```
+
+| Kural | Neden |
+|---|---|
+| `nullable` | Alan isteğe bağlı. Boş string Laravel'in `ConvertEmptyStringsToNull` ara katmanıyla `null`'a döner |
+| `string` | Dizi ya da sayı gelirse 422 `VALIDATION_FAILED` |
+| `max:64` | **Doğrulama değil savunma.** En uzun geçerli kod 32 karakter (tire ve boşlukla biraz fazlası). Sınır olmasaydı bir megabaytlık metin özetlenirdi |
+
+🔴 **Biçim regex'i yok.** `[A-Z0-9-]` gibi bir kural eklenseydi `DÜĞÜN` yazan kullanıcı
+`VALIDATION_FAILED`, `XYZW` yazan `GIFT_CODE_INVALID` görürdü. Bu, "bu biçimde kod yok"
+bilgisini ayrı bir yanıtla sızdırırdı (K113). Kodun geçerli olup olmadığını yalnızca
+veritabanı söyler.
+
+`giftCode()` erişimcisi kodu `trim` eder ve yalnızca boşluksa `null` döner. Sadece boşluk
+gönderen istek kodsuz checkout sayılır, `GIFT_CODE_INVALID` almaz.
+
+Alan adı camelCase (`giftCode`): istek gövdesindeki diğer alanlar (`guestCount`,
+`guestName`) ile aynı kural.

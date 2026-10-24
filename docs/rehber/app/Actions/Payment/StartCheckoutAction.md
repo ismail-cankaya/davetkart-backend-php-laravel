@@ -314,3 +314,72 @@ yalnızca siparişin ne açtığı. Gerekçe: `PublishEntitlementResolver.md` �
 
 Mutasyon: kapsam yeniden `$invitation === null ? Account : Invitation` yazılınca
 `the_package_checkout_creates_an_order_without_an_invitation` kırılıyor.
+
+---
+
+## 🆕 Faz 11 (11.7 · K107, K108): hediye kodu
+
+İmzaya isteğe bağlı bir dördüncü parametre eklendi:
+
+```php
+public function handle(User $user, ?Invitation $invitation, SubscriptionTier $tier, ?string $giftCode = null): CheckoutResult
+```
+
+Varsayılan `null` olduğu için kodsuz çağrılar (ve `PaywallTest`) değişmeden çalışıyor.
+
+### Akış
+
+```
+1. Yeterlilik (402)                      ← DEĞİŞMEDİ, koddan ÖNCE
+2. DB::transaction(
+     a. kod varsa: ReserveGiftCodeAction  ← kod satırı kilitlenir (E9)
+     b. toplam 0 → createGiftOrder()      ← paid, provider=gift, amount=0
+        toplam > 0 → createPendingOrder() ← pending, amount = fiyat − indirim
+     c. kod varsa: kullanım satırı
+   )
+3. hediye siparişi → CheckoutResult(order, başarı adresi)   ← sağlayıcı YOK
+4. normal sipariş → sağlayıcı (transaction DIŞINDA, F3)
+```
+
+**1 neden koddan önce?** Galerili bir davetiye için Standart plana `free/standart` kodu
+uygulanırsa önce 402 döner ve kod harcanmaz
+(`GiftCodeCheckoutTest::an_insufficient_tier_is_rejected_before_the_code_is_spent`).
+
+**2 neden tek transaction?** Üç yazım birlikte anlamlı. Kod rezerve edilip sipariş yazılamazsa
+kilit boşa tutulmuş olur. Sipariş yazılıp kullanım satırı yazılamazsa indirimli bir sipariş
+kodsuz kalır, yani kod tükenmeden indirim verilmiş olur. Kodsuz checkout da artık bu
+transaction'ın içinde. Tek satır yazdığı için davranışı değişmedi.
+
+**4 neden transaction dışında?** F3'ün kuralı korunuyor: sağlayıcı geri alınamayan bir dış
+çağrıdır ve kod satırının kilidi sağlayıcı yanıt verene kadar (saniyeler) tutulmamalı.
+
+### 🔴 İndirim de sunucuda (K108)
+
+```php
+$discount = $quote === null ? 0 : $quote->discountMinor;
+$order->amount_minor = $tier->price() * 100 - $discount;
+$order->discount_minor = $discount;
+```
+
+Fiyat gibi indirim de istekten **okunmaz**. Gövdede `amount`, `discount`, `price` alanları
+gönderilse bile `StoreCheckoutRequest` onları tanımaz, Action'a hiç ulaşmazlar
+(`GiftCodeCheckoutTest::amount_and_discount_in_the_body_are_ignored`).
+
+### Hediye yolu (K107)
+
+`createGiftOrder()` sağlayıcıya gitmeden **ödenmiş** bir sipariş yazar. Alanların tamamı ve
+kısıtlarla bağı: `docs/rehber/app/Models/Order.md` → "Faz 11". Davetiye varsa
+`InvitationChanged` olayı fırlar (K102 kalıbı: misafir sayfasının önbelleği commit'ten sonra
+düşer). `redirectUrl`, `FakeGateway`'in başarı adresiyle aynı biçimde
+(`/odeme/basarili?order=<id>`). Frontend ödeme dönüş sayfası siparişi zaten bu adresten yokluyor.
+
+### Sağlayıcı patlarsa
+
+Mevcut telafi değişmedi: sipariş `failed` olur. Kullanım satırı **silinmez**. `failed` sipariş
+kullanımı kendiliğinden iade eder (K110). Kullanıcı aynı kodu hemen tekrar deneyebilir
+(`GiftCodeCheckoutTest::a_failing_provider_marks_the_order_failed_and_frees_the_code`).
+
+### Log
+
+Kullanımda tek satır `Log::info('Gift code redeemed', [gift_code_id, code_hint, order_id, gift_order])`.
+**Düz kod log'a ve Sentry bağlamına girmez** (K109); yalnızca son 4 karakter.
