@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\AssistantController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\GiftCodeController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MediaController;
@@ -161,11 +162,24 @@ Route::middleware('auth:sanctum')->group(function (): void {
     */
     Route::post('/invitations/{invitation}/checkout', [PaymentController::class, 'forInvitation'])
         ->whereUlid('invitation')
+        ->middleware('throttle:gift-code')
         ->name('invitations.checkout');
 
     // PAKET alim: hesabin tamami icin plan. Davetiye kimligi YOK (K42).
     Route::post('/payments/checkout', [PaymentController::class, 'forAccount'])
+        ->middleware('throttle:gift-code')
         ->name('payments.checkout');
+
+    /*
+    | Hediye kodu onizleme (Faz 11). Salt okunur: hicbir sey ayirmaz.
+    |
+    | 🔴 throttle:gift-code kod TAHMININI yavaslatir ve iki checkout ucuyla
+    | AYNI kovayi paylasir; onizleme kapaninca checkout'a kacilamaz. Kodsuz
+    | checkout bu kovaya hic yazilmaz (limiter Limit::none() doner).
+    */
+    Route::post('/gift-codes/preview', [GiftCodeController::class, 'preview'])
+        ->middleware('throttle:gift-code')
+        ->name('gift-codes.preview');
 
     /*
     | Siparisler (Faz 10, 10.23) — YALNIZCA okuma.

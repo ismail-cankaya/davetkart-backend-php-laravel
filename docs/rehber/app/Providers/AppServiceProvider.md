@@ -804,3 +804,58 @@ Validator::extend('iban', static fn (string $attribute, mixed $value): bool => i
 
 Uygulamanın ilk kendi doğrulama kuralı. Nesne değil **adlı** kural: hata zarfına `{"rule":"iban"}`
 olarak çıkıyor, sınıf adı sözleşmeye sızmıyor (D6). Gerekçe: [`Iban.md`](../Support/Iban.md).
+
+---
+
+## 🆕 Faz 11 (11.8): `gift-code` hız sınırı
+
+```php
+RateLimiter::for('gift-code', $this->giftCodeLimits(...));
+```
+
+| Kova | Anahtar | Varsayılan |
+|---|---|---|
+| Dakika | `gift-code-min|user|<id>` | 10 |
+| Saat | `gift-code-hour|user|<id>` | 30 |
+
+Değerler `config/davetkart.php → gift_codes.rate_limit`.
+
+### Neden?
+
+Elle girilen kodlar kısa ve tahmin edilebilir (`DUGUN2026`, `YAZ2026`). Sınırsız deneme,
+önizleme ucunu bir sözlük saldırısı aracına çevirirdi. Saatlik kova olmasaydı dakikada 10'u
+aşmayan sabit bir akış günde 14.400 deneme yapardı. İletişim formundaki (Faz 8) iki kova
+mantığıyla aynı.
+
+### Anahtar neden kullanıcı?
+
+Uçlar `auth:sanctum` arkasında. Limiter rota seviyesinde olduğu için `user()` çözülmüş gelir.
+IP anahtarının iki yönlü zaafı asistan limiter'ında anlatıldı: CGNAT arkasında mesru
+kullanıcılar kapıda kalır, saldırgan IP değiştirerek kaçar.
+
+> Hesap açmak ücretsiz olduğu için saldırgan birden çok hesap açabilir. Kayıt ucunun kendi
+> hız sınırı (`throttle:auth`) bunu yavaşlatıyor. Tek kullanımlık kodlar zaten ~59 bit
+> taşıdığı için tahmin edilemez; risk yalnızca elle girilen kısa kodlarda. Kısa kodlar
+> kamuya dağıtılan kodlar ve kişi başı 1 kuralıyla korunuyor.
+
+### 🔴 Önizleme ve checkout aynı kova
+
+`throttle:gift-code` üç rotada: önizleme ve iki checkout ucu. Kova **paylaşılıyor**. Önizleme
+dolunca saldırgan `POST /payments/checkout` ile `giftCode` denemeye geçemez
+(`GiftCodePreviewTest::preview_and_coded_checkout_share_one_bucket`).
+
+### Kodsuz checkout bu kovaya yazılmaz
+
+```php
+$code = $request->input('code', $request->input('giftCode'));
+if (! is_string($code) || trim($code) === '') {
+    return [Limit::none()];
+}
+```
+
+Hediye kodu kullanmayan bir ödemeyi yavaşlatmak için sebep yok. Kullanıcı ödeme sayfasında
+plan değiştirip birkaç kez denerse 429 görmemeli
+(`a_checkout_without_a_code_is_not_limited_by_the_gift_code_bucket`).
+
+> Prompt limiter'ın iki checkout rotasına da uygulanmasını istiyordu. Uygulandı, ama yalnızca
+> kod gönderildiğinde sayıyor. Bu prompttan küçük bir sapma ve FAZ-11.md'de kayıtlı.

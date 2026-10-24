@@ -163,6 +163,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('media', $this->guestMediaLimits(...));
         RateLimiter::for('assistant', $this->assistantLimits(...));
         RateLimiter::for('contact', $this->contactLimits(...));
+        RateLimiter::for('gift-code', $this->giftCodeLimits(...));
         RateLimiter::for('api', $this->apiLimits(...));
     }
 
@@ -297,6 +298,45 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(
                 Config::integer('davetkart.contact.rate_limit.per_ip_per_hour'),
             )->by('contact-hour|'.$ip),
+        ];
+    }
+
+    /**
+     * 🔴 Hediye kodu denemesi (Faz 11): kod tahmininin hiz siniri.
+     *
+     * Kod para degerinde. Elle girilen kodlar kisa ve tahmin edilebilir
+     * (DUGUN2026); sinirsiz deneme bir sozluk saldirisina donerdi. Anahtar
+     * KULLANICI (asistan ile ayni gerekce: uc auth'lu, IP hem genis hem ucuz).
+     *
+     * Onizleme ve kodlu checkout AYNI kovayi doldurur. Kodsuz checkout bu
+     * kovaya hic yazilmaz: hediye kodu kullanmayan odemeyi yavaslatmak icin
+     * bir sebep yok.
+     *
+     * @return list<Limit>
+     */
+    private function giftCodeLimits(Request $request): array
+    {
+        $code = $request->input('code', $request->input('giftCode'));
+
+        if (! is_string($code) || trim($code) === '') {
+            return [Limit::none()];
+        }
+
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+
+        $identity = $user !== null
+            ? 'user|'.$user->id
+            : 'ip|'.IpBucket::of($request->ip());   // savunma amacli yedek; normalde erisilmez
+
+        return [
+            Limit::perMinute(
+                Config::integer('davetkart.gift_codes.rate_limit.per_user_per_minute'),
+            )->by('gift-code-min|'.$identity),
+
+            Limit::perHour(
+                Config::integer('davetkart.gift_codes.rate_limit.per_user_per_hour'),
+            )->by('gift-code-hour|'.$identity),
         ];
     }
 

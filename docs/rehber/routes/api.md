@@ -988,3 +988,19 @@ Misafir kendi LCV'sini ilk gönderimde aldığı düzenleme koduyla günceller. 
 `throttle:rsvp` altında (gönderimle **aynı** kova: güncelleme de bir yazma). İki parametre
 `whereUlid` ile biçim denetiminden geçiyor; biçimsiz kimlik veritabanına gitmiyor.
 Ayrıntı: `PublicRsvpController.md` → *Faz 10*.
+
+---
+
+## 🆕 Faz 11 (11.8): hediye kodu
+
+| Rota | Ad | Ara katman |
+|---|---|---|
+| `POST /api/gift-codes/preview` | `gift-codes.preview` | `auth:sanctum`, `throttle:gift-code` |
+| `POST /api/invitations/{invitation}/checkout` | `invitations.checkout` | + `throttle:gift-code` |
+| `POST /api/payments/checkout` | `payments.checkout` | + `throttle:gift-code` |
+
+Önizleme yalnızca okur. Kodu **kullanmak** ayrı bir uç değil: iki checkout ucunun gövdesindeki
+`giftCode` alanı (`GiftCodeController.md`). Limiter kodsuz checkout'u saymaz.
+
+Prompt `/api/v1/gift-codes/preview` yazıyordu. Projede sürüm URL'de değil namespace'te
+(CLAUDE.md §2), bu yüzden `/api/gift-codes/preview`.

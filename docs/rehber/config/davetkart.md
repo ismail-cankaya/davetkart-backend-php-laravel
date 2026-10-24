@@ -687,3 +687,20 @@ akşam gönderiliyor ve salonda herkes aynı Wi-Fi'da.
 
 İkisi de satış kararı (E6): fiyat kartı değişirse yalnızca burası değişir. Testler listeyi ve
 eşikleri sabit yazdığı için değişiklik bilerek yapılmak zorunda.
+
+---
+
+## 🆕 Faz 11 (11.8): `gift_codes.rate_limit`
+
+```php
+'gift_codes' => [
+    'rate_limit' => [
+        'per_user_per_minute' => 10,
+        'per_user_per_hour' => 30,
+    ],
+],
+```
+
+Hediye kodu denemelerinin hız sınırı: önizleme ve kodlu checkout aynı kovayı paylaşır.
+Gerekçe: `docs/rehber/app/Providers/AppServiceProvider.md` → "Faz 11". `env()` yok: bir ortam
+farkı değil, ürün kararı. Testler değeri `Config::set` ile küçültüyor.

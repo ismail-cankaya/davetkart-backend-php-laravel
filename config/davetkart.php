@@ -186,6 +186,16 @@ return [
         'release_window_days' => 3,
     ],
 
+    // Hediye kodu (Faz 11). Kod tahmini (brute-force) hızı kullanıcı başına sınırlanır;
+    // uç auth'lu olduğu için anahtar KİMLİK, IP değil (asistan ile aynı gerekçe).
+    // Önizleme ve kodlu checkout aynı kovayı paylaşır: biri kapanınca diğerine kaçılmasın.
+    'gift_codes' => [
+        'rate_limit' => [
+            'per_user_per_minute' => 10,
+            'per_user_per_hour' => 30,
+        ],
+    ],
+
     // Public davetiye cache'i. Tazelik TTL ile değil, event ile sağlanır.
     'cache' => [
         'public_invitation_ttl' => 60 * 60 * 6, // saniye
