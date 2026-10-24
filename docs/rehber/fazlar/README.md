@@ -21,6 +21,7 @@ dosya neden böyle yazıldı"* sorusunu cevaplar. Buradaki faz özetleri ise
 | **8** | AI asistan + iletişim | ⚠️ kod ✅ · `composer check` ✅ · **elle doğrulama bekliyor** | [FAZ-8.md](FAZ-8.md) | 🔴 [betik](FAZ-8-ELLE-DOGRULAMA.md) |
 | **9** | Üretim hazırlığı | ⚠️ kod ✅ · `composer check` ✅ (238 test) · **elle doğrulama bekliyor** | [FAZ-9.md](FAZ-9.md) | 🔴 [22 adım](FAZ-9-ELLE-DOGRULAMA.md) |
 | 9+ | Faz 9 sonrası eklemeler (17–21 Eylül) | ⚠️ kod ✅ · `composer check` **kayıt yok** | `docs/07` §4 Faz 9 | — |
+| **11** | Hediye kodu (backend) | ⚠️ kod ✅ · `composer check` ✅ 684 test (**bulut çalışma alanında**, bu makinede değil) · frontend ✅ (`npm run check` yeşil) · **elle doğrulama bekliyor** | [FAZ-11.md](FAZ-11.md) | 🔴 [16 adım](FAZ-11-ELLE-DOGRULAMA.md) |
 
 > 🔴 23 Eylül 2026: backend "bitti" gözden geçirmesi →
 > [`../../../claude/GOZDEN-GECIRME-RAPORU.md`](../../../claude/GOZDEN-GECIRME-RAPORU.md)

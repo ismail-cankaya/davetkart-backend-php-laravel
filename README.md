@@ -44,6 +44,10 @@ ile 8000'e yollar; yerelde CORS devreye girmez.
 | `php artisan errors:export` | `contracts/error-codes.json`'u üretir (frontend'e tek yönlü kopyalanır) |
 | `php artisan orders:expire --dry-run` | Süresi dolmuş bekleyen siparişler |
 | `php artisan media:prune-orphans --dry-run` | LCV'ye bağlanmamış misafir yüklemeleri |
+| `php artisan gift-codes:create KOD --benefit=percent --percent=20 --max-uses=50` | Elle belirlenen hediye kodu (Faz 11) |
+| `php artisan gift-codes:generate --count=50 --benefit=free --tier=gold` | Tek kullanımlık kodlar → `storage/app/private/gift-codes/<batch>.csv` (kodlar konsola basılmaz) |
+| `php artisan gift-codes:list --active` | Kodlar ve aktif kullanım sayıları |
+| `php artisan gift-codes:disable <id>` | Kodu kapatır (silmez) |
 | `php artisan schedule:list` | Zamanlanmış 3 bakım işi |
 
 ## Sözleşme (kırılırsa frontend kırılır)
