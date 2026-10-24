@@ -19,6 +19,7 @@ use App\Services\Payment\PaymentGateway;
 use App\Services\Payment\PaymentNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -502,7 +503,7 @@ final class GiftCodeCheckoutTest extends TestCase
                 throw new RuntimeException('provider is down');
             }
 
-            public function parseNotification(string $payload, string $signature): PaymentNotification
+            public function parseNotification(Request $request): PaymentNotification
             {
                 throw new RuntimeException('not used');
             }

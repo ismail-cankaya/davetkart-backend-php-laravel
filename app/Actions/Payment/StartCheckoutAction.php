@@ -18,6 +18,7 @@ use App\Models\Invitation;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Payment\PaymentGateway;
+use App\Services\Payment\RedirectAction;
 use App\Services\Pricing\TierResolver;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -103,7 +104,7 @@ final class StartCheckoutAction
 
         // D1: hediye siparisi zaten odenmis; saglayici YOK.
         if ($order->isGift()) {
-            return new CheckoutResult($order, $this->successUrlFor($order));
+            return new CheckoutResult($order, new RedirectAction($this->successUrlFor($order)));
         }
 
         // 🔴 F3'un dis servis hali: SAGLAYICI DA TRANSACTION'A DAHIL DEGILDIR.
@@ -142,7 +143,8 @@ final class StartCheckoutAction
 
         $order->save();
 
-        return new CheckoutResult($order, $session->redirectUrl);
+        // Faz 12 (K118): adres ya da imzali form; Action hangisi oldugunu bilmez.
+        return new CheckoutResult($order, $session->action);
     }
 
     /**

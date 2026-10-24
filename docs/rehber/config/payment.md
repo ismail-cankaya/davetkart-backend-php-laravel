@@ -1,78 +1,98 @@
 # `config/payment.php` — Kılavuz
 
-> 🔴 **23 Eylül 2026 notu:** Ödeme sağlayıcısı olarak **Shopier** hesabı açıldı
-> (Eylül 2026). Aşağıdaki `iyzico` bloğu ve `webhook.signature_header` Shopier'in
-> klasik akışına birebir uymuyor: imza **form gövdesinde** (`signature`,
-> `random_nr`, `platform_order_id`…) gelir, başlıkta değil; ödeme sayfasına
-> yönlendirme bir URL değil **imzalı bir form POST**'udur. Entegrasyondan önce
-> `claude/GOZDEN-GECIRME-RAPORU.md` §4 okunmalı.
+> **İlk yazım:** Adım 2 (Faz 0) · **Yeniden yazım:** Faz 12, adım 12.3
+> **Kararlar:** K8 (Strategy) · K70 (bilinmeyen sürücü → 503) · **K94** (Shopier girdisi) ·
+> **K117** (onay kanalı) · **K123** (sır koruması) · **K125** (alıcı yer tutucuları)
 
-> **Bu dosya yeni yazıldı** (Adım 2). Ödeme sağlayıcı seçimi ve sırları.
+Faz 12'de üç şey değişti: `iyzico` bloğu **silindi**, yerine `shopier` geldi;
+`webhook` bloğu **silindi** (aşağıda neden).
 
-## Neden sağlayıcı anlaşması olmadan yazıyoruz?
+---
 
-Ödeme sağlayıcısı (Iyzico/PayTR) henüz seçilmedi. Ama **akış** sağlayıcıdan
-bağımsızdır: order oluştur → kullanıcıyı ödemeye gönder → webhook'u karşıla →
-idempotan biçimde işaretle.
-
-Bu yüzden `PaymentGateway` **arayüzü** ve onu uygulayan `FakeGateway` ile
-başlıyoruz. Doğru akış bugün kurulur, gerçek sağlayıcı sonra `IyzicoGateway`
-olarak eklenir — **Strategy Pattern**.
-
-```php
-interface PaymentGateway {
-    public function createCheckout(Order $order): string; // ödeme URL'i
-    public function verifyWebhook(Request $request): bool;
-}
-```
-
-`AppServiceProvider`, `config('payment.default')` değerine bakıp arayüzü doğru
-sınıfa bağlayacak. İş kodu (`StartCheckoutAction`) hangi sağlayıcının çalıştığını
-**bilmez** — Dependency Inversion (SOLID'in D'si).
-
-## Anahtarlar
+## 1. Anahtarlar
 
 | Anahtar | Ne işe yarar |
 |---|---|
-| `default` | Aktif sağlayıcı. `fake` \| `iyzico` |
-| `providers.*` | Her sağlayıcının sürücü adı ve sırları |
-| `return_urls` | Ödeme sonrası kullanıcının döneceği **frontend** rotaları |
-| `webhook.signature_header` | İmzanın taşındığı HTTP başlığı |
-| `webhook.tolerance_seconds` | İmzanın kabul edileceği zaman penceresi (300 sn) |
-| `order_expires_after_minutes` | Ödenmemiş order'ın geçerlilik süresi |
+| `default` | Aktif sağlayıcı: `fake` \| `shopier`. Başka bir değer → 503 (K70) |
+| `providers.shopier.api_key` / `api_secret` | Shopier panelindeki API anahtarı ve sırrı. Biri boşsa sürücü kurulmaz (K123) |
+| `providers.shopier.website_index` | Paneldeki site sırası; tek siteli hesapta `1` |
+| `providers.shopier.payment_url` | Formun POST edildiği adres. **Env'den okunmuyor**: Shopier'in test ortamı yok, adres ortamdan ortama değişmiyor |
+| `providers.shopier.confirmation` | `osb` (varsayılan) \| `callback` → §3 |
+| `providers.shopier.osb.username` / `key` | Otomatik Sipariş Bildirimi'nin imza kimlikleri. `osb` modunda zorunlu |
+| `providers.shopier.buyer_placeholders` | TCKN, telefon, adres için yer tutucular → §4 |
+| `return_urls` | Ödeme sonrası kullanıcının döneceği **frontend** rotaları. Shopier'de **mutlak** adres olmalı |
+| `order_expires_after_minutes` | Ödenmemiş siparişin penceresi (30 dk) |
 
-## 🔴 Webhook güvenliği — iki ayrı önlem
+## 2. Silinenler ve neden
 
-**1. İmza doğrulaması.** Webhook rotası auth'suz ve CSRF muaftır. Doğrulama
-olmazsa **herkes** `POST /api/payments/webhook` ile "ödeme başarılı" diyebilir
-ve bedava Elit plan alır. Sağlayıcı, gövdeyi paylaşılan gizli anahtarla imzalar;
-biz aynı hesabı yapıp karşılaştırırız.
+| Silinen | Neden |
+|---|---|
+| `providers.iyzico.*` | Sağlayıcı Shopier oldu. `IyzicoGateway` hiç yazılmadı; blok yalnızca "var olan bir sürücü" yanılgısı üretiyordu |
+| `webhook.signature_header` | İmzanın nerede durduğu sürücünün sözleşmesi, ortam ayarı değil. `FakeGateway::SIGNATURE_HEADER` oldu (12.2, K118) |
+| `webhook.tolerance_seconds` | **Faz 0'dan beri hiçbir kod okumuyordu** (ders 26: ya kullan ya sil). Shopier'in imzasında zaman damgası yok; uygulanacak bir pencere de yok. Tekrar gönderime (replay) karşı koruma durum makinesinde: `paid → paid` geçişi yasak |
 
-**2. Zaman penceresi (`tolerance_seconds`).** Geçerli bir webhook isteği
-kaydedilip günler sonra tekrar gönderilebilir (*replay attack*). İmzanın içindeki
-zaman damgası 5 dakikadan eskiyse istek reddedilir.
+Ders 26'nın en kısa hâli: *okunmayan bir ayar, var olan bir korumaymış gibi görünen
+bir yalandır.* `tolerance_seconds` bir yıl boyunca "replay saldırısına karşı 5 dk
+penceremiz var" dedi; yoktu.
 
-## 🔴 İdempotans
+## 3. 🔴 `confirmation`: siparişi kim `paid` yapar? (K117)
 
-Sağlayıcılar webhook'u ağ hatası/retry sebebiyle **birden çok kez** gönderir.
-Aynı ödemenin iki kez işlenmesi = kullanıcıya iki plan, muhasebede çift kayıt.
+Shopier ödeme sonucunu iki kanaldan bildirebilir:
 
-Çözüm veritabanı seviyesinde: `orders.provider_ref` kolonu **UNIQUE**. İkinci
-webhook ekleme yapamaz, sessizce 200 döneriz. Uygulama katmanındaki `if` kontrolü
-yeterli değildir — iki webhook aynı anda gelirse ikisi de `if`'i geçer (race
-condition); unique kısıt geçmez.
+| Kanal | Gönderen | İmzası neyi kapsıyor |
+|---|---|---|
+| **Callback** | Kullanıcının **tarayıcısı** (otomatik form POST) | `random_nr + platform_order_id`. **`status` imzanın DIŞINDA** |
+| **OSB** | Shopier'in **sunucusu** | Bütün gövde (`res`) |
 
-## Fiyat nereden okunur?
+`status`'ün imzasız olması şu saldırıyı mümkün kılar:
 
-**`config/davetkart.php` → `tiers.*.price`**. Bu dosyada fiyat yoktur.
+```
+1. Saldırgan bilerek reddedilecek bir kartla öder
+2. Shopier tarayıcısına imzalı bir callback verir: status=failed, signature=GEÇERLİ
+3. Saldırgan gövdede yalnızca status=failed → status=success yapar, tekrar POST eder
+4. İmza hâlâ geçerli (status imzada yok) → sipariş 'paid' → bedava Elit
+```
 
-Ayrım kasıtlı: `payment.php` *nasıl ödeneceğini* (altyapı), `davetkart.php`
-*ne kadar ödeneceğini* (iş kuralı) tanımlar. İstemciden gelen `amount` alanına
-asla güvenilmez.
+Bu yüzden varsayılan **`osb`**: tarayıcı callback'i yalnızca kullanıcıyı doğru
+sayfaya **yönlendirir**, hiçbir siparişin durumunu değiştirmez. `paid` kararını
+yalnızca imzası bütün gövdeyi kapsayan OSB verir.
 
-## Dikkat
+`callback` moduna ancak §A'nın şu iki cevabından biri **gösterildiğinde** geçilir:
+`status` imzanın içinde (resmi doküman), ya da başarısız ödemede callback hiç
+gelmiyor (elle doğrulama adım 5-6). Bu bir `.env` değişikliğidir ve K94'e yazılır.
 
-- `IYZICO_BASE_URL` varsayılanı **sandbox**. Üretimde canlı adresle
-  değiştirilmeli, aksi hâlde ödemeler test ortamında kalır.
-- Sırların varsayılanı yoktur (`env('IYZICO_API_KEY')` → yoksa `null`);
-  gerçek anahtar asla koda varsayılan olarak yazılmaz.
+Varsayılanın güvenli taraf olması K70'in ruhu: *bir yapılandırma eksiği (OSB'yi
+kurmayı unutmak) bedava yayına değil, bekleyen siparişe dönüşmeli.*
+
+## 4. Alıcı yer tutucuları (K125)
+
+Shopier formu TCKN, telefon, fatura ve teslimat adresi istiyor. Bizde yok:
+`users` tablosunda yalnızca ad, soyad, e-posta var ve ürün dijital. Seçenekler:
+
+| Seçenek | Sonuç |
+|---|---|
+| Kullanıcıdan TCKN/adres iste | Toplamadığımız kişisel veriyi toplamak (KVKK: veri minimizasyonu). Ödeme formu uzar |
+| ✅ Config'te yer tutucu | Ad/soyad/e-posta gerçek, gerisi sabit. §A-e "kabul edilmiyor" derse burası değişir |
+
+`11111111110` TCKN biçim kuralını (11 hane, kontrol haneleri) geçen bilinen bir test
+değeridir. Shopier gerçek kimlik doğrulaması yaparsa reddedilir; elle doğrulama
+betiğinin 3. adımı bunu ortaya çıkarır.
+
+## 5. 🔴 İdempotans (değişmedi)
+
+`orders.provider_ref` UNIQUE + `OrderStatus::canTransitionTo()` + `lockForUpdate()`.
+Shopier'de `provider_ref = orders.id` (K121): callback ve OSB aynı siparişi
+bildirirse ikincisi `paid → paid` geçişine takılır.
+
+## 6. Fiyat nereden okunur? (değişmedi)
+
+**`config/davetkart.php` → `tiers.*.price`**. Bu dosyada fiyat yoktur. Shopier'e giden
+tutar `orders.amount_minor`'dan (indirim düşülmüş) **tamsayı aritmetiğiyle** metne
+çevrilir ve imzanın içine girer (K124).
+
+## 7. Dikkat
+
+- Sırların varsayılanı yoktur (`env('SHOPIER_API_SECRET')` → yoksa `null`).
+- `.env` değiştikten sonra `php artisan config:cache`. Unutulursa eski ayar okunur.
+- `PAYMENT_SUCCESS_URL` göreli (`/odeme/basarili`) kalırsa Shopier callback'i
+  kullanıcıyı **API'nin** alan adındaki `/odeme/basarili`'ye yollar (404).

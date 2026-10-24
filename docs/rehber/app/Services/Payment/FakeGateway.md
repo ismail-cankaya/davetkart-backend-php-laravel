@@ -269,3 +269,20 @@ da yazılır.
 `getRequiredTier()` fonksiyonunun **sunucu ikizi**: davetiyenin açık
 modüllerinden gereken planı hesaplar. K6'nın (`show_*` ayrı kolonlar) Faz
 3'te ödenmiş bedeli burada karşılığını buluyor.
+
+---
+
+## 🆕 Faz 12 (12.2 · K118)
+
+- `startCheckout()` artık `new RedirectAction(...)` döner (eskiden düz string).
+- `parseNotification(Request $request)`: ham gövdeyi (`getContent()`) ve imza
+  başlığını **sürücü** okur. Ham gövde notu (*"`$request->all()` kullanılamaz"*)
+  controller'dan buraya taşındı, çünkü o bilgi artık burada kullanılıyor.
+- İmza başlığının adı config'ten (`payment.webhook.signature_header`) çıktı, sınıf
+  sabiti oldu: `FakeGateway::SIGNATURE_HEADER = 'X-Signature'`.
+
+**Neden config değil sabit?** İmzanın nerede durduğu bir **ortam ayarı** değil,
+sürücünün **sözleşmesi**. Üretimde değiştirilmesi gereken bir değer değil; değişirse
+test yardımcıları da değişmeli. Config'te kalsaydı Shopier için anlamsız, Fake için
+"ayarlanabilir sanılan" bir anahtar olurdu (ders 26'nın kuzeni). `PaywallTest`'in
+`signatureHeader()` yardımcısı artık bu sabiti okuyor.

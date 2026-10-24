@@ -94,8 +94,31 @@ final class HandlePaymentCallbackAction
                 return $order;
             }
 
+            // 🔴 Faz 12 (K126): bildirim tutar tasiyorsa siparisinkiyle AYNI
+            // olmali. Imza "bu mesaji Shopier gonderdi" der, "bu odeme BU
+            // siparisin bedelidir" demez: baska (ucuz) bir urunun odemesi bizim
+            // siparisimizle eslesirse tutar tek savunmadir. Otomatik cozulmez.
+            if (! $this->amountMatches($order, $notification)) {
+                Log::critical('Payment notification rejected: amount or currency mismatch', [
+                    'order_id' => $order->id,
+                    'provider_ref' => $order->provider_ref,
+                    'expected_minor' => $order->amount_minor,
+                    'expected_currency' => $order->currency,
+                    'notified_minor' => $notification->amountMinor,
+                    'notified_currency' => $notification->currency,
+                ]);
+
+                return $order;
+            }
+
             $previous = $order->status;
             $order->status = $notification->status;
+
+            // Faz 12 (K121): saglayicinin odeme kimligi destek ve iade icin.
+            // Ilk yazilan kalir: iade bildirimi ayni odemeyi anlatir.
+            if ($notification->providerPaymentId !== null && $order->provider_payment_id === null) {
+                $order->provider_payment_id = $notification->providerPaymentId;
+            }
 
             // orders_paid_at_check kisiti: parasi alinmis siparis damga
             // TASIMAK ZORUNDA. Damga bir kez yazilir — iade bildirimi
@@ -138,5 +161,19 @@ final class HandlePaymentCallbackAction
 
             return $order;
         });
+    }
+
+    /**
+     * Tutar tasimayan bildirim (null) her zaman uyar: o kanalin guvencesi
+     * baska yerdedir (Fake: imzali govde; Shopier callback: imzali kimlik).
+     */
+    private function amountMatches(Order $order, PaymentNotification $notification): bool
+    {
+        if ($notification->amountMinor === null) {
+            return true;
+        }
+
+        return $notification->amountMinor === $order->amount_minor
+            && $notification->currency === $order->currency;
     }
 }

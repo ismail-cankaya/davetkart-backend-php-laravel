@@ -6,6 +6,7 @@ namespace App\Services\Payment;
 
 use App\Exceptions\InvalidWebhookSignatureException;
 use App\Models\Order;
+use Illuminate\Http\Request;
 
 /**
  * Odeme saglayicisinin arkasina saklandigi arayuz — K8, Strategy Pattern.
@@ -55,18 +56,21 @@ interface PaymentGateway
     public function startCheckout(Order $order): CheckoutSession;
 
     /**
-     * Webhook govdesini DOGRULAR ve anlamli bir bildirime cevirir.
+     * Webhook istegini DOGRULAR ve anlamli bir bildirime cevirir.
      *
      * 🔴 Bu metodun asil isi cevirmek degil DOGRULAMAKTIR. Webhook ucu
      * auth'suzdur; imza kontrolu olmasaydi "odeme basarili" POST'unu herkes
      * atabilirdi. Savunma tek katmandir — honeypot yok (gorunmez alan diye
      * bir sey yok), kota yok (mesru bildirim sayisi belirsiz).
      *
-     * @param  string  $payload  Ham govde — JSON olarak DEGIL, imza neyin
-     *                           uzerinden hesaplandiysa o haliyle
-     * @param  string  $signature  Imza basligi (config: payment.webhook.signature_header)
+     * Faz 12 (K118): parametre artik ISTEGIN KENDISI. Imzanin nerede durdugu
+     * (Fake: `X-Signature` basligi + ham govde; Shopier: form alanlari)
+     * surucunun bilgisidir. Eski imza `(string $payload, string $signature)`
+     * bu bilgiyi controller'a sizdiriyordu ve her yeni saglayici controller'i
+     * DEGISTIRIYORDU (O/C ihlali). Bedeli: Services katmani artik
+     * Illuminate\Http\Request'i taniyor (kilavuz §11).
      *
      * @throws InvalidWebhookSignatureException Imza gecersiz -> 404 (bkz. kilavuz §6)
      */
-    public function parseNotification(string $payload, string $signature): PaymentNotification;
+    public function parseNotification(Request $request): PaymentNotification;
 }

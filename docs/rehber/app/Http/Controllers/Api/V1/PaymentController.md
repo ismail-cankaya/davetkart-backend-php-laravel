@@ -170,3 +170,11 @@ curl -X POST http://127.0.0.1:8000/api/invitations/$INV/publish -H "Authorizatio
 kuralı girmedi**: kodun olup olmamasına göre `if` yok. Karar (`null` ise rezervasyon yok)
 Action'ın içinde. Yanıt kodu değişmedi: hediye siparişi de 201 döner, çünkü yeni bir sipariş
 kaynağı oluştu. Farkı `status: "paid"` alanında.
+
+---
+
+## 🆕 Faz 12 (12.2)
+
+`respond()` artık `->withCheckout($result->action)` çağırıyor (eskiden
+`->withRedirectUrl($result->redirectUrl)`). Controller hâlâ sağlayıcıyı tanımıyor:
+adres mi form mu, `OrderResource` karar veriyor. → [`../../../Resources/OrderResource.md`](../../../Resources/OrderResource.md)

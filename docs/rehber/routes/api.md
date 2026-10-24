@@ -1004,3 +1004,28 @@ Ayrıntı: `PublicRsvpController.md` → *Faz 10*.
 
 Prompt `/api/v1/gift-codes/preview` yazıyordu. Projede sürüm URL'de değil namespace'te
 (CLAUDE.md §2), bu yüzden `/api/gift-codes/preview`.
+
+---
+
+## 🆕 Faz 12 (12.7): Shopier'in iki ucu
+
+```php
+Route::post('/payments/shopier/callback', ShopierCallbackController::class)->name('payments.shopier.callback');
+Route::post('/payments/shopier/osb',      ShopierOsbController::class)->name('payments.shopier.osb');
+```
+
+İkisi de `public` grubunda (K12): auth'suz her yazma yolu tek önekte. Sistemin
+**beşinci ve altıncı** auth'suz yazma yolları.
+
+| Uç | Gönderen | Savunma | Yanıt |
+|---|---|---|---|
+| `callback` | Kullanıcının tarayıcısı | İmza (`random_nr + platform_order_id`) + mod (K117) | 303 |
+| `osb` | Shopier sunucusu | İmza (bütün gövde) + tutar (K126) | `200 success` |
+
+- **CSRF:** callback bir tarayıcı form POST'u, ama `api` grubunda `VerifyCsrfToken` yok;
+  muafiyet yine yapısal. Olsaydı Shopier'in formu (bizim token'ımızı bilmediği için)
+  her seferinde 419 alırdı.
+- **Yol sabiti:** forma yazılan adres `ShopierGateway::CALLBACK_PATH`. Rota yolu
+  değişirse `ShopierCallbackTest::the_callback_route_is_the_address_written_into_the_form` kırılır.
+- Fake'in `/payments/webhook` ucu yerinde: geliştirmede `PAYMENT_PROVIDER=fake` ile
+  akış Shopier olmadan denenebilsin.

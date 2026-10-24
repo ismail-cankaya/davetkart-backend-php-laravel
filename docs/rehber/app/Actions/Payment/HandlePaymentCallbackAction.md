@@ -460,3 +460,41 @@ Yalnızca **iade**: başarısız bir yükseltme siparişi davetiyeye dokunmuyor.
 Sipariş `paid` ya da `refunded` olduğunda ve bir davetiyeye bağlıysa `InvitationChanged` yayınlanıyor.
 Misafir sayfasının imzası (Elit'te yok) siparişe bağlı ve davetiye satırı değişmediği için önbellek
 kendiliğinden düşmüyordu. Başarısız ya da süresi dolan sipariş hakkı değiştirmediği için olay yok.
+
+---
+
+## 🆕 Faz 12 (12.4 · K121, K126): bildirim artık tutar ve ödeme kimliği taşıyabilir
+
+`PaymentNotification`'a üç **isteğe bağlı** alan eklendi:
+
+| Alan | Kim doldurur | Ne olur |
+|---|---|---|
+| `providerPaymentId` | Shopier callback (`payment_id`), OSB (`orderid`) | İlerleyen geçişte `orders.provider_payment_id`'ye yazılır (ilk değer kalır) |
+| `amountMinor` + `currency` | Yalnızca Shopier **OSB** | Siparişinkiyle karşılaştırılır |
+
+### 🔴 Neden tutar karşılaştırması? (FAZ-10 denetiminin bulgusu)
+
+İmza *"bu mesajı Shopier gönderdi"* der. *"Bu ödeme BU siparişin bedelidir"* demez.
+Shopier OSB'si mağazadaki **her** satış için gelir; eşleme alanı (§A-c) belirsiz.
+Bir gün 10 ₺'lik başka bir ürünün bildirimi yanlışlıkla 549 ₺'lik siparişimizle
+eşleşirse, tek savunma tutardır:
+
+```php
+if (! $this->amountMatches($order, $notification)) {
+    Log::critical('Payment notification rejected: amount or currency mismatch', [...]);
+    return $order;                  // geçiş YOK
+}
+```
+
+- **Yeri:** `canTransitionTo()`'dan **sonra**. Tekrar gelen bir `paid` bildirimi
+  (zaten ödenmiş sipariş) tutar uyuşmasa bile gürültü üretmesin; zaten bir şey
+  değiştirmeyecek.
+- **`critical`, `warning` değil:** para çekilmiş olabilir, hak açılmadı. Bir insanın
+  bakması gerekir (Faz 10'daki K-4 ile aynı sınıf).
+- **`null` = karşılaştırma yok.** Fake'in gövdesi ve Shopier callback'i tutar
+  taşımıyor. "Taşımıyor" ile "0" aynı şey değil (N4); `0` gelseydi uyuşmazlıktı.
+
+### Mutasyon
+
+`amountMatches()`'in gövdesini `return true;` yap → `PaymentNotificationAmountTest`'in
+iki testi ve `ShopierOsbTest::an_osb_with_a_different_amount_does_not_pay` kırmızı.

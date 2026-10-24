@@ -71,3 +71,13 @@ transaction'da koşar. `lockForUpdate()` silinse bu dosya yeşil kalır. Kilit e
 | Önizlemede `totalMinor` = fiyat | 3 |
 | Kullanım satırı yazılmıyor | 8 |
 | `INVALID` mesajı her seferinde farklı | **0**: üretim kipinde mesaj yanıta girmiyor (`GiftCodeException.md` §2) |
+
+---
+
+## 🆕 Faz 12 (12.2): yalnızca yardımcılar değişti
+
+Arayüz `parseNotification(Request $request)` olduğu için `bindExplodingGateway()`'deki
+anonim sınıfın imzası güncellendi. `PaywallTest::signatureHeader()` artık
+`FakeGateway::SIGNATURE_HEADER` sabitini okuyor (config anahtarı silindi). **Hiçbir
+iddia (assert) değişmedi**: aynı testler aynı şeyi kanıtlıyor. Bir arayüz değişikliğinin
+testleri kırmadan geçmesi, testlerin uygulamaya değil davranışa bağlı olduğunun işareti.

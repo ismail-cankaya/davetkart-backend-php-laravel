@@ -563,3 +563,13 @@ Dokuzu da öldü. Eski dosyaya karşı yeniden koşturuldu: yedisi bu adımdan �
 
 **Mutasyon (2 Ekim 2026):** grupları `AND` ile bağla · sahip koşulunu sil · en düşük planı tut · kararı
 yayından önce sor: dördü de kırıldı.
+
+---
+
+## 🆕 Faz 12 (12.2): yalnızca yardımcılar değişti
+
+Arayüz `parseNotification(Request $request)` olduğu için `bindExplodingGateway()`'deki
+anonim sınıfın imzası güncellendi. `PaywallTest::signatureHeader()` artık
+`FakeGateway::SIGNATURE_HEADER` sabitini okuyor (config anahtarı silindi). **Hiçbir
+iddia (assert) değişmedi**: aynı testler aynı şeyi kanıtlıyor. Bir arayüz değişikliğinin
+testleri kırmadan geçmesi, testlerin uygulamaya değil davranışa bağlı olduğunun işareti.

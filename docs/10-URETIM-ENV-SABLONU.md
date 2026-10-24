@@ -5,6 +5,7 @@
 > **Kurallar:** **Y1** · **E6** · **B10** · **K80**
 > **Güncelleme:** 23 Eylül 2026 — Sentry, `GEMINI_MODEL`, PHP ^8.5, TrustProxies'in
 > hız sınırlarına etkisi ve ödeme sağlayıcısı notu (Shopier) eklendi.
+> **24 Ekim 2026 (Faz 12):** `IYZICO_*` satırları `SHOPIER_*` ile değişti.
 
 ---
 
@@ -146,21 +147,22 @@ LOG_DEPRECATIONS_CHANNEL=null
 # 🔴 Frontend'in GERCEK origin'i. Sondaki '/' yazilmaz.
 CORS_ALLOWED_ORIGINS=https://davetkart.com
 
-# --- Odeme -------------------------------------------------------------------
-# 🔴 23 Eylul notu: saglayici buyuk olasilikla SHOPIER (Eylul 2026'da hesap
-# acildi). O gun asagidaki IYZICO_* satirlari SHOPIER_* karsiliklariyla
-# degisir; `payment.webhook.signature_header` Shopier'in klasik akisinda
-# kullanilmaz (imza form govdesinde gelir). Ayrinti:
-# claude/GOZDEN-GECIRME-RAPORU.md §4.
-# 🔴 'iyzico' YAZMADAN ONCE IyzicoGateway yazilmis olmali (9.x, anahtarlar
-# geldiginde). Bugun 'fake' birakmak, bu satiri 'iyzico' yapip surucusuz
-# birakmaktan IYIDIR: K70 geregi bilinmeyen surucu sessizce fake'e DUSMEZ,
-# odeme uclari 503 verir.
-PAYMENT_PROVIDER=fake
-IYZICO_API_KEY=
-IYZICO_SECRET_KEY=
-IYZICO_BASE_URL=https://api.iyzipay.com
-IYZICO_WEBHOOK_SECRET=
+# --- Odeme (Faz 12: Shopier) ------------------------------------------------
+# 🔴 'shopier' yazmadan once panelde iki adres tanimli olmali (FAZ-12-ELLE-DOGRULAMA):
+#   callback: https://api.davetkart.com/api/public/payments/shopier/callback
+#   OSB     : https://api.davetkart.com/api/public/payments/shopier/osb
+# Sir ya da OSB kimligi bossa odeme uclari 503 verir (K123); sessizce fake'e
+# DUSMEZ (K70). Degisiklikten sonra `php artisan config:cache` UNUTULMAZ.
+PAYMENT_PROVIDER=shopier
+SHOPIER_API_KEY=
+SHOPIER_API_SECRET=
+SHOPIER_WEBSITE_INDEX=1
+# 'osb' disindaki deger bilincli bir karardir (K117): tarayici callback'inde
+# 'status' alani imzasiz. Elle dogrulama 5-6. adimlari gormeden degistirme.
+SHOPIER_CONFIRMATION=osb
+SHOPIER_OSB_USERNAME=
+SHOPIER_OSB_KEY=
+# 🔴 MUTLAK adres: callback ucu kullaniciyi buraya 303 ile yollar.
 PAYMENT_SUCCESS_URL=https://davetkart.com/odeme/basarili
 PAYMENT_FAILURE_URL=https://davetkart.com/odeme/hata
 

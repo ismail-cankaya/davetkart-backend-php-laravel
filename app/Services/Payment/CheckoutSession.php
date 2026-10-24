@@ -25,8 +25,12 @@ final readonly class CheckoutSession
         /** Saglayicinin bu odemeye verdigi kimlik — orders.provider_ref olur. */
         public string $providerRef,
 
-        /** Kullanicinin yonlendirilecegi odeme sayfasi. */
-        public string $redirectUrl,
+        /**
+         * Kullanicinin odeme sayfasina NASIL gidecegi (Faz 12, K118):
+         * bir adrese git (RedirectAction) ya da imzali alanlari POST et
+         * (FormPostAction). Eskiden `string $redirectUrl` idi.
+         */
+        public CheckoutAction $action,
 
         /** Oturumun son kullanma ani; null = saglayici pencere vermiyor. */
         public ?CarbonImmutable $expiresAt = null,

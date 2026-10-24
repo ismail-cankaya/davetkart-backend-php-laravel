@@ -61,7 +61,7 @@ final class PaymentController extends Controller
     private function respond(CheckoutResult $result): JsonResponse
     {
         return (new OrderResource($result->order))
-            ->withRedirectUrl($result->redirectUrl)
+            ->withCheckout($result->action)
             ->response()
             ->setStatusCode(JsonResponse::HTTP_CREATED);
     }

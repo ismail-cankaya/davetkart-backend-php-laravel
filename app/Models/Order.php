@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  *   - amount_minor    -> fiyat SUNUCUDAKI config'ten okunur (asla govdeden)
  *   - status/paid_at  -> yalnizca odeme saglayicisinin bildirimi degistirir
  *   - provider_ref    -> saglayici uretir
+ *   - provider_payment_id -> saglayicinin bildirimi yazar (Faz 12, K121)
  *
  * Toplu atama acik olsaydi `{"tier":"elit","status":"paid"}` govdesi bir
  * odemeyi bedava yapardi. Alanlarin tamami acikca atanir (E7 ailesi).

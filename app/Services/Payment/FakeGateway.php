@@ -7,6 +7,7 @@ namespace App\Services\Payment;
 use App\Enums\OrderStatus;
 use App\Exceptions\InvalidWebhookSignatureException;
 use App\Models\Order;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -32,6 +33,16 @@ final class FakeGateway implements PaymentGateway
     /** Uretilen referanslarin oneki — gercek saglayici referanslarindan ayirt eder. */
     private const REF_PREFIX = 'fake_';
 
+    /**
+     * Imzanin geldigi baslik (Faz 12, K118).
+     *
+     * Eskiden config('payment.webhook.signature_header') idi. Imzanin NEREDE
+     * durdugu bir ortam ayari degil, bu surucunun sozlesmesidir: Shopier'de
+     * baslik hic yok, imza form alaninda. Ayar config'te kalsaydi her
+     * surucuye ait olmayan, yarisini yanlis anlatan bir anahtar olurdu.
+     */
+    public const SIGNATURE_HEADER = 'X-Signature';
+
     public function name(): string
     {
         return 'fake';
@@ -56,21 +67,31 @@ final class FakeGateway implements PaymentGateway
             // Frontend rotasi; saglayici sayfasi yerine dogrudan "basarili"
             // ekranina donuyoruz. Sorgu parametresi, sahte odemeyi tetikleyecek
             // olan geliştirme aracinin siparisi bulabilmesi icin.
-            redirectUrl: Config::string('payment.return_urls.success').'?order='.$order->getKey(),
+            action: new RedirectAction(
+                Config::string('payment.return_urls.success').'?order='.$order->getKey(),
+            ),
 
             expiresAt: $expiresAt,
         );
     }
 
     /**
-     * Webhook govdesini dogrular ve cevirir.
+     * Webhook istegini dogrular ve cevirir.
+     *
+     * 🔴 getContent(): HAM govde. $request->all() KULLANILAMAZ — imza,
+     * ayristirilmis diziden degil BAYT DIZISINDEN hesaplanir. Laravel JSON'u
+     * yeniden serilestirdiginde anahtar sirasi veya bosluklar degisebilir ve
+     * imza "bazen" tutmazdi. (Faz 12'ye kadar bu not controller'daydi.)
      *
      * @throws InvalidWebhookSignatureException Imza tutmadi -> 404 (sessiz red)
      * @throws BadRequestHttpException Imza dogru ama govde anlamsiz -> 400
      */
-    public function parseNotification(string $payload, string $signature): PaymentNotification
+    public function parseNotification(Request $request): PaymentNotification
     {
-        $this->assertSignatureIsValid($payload, $signature);
+        $payload = $request->getContent();
+        $signature = $request->header(self::SIGNATURE_HEADER);
+
+        $this->assertSignatureIsValid($payload, is_string($signature) ? $signature : '');
 
         // 🔴 SIRA ONEMLI: once imza, sonra govde. Ters sirada, imzasiz bir
         // istek bile JSON ayristirmasi yaptirir ve hata mesaji farkindan
