@@ -246,3 +246,35 @@ dönüşüyordu (**N4**). Tam gerekçe:
 
 `#[Fillable([])]` listesi **hâlâ boş** ve `scope` da oraya girmiyor: istemcinin
 "ben paket aldım" diyebilmesi, ödemeyi bedava yapmanın en kısa yolu olurdu.
+
+---
+
+## 🆕 Faz 11 (11.4 · K107, K108): hediye siparişi ve indirim
+
+Modele üç şey eklendi:
+
+| Üye | Ne |
+|---|---|
+| `GIFT_PROVIDER = 'gift'` | Hediye kodunun tamamen karşıladığı siparişin `provider` değeri |
+| `isGift()` | `provider === GIFT_PROVIDER` |
+| `discount_minor` cast'i (`integer`) | Fiyattan düşülen indirim, kuruş |
+| `giftCodeRedemption()` | `HasOne<GiftCodeRedemption>`: siparişte kullanılan kod (en fazla bir, UNIQUE) |
+
+**Hediye = sipariş (K107).** Kod planın tamamını karşılıyorsa sağlayıcıya gidilmez, şu satır
+yazılır:
+
+| Alan | Değer | Kural |
+|---|---|---|
+| `status` / `paid_at` | `paid` / şimdi | `orders_paid_at_check` |
+| `provider` / `amount_minor` | `gift` / 0 | `orders_gift_amount_check`: ikisi birlikte |
+| `provider_ref` | `gift_<ULID>` | UNIQUE; sağlayıcı olmadığı için kendimiz üretiyoruz |
+| `expires_at` | `null` | Ödeme penceresi yok; `orders:expire` bu satıra bakmaz |
+| `discount_minor` | planın tam fiyatı | Fiyat = `amount_minor + discount_minor` |
+
+Bu satırı yayın hakkı (`OrderEntitlementResolver`), bağsız siparişin bağlanması
+(`ClaimReleasedOrderAction`) ve iade akışı **değişmeden** tanıyor: hepsi `status = paid`'e
+bakıyor, `provider`'a değil.
+
+`provider` neden `PaymentGateway::name()`'den gelmiyor? Hediye siparişi hiçbir sürücüden
+geçmiyor. F4 ("sürücü kendi adını söyler") burada uygulanamaz, çünkü sürücü yok. Değer
+sabitte duruyor ve veritabanı kısıtı onu `amount_minor = 0` ile bağlıyor.

@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Bir plan satin alma kaydi — projenin ticari cekirdegi.
@@ -34,6 +35,14 @@ class Order extends Model
 {
     /** @use HasFactory<OrderFactory> */
     use HasFactory, HasUlids;
+
+    /**
+     * Hediye kodunun tamamen karşıladığı siparişin `provider` değeri (Faz 11, D1).
+     *
+     * Sağlayıcıya gidilmez; sipariş doğrudan `paid` yazılır. `amount_minor = 0`
+     * ile birlikte gelir (orders_gift_amount_check kısıtı iki yönü bağlar).
+     */
+    public const GIFT_PROVIDER = 'gift';
 
     /**
      * Get the attributes that should be cast.
@@ -58,6 +67,9 @@ class Order extends Model
             // PostgreSQL surucusu integer'i duruma gore string dondurebilir;
             // karsilastirma buna guvenemez (P4).
             'amount_minor' => 'integer',
+
+            // Faz 11: fiyattan düşülen indirim (kuruş). Fiyat = amount + discount.
+            'discount_minor' => 'integer',
 
             // K23: degismez tarih.
             'paid_at' => 'immutable_datetime',
@@ -115,6 +127,12 @@ class Order extends Model
         return $this->expires_at !== null && $this->expires_at->isPast();
     }
 
+    /** Hediye kodunun tamamen karşıladığı sipariş mi? (Faz 11, D1) */
+    public function isGift(): bool
+    {
+        return $this->provider === self::GIFT_PROVIDER;
+    }
+
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
@@ -129,5 +147,15 @@ class Order extends Model
     public function invitation(): BelongsTo
     {
         return $this->belongsTo(Invitation::class);
+    }
+
+    /**
+     * Bu siparişte kullanılan hediye kodu (Faz 11). Sipariş başına en fazla bir (UNIQUE).
+     *
+     * @return HasOne<GiftCodeRedemption, $this>
+     */
+    public function giftCodeRedemption(): HasOne
+    {
+        return $this->hasOne(GiftCodeRedemption::class);
     }
 }
