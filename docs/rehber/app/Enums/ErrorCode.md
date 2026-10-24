@@ -548,3 +548,43 @@ için doğru eylem üç durumda da aynı.
 `contracts/error-codes.json` 21'den 22 koda çıktı (`php artisan errors:export`).
 Frontend'in kopyası (`src/contracts/error-codes.json`) ve `tr`/`en` `errors.json`
 metinleri frontend adımında güncellendi; `npm run verify:errors` eksik metni yakalar.
+
+---
+
+## 🆕 Faz 11 (11.5 · K113): hediye kodu hataları
+
+Üç yeni kod, üçü de **422** (istek biçimsel olarak sağlam, reddedilen içeriğin anlamı;
+`PASSWORD_RESET_INVALID` ile aynı sınıf):
+
+| Kod | Ne zaman | `params` |
+|---|---|---|
+| `GIFT_CODE_INVALID` | Kod **yok**, **kapatılmış**, **süresi dolmuş** ya da **tükenmiş** | yok |
+| `GIFT_CODE_ALREADY_USED` | Bu kullanıcının bu kodla aktif bir kullanımı var | yok |
+| `GIFT_CODE_NOT_APPLICABLE` | Kod geçerli ama başka bir plan için | `tier` |
+
+### 🔴 Neden dört sebep tek kod? (K113)
+
+Ayrılsaydı (`GIFT_CODE_EXPIRED`, `GIFT_CODE_EXHAUSTED`...) kod deneyen biri hangi kodların
+**var olduğunu** öğrenirdi. "Süresi dolmuş" yanıtı "bu kod vardı" demektir. Bu bilgi kampanya
+isimlendirmesini (`DUGUN2025` vardı, `DUGUN2026` de olabilir) ve hangi tahminlerin gerçek
+koda yakın olduğunu sızdırır. `INVALID_CREDENTIALS` (parola yanlış / kullanıcı yok) ile aynı
+ilke (08 §3.1).
+
+`GiftCodeCheckoutTest::every_invalid_reason_gets_the_same_bytes` dört yanıtın gövdesini
+**bayt bayt** karşılaştırıyor.
+
+### Neden `ALREADY_USED` ve `NOT_APPLICABLE` ayrı?
+
+İkisi de kodun var olduğunu ele verir, ama bunu yalnızca **kodu bilen** kişiye söyler.
+`ALREADY_USED` yalnızca kodu daha önce kendisi kullanmış kişiye döner; `NOT_APPLICABLE` ise
+ancak kod geçerli ve tükenmemişse. İkisi de frontend'de farklı bir eylem gerektirir:
+"bu kodu zaten kullandın" ya da "bu kod Gold planı için, planı değiştir".
+
+### `tier` parametresi sızıntı mı?
+
+Hayır. Kodu elinde tutan kullanıcı bu bilgiyi hak ediyor: kampanyayı dağıtan "Gold'u bedava
+açar" diye dağıttı. Bilgi yalnızca kod geçerli olduğunda döner; tükenmiş bir kodun planı
+`INVALID` arkasında kalır (kontrol sırası: `ReserveGiftCodeAction.md` §3).
+
+`contracts/error-codes.json` 22'den 25 koda çıktı (`php artisan errors:export`). Frontend
+kopyası Faz 11'in frontend adımında (11.12) güncellenecek.

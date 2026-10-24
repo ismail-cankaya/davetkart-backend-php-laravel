@@ -57,6 +57,21 @@ enum ErrorCode: string
      */
     case PasswordResetInvalid = 'PASSWORD_RESET_INVALID';
 
+    /**
+     * Hediye kodu kullanılamaz (Faz 11, D7).
+     *
+     * 🔴 Tek kod, dört sebep: yok, kapatılmış, süresi dolmuş ya da tükenmiş.
+     * Ayrılsaydı kod deneyen biri hangi kodların VAR olduğunu öğrenirdi
+     * (PASSWORD_RESET_INVALID ile aynı gerekçe, H6).
+     */
+    case GiftCodeInvalid = 'GIFT_CODE_INVALID';
+
+    /** Bu kullanıcı bu kodu zaten kullanmış (kişi başı 1, D5). */
+    case GiftCodeAlreadyUsed = 'GIFT_CODE_ALREADY_USED';
+
+    /** Kod geçerli ama seçilen plan için değil (ücretsiz ya da plana özel kod). */
+    case GiftCodeNotApplicable = 'GIFT_CODE_NOT_APPLICABLE';
+
     // 429 — hiz siniri VE zamana bagli kota
     case RateLimited = 'RATE_LIMITED';
 
@@ -108,7 +123,10 @@ enum ErrorCode: string
 
             self::ValidationFailed,
             self::RegistrationFailed,
-            self::PasswordResetInvalid => 422,
+            self::PasswordResetInvalid,
+            self::GiftCodeInvalid,
+            self::GiftCodeAlreadyUsed,
+            self::GiftCodeNotApplicable => 422,
 
             self::RateLimited,
             self::AssistantQuotaExceeded => 429,
@@ -149,6 +167,10 @@ enum ErrorCode: string
             // kota doldugunda kalan zaten sifirdir, ikinci bir alan bilgi
             // tasimaz (H9: beyaz liste, "her ihtimale karsi" degil).
             self::AssistantQuotaExceeded => ['retryAfter', 'limit'],
+
+            // Kodun geçtiği plan: kodu elinde tutan kullanıcı bunu zaten
+            // hak ediyor ("bu kod Gold içindir"). INVALID'de parametre YOK (D7).
+            self::GiftCodeNotApplicable => ['tier'],
             default => [],
         };
     }

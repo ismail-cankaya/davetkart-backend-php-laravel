@@ -123,6 +123,7 @@ dediğine bakar — kayıt formu bir **hesap tarayıcısına** dönüşür.
 | `POST /auth/login` | "Parola hatalı" / "Kullanıcı bulunamadı" ayrımı | Her iki durumda **`INVALID_CREDENTIALS`**, `fields` **yok** |
 | `POST /auth/register` | `fields: {email: [{rule: "unique"}]}` | **`REGISTRATION_FAILED`**, `fields` **yok** |
 | `POST /auth/forgot-password` | "Bu e-posta kayıtlı değil" | Her durumda **`202 Accepted`** — kayıtlıysa mail gider, değilse sessizce yutulur |
+| `POST /gift-codes/preview` · checkout `giftCode` (Faz 11) | "Kod yok" / "kod kapatıldı" / "süresi doldu" / "tükendi" ayrımı | Dördünde **`GIFT_CODE_INVALID`**, `params` **yok**, yanıt bayt bayt aynı (D7) |
 
 > **Zamanlama saldırısı:** Kullanıcı yoksa parola karşılaştırması hiç
 > çalışmaz → yanıt ~250 ms daha hızlı döner. Saldırgan bunu ölçer. Savunma:
@@ -183,7 +184,7 @@ Durum kodu **kaba sınıflandırma**, `code` **ince ayrım**. İkisi birlikte ç
 | **404** | Kaynak yok **veya** senin değil | `RESOURCE_NOT_FOUND` |
 | **409** | Durum çakışması | `INVITATION_ALREADY_PUBLISHED`, `SLUG_TAKEN` |
 | **413** | Dosya çok büyük | `FILE_TOO_LARGE` |
-| **422** | Doğrulama başarısız | `VALIDATION_FAILED` |
+| **422** | Doğrulama başarısız | `VALIDATION_FAILED`, `GIFT_CODE_INVALID`, `GIFT_CODE_ALREADY_USED`, `GIFT_CODE_NOT_APPLICABLE` |
 | **429** | Hız sınırı | `RATE_LIMITED` |
 | **500** | Sunucu hatası (bizim kodumuz) | `SERVER_ERROR` |
 | **502** | Yukarı akış **geçersiz yanıt döndü** | `PAYMENT_PROVIDER_ERROR` |
