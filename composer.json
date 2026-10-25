@@ -58,9 +58,11 @@
             "@php vendor/bin/pint"
         ],
         "analyse": [
+            "@putenv PHPSTAN_TURBO=0",
             "@php vendor/bin/phpstan analyse --memory-limit=1G"
         ],
         "check": [
+            "@putenv PHPSTAN_TURBO=0",
             "@php vendor/bin/pint --test",
             "@php vendor/bin/phpstan analyse --memory-limit=1G",
             "@php artisan errors:export --check",

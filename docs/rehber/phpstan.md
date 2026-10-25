@@ -477,3 +477,42 @@ Sonra hatalar tek tek okunup düzeltilir ve yükseltme tekrar denenir.
 satır **gerekçe yorumu** ister; gerekçesiz bir susturma, aracın zamanla
 anlamını yitirmesidir (Faz 4, ders 35: *bir aracı kurmak ile aracın işini
 yapması ayrı şeylerdir*).
+
+---
+
+## 🆕 Faz 13 (25 Ekim 2026) — Windows'ta "turbo" eklentisi kapalı
+
+**Belirti:** Yalnızca Windows'ta (Herd, PHP 8.5.12) `composer check` yüzlerce sahte hata verdi
+(531): `ColumnDefinition::nullable()` yok, `Model::$id` yok, docblock'u olan metotlarda
+"tip belirtilmemiş"... Hatalar Faz 13'ten bağımsızdı ve eski dosyalarda da vardı. Önbellek
+silinince bu kez `Class mixed was not found` iç hatası çıktı. Linux'ta aynı kod 0 hata.
+
+**Sebep:** PHPStan 2.2, analiz işlemlerine hız için kendi yerel eklentisini yükler
+(`vendor/phpstan/phpstan/turbo-ext/windows-x86_64/phpstan_turbo-8.5.dll`). Windows
+sürümü docblock'ları kaybediyor. Sonuç önbelleğe yazıldığı için tek işlemli `--debug`
+çalıştırması bile bozuk sonucu okuyordu. PHP'nin kendisi docblock'ları sorunsuz okuyordu
+(`Claude outputs/teshis.php` ile doğrulandı).
+
+**Çözüm:** `composer.json` → `check` betiğinin ilk satırı:
+
+```json
+"@putenv PHPSTAN_TURBO=0",
+```
+
+`PHPSTAN_TURBO=0` PHPStan'in resmi kapatma anahtarı. Eklenti yüklenmez, analiz biraz
+yavaşlar ama doğru çalışır.
+
+**Elle çalıştırırken** (`vendor\bin\phpstan analyse` doğrudan çağrılıyorsa):
+
+```powershell
+$env:PHPSTAN_TURBO = "0"
+```
+
+**Yine tuhaf, docblock'ları görmüyormuş gibi hatalar çıkarsa** önce önbelleği sil:
+
+```powershell
+Remove-Item -Recurse -Force "$env:TEMP\phpstan"
+```
+
+İleride PHPStan güncellendiğinde Windows eklentisi düzelmiş olabilir. O zaman satırı
+kaldırıp bir kez dene; 0 hata çıkarsa satır silinebilir.
