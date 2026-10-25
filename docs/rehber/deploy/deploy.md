@@ -135,7 +135,10 @@ patladıysa veritabanı yeni şemada kalır. Eski kod yeni şemayla genelde çal
 
 - **`artisan down` (bakım modu):** Tek sunucuda göçler saniyeler sürer. Uzun bir
   göç olursa o gün elle açılır.
-- **Frontend:** Y10.3'te aynı betiğe `npm ci && npm run build` adımı eklenecek.
+- **Frontend ayrı betikte:** `deploy.sh` backend'i bitirince `deploy/deploy-frontend.sh`'ı
+  çağırır (Y10.3). Sıra bilinçli: önce backend (göçler), sonra frontend; yeni
+  frontend yeni API'ye güvenebilsin. Yalnızca frontend değiştiyse betik tek
+  başına çalıştırılabilir. Ayrıntı: `docs/rehber/deploy/deploy-frontend.md`.
 - **Otomatik tetikleme:** GitHub Actions sonraya (YD-1).
 
 ## 6. Sık hatalar

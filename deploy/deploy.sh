@@ -61,5 +61,8 @@ step "Saglik kontrolu"
 curl -fsS --max-time 10 --resolve "$HEALTH_HOST:443:127.0.0.1" "https://$HEALTH_HOST/api/ping"
 echo
 
-# Frontend adimi Y10.3'te buraya eklenir.
-step "Bitti: $PREV -> $NEW"
+step "Backend bitti: $PREV -> $NEW"
+
+# Backend ONCE: yeni frontend yeni API'ye guvenebilsin (API geriye uyumlu yazilir).
+trap - ERR   # buradan sonraki hata backend'in degil; frontend betigi kendi mesajini yazar
+bash "$APP_DIR/deploy/deploy-frontend.sh"
