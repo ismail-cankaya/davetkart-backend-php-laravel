@@ -33,14 +33,14 @@ final class AuthController extends Controller
 {
     public function register(RegisterRequest $request, RegisterUserAction $action): JsonResponse
     {
-        $result = $action->handle($request->userAttributes());
+        $result = $action->handle($request->userAttributes(), $request->userAgent());
 
         return $this->session($result['user'], $result['token'], JsonResponse::HTTP_CREATED);
     }
 
     public function login(LoginRequest $request, LoginUserAction $action): JsonResponse
     {
-        $result = $action->handle($request->credentials());
+        $result = $action->handle($request->credentials(), $request->userAgent());
 
         return $this->session($result['user'], $result['token']);
     }

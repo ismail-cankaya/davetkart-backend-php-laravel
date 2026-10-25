@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\PublicPaymentWebhookController;
 use App\Http\Controllers\Api\V1\PublicRsvpController;
 use App\Http\Controllers\Api\V1\RefundRequestController;
 use App\Http\Controllers\Api\V1\RsvpController;
+use App\Http\Controllers\Api\V1\SessionController;
 use App\Http\Controllers\Api\V1\ShopierCallbackController;
 use App\Http\Controllers\Api\V1\ShopierOsbController;
 use App\Http\Middleware\SetEtag;
@@ -79,6 +80,15 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
         Route::put('/password', [PasswordController::class, 'update'])
             ->middleware('throttle:auth')
             ->name('password.update');
+
+        // Faz 14 (14.9): aktif oturumlar. Kimlik sıralı tamsayı (Sanctum):
+        // sahiplik sorguda, başkasınınki 404 (H7). whereNumber: biçimsiz
+        // kimlik veritabanına hiç ulaşmaz (O6).
+        Route::get('/sessions', [SessionController::class, 'index'])->name('sessions.index');
+        Route::delete('/sessions', [SessionController::class, 'destroyOthers'])->name('sessions.destroy-others');
+        Route::delete('/sessions/{session}', [SessionController::class, 'destroy'])
+            ->whereNumber('session')
+            ->name('sessions.destroy');
     });
 });
 

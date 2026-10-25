@@ -355,3 +355,11 @@ php artisan migrate:fresh
 | Parola hash'i | [`app/Models/User.md`](../../Models/User.md) §3.4 · [`config/hashing.md`](../../../config/hashing.md) |
 | Katman kuralları | [`CLAUDE.md`](../../../../../CLAUDE.md) §1 |
 | Sıradaki dosya | `app/Http/Controllers/Api/V1/AuthController.php` (2.6) |
+
+---
+
+## 🆕 Faz 14 (14.9 · K143): token `IssueApiTokenAction`'dan
+
+Token artık bu sınıfta değil, `IssueApiTokenAction`'da üretiliyor: hangi cihazdan açıldığı
+(`user_agent`) da yazılıyor. İmzaya `?string $userAgent` eklendi; controller
+`$request->userAgent()` veriyor. Ayrıntı: [`IssueApiTokenAction.md`](IssueApiTokenAction.md).

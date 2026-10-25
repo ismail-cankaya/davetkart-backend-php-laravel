@@ -18,25 +18,25 @@ use Illuminate\Support\Facades\DB;
  */
 final class RegisterUserAction
 {
-    /** Sanctum token etiketi; ileride cihaz bazli iptal icin ayrisabilir. */
-    private const TOKEN_NAME = 'api';
+    public function __construct(private readonly IssueApiTokenAction $issueToken) {}
 
     /**
      * @param  array{first_name: string, last_name: string, email: string, password: string}  $attributes
+     * @param  string|null  $userAgent  Oturum listesinde cihazı tanıtır (Faz 14, K143)
      *
      * @return array{user: User, token: string}
      *
      * @throws RegistrationFailedException E-posta zaten kayitliysa.
      */
-    public function handle(array $attributes): array
+    public function handle(array $attributes, ?string $userAgent): array
     {
         try {
-            return DB::transaction(function () use ($attributes): array {
+            return DB::transaction(function () use ($attributes, $userAgent): array {
                 $user = User::create($attributes);
 
                 return [
                     'user' => $user,
-                    'token' => $user->createToken(self::TOKEN_NAME)->plainTextToken,
+                    'token' => $this->issueToken->handle($user, $userAgent),
                 ];
             });
         } catch (UniqueConstraintViolationException) {

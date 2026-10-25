@@ -18,23 +18,23 @@ use Illuminate\Support\Facades\Hash;
  */
 final class LoginUserAction
 {
-    /** RegisterUserAction ile ayni etiket; token kaynagi ayirt edilmez. */
-    private const TOKEN_NAME = 'api';
-
     /** Hicbir kullanicinin parolasi olamayacak sabit girdi. */
     private const DUMMY_PASSWORD = 'password-that-is-never-valid';
 
     /** Surec basina bir kez uretilir; her istekte yeniden hesaplanmaz. */
     private static ?string $dummyHash = null;
 
+    public function __construct(private readonly IssueApiTokenAction $issueToken) {}
+
     /**
      * @param  array{email: string, password: string}  $credentials
+     * @param  string|null  $userAgent  Oturum listesinde cihazı tanıtır (Faz 14, K143)
      *
      * @return array{user: User, token: string}
      *
      * @throws InvalidCredentialsException Kullanici yoksa VEYA parola yanlissa.
      */
-    public function handle(array $credentials): array
+    public function handle(array $credentials, ?string $userAgent): array
     {
         $user = User::where('email', $credentials['email'])->first();
 
@@ -53,7 +53,7 @@ final class LoginUserAction
 
         return [
             'user' => $user,
-            'token' => $user->createToken(self::TOKEN_NAME)->plainTextToken,
+            'token' => $this->issueToken->handle($user, $userAgent),
         ];
     }
 

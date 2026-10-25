@@ -1053,3 +1053,6 @@ uçtan okur. Ayrıntı: `app/Http/Controllers/Api/V1/PricingController.md`.
 | `DELETE /api/orders/{order}/refund-request` | `orders.refund-request.destroy` | `auth:sanctum` | 14.5 |
 | `PATCH /api/auth/me` | `auth.update` | `auth:sanctum` | 14.7 |
 | `PUT /api/auth/password` | `auth.password.update` | `auth:sanctum` + `throttle:auth` | 14.8 |
+| `GET /api/auth/sessions` | `auth.sessions.index` | `auth:sanctum` | 14.9 |
+| `DELETE /api/auth/sessions` | `auth.sessions.destroy-others` | `auth:sanctum` | 14.9 |
+| `DELETE /api/auth/sessions/{session}` | `auth.sessions.destroy` | `auth:sanctum` | 14.9 |

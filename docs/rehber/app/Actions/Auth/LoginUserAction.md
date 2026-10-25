@@ -427,3 +427,11 @@ Bu tek deneme, dosyanın varlık sebebini kalıcı olarak anlatır.
 | Rate limit (ikinci katman) | [`AppServiceProvider.md`](../../Providers/AppServiceProvider.md) §5.5 |
 | Enumeration kuralı (H6) | `docs/08-HATA-SOZLESMESI.md` §3.1 |
 | Sıradaki dosya | `AuthController::login()` + rota (2.8d) |
+
+---
+
+## 🆕 Faz 14 (14.9 · K143): token `IssueApiTokenAction`'dan
+
+Token artık bu sınıfta değil, `IssueApiTokenAction`'da üretiliyor: hangi cihazdan açıldığı
+(`user_agent`) da yazılıyor. İmzaya `?string $userAgent` eklendi; controller
+`$request->userAgent()` veriyor. Ayrıntı: [`IssueApiTokenAction.md`](IssueApiTokenAction.md).
