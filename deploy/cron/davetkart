@@ -1,0 +1,9 @@
+# DavetKart zamanlayici (Laravel scheduler). Ayrinti: docs/rehber/deploy/cron/davetkart.md
+# Kurulum: /etc/cron.d/davetkart  (root:root 644; dosya adinda nokta OLMAZ)
+SHELL=/bin/sh
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=""
+
+# dk sa gun ay hg  kullanici  komut
+# stdout (her dakika "No scheduled commands...") atilir; stderr (PHP olumcul hatasi) journal'a gider.
+* * * * * www-data cd /var/www/davetkart/backend && /usr/bin/php artisan schedule:run 2>&1 >/dev/null | /usr/bin/logger -t davetkart-schedule
