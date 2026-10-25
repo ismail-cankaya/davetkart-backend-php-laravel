@@ -185,6 +185,26 @@ Kayıtlı e-postaları kanonik biçime getirir (büyük/küçük harf, Türkçe 
 aynı adrese düşüyorsa (çakışma) o satırları **yazmaz**, raporlar; karar senindir.
 Bir kez, yayından önce ya da toplu veri aktarımından sonra çalıştırılır.
 
+### 3.3 `refunds:*` — iade (iptal) talepleri (Faz 14)
+
+Kullanıcı "Planlarım" ekranından kullanılmamış, ücretli bir hakkı 14 gün içinde iptal edip
+iade isteyebilir. Talep açılınca hak **donar** (yayında kullanılamaz). Kararı sen verirsin:
+
+```powershell
+php artisan refunds:list                 # karar bekleyenler, en eski üstte
+php artisan refunds:list --all           # kapanmışlar dahil, en yeni üstte
+
+# 1) Önce Shopier panelinden parayı geri gönder ("Shopier ödeme" sütunundaki kimlikle bul)
+# 2) Sonra kaydı kapat — komut "gönderdiniz mi?" diye sorar
+php artisan refunds:approve <talep-kimliği> --note="İadeniz yapıldı"
+
+# Reddetmek: hak kullanıcıya geri döner, para hareketi yok
+php artisan refunds:reject <talep-kimliği> --note="Gerekçe"
+```
+
+İki durumda da kullanıcıya mail gider (`--note` mailde yazar). 🔴 Sırayı ters çevirme: önce
+`approve` deyip para göndermeyi unutursan kayıt "iade edildi" der, para gitmemiş olur.
+
 ---
 
 ## 4. Kendiliğinden çalışanlar (zamanlayıcı)
@@ -254,6 +274,8 @@ composer test      # yalnızca testler
 | 100 kişilik çekiliş kodu | `gift-codes:generate --count=100 --benefit=percent --percent=50` |
 | Bir kodu iptal et | `gift-codes:list` → `gift-codes:disable <kimlik>` |
 | Gelen mesajları oku | `contact:list --full` |
+| İade talebini onayla | Shopier'den iade et → `refunds:list` → `refunds:approve <kimlik>` |
+| İade talebini reddet | `refunds:reject <kimlik> --note="..."` |
 | Bir komutun bütün seçenekleri | `php artisan help <komut>` |
 
 > Bu belgeye yeni bir komut eklenince: komutu yazan adım bu dosyayı da günceller.
