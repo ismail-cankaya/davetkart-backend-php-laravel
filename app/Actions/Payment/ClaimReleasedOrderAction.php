@@ -64,6 +64,7 @@ final class ClaimReleasedOrderAction
         return Order::query()
             ->grantingPublishRight()   // yalnizca odenmis (OrderStatus)
             ->releasable()             // yalnizca tekil kapsam (OrderScope)
+            ->unconsumed()             // Faz 14 (K137): yanmis hak geri dogmaz
             ->whereNull('invitation_id')
             ->where('user_id', $invitation->user_id)
             ->lockForUpdate()

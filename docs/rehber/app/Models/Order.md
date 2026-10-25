@@ -296,3 +296,11 @@ Sağlayıcının ödeme kimliği (Shopier `payment_id`). Diğer bütün alanlar 
 - `listPriceMinor()` = `amount_minor + discount_minor`. Saklanmıyor, türetiliyor (E1).
   Ayrıntı: `docs/rehber/database/migrations/2026_10_25_100100_add_promotion_to_orders.md`.
 - `priceCampaign()` ilişkisi 13.3'te, `PriceCampaign` modeliyle birlikte.
+
+---
+
+## 🆕 Faz 14 (14.1 · K137) — `consumed_at`, `unconsumed()`, `isConsumed()`
+
+Yanmış hakkın kalıcı damgası. `invitation_id` bağı `data:purge`'te koptuğu için bilgi
+orada duramaz. Serbest hak arayan her sorgu `unconsumed()` sormak zorunda.
+Ayrıntı: `docs/rehber/database/migrations/2026_10_26_100000_add_consumed_at_to_orders_table.md`.

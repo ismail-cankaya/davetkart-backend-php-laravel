@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\DB;
  *   published_at IS NULL              -> hak hic harcanmadi  -> SERBEST
  *   published_at + N gun  gelecekte   -> pencere acik         -> SERBEST
  *   published_at + N gun  gecmis      -> pencere kapali       -> hak YANAR
+ *                                                                  (consumed_at, K137)
  *
  * "Serbest" demek: `orders.invitation_id = NULL`. Kapsam ('invitation')
  * DEGISMEZ — yani siparis pakete DONUSMEZ ve hicbir davetiyeye hak vermez;
@@ -56,6 +57,14 @@ final class DeleteInvitationAction
                 // Faz 10 (K99): bir davetiyeye baglanmis paket de tekil
                 // siparis gibi serbest kalir.
                 $fresh->orders()->releasable()->update(['invitation_id' => null]);
+            } else {
+                // Faz 14 (K137): pencere kapali -> hak YANAR ve bu bir DAMGAYLA
+                // yazilir. Bag (invitation_id) data:purge'te kopacak; damga
+                // olmasaydi sipariş o gun serbest bir hakka donusurdu.
+                $fresh->orders()
+                    ->grantingPublishRight()
+                    ->unconsumed()
+                    ->update(['consumed_at' => now()]);
             }
 
             // Soft delete. `deleted` olayi -> InvitationChanged ->

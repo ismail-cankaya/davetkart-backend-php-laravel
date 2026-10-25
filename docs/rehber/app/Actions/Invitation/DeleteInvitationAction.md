@@ -257,3 +257,12 @@ dönmeli**.
 bırakılan hak kimsenin işine yaramıyor; onu yeni bir davetiyeye bağlayan kod
 yayın anında çalışacak. Ve asıl önemlisi: deliğin gerçekten kapandığını
 kanıtlayan testler ile ilk `tests/Unit/OrderScopeTest.php` orada yazılacak.
+
+---
+
+## 🆕 Faz 14 (14.1 · K137): pencere kapalıysa damga
+
+Eskiden "hak yanar" bir **eylemsizlikti**: sipariş olduğu yerde, çöpteki davetiyeye bağlı
+kalıyordu. Ama 30 gün sonra `data:purge` davetiyeyi kalıcı silince FK bağı NULL oluyor ve
+yanmış hak serbest bir hakka dönüşüyordu. Artık `else` kolu ödenmiş siparişlere
+`consumed_at` yazar. Eylemsizlik bir **olguya** dönüştü.

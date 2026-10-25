@@ -188,3 +188,10 @@ incelemesiyle korunur.
 | **`lockForUpdate()`** | Satırı transaction sonuna kadar başka yazıcılara kapatan kilit |
 | **Tüketim (consumption)** | Tek kullanımlık bir hakkın harcanması |
 | **Blast radius** | Bir hatanın etkilediği alanın genişliği |
+
+---
+
+## 🆕 Faz 14 (14.1 · K137): `unconsumed()`
+
+Sorguya bir koşul eklendi: yanmış hak (`consumed_at` dolu) bağlanmaz. Kalıcı silinen bir
+davetiyenin siparişi `invitation_id = NULL` ile serbest hakla aynı görünüyordu.

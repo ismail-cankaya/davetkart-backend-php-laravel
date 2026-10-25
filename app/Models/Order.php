@@ -81,6 +81,9 @@ class Order extends Model
             // K23: degismez tarih.
             'paid_at' => 'immutable_datetime',
             'expires_at' => 'immutable_datetime',
+
+            // Faz 14 (K137): hak yandı. Bağ (invitation_id) kopsa da kalır.
+            'consumed_at' => 'immutable_datetime',
         ];
     }
 
@@ -120,6 +123,26 @@ class Order extends Model
         ));
 
         $query->whereIn('scope', array_column($releasable, 'value'));
+    }
+
+    /**
+     * Hakkı YANMAMIŞ siparişler (Faz 14, K137).
+     *
+     * 🔴 Serbest hak sorgusu bunu da sormak ZORUNDA: yanmış bir hakkın
+     * davetiyesi kalıcı silinince `invitation_id` NULL olur ve sipariş
+     * serbest bırakılmış bir hakla aynı görünür. Ayırt eden tek şey bu damga.
+     *
+     * @param  Builder<Order>  $query
+     */
+    public function scopeUnconsumed(Builder $query): void
+    {
+        $query->whereNull('consumed_at');
+    }
+
+    /** Hak yandı mı? (Faz 14, K137) */
+    public function isConsumed(): bool
+    {
+        return $this->consumed_at !== null;
     }
 
     /**
