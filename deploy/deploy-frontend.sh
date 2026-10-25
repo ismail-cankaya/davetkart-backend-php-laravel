@@ -47,7 +47,7 @@ npx --no-install vite build --outDir dist.new --emptyOutDir
 
 step "Eski asset'ler korunuyor (acik sekmeler eski parcalari yukleyebilsin)"
 if [ -d dist/assets ]; then
-    cp -an dist/assets/. dist.new/assets/
+    cp -a --update=none dist/assets/. dist.new/assets/   # var olani EZME
     # Kopyalananlar eski tarihini korur, yeni derlenenler bugunun tarihini tasir:
     # yalnizca N gunden eski KOPYALAR silinir.
     find dist.new/assets -type f -mtime +"$KEEP_OLD_ASSETS_DAYS" -delete

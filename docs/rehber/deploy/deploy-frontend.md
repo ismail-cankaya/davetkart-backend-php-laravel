@@ -39,7 +39,8 @@ listesini tutar. "Davetiye oluştur"a tıkladığında eski adı ister. Eski dos
 silmişsek 404 alır ve sayfa açılmaz ("ChunkLoadError").
 
 Bu yüzden yeni derlemeye bir önceki `dist/assets/` içeriği **üzerine yazmadan**
-(`cp -an`) eklenir. Birikmesin diye **14 günden eski kopyalar** silinir. Ayrım
+(`cp -a --update=none`; eski yazımı `cp -an`, coreutils 9.x
+bunun için uyarı veriyor) eklenir. Birikmesin diye **14 günden eski kopyalar** silinir. Ayrım
 dosya tarihinden yapılır: `cp -a` kopyanın eski tarihini korur, yeni derlenen
 dosyalar bugünün tarihini taşır. Yani silinen yalnızca eski kopyalardır.
 
