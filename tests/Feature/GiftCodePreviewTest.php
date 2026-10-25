@@ -47,8 +47,11 @@ final class GiftCodePreviewTest extends TestCase
                 'benefit' => 'percent',
                 'tier' => 'gold',
                 'priceMinor' => 39900,
+                // Faz 13: otomatik indirim yok (TestCase ilk yayını kapatır).
+                'promotion' => null,
                 'discountMinor' => 9975,
                 'totalMinor' => 29925,
+                'giftDiscountMinor' => 9975,
                 'currency' => 'TRY',
             ]]);
     }

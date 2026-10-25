@@ -404,3 +404,50 @@ sıra kuralları olduğu gibi duruyor. Strategy desenini bunun için kurmuştuk.
 **burada** hesaplanıyor ve satıra yazılıyor. Shopier sürücüsü tutarı satırdan okuyup
 imzanın **içine** koyuyor (E8). Yani indirim sağlayıcıya şeffaf: Shopier yalnızca
 "399,00 değil 199,50" görür.
+
+---
+
+## 🆕 Faz 13 (13.5 · K129, K133, K134, K136)
+
+### Yeni akış
+
+```
+1. Yeterlilik (değişmedi)
+2. Kod verildiyse: gift_code yöntemi açık mı?                → değilse 403
+3. TRANSACTION
+   a. fiyat = QuotePriceAction(user, tier)                    (kampanya / ilk yayın)
+   b. kod varsa: rezerve et, KALAN fiyata uygula               (K133)
+   c. tutar 0  → hediye siparişi (sağlayıcı YOK)
+      tutar >0 → card açık mı? değilse 403 (rezervasyon geri alınır)
+                 sağlayıcıyı ŞİMDİ kur (K136) → bekleyen sipariş
+   d. kullanım satırı
+4. tutar >0 ise sağlayıcı oturumu (transaction DIŞINDA, F3)
+```
+
+### Kolonlar tek yerde: `applyPrice()`
+
+Hediye siparişi ve bekleyen sipariş aynı yardımcıdan geçer:
+
+| Kolon | Değer |
+|---|---|
+| `amount_minor` | `$price->totalMinor()` |
+| `discount_minor` | `$price->discountMinor()` (otomatik + kod) |
+| `promotion` | `first_publish` · `campaign` · null |
+| `promotion_discount_minor` | otomatik indirimin tutarı |
+| `price_campaign_id` | yalnızca kampanyada |
+
+Fiyat siparişe **dondurulur**. Kampanya yarın bitse de bu siparişin tutarı değişmez ve
+sağlayıcıdan gelen bildirimdeki tutar bu satırla karşılaştırılır (K126).
+
+### Kart kontrolü neden transaction İÇİNDE?
+
+Kodun %100 mü, %50 mi olduğunu ancak rezervasyondan sonra biliyoruz. Kart kapalıyken %50'lik
+kod girildiyse sipariş açılamaz. Kontrol transaction içinde olduğu için fırlatılan 403
+**rezervasyonu da geri alır**: kod tek kullanımlıksa hakkı yanmaz
+(`with_the_card_off_a_partial_code_is_refused_and_the_code_stays_free`).
+
+### Havale neden burada yok?
+
+Havale sipariş açmıyor. Kullanıcı IBAN'a para gönderir, sen elle kontrol edersin. Bu uç
+yalnızca **kart** ya da **bedava kod** ile sipariş açar. `bank_transfer` açık olsa bile kart
+kapalıyken ödenecek tutarı olan bir checkout 403 alır.

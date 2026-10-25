@@ -6,11 +6,15 @@ namespace App\Actions\Payment;
 
 use App\Actions\GiftCode\GiftCodeQuote;
 use App\Actions\GiftCode\ReserveGiftCodeAction;
+use App\Actions\Pricing\PriceQuote;
+use App\Actions\Pricing\QuotePriceAction;
 use App\Enums\OrderScope;
 use App\Enums\OrderStatus;
+use App\Enums\PaymentMethod;
 use App\Enums\SubscriptionTier;
 use App\Events\InvitationChanged;
 use App\Exceptions\GiftCodeException;
+use App\Exceptions\PaymentMethodException;
 use App\Exceptions\PaymentProviderException;
 use App\Exceptions\PaywallViolationException;
 use App\Models\GiftCodeRedemption;
@@ -18,6 +22,8 @@ use App\Models\Invitation;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Payment\PaymentGateway;
+use App\Services\Payment\PaymentGatewayResolver;
+use App\Services\Payment\PaymentMethods;
 use App\Services\Payment\RedirectAction;
 use App\Services\Pricing\TierResolver;
 use Illuminate\Support\Facades\Config;
@@ -40,6 +46,11 @@ use Throwable;
  * Faz 11: istege bagli hediye kodu. Kod rezervasyonu + siparis + kullanim
  * satiri TEK transaction'da; tutar 0 ise saglayiciya hic gidilmez (D1).
  *
+ * Faz 13: tutar QuotePriceAction'dan (kampanya / ilk yayin, K129); hediye
+ * kodu KALAN fiyata (K133). Yontem kapisi (K134): kod kapaliysa kod, kart
+ * kapaliysa odenecek tutari olan siparis reddedilir (403). Saglayici yalnizca
+ * gerektiginde kurulur (K136).
+ *
  * 4. katman bu fazin en kisa ve en pahali satiridir: fiyat istekten okunsaydi
  * `{"tier":"elit","price":1}` govdesi Elit plani 1 kurusa satardi.
  * Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md
@@ -47,9 +58,11 @@ use Throwable;
 final class StartCheckoutAction
 {
     public function __construct(
-        private readonly PaymentGateway $gateway,
+        private readonly PaymentGatewayResolver $gateways,
         private readonly TierResolver $tiers,
         private readonly ReserveGiftCodeAction $reserveGiftCode,
+        private readonly QuotePriceAction $quotePrice,
+        private readonly PaymentMethods $methods,
     ) {}
 
     /**
@@ -60,6 +73,7 @@ final class StartCheckoutAction
      *
      * @throws PaywallViolationException Secilen plan davetiyeyi kapsamiyor -> 402
      * @throws GiftCodeException Kod kullanilamiyor -> 422
+     * @throws PaymentMethodException Yontem kapali -> 403 (Faz 13)
      * @throws PaymentProviderException Saglayici oturumu acamadi -> 502
      */
     public function handle(
@@ -84,26 +98,51 @@ final class StartCheckoutAction
             }
         }
 
+        // Faz 13 (K134): kod kapaliysa kodu hic aramayiz — rezervasyon kilidi
+        // bile alinmaz.
+        if ($giftCode !== null) {
+            $this->methods->ensureEnabled(PaymentMethod::GiftCode);
+        }
+
         // Faz 11: rezervasyon + siparis + kullanim satiri TEK transaction.
         // Kod satirinin kilidi kullanim satiri yazilana kadar tutulur (E9).
-        $order = DB::transaction(function () use ($user, $invitation, $tier, $giftCode): Order {
-            $quote = $giftCode === null
+        // Saglayici (gerekirse) transaction icinde kurulur: kurulamazsa (503)
+        // rezervasyon da siparis de geri alinir.
+        [$order, $gateway] = DB::transaction(function () use ($user, $invitation, $tier, $giftCode): array {
+            // 4. KATMAN: fiyat SUNUCUDA, tek hesaptan (K129).
+            $price = $this->quotePrice->handle($user, $tier);
+
+            $giftQuote = $giftCode === null
                 ? null
-                : $this->reserveGiftCode->handle($user, $giftCode, $tier);
+                : $this->reserveGiftCode->handle($user, $giftCode, $tier, $price->afterPromotionMinor());
 
-            $order = $quote !== null && $quote->coversEverything()
-                ? $this->createGiftOrder($user, $invitation, $tier, $quote)
-                : $this->createPendingOrder($user, $invitation, $tier, $quote);
-
-            if ($quote !== null) {
-                $this->recordRedemption($order, $user, $quote);
+            if ($giftQuote !== null) {
+                $price = $price->withGiftCode($giftQuote);
             }
 
-            return $order;
+            $gateway = null;
+
+            if ($price->coversEverything()) {
+                $order = $this->createGiftOrder($user, $invitation, $price);
+            } else {
+                // 🔴 K134: odenecek bir tutar var ve onu yalnizca kart odeyebilir.
+                // Havale bu uctan gecmez (siparis acmaz). Exception transaction'i
+                // geri alir: ayrilan kod serbest kalir.
+                $this->methods->ensureEnabled(PaymentMethod::Card);
+
+                $gateway = $this->gateways->resolve();
+                $order = $this->createPendingOrder($user, $invitation, $price, $gateway);
+            }
+
+            if ($giftQuote !== null) {
+                $this->recordRedemption($order, $user, $giftQuote);
+            }
+
+            return [$order, $gateway];
         });
 
-        // D1: hediye siparisi zaten odenmis; saglayici YOK.
-        if ($order->isGift()) {
+        // D1: hediye siparisi zaten odenmis; saglayici YOK (hic kurulmadi).
+        if ($gateway === null) {
             return new CheckoutResult($order, new RedirectAction($this->successUrlFor($order)));
         }
 
@@ -112,7 +151,7 @@ final class StartCheckoutAction
         // oturumu acildiktan sonra veritabani yazimi patlarsa ODENMIS AMA
         // KAYDI OLMAYAN bir odeme kalirdi — geri alinamayan is EN SONA.
         try {
-            $session = $this->gateway->startCheckout($order);
+            $session = $gateway->startCheckout($order);
         } catch (Throwable $e) {
             // TELAFI (compensating transaction). Siparis silinmiyor,
             // 'failed' isaretleniyor: silmek denemenin izini de silerdi ve
@@ -124,7 +163,7 @@ final class StartCheckoutAction
             // Hediye kodu kullanimi varsa 'failed' ile kendiliginden iade olur (D4).
             Log::error('Payment checkout failed', [
                 'order_id' => $order->getKey(),
-                'provider' => $this->gateway->name(),
+                'provider' => $gateway->name(),
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
             ]);
@@ -156,8 +195,8 @@ final class StartCheckoutAction
     private function createPendingOrder(
         User $user,
         ?Invitation $invitation,
-        SubscriptionTier $tier,
-        ?GiftCodeQuote $quote,
+        PriceQuote $price,
+        PaymentGateway $gateway,
     ): Order {
         $order = new Order;
 
@@ -179,7 +218,7 @@ final class StartCheckoutAction
         // bağlanır (ClaimReleasedOrderAction). 'account' kapsamı artık yazılmıyor.
         $order->scope = OrderScope::Invitation;
 
-        $order->tier = $tier;
+        $order->tier = $price->tier;
         $order->status = OrderStatus::default();
 
         // 🔴 4. KATMAN. Fiyat SUNUCUDAN okunur. `$request` govdesinden
@@ -188,13 +227,11 @@ final class StartCheckoutAction
         // cunku gonderilen deger BICIMSEL olarak gecerlidir.
         //
         // Faz 11: indirim de SUNUCUDA hesaplanir (GiftCode::discountFor, D2).
-        $discount = $quote === null ? 0 : $quote->discountMinor;
-        $order->amount_minor = $tier->price() * 100 - $discount;
-        $order->discount_minor = $discount;
-        $order->currency = Config::string('davetkart.currency');
+        // Faz 13: dokum QuotePriceAction'dan; siparise DONDURULUR (K129).
+        $this->applyPrice($order, $price);
 
         // F4: surucu KENDI adini soyler; config ile kolon asla ayrisamaz.
-        $order->provider = $this->gateway->name();
+        $order->provider = $gateway->name();
 
         $order->expires_at = now()->addMinutes(
             Config::integer('payment.order_expires_after_minutes'),
@@ -214,24 +251,21 @@ final class StartCheckoutAction
     private function createGiftOrder(
         User $user,
         ?Invitation $invitation,
-        SubscriptionTier $tier,
-        GiftCodeQuote $quote,
+        PriceQuote $price,
     ): Order {
         $order = new Order;
 
         $order->user_id = $user->id;
         $order->invitation_id = $invitation?->getKey();
         $order->scope = OrderScope::Invitation;
-        $order->tier = $tier;
+        $order->tier = $price->tier;
 
         // orders_paid_at_check: odenmis siparis damga TASIR.
         $order->status = OrderStatus::Paid;
         $order->paid_at = now();
 
         // orders_gift_amount_check: provider='gift' <=> amount_minor=0.
-        $order->amount_minor = 0;
-        $order->discount_minor = $quote->discountMinor;
-        $order->currency = Config::string('davetkart.currency');
+        $this->applyPrice($order, $price);
         $order->provider = Order::GIFT_PROVIDER;
 
         // provider_ref UNIQUE; saglayici olmadigi icin kendimiz uretiriz.
@@ -248,6 +282,26 @@ final class StartCheckoutAction
         }
 
         return $order;
+    }
+
+    /**
+     * Fiyat dokumunu siparise yazar (Faz 13, K133). Iki yol da (odenecek ve
+     * hediye) buradan gecer: kolonlarin kurali tek yerde.
+     *
+     *   amount_minor             = odenecek
+     *   discount_minor           = toplam indirim (otomatik + kod)
+     *   promotion(_discount_minor), price_campaign_id = otomatik indirim
+     *
+     * Liste fiyati = amount + discount; ayrica saklanmaz (E1).
+     */
+    private function applyPrice(Order $order, PriceQuote $price): void
+    {
+        $order->amount_minor = $price->totalMinor();
+        $order->discount_minor = $price->discountMinor();
+        $order->promotion = $price->promotion?->kind;
+        $order->promotion_discount_minor = $price->promotionDiscountMinor();
+        $order->price_campaign_id = $price->promotion?->campaign?->id;
+        $order->currency = Config::string('davetkart.currency');
     }
 
     /** Kullanim satiri: indirim o anki degeriyle sabitlenir; kod ipucu disinda log yok. */

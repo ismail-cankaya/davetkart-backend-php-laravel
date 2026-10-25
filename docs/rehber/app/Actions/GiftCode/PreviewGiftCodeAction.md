@@ -49,3 +49,13 @@ curl -X POST http://127.0.0.1:8000/api/gift-codes/preview `
   -d '{"code":"dugun-2026","tier":"gold"}'
 # {"data":{"benefit":"percent","tier":"gold","priceMinor":39900,"discountMinor":7980,"totalMinor":31920,"currency":"TRY"}}
 ```
+
+---
+
+## 🆕 Faz 13 (13.5)
+
+- Dönüş tipi `GiftCodeQuote` → `PriceQuote`. Önizleme artık **tam döküm** veriyor:
+  liste fiyatı, otomatik indirim, kodun payı, toplam. Kod otomatik indirimden sonra kalan
+  fiyata uygulanır (K133).
+- `gift_code` yöntemi kapalıysa 403 `PAYMENT_METHOD_DISABLED` (`method: gift_code`), kod
+  hiç aranmaz.

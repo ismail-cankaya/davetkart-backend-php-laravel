@@ -246,3 +246,18 @@ Bugün projede bunların hiçbiri yok. Biri eklenirse bu koruma onu yakalamaz.
 sahtesiz çağrı `StrayRequestException` fırlatır · sahte kurulu çağrı yine çalışır.
 **Mutasyon:** `Http::preventStrayRequests();` satırını sil → ilk test kırılır
 (10.17'de denendi).
+
+---
+
+## 9. 🆕 Faz 13 — ilk yayın indirimi testlerde KAPALI başlar
+
+```php
+Config::set('davetkart.pricing.first_publish_percent', 0);
+```
+
+Faz 7–12'nin yüzlerce testi "yeni kullanıcı liste fiyatını öder" varsayımıyla yazıldı.
+Her testte yeni bir kullanıcı oluşturuluyor, yani %60 her checkout'un tutarını değiştirirdi.
+Bu testleri tek tek düzeltmek yerine dünyayı Faz 12'deki gibi başlatıyoruz. İndirimi sınayan
+testler onu **açıkça** açıyor (`QuotePriceActionTest`, `FirstPublishCheckoutTest`, `PricingTest`).
+
+`Http::preventStrayRequests()` ile aynı fikir: güvenli varsayılan temel sınıfta, istisna testte.

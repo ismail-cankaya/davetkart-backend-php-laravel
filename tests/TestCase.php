@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 
 abstract class TestCase extends BaseTestCase
@@ -27,6 +28,13 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         Http::preventStrayRequests();
+
+        // Faz 13 (K130): ilk yayın indirimi KAPALI başlar. Faz 7–12 testleri
+        // "yeni kullanıcı liste fiyatını öder" dünyasında yazıldı; o dünyada
+        // %60 her checkout'un tutarını değiştirirdi. İndirimi sınayan test
+        // onu kendisi açar (QuotePriceActionTest, FirstPublishCheckoutTest).
+        // Ayrıntılı açıklama: docs/rehber/tests/TestCase.md §9
+        Config::set('davetkart.pricing.first_publish_percent', 0);
     }
 
     /**

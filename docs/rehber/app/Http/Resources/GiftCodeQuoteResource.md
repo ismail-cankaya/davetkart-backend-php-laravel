@@ -45,3 +45,25 @@ Test: `GiftCodePreviewTest::the_preview_never_leaks_the_code_internals` ham göv
 
 `GiftCodeQuote` bir DTO. Laravel'in `JsonResource`'u herhangi bir nesneyi sarar. Model olması
 gerekmez. Dönüşümün "Resource'ta yapılır" kuralı (CLAUDE.md §1) nesnenin türüne bağlı değil.
+
+---
+
+## 🆕 Faz 13 (13.5) — yanıt genişledi
+
+```json
+{
+  "benefit": "percent",
+  "tier": "gold",
+  "priceMinor": 39900,
+  "promotion": { "kind": "first_publish", "percent": 60, "discountMinor": 23940, "endsAt": null },
+  "discountMinor": 31920,
+  "totalMinor": 7980,
+  "giftDiscountMinor": 7980,
+  "currency": "TRY"
+}
+```
+
+- Faz 11 sözleşmesi korunuyor: `priceMinor − discountMinor = totalMinor`. Eski frontend
+  bu yanıtı okuyunca yine doğru toplamı gösterir.
+- `discountMinor` artık **toplam** indirim. Kodun kendi payı `giftDiscountMinor`.
+- Ortak alanlar `PriceQuoteResource`'tan geliyor. Fiyat ucuyla önizleme aynı biçimi konuşur.
