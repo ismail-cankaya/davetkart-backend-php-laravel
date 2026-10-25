@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PaymentController;
+use App\Http\Controllers\Api\V1\PricingController;
 use App\Http\Controllers\Api\V1\PublicContactController;
 use App\Http\Controllers\Api\V1\PublicInvitationController;
 use App\Http\Controllers\Api\V1\PublicMediaController;
@@ -173,6 +174,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('payments.checkout');
 
     /*
+    | Fiyat katalogu, KISIYE OZEL (Faz 13, K128): ilk yayin indirimi dahil.
+    | Frontend'de fiyat yok; odeme sayfasi ve paywall sayilari buradan okur.
+    | Misafir surumu /api/public/plans.
+    */
+    Route::get('/pricing', [PricingController::class, 'forUser'])
+        ->middleware(SetEtag::class)
+        ->name('pricing.show');
+
+    /*
     | Hediye kodu onizleme (Faz 11). Salt okunur: hicbir sey ayirmaz.
     |
     | 🔴 throttle:gift-code kod TAHMININI yavaslatir ve iki checkout ucuyla
@@ -231,6 +241,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
 | Ayrintili aciklama: docs/rehber/routes/api.md §0.3
 */
 Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(function (): void {
+    /*
+    | Fiyat katalogu (Faz 13, K128): liste fiyati, gecerli kampanya, acik
+    | odeme yontemleri. Kimligi bilinmeyen biri gorebilir mi? EVET: fiyat
+    | sayfasi zaten herkese acik. Kisiye ozel ilk yayin indirimi BURADA YOK
+    | (yalnizca yuzdesi, "ilk yayinina %60" yazisi icin); o /api/pricing'de.
+    */
+    Route::get('/plans', [PricingController::class, 'publicCatalog'])
+        ->name('plans.index');
+
     Route::get('/invitations/{id}', [PublicInvitationController::class, 'show'])
         ->whereUlid('id')
         ->name('invitations.show');

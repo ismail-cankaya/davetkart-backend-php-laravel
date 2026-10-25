@@ -1029,3 +1029,15 @@ Route::post('/payments/shopier/osb',      ShopierOsbController::class)->name('pa
   değişirse `ShopierCallbackTest::the_callback_route_is_the_address_written_into_the_form` kırılır.
 - Fake'in `/payments/webhook` ucu yerinde: geliştirmede `PAYMENT_PROVIDER=fake` ile
   akış Shopier olmadan denenebilsin.
+
+---
+
+## 🆕 Faz 13 (13.6) — fiyat kataloğu
+
+| Rota | Ad | Grup |
+|---|---|---|
+| `GET /api/public/plans` | `public.plans.index` | public (`SetEtag`) |
+| `GET /api/pricing` | `pricing.show` | `auth:sanctum` + `SetEtag` |
+
+Frontend'de fiyat yok (K128): fiyat kartları, paywall ve ödeme sayfası sayıları bu iki
+uçtan okur. Ayrıntı: `app/Http/Controllers/Api/V1/PricingController.md`.
