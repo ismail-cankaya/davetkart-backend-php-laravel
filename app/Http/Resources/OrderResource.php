@@ -21,11 +21,8 @@ use LogicException;
  *                              altyapiyi ele verir hem de idempotans
  *                              anahtarini istemciye ogretir (taklit riski)
  *   user_id                  -> istemci zaten kendisi
- *   amount_minor / currency  -> 🔴 acik karar: fiyat frontend'in KATALOGUNDA
- *                              zaten var (data.ts). Ikinci kaynak olarak
- *                              gondermek, iki fiyatin ayrisabildigi bir ekran
- *                              uretirdi. Fatura ucu dogunca (Faz 9) o uc kendi
- *                              Resource'unu alir (C4)
+ *   amount_minor (ham adiyla) -> asagidaki Faz 13 notu: tutar ARTIK gidiyor,
+ *                              `totalMinor` adiyla (PriceQuoteResource ile ayni dil)
  *   expires_at               -> sunum karari; hicbir ekran okumuyor
  *   scope                    -> "paket mi tekil mi" invitationId'den okunabilir
  *                              kadariyla yeterli; kapsam enum'u bir ic kural
@@ -40,6 +37,18 @@ use LogicException;
  *                    (C7). Tutar alanlari hala YOK (yukaridaki acik karar ve
  *                    OrderTest'in "amount" taramasi): istemci fiyati katalogdan,
  *                    indirimi buradan bilir; odenen = fiyat − indirim.
+ *
+ * 🔴 Faz 13 (13.7 · K128) — Faz 7'nin "tutar gonderilmez" karari GERI ALINDI:
+ *   priceMinor  -> liste fiyati (amount + discount; Order::listPriceMinor)
+ *   totalMinor  -> odenen / odenecek (amount_minor)
+ *   currency    -> ISO 4217
+ *   promotion   -> {kind, discountMinor} | null — otomatik indirim
+ * Eski gerekce "fiyat frontend'in katalogunda zaten var" idi; Faz 13'te
+ * frontend'de fiyat YOK. Siparisin tutari siparis aninda DONDURULDU ve
+ * katalog (kampanya bittiyse) artik baska bir sey soyleyebilir: odeme donus
+ * sayfasi ve siparislerim ekrani bu siparisin GERCEK tutarini gostermeli.
+ * Yuzde gitmez: siparis tutari dondurur, yuzdeyi degil (oran sonradan
+ * degisebilir; tutar bir olgudur).
  *
  * `redirectUrl` bir SIPARIS ALANI DEGIL: CheckoutResult DTO'sundan geliyor ve
  * yalnizca checkout yanitinda bulunuyor (E1 — turetilmis/gecici veri).
@@ -92,6 +101,16 @@ final class OrderResource extends JsonResource
             'invitationId' => $this->invitation_id,
             'createdAt' => $this->created_at?->toIso8601String(),
             'paidAt' => $this->paid_at?->toIso8601String(),
+
+            // Faz 13 (13.7): siparise DONDURULMUS dokum. Her siparisin alani,
+            // her zaman var (promotion null olabilir).
+            'priceMinor' => $this->listPriceMinor(),
+            'totalMinor' => $this->amount_minor,
+            'currency' => $this->currency,
+            'promotion' => $this->promotion === null ? null : [
+                'kind' => $this->promotion->value,
+                'discountMinor' => $this->promotion_discount_minor,
+            ],
         ];
 
         // Faz 11 · C7: indirimsiz sipariste alan hic gitmez.

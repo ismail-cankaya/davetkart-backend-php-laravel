@@ -269,3 +269,27 @@ Bunlar zaten **tarayıcının Shopier'e göndereceği** form; kullanıcı DevToo
 görecek. Sır olan `API_SECRET` hiçbir zaman yanıta girmez, yalnızca imzayı
 hesaplamakta kullanılır. Kural: *istemcinin zaten göndereceği şey sızıntı değildir;
 istemcinin üretemeyeceği şey (imza) sırdan türetilir, sırrın kendisi değildir.*
+
+---
+
+## 🆕 Faz 13 (13.7 · K128) — tutar artık gidiyor
+
+Faz 7'de verilen karar şuydu: "Fiyat frontend'in kataloğunda (`data.ts`) zaten var, ikinci
+kaynak göndermek iki fiyatın ayrışabildiği bir ekran üretir." Faz 13 bu kararı **geri aldı**,
+çünkü dayandığı gerçek değişti: frontend'de artık fiyat yok.
+
+| Yeni alan | Kaynak | Not |
+|---|---|---|
+| `priceMinor` | `Order::listPriceMinor()` (= amount + discount) | Sipariş anındaki liste fiyatı |
+| `totalMinor` | `amount_minor` | Ödenen / ödenecek |
+| `currency` | `currency` | ISO 4217 |
+| `promotion` | `{kind, discountMinor}` · null | Otomatik indirim |
+
+- Siparişin tutarı **dondurulmuş** bir olgu. Katalog bugün başka bir şey söyleyebilir
+  (kampanya bitti, ilk yayın kullanıldı). Ödeme dönüş sayfası ve "siparişlerim" ekranı bu
+  siparişin **gerçek** tutarını göstermeli, kataloğu değil.
+- **Yüzde gitmez.** Sipariş tutarı dondurur, oranı dondurmaz. "%60" bugünün config'i;
+  siparişteki "239,40 ₺ indirim" ise değişmez.
+- Ham kolon adı (`amount_minor`/`amountMinor`) hâlâ yanıta girmiyor. `OrderTest`'in
+  tarama testi bunu korumaya devam ediyor.
+- `discountMinor` Faz 11'deki gibi yalnızca indirim varsa gider ve artık **toplam** indirim.

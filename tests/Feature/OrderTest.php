@@ -6,12 +6,14 @@ namespace Tests\Feature;
 
 use App\Enums\ErrorCode;
 use App\Enums\OrderStatus;
+use App\Enums\PromotionKind;
 use App\Enums\SubscriptionTier;
 use App\Models\Invitation;
 use App\Models\Order;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -64,6 +66,11 @@ final class OrderTest extends TestCase
                 'invitationId' => $inv->id,
                 'createdAt' => '2026-09-30T14:02:11+00:00',
                 'paidAt' => '2026-09-30T14:02:11+00:00',
+                // Faz 13 (13.7): dondurulmus fiyat dokumu.
+                'priceMinor' => 39900,
+                'totalMinor' => 39900,
+                'currency' => 'TRY',
+                'promotion' => null,
             ]]);
     }
 
@@ -203,11 +210,15 @@ final class OrderTest extends TestCase
     // --------------------------------------------------------- SOZLESME
 
     /**
-     * 🔴 C1: saglayici ic kimligi ve fiyat HICBIR YERDE yok. Ham govdede
-     * aranir; alan adi degisse bile DEGERI yakalanir.
+     * 🔴 C1: saglayici ic kimligi HICBIR YERDE yok. Ham govdede aranir; alan
+     * adi degisse bile DEGERI yakalanir.
+     *
+     * Faz 13 (13.7): "amount" taramasi KALDIRILDI. Tutar artik bilerek
+     * gidiyor (`totalMinor`), ama ham kolon adiyla degil — `amount_minor` /
+     * `amountMinor` hala yanita girmez (ic kolon adi sozlesme degil).
      */
     #[Test]
-    public function provider_internals_and_amounts_never_leak(): void
+    public function provider_internals_never_leak(): void
     {
         $ayse = User::factory()->create();
         $order = Order::factory()->for($ayse)->paid()->create(['provider_ref' => 'sizmamali_ref_123']);
@@ -218,10 +229,34 @@ final class OrderTest extends TestCase
 
             $this->assertStringNotContainsString('sizmamali_ref_123', $body);
             $this->assertStringNotContainsString('provider', $body);
-            $this->assertStringNotContainsString('amount', $body);
+            $this->assertStringNotContainsString('amount', strtolower($body), 'ic kolon adi');
             $this->assertStringNotContainsString('userId', $body);
             $this->assertStringNotContainsString('expiresAt', $body);
         }
+    }
+
+    /** Faz 13 (13.7): siparise dondurulmus fiyat dokumu yanitta. */
+    #[Test]
+    public function the_frozen_price_breakdown_is_returned(): void
+    {
+        $ayse = User::factory()->create();
+        $order = Order::factory()->for($ayse)->tier(SubscriptionTier::Gold)->paid()->create();
+
+        DB::table('orders')->where('id', $order->getKey())->update([
+            'amount_minor' => 15960,
+            'discount_minor' => 23940,
+            'promotion' => PromotionKind::FirstPublish->value,
+            'promotion_discount_minor' => 23940,
+        ]);
+
+        $this->withToken($this->tokenFor($ayse))
+            ->getJson(route('orders.show', $order))
+            ->assertOk()
+            ->assertJsonPath('data.priceMinor', 39900)
+            ->assertJsonPath('data.totalMinor', 15960)
+            ->assertJsonPath('data.discountMinor', 23940)
+            ->assertJsonPath('data.currency', 'TRY')
+            ->assertJsonPath('data.promotion', ['kind' => 'first_publish', 'discountMinor' => 23940]);
     }
 
     /** whereUlid: bicimsiz kimlik rotaya hic eslesmez, sorgu acilmaz (O6). */
