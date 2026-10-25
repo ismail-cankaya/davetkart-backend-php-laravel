@@ -68,6 +68,15 @@ kullanıcıyla çalıştır, ölürse yeniden başlat" der. Üç bölüm vardır
   paylaşıyor. Görsel küçültme geçici olarak 512 MB'a çıkar, normal işçi ~100 MB.
   768 MB tavanı, işçi sızarsa **işçiyi** öldürür, Linux'un OOM-killer'ının
   PostgreSQL'i öldürmesini engeller. İşçi `Restart=always` ile geri gelir.
+- **`MemorySwapMax=0`** (26 Ekim, Y9.1'de eklendi): Y5.2'de sunucuya 2 GB swap
+  ekledik. Swap varken `MemoryMax` **tek başına katı bir tavan değil**: sınırı
+  aşan süreç önce öldürülmez, belleği diske (swap'e) itilir. Sızan bir işçi o
+  zaman 768 MB'ı aşıp swap'i doldurur ve **bütün sunucu** (PostgreSQL, PHP-FPM)
+  disk hızında sürünür. `MemorySwapMax=0` bu işçinin swap kullanmasını yasaklar:
+  768 MB dolunca işçi gerçekten durdurulur ve 5 saniye sonra temiz bir bellekle
+  geri gelir. Swap, sunucunun geri kalanı için emniyet supabı olarak kalır.
+  (İlk sürümde bu satır yoktu; rehberdeki "tavan işçiyi öldürür" cümlesi swap
+  eklendikten sonra eksik kalmıştı.)
 - **`TimeoutStopSec=90`:** `stop`/`restart` komutunda işçi **o anki işi bitirip**
   kapanır. En uzun iş 60 saniye olduğundan 90 saniye yeter.
 - **`NoNewPrivileges=true` / `PrivateTmp=true`:** İki ucuz güvenlik önlemi. Süreç
@@ -78,10 +87,11 @@ kullanıcıyla çalıştır, ölürse yeniden başlat" der. Üç bölüm vardır
 ### `[Install]`
 - **`WantedBy=multi-user.target`:** Sunucu normal açılış moduna geçince servis başlar.
 
-## 4. Kurulum (Y9.1'de, özet)
+## 4. Kurulum (Y9.1)
 
 ```bash
-sudo cp deploy/systemd/davetkart-queue.service /etc/systemd/system/
+sudo systemd-analyze verify deploy/systemd/davetkart-queue.service   # önce sözdizimi
+sudo install -m 644 -o root -g root deploy/systemd/davetkart-queue.service /etc/systemd/system/
 sudo systemctl daemon-reload                 # systemd'ye "dosyalar değişti" de
 sudo systemctl enable --now davetkart-queue  # açılışta başlat + şimdi başlat
 sudo systemctl status davetkart-queue        # "active (running)" görmelisin

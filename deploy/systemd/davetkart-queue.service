@@ -17,6 +17,8 @@ Restart=always
 RestartSec=5
 # Gorsel kucultme 512M'a cikar; tavan, isci sizarsa Postgres'i OOM'dan korur.
 MemoryMax=768M
+# Swap varken MemoryMax tek basina kati degil (once swap'e itilir). 0 = tavan gercekten tavan.
+MemorySwapMax=0
 TimeoutStopSec=90
 NoNewPrivileges=true
 PrivateTmp=true
