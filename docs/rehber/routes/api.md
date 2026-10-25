@@ -1052,3 +1052,4 @@ uçtan okur. Ayrıntı: `app/Http/Controllers/Api/V1/PricingController.md`.
 | `POST /api/orders/{order}/refund-request` | `orders.refund-request.store` | `auth:sanctum` | 14.5 |
 | `DELETE /api/orders/{order}/refund-request` | `orders.refund-request.destroy` | `auth:sanctum` | 14.5 |
 | `PATCH /api/auth/me` | `auth.update` | `auth:sanctum` | 14.7 |
+| `PUT /api/auth/password` | `auth.password.update` | `auth:sanctum` + `throttle:auth` | 14.8 |

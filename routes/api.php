@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PricingController;
 use App\Http\Controllers\Api\V1\ProfileController;
@@ -72,6 +73,12 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
         Route::delete('/me', [AuthController::class, 'destroy'])
             ->middleware('throttle:auth')
             ->name('destroy');
+
+        // Faz 14 (14.8): oturum açıkken parola değiştir. Mevcut parolayı
+        // istediği için bir TAHMİN hedefi: hesap silmeyle aynı kova.
+        Route::put('/password', [PasswordController::class, 'update'])
+            ->middleware('throttle:auth')
+            ->name('password.update');
     });
 });
 
