@@ -22,10 +22,12 @@ final class QuoteGiftCodeAction
 {
     /**
      * @param  GiftCode|null  $giftCode  null = bu özetle kod yok
+     * @param  int|null  $priceMinor  Kodun uygulanacağı taban (Faz 13: otomatik
+     *                                indirimden sonraki fiyat); null = liste fiyatı
      *
      * @throws GiftCodeException
      */
-    public function handle(?GiftCode $giftCode, User $user, SubscriptionTier $tier): GiftCodeQuote
+    public function handle(?GiftCode $giftCode, User $user, SubscriptionTier $tier, ?int $priceMinor = null): GiftCodeQuote
     {
         // 1. Yok, kapalı, süresi dolmuş: hepsi aynı yanıt (D7).
         if ($giftCode === null || $giftCode->isDisabled() || $giftCode->isExpired()) {
@@ -62,11 +64,13 @@ final class QuoteGiftCodeAction
             throw GiftCodeException::notApplicable($codeTier);
         }
 
+        $base = $priceMinor ?? $tier->price() * 100;
+
         return new GiftCodeQuote(
             giftCode: $giftCode,
             tier: $tier,
-            priceMinor: $tier->price() * 100,
-            discountMinor: $giftCode->discountFor($tier),
+            priceMinor: $base,
+            discountMinor: $giftCode->discountFor($tier, $base),
         );
     }
 }

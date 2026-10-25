@@ -98,3 +98,20 @@ php artisan tinker
 >>> App\Models\GiftCode::factory()->fixed(1_000_000)->make()->discountFor(App\Enums\SubscriptionTier::Standart)
 => 24900
 ```
+
+---
+
+## 🆕 Faz 13 (13.4 · K133) — `discountFor($tier, $priceMinor)`
+
+İkinci parametre, kodun uygulanacağı **taban**: otomatik indirimden (kampanya / ilk yayın)
+sonra kalan fiyat. Verilmezse liste fiyatı kullanılır (Faz 11 davranışı, eski testler
+değişmedi).
+
+| Kod | Liste 399 ₺, ilk yayın %60 → taban 159,60 ₺ | İndirim |
+|---|---|---|
+| `free` | tabanın tamamı | 159,60 ₺ |
+| `percent 50` | tabanın %50'si | 79,80 ₺ |
+| `fixed 500 ₺` | `min(500, 159,60)` | 159,60 ₺ |
+
+Sonuç: kod hiçbir zaman toplamı eksiye düşüremez. Ücretsiz kod her durumda tam olarak
+sıfıra indirir, yani sipariş hediye siparişi olarak açılır.

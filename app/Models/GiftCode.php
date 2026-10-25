@@ -56,14 +56,18 @@ class GiftCode extends Model
      *
      * 🔴 Tam sayı aritmetiği: yüzde aşağı yuvarlanır (kuruş farkı işletmenin
      * lehine), sabit indirim fiyatı aşamaz. Float yok.
+     *
+     * Faz 13 (K133): `$priceMinor` kodun uygulanacağı TABAN — otomatik
+     * indirimden (kampanya / ilk yayın) sonra kalan fiyat. Verilmezse liste
+     * fiyatı (Faz 11 davranışı). Ücretsiz kod tabanın tamamını düşer.
      */
-    public function discountFor(SubscriptionTier $tier): int
+    public function discountFor(SubscriptionTier $tier, ?int $priceMinor = null): int
     {
         if (! $this->isApplicableTo($tier)) {
             return 0;
         }
 
-        $price = $tier->price() * 100;
+        $price = $priceMinor ?? $tier->price() * 100;
 
         return match ($this->benefit) {
             GiftCodeBenefit::Free => $price,

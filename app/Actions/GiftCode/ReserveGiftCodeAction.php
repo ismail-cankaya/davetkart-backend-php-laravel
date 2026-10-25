@@ -28,11 +28,12 @@ final class ReserveGiftCodeAction
 
     /**
      * @param  string  $code  Kullanıcının yazdığı haliyle; normalize edilip özetlenir
+     * @param  int|null  $priceMinor  Taban (Faz 13: otomatik indirimden sonraki fiyat)
      *
      * @throws GiftCodeException
      * @throws LogicException Transaction dışında çağrıldı (programlama hatası)
      */
-    public function handle(User $user, string $code, SubscriptionTier $tier): GiftCodeQuote
+    public function handle(User $user, string $code, SubscriptionTier $tier, ?int $priceMinor = null): GiftCodeQuote
     {
         // Transaction yoksa lockForUpdate sorgu bitince bırakılır: koruma yok.
         if (DB::transactionLevel() === 0) {
@@ -44,6 +45,6 @@ final class ReserveGiftCodeAction
             ->lockForUpdate()
             ->first();
 
-        return $this->quote->handle($giftCode, $user, $tier);
+        return $this->quote->handle($giftCode, $user, $tier, $priceMinor);
     }
 }

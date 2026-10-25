@@ -163,3 +163,13 @@ php artisan tinker
 # LogicException: must run inside a database transaction
 >>> DB::transaction(fn () => app(App\Actions\GiftCode\ReserveGiftCodeAction::class)->handle($u, 'DUGUN2026', App\Enums\SubscriptionTier::Gold))
 ```
+
+---
+
+## 🆕 Faz 13 (13.4): taban fiyat parametresi
+
+`ReserveGiftCodeAction::handle(..., ?int $priceMinor)` ve `QuoteGiftCodeAction::handle(..., ?int $priceMinor)`
+kodu verilen **taban** üzerinden hesaplar. Checkout ve önizleme tabanı
+`PriceQuote::afterPromotionMinor()`'dan verir (K133: kod kalan fiyata uygulanır).
+`GiftCodeQuote::$priceMinor` artık "kodun uygulandığı taban" demek. Otomatik indirim yoksa
+bu yine liste fiyatıdır.
