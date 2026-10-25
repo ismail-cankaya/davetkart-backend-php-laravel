@@ -18,6 +18,7 @@ use App\Models\Invitation;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Payment\CheckoutSession;
+use App\Services\Payment\FakeGateway;
 use App\Services\Payment\PaymentGateway;
 use App\Services\Payment\PaymentNotification;
 use App\Services\Pricing\TierResolver;
@@ -25,6 +26,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Event;
@@ -1601,7 +1603,7 @@ final class PaywallTest extends TestCase
 
     private function signatureHeader(): string
     {
-        return Config::string('payment.webhook.signature_header');
+        return FakeGateway::SIGNATURE_HEADER;
     }
 
     /**
@@ -1666,7 +1668,7 @@ final class PaywallTest extends TestCase
                 throw new RuntimeException('provider is down');
             }
 
-            public function parseNotification(string $payload, string $signature): PaymentNotification
+            public function parseNotification(Request $request): PaymentNotification
             {
                 throw new RuntimeException('not used');
             }

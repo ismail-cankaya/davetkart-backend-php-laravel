@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Payment;
 
 use App\Models\Order;
+use App\Services\Payment\CheckoutAction;
 
 /**
  * StartCheckoutAction'in ciktisi — siparis ve odeme sayfasi birlikte.
@@ -16,12 +17,15 @@ use App\Models\Order;
  * Media::url()'un accessor DEGIL metot olmasiyla ayni gerekce (Faz 6).
  *
  * Ad, frontend sozlesmesiyle bilerek ayni: types.ts -> CheckoutResult.
+ *
+ * Faz 12 (K118): `string $redirectUrl` yerine `CheckoutAction` — bir adres
+ * (RedirectAction) ya da imzali bir form (FormPostAction).
  * Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md §6
  */
 final readonly class CheckoutResult
 {
     public function __construct(
         public Order $order,
-        public string $redirectUrl,
+        public CheckoutAction $action,
     ) {}
 }

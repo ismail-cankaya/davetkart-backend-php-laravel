@@ -383,3 +383,24 @@ kullanımı kendiliğinden iade eder (K110). Kullanıcı aynı kodu hemen tekrar
 
 Kullanımda tek satır `Log::info('Gift code redeemed', [gift_code_id, code_hint, order_id, gift_order])`.
 **Düz kod log'a ve Sentry bağlamına girmez** (K109); yalnızca son 4 karakter.
+
+---
+
+## 🆕 Faz 12 (12.2 · K118): sonuç bir `CheckoutAction`
+
+```php
+// hediye siparişi (K107): sağlayıcı yok, başarı sayfasına git
+return new CheckoutResult($order, new RedirectAction($this->successUrlFor($order)));
+
+// normal yol: sürücü ne verdiyse (adres ya da imzalı form)
+return new CheckoutResult($order, $session->action);
+```
+
+Action, sağlayıcının **nasıl** yönlendirdiğini bilmiyor. Fake bir adres veriyor,
+Shopier imzalı bir form. Bu Action'da tek satır değişti; fiyat, indirim, telafi ve
+sıra kuralları olduğu gibi duruyor. Strategy desenini bunun için kurmuştuk.
+
+🔴 **Shopier için önemli bir sonuç:** tutar (`amount_minor`) Faz 11'de olduğu gibi
+**burada** hesaplanıyor ve satıra yazılıyor. Shopier sürücüsü tutarı satırdan okuyup
+imzanın **içine** koyuyor (E8). Yani indirim sağlayıcıya şeffaf: Shopier yalnızca
+"399,00 değil 199,50" görür.

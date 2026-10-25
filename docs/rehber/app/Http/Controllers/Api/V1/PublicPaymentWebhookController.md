@@ -194,3 +194,18 @@ curl -X POST http://127.0.0.1:8000/api/public/payments/webhook \
 
 **7.15 — `routes/api.php`.** Dört yeni uç: ikisi auth'lu checkout, biri
 publish, biri auth'suz webhook.
+
+---
+
+## 🆕 Faz 12 (12.2 · K118): controller tek satıra indi
+
+```php
+$action->handle($gateway->parseNotification($request));
+return response()->noContent();
+```
+
+Ham gövde ve `X-Signature` okuması `FakeGateway`'e taşındı. Sebep: imzanın nerede
+durduğu sürücünün bilgisi (Shopier'de başlık yok, imza form alanında). Bu uç Fake
+için kalıyor; Shopier'in iki ucu ayrı (`ShopierCallbackController`,
+`ShopierOsbController`), çünkü yanıt biçimleri farklı (303 yönlendirme, düz metin
+`success`). Tartışma: [`../../../../Services/Payment/PaymentGateway.md`](../../../../Services/Payment/PaymentGateway.md) §11.

@@ -9,7 +9,6 @@ use App\Http\Controllers\Controller;
 use App\Services\Payment\PaymentGateway;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Config;
 
 /**
  * Odeme saglayicisinin bildirim ucu — sistemin UCUNCU auth'suz yazma yolu.
@@ -36,21 +35,10 @@ final class PublicPaymentWebhookController extends Controller
         PaymentGateway $gateway,
         HandlePaymentCallbackAction $action,
     ): Response {
-        // 🔴 getContent(): HAM govde. $request->all() KULLANILAMAZ — imza,
-        // ayristirilmis diziden degil BAYT DIZISINDEN hesaplanir. Laravel
-        // JSON'u yeniden serilestirdiginde anahtar sirasi veya bosluklar
-        // degisebilir ve imza "bazen" tutmazdi.
-        $payload = $request->getContent();
-
-        $signature = $request->header(
-            Config::string('payment.webhook.signature_header'),
-            '',
-        );
-
+        // Faz 12 (K118): imzanin NEREDE durdugu (baslik mi, form alani mi)
+        // surucunun bilgisi. Controller artik istegi oldugu gibi verir.
         // Imza gecersizse InvalidWebhookSignatureException -> 404 (sessiz red).
-        $notification = $gateway->parseNotification($payload, is_string($signature) ? $signature : '');
-
-        $action->handle($notification);
+        $action->handle($gateway->parseNotification($request));
 
         // 🔴 HER ZAMAN 204 — siparis bulunsa da bulunmasa da.
         //

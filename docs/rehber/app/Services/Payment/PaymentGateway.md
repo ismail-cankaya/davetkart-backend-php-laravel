@@ -245,3 +245,44 @@ $s->providerRef = 'x';        // 🔴 Error: Cannot modify readonly property
 **7.7 — `app/Services/Payment/FakeGateway.php`** ve arayüzün konteynere
 bağlanması: sürücü seçimi `config('payment.default')`'tan okunur, bilinmeyen
 sürücü **sessizce** değil `PROVIDER_UNAVAILABLE` (503) ile reddedilir.
+
+---
+
+## 🆕 Faz 12 (12.2 · K118): arayüz Shopier'e göre genişledi
+
+İki imza değişti, metot sayısı aynı kaldı (I hâlâ geçerli):
+
+| | Faz 7–11 | Faz 12 |
+|---|---|---|
+| `CheckoutSession` | `string $redirectUrl` | `CheckoutAction $action` → [`CheckoutAction.md`](CheckoutAction.md) |
+| `parseNotification` | `(string $payload, string $signature)` | `(Request $request)` |
+
+### 11. 🔴 `Request` almanın bedeli ve neden ödendiği
+
+Eski imza **imzanın nerede durduğunu** controller'a bildiriyordu: controller ham
+gövdeyi okuyor, `X-Signature` başlığını okuyor, ikisini sürücüye veriyordu.
+Shopier'de başlık yok; imza form alanında (`signature`), üstelik form alanlarının
+**birleşimi** üzerinden. Eski imzayla iki kötü seçenek kalıyordu:
+
+1. Controller'a `if ($provider === 'shopier')` yazmak → Open/Closed ihlali, sağlayıcı
+   bilgisi controller'a sızar.
+2. Shopier gövdesini bir JSON'a çevirip "payload" gibi yollamak → imzalanmayan bir
+   şeyi imzalanmış gibi taşımak.
+
+Yeni imza ile **imzanın nerede durduğu sürücünün bilgisi** oldu. Controller tek satır.
+
+**Bedeli:** `app/Services/` katmanı artık `Illuminate\Http\Request`'i tanıyor. Saf
+bir mimaride servis katmanı HTTP'yi bilmemeli; sürücü yarın bir kuyruk işinden
+(`php artisan payments:replay`) çağrılmak istense elinde bir `Request` olmayacak.
+
+Neden yine de kabul edildi?
+
+- `parseNotification`'ın **tek** çağıranı bir HTTP ucu. "Belki bir gün kuyruktan"
+  bugün olmayan bir ihtiyaç (YAGNI).
+- Alternatif bir ara tip (`InboundNotification{headers, body, form}`) yazmak,
+  `Request`'in kopyasını yazmaktı. Kopya her yeni sağlayıcıda büyürdü (Shopier'in
+  OSB'si: iki form alanı; yarın bir başkası: sorgu dizesi).
+- Testte `Request::create(...)` ile sahte istek kurmak zaten kolay.
+
+Gün gelir kuyruktan çağrılmak gerekirse, `Request::create()` ile istek yeniden
+kurulabilir. Karar geri alınabilir, bedeli küçük.

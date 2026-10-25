@@ -236,3 +236,36 @@ türetilir: katalog fiyatı − `discountMinor`.
 > **Açık soru (İsmail'e):** İndirimle birlikte "fiyat katalogda zaten var" gerekçesi
 > zayıfladı. Ödeme dönüş sayfası "ödenen: 199,50 ₺" göstermek isterse `amountMinor`'u açmak
 > gerekebilir. O gün `OrderTest`'teki tarama bilinçli olarak güncellenmeli.
+
+---
+
+## 🆕 Faz 12 (12.2 · K119): `checkout` alanı
+
+Checkout yanıtında (yalnızca orada, C7) yeni bir alan:
+
+```jsonc
+// Fake ya da hediye siparişi
+{ "redirectUrl": "/odeme/basarili?order=01J…",
+  "checkout": { "type": "redirect", "url": "/odeme/basarili?order=01J…" } }
+
+// Shopier
+{ "checkout": { "type": "form",
+                "url": "https://www.shopier.com/ShowProduct/api_pay4.php",
+                "fields": { "API_key": "…", "platform_order_id": "01J…", "signature": "…", … } } }
+```
+
+- `withRedirectUrl(string)` → `withCheckout(CheckoutAction)`.
+- **Eski `redirectUrl` `type=redirect` olduğu sürece aynen gider.** Bugünkü frontend
+  onu okuyor; kaldırmak frontend'i kırar (§9 "frontend'in okuduğu bir alanı
+  kaldırma"). `type=form`'da `redirectUrl` **yok**: form gönderilmeden gidilecek bir
+  adres yok, varmış gibi göstermek eski frontend'i Shopier'e GET ile yollardı.
+- Eşleştirme `match (true)` ile; **varsayılan kol fırlatır**. Üçüncü bir tür eklenip
+  buraya yazılmazsa sessizce `redirect` gibi davranmasın.
+
+### 🔴 `fields` içinde neler var, sızıntı mı?
+
+`API_key` (açık anahtar, sır **değil**), `signature`, tutar, alıcı adı/e-postası.
+Bunlar zaten **tarayıcının Shopier'e göndereceği** form; kullanıcı DevTools'ta
+görecek. Sır olan `API_SECRET` hiçbir zaman yanıta girmez, yalnızca imzayı
+hesaplamakta kullanılır. Kural: *istemcinin zaten göndereceği şey sızıntı değildir;
+istemcinin üretemeyeceği şey (imza) sırdan türetilir, sırrın kendisi değildir.*
