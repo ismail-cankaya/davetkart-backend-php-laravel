@@ -39,8 +39,11 @@ parameters:
     # AST'den okunur. Gerekce ve kanit: docs/rehber/phpstan.md §4.
     parseModelCastsMethod: true
 
-    # Kod Laravel 13 + PHP 8.3 hedefliyor.
-    phpVersion: 80300
+    # Kod Laravel 13 + PHP 8.5 hedefliyor (composer.json -> "php": "^8.5", K87).
+    # Burasi composer.json'daki ALT SINIRLA eslesmeli: PHPStan kodu bu surumde
+    # calisacakmis gibi denetler. Yama surumu (8.5.12 vb.) yazilmaz; 80500 tum
+    # 8.5.x serisini kapsar.
+    phpVersion: 80500
 
     ignoreErrors:
         # Laravel'in Facade ve Model cephelerinde statik cozumleme sinirli kalir;
