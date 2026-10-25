@@ -725,3 +725,11 @@ Hiç ödenmiş siparişi olmayan kullanıcının (K131) siparişine uygulanan y�
   sipariş yalnızca hediye siparişi olabilir" der. Ücretsiz yayın hediye kodunun işi.
 - Manuel kampanyalar config'te **değil**, veritabanında (`price_campaigns`) ve artisan
   komutlarıyla yönetilir (K132). İşletme kılavuzu: `docs/rehber/FIYAT-VE-INDIRIM-YONETIMI.md`.
+
+---
+
+## 🆕 Faz 14 (14.3 · K139): `refunds.window_days`
+
+Kullanılmamış, ücretli bir hakkın ödeme anından itibaren kaç gün içinde iptal edilip iade
+istenebileceği. Varsayılan 14 (mesafeli satış cayma süresi). `release_window_days` ile aynı
+gerekçeyle `env()` yok: ticari söz, ortam farkı değil.

@@ -202,6 +202,14 @@ return [
         'release_window_days' => 3,
     ],
 
+    // İade (iptal) talebi (Faz 14, K139). Kullanıcı KULLANILMAMIŞ, parası
+    // ödenmiş bir hakkı ödeme anından itibaren bu kadar gün içinde iptal
+    // edip iade isteyebilir. release_window_days ile aynı gerekçe: ticari söz,
+    // env() YOK. 14 gün, mesafeli satışın cayma süresine denk gelir.
+    'refunds' => [
+        'window_days' => 14,
+    ],
+
     // Hediye kodu (Faz 11). Kod tahmini (brute-force) hızı kullanıcı başına sınırlanır;
     // uç auth'lu olduğu için anahtar KİMLİK, IP değil (asistan ile aynı gerekçe).
     // Önizleme ve kodlu checkout aynı kovayı paylaşır: biri kapanınca diğerine kaçılmasın.
