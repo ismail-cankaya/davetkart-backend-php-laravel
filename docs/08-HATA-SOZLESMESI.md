@@ -180,7 +180,7 @@ Durum kodu **kaba sınıflandırma**, `code` **ince ayrım**. İkisi birlikte ç
 | **400** | İstek biçimsel olarak bozuk | `MALFORMED_REQUEST` |
 | **401** | Kimlik yok / geçersiz | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `TOKEN_EXPIRED` |
 | **402** | Ödeme gerekli | `PAYWALL_TIER_INSUFFICIENT`, `PAYMENT_REQUIRED` |
-| **403** | Kimlik var, işlem yasak | `INVITATION_LOCKED`, `RSVP_DEADLINE_PASSED` |
+| **403** | Kimlik var, işlem yasak | `INVITATION_LOCKED`, `RSVP_DEADLINE_PASSED`, `PAYMENT_METHOD_DISABLED` (Faz 13, `params.method`) |
 | **404** | Kaynak yok **veya** senin değil | `RESOURCE_NOT_FOUND` |
 | **409** | Durum çakışması | `INVITATION_ALREADY_PUBLISHED`, `SLUG_TAKEN` |
 | **413** | Dosya çok büyük | `FILE_TOO_LARGE` |

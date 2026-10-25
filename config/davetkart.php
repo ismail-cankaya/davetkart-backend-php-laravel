@@ -20,6 +20,22 @@ return [
 
     'currency' => 'TRY',
 
+    /*
+     * Faz 13: fiyat indirimleri. Yukaridaki 'price' LISTE fiyatidir; musteriye
+     * gosterilen ve kartindan cekilen tutar App\Actions\Pricing\QuotePriceAction'da
+     * hesaplanir (K129) ve frontend onu API'den okur — frontend'de fiyat YOK (K128).
+     *
+     * env() BILEREK YOK (release_window_days ile ayni gerekce): indirim orani
+     * musteriye verilmis bir TICARI SOZ, ortamdan ortama degismez.
+     */
+    'pricing' => [
+        // Kullanicinin ILK yayini (hic odenmis siparisi yok — hediye kodlu
+        // ucretsiz siparis dahil, K131). 0 = kapali. Ust sinir 90: tutar
+        // indirimle 0'a inemez, ucretsiz yayin yalnizca hediye kodunun isi
+        // (orders_gift_amount_check).
+        'first_publish_percent' => 60,
+    ],
+
     // Faz 10 (10.66 · K102): "Logosuz ozel yayin" (fiyat karti, Elit). Bu plan
     // ve ustu odenmis davetiyede misafir sayfasi "DavetKart ile hazirlandi"
     // imzasini gostermez.

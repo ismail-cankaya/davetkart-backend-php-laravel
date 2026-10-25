@@ -45,6 +45,12 @@
 
         <!-- Testler hizli ve yan etkisiz kosmali: her sey bellekte. -->
         <server name="CACHE_STORE" value="array"/>
+        <!-- Faz 13: testler Faz 12 dunyasinda baslar (kart + kod acik). Bir
+             yontemi kapatan test bunu Config::set ile kendisi yapar. -->
+        <server name="PAYMENT_METHODS" value="card,gift_code"/>
+        <server name="BANK_TRANSFER_BANK_NAME" value=""/>
+        <server name="BANK_TRANSFER_ACCOUNT_HOLDER" value=""/>
+        <server name="BANK_TRANSFER_IBAN" value=""/>
         <server name="SESSION_DRIVER" value="array"/>
         <server name="QUEUE_CONNECTION" value="sync"/>
         <server name="MAIL_MAILER" value="array"/>

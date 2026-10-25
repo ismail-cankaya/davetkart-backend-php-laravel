@@ -31,6 +31,16 @@ enum ErrorCode: string
     case RsvpQuotaExceeded = 'RSVP_QUOTA_EXCEEDED';
     case MediaQuotaExceeded = 'MEDIA_QUOTA_EXCEEDED';
 
+    /**
+     * Ödeme yöntemi `.env`'de kapalı (Faz 13, K134): `PAYMENT_METHODS`.
+     *
+     * 🔴 403, 402 DEĞİL: 402 "ödeme yap" der, oysa kullanıcı tam da ödemeye
+     * çalışıyor. Kapalı bir yöntem kullanıcının aşabileceği bir eksik değil,
+     * işletmenin bir kararıdır (LCV kotası gibi bir sınır). `method` hangi
+     * yöntem olduğunu söyler; frontend o düğmeyi zaten gizlemiş olmalıydı.
+     */
+    case PaymentMethodDisabled = 'PAYMENT_METHOD_DISABLED';
+
     // 404 — kaynak yok VEYA senin degil (H7: sahiplik yoksa 403 degil 404)
     case ResourceNotFound = 'RESOURCE_NOT_FOUND';
 
@@ -112,7 +122,8 @@ enum ErrorCode: string
             self::InvitationLocked,
             self::RsvpDeadlinePassed,
             self::RsvpQuotaExceeded,
-            self::MediaQuotaExceeded => 403,
+            self::MediaQuotaExceeded,
+            self::PaymentMethodDisabled => 403,
 
             self::ResourceNotFound => 404,
 
@@ -171,6 +182,10 @@ enum ErrorCode: string
             // Kodun geçtiği plan: kodu elinde tutan kullanıcı bunu zaten
             // hak ediyor ("bu kod Gold içindir"). INVALID'de parametre YOK (D7).
             self::GiftCodeNotApplicable => ['tier'],
+
+            // Kapatılan yöntem: hangi düğmenin gizleneceği. Sır değil, fiyat
+            // ucu açık yöntemleri zaten herkese söylüyor.
+            self::PaymentMethodDisabled => ['method'],
             default => [],
         };
     }

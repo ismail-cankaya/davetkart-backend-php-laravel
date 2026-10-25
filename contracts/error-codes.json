@@ -1,6 +1,6 @@
 {
-    "generatedAt": "2026-10-23T09:49:14+00:00",
-    "count": 25,
+    "generatedAt": "2026-10-25T08:14:43+00:00",
+    "count": 26,
     "codes": {
         "ASSISTANT_QUOTA_EXCEEDED": {
             "status": 429,
@@ -64,6 +64,13 @@
         "PASSWORD_RESET_INVALID": {
             "status": 422,
             "params": [],
+            "retryable": false
+        },
+        "PAYMENT_METHOD_DISABLED": {
+            "status": 403,
+            "params": [
+                "method"
+            ],
             "retryable": false
         },
         "PAYMENT_PROVIDER_ERROR": {

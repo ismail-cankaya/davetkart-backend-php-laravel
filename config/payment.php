@@ -62,6 +62,30 @@ return [
         ],
     ],
 
+    /*
+     * Faz 13 (K134): AÇIK ödeme yöntemleri — virgüllü tek satır.
+     *
+     *   PAYMENT_METHODS=gift_code                     -> yalnızca hediye kodu
+     *   PAYMENT_METHODS=card,gift_code                -> kart (Shopier) + kod
+     *   PAYMENT_METHODS=card,bank_transfer,gift_code  -> hepsi
+     *
+     * Kelimeler App\Enums\PaymentMethod'dan; tanımsız bir kelime ödeme
+     * uçlarını 503 yapar, sessizce yok sayılmaz (K70 kalıbı). Varsayılan Faz
+     * 12'nin davranışı (kart + kod): değişken unutulursa hiçbir şey değişmez.
+     * Okuyan tek sınıf: App\Services\Payment\PaymentMethods.
+     */
+    'methods' => env('PAYMENT_METHODS', 'card,gift_code'),
+
+    // Faz 13 (K135): Havale/EFT hesabı. Üçü de dolu ve IBAN sağlama
+    // toplamından geçerse 'bank_transfer' açılabilir; yoksa yöntem kapalıdır.
+    // Eskiden frontend .env'indeydi (VITE_BANK_TRANSFER_*); artık hesap
+    // değiştirmek frontend'i yeniden derlemeyi gerektirmiyor.
+    'bank_transfer' => [
+        'bank_name' => env('BANK_TRANSFER_BANK_NAME'),
+        'account_holder' => env('BANK_TRANSFER_ACCOUNT_HOLDER'),
+        'iban' => env('BANK_TRANSFER_IBAN'),
+    ],
+
     // Ödeme sonrası kullanıcının döneceği frontend rotaları.
     // 🔴 Shopier'de MUTLAK adres olmalı: callback ucu kullanıcıyı buraya 303 ile
     // gönderir; göreli adres API'nin alan adına çözülürdü.

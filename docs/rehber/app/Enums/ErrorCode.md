@@ -588,3 +588,18 @@ açar" diye dağıttı. Bilgi yalnızca kod geçerli olduğunda döner; tükenmi
 
 `contracts/error-codes.json` 22'den 25 koda çıktı (`php artisan errors:export`). Frontend
 kopyası Faz 11'in frontend adımında (11.12) güncellenecek.
+
+---
+
+## 🆕 Faz 13 (13.1 · K134): `PAYMENT_METHOD_DISABLED`
+
+| Kod | HTTP | `params` | Ne zaman? |
+|---|---|---|---|
+| `PAYMENT_METHOD_DISABLED` | 403 | `method` (`card` · `bank_transfer` · `gift_code`) | `.env`'deki `PAYMENT_METHODS` bu yöntemi içermiyor |
+
+- **403, 402 değil.** Kullanıcı ödemeye çalışıyor; eksik olan bir ödeme değil, işletmenin
+  açmadığı bir kapı (bkz. `PaymentMethodException.md` §2).
+- **Yanlış yazılmış ayar bu kodu DÖNMEZ.** `PAYMENT_METHODS=gift_cod` bir yapılandırma
+  hatasıdır: `PROVIDER_UNAVAILABLE` (503), parametresiz.
+- `method` sızıntı değil: açık yöntemler fiyat ucunda zaten herkese açık.
+- Sözleşme dosyası: `php artisan errors:export` → `contracts/error-codes.json`.

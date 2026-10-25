@@ -704,3 +704,24 @@ eşikleri sabit yazdığı için değişiklik bilerek yapılmak zorunda.
 Hediye kodu denemelerinin hız sınırı: önizleme ve kodlu checkout aynı kovayı paylaşır.
 Gerekçe: `docs/rehber/app/Providers/AppServiceProvider.md` → "Faz 11". `env()` yok: bir ortam
 farkı değil, ürün kararı. Testler değeri `Config::set` ile küçültüyor.
+
+---
+
+## 🆕 Faz 13 (13.1 · K130) — `pricing.first_publish_percent`
+
+```php
+'pricing' => [
+    'first_publish_percent' => 60,
+],
+```
+
+Hiç ödenmiş siparişi olmayan kullanıcının (K131) siparişine uygulanan yüzde. `0` kapatır.
+`tiers.*.price` artık **liste fiyatı**: müşteriye gösterilen ve tahsil edilen tutarı
+`QuotePriceAction` hesaplar ve frontend onu API'den okur (K128–K129).
+
+- **`env()` yok.** `release_window_days` ile aynı gerekçe: bu oran müşteriye verilmiş bir
+  ticari söz, ortamdan ortama değişmez. Değiştirmek bir commit, yani geçmişi olan bir karar.
+- **Üst sınır 90.** Tutar indirimle 0'a inemez: `orders_gift_amount_check` kısıtı "0 tutarlı
+  sipariş yalnızca hediye siparişi olabilir" der. Ücretsiz yayın hediye kodunun işi.
+- Manuel kampanyalar config'te **değil**, veritabanında (`price_campaigns`) ve artisan
+  komutlarıyla yönetilir (K132). İşletme kılavuzu: `docs/rehber/FIYAT-VE-INDIRIM-YONETIMI.md`.

@@ -162,6 +162,16 @@ SHOPIER_WEBSITE_INDEX=1
 SHOPIER_CONFIRMATION=osb
 SHOPIER_OSB_USERNAME=
 SHOPIER_OSB_KEY=
+# Faz 13: ACIK odeme yontemleri (card | bank_transfer | gift_code). Shopier
+# canliya alinana kadar YALNIZCA hediye kodu; kart kapaliyken bos Shopier
+# sirlari hicbir seyi bozmaz (surucu hic kurulmaz, K136). Tanimsiz kelime 503.
+# Kart acilinca: PAYMENT_METHODS=card,gift_code  (+ config:cache)
+PAYMENT_METHODS=gift_code
+# Havale (yalnizca PAYMENT_METHODS'ta bank_transfer varsa). IBAN saglama
+# toplamindan gecmezse yontem kapali sayilir.
+BANK_TRANSFER_BANK_NAME=
+BANK_TRANSFER_ACCOUNT_HOLDER=
+BANK_TRANSFER_IBAN=
 # 🔴 MUTLAK adres: callback ucu kullaniciyi buraya 303 ile yollar.
 PAYMENT_SUCCESS_URL=https://davetkart.com/odeme/basarili
 PAYMENT_FAILURE_URL=https://davetkart.com/odeme/hata

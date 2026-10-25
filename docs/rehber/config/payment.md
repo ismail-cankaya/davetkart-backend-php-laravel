@@ -96,3 +96,22 @@ tutar `orders.amount_minor`'dan (indirim düşülmüş) **tamsayı aritmetiğiyl
 - `.env` değiştikten sonra `php artisan config:cache`. Unutulursa eski ayar okunur.
 - `PAYMENT_SUCCESS_URL` göreli (`/odeme/basarili`) kalırsa Shopier callback'i
   kullanıcıyı **API'nin** alan adındaki `/odeme/basarili`'ye yollar (404).
+
+---
+
+## 🆕 Faz 13 (13.1 · K134–K135) — `methods` ve `bank_transfer`
+
+| Anahtar | `.env` | Anlamı |
+|---|---|---|
+| `methods` | `PAYMENT_METHODS` | Açık yöntemler, virgüllü: `card`, `bank_transfer`, `gift_code` |
+| `bank_transfer.bank_name` | `BANK_TRANSFER_BANK_NAME` | Havale ekranında gösterilen banka |
+| `bank_transfer.account_holder` | `BANK_TRANSFER_ACCOUNT_HOLDER` | Hesap sahibi |
+| `bank_transfer.iban` | `BANK_TRANSFER_IBAN` | Sağlama toplamından geçmezse havale kapalı |
+
+- **Varsayılan `card,gift_code`.** Değişken hiç yazılmamışsa Faz 12'nin davranışı sürer.
+  `.env.example` ise bugünkü kararı yazıyor: `PAYMENT_METHODS=gift_code`.
+- `methods` ile `default` (sağlayıcı) **ayrı sorular**. `default` "kart hangi sağlayıcıdan
+  geçer?" sorusunu, `methods` "kart açık mı?" sorusunu cevaplar. Kart kapalıyken
+  `PAYMENT_PROVIDER=shopier` ve boş sırlar sorun değil: sürücü hiç kurulmaz (K136, bkz.
+  `StartCheckoutAction.md`).
+- Okuyan tek sınıf: [`PaymentMethods`](../app/Services/Payment/PaymentMethods.md).
