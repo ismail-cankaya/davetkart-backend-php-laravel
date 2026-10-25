@@ -304,3 +304,9 @@ Sağlayıcının ödeme kimliği (Shopier `payment_id`). Diğer bütün alanlar 
 Yanmış hakkın kalıcı damgası. `invitation_id` bağı `data:purge`'te koptuğu için bilgi
 orada duramaz. Serbest hak arayan her sorgu `unconsumed()` sormak zorunda.
 Ayrıntı: `docs/rehber/database/migrations/2026_10_26_100000_add_consumed_at_to_orders_table.md`.
+
+## 🆕 Faz 14 (14.2 · K138) — iade talepleri
+
+`refundRequests()` (geçmiş), `openRefundRequest()` (karar bekleyen tek talep) ve
+`scopeWithoutOpenRefundRequest()`. Açık talep hakkı dondurur; kural
+`RefundRequestStatus::isOpen()`'da. Ayrıntı: `docs/rehber/app/Models/RefundRequest.md`.

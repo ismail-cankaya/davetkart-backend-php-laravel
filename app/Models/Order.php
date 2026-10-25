@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
@@ -203,5 +204,35 @@ class Order extends Model
     public function giftCodeRedemption(): HasOne
     {
         return $this->hasOne(GiftCodeRedemption::class);
+    }
+
+    /**
+     * Bu siparişin iade talepleri, kapanmışlar dahil (Faz 14, K138).
+     *
+     * @return HasMany<RefundRequest, $this>
+     */
+    public function refundRequests(): HasMany
+    {
+        return $this->hasMany(RefundRequest::class);
+    }
+
+    /**
+     * Karar bekleyen TEK talep — kısmi UNIQUE indeks en fazla bir tane olmasını garanti eder.
+     *
+     * @return HasOne<RefundRequest, $this>
+     */
+    public function openRefundRequest(): HasOne
+    {
+        return $this->hasOne(RefundRequest::class)->open();
+    }
+
+    /**
+     * Açık iade talebi OLMAYAN siparişler (Faz 14, K138): talep hakkı dondurur.
+     *
+     * @param  Builder<Order>  $query
+     */
+    public function scopeWithoutOpenRefundRequest(Builder $query): void
+    {
+        $query->whereDoesntHave('openRefundRequest');
     }
 }
