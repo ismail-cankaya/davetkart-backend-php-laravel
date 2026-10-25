@@ -48,6 +48,15 @@ enum ErrorCode: string
     case InvitationAlreadyPublished = 'INVITATION_ALREADY_PUBLISHED';
     case SlugTaken = 'SLUG_TAKEN';
 
+    /**
+     * Bu hak iptal edilip iade istenemez (Faz 14, K139).
+     *
+     * 409, 422 DEĞİL: istek biçimsel olarak doğru; engel siparişin ŞU ANKİ
+     * durumu (davetiyede kullanılıyor, süre geçti, zaten istendi). Durum
+     * değişirse aynı istek geçer. `reason` = RefundBlocker değeri.
+     */
+    case RefundNotAllowed = 'REFUND_NOT_ALLOWED';
+
     // 413 — govde cok buyuk
     case FileTooLarge = 'FILE_TOO_LARGE';
 
@@ -128,7 +137,8 @@ enum ErrorCode: string
             self::ResourceNotFound => 404,
 
             self::InvitationAlreadyPublished,
-            self::SlugTaken => 409,
+            self::SlugTaken,
+            self::RefundNotAllowed => 409,
 
             self::FileTooLarge => 413,
 
@@ -186,6 +196,10 @@ enum ErrorCode: string
             // Kapatılan yöntem: hangi düğmenin gizleneceği. Sır değil, fiyat
             // ucu açık yöntemleri zaten herkese söylüyor.
             self::PaymentMethodDisabled => ['method'],
+
+            // Neden iade edilemediği (RefundBlocker). Kullanıcı yalnızca KENDİ
+            // siparişini soruyor; başkasınınki 404 alır (H7), sebep sızmaz.
+            self::RefundNotAllowed => ['reason'],
             default => [],
         };
     }

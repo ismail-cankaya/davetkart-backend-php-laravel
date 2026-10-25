@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\PublicInvitationController;
 use App\Http\Controllers\Api\V1\PublicMediaController;
 use App\Http\Controllers\Api\V1\PublicPaymentWebhookController;
 use App\Http\Controllers\Api\V1\PublicRsvpController;
+use App\Http\Controllers\Api\V1\RefundRequestController;
 use App\Http\Controllers\Api\V1\RsvpController;
 use App\Http\Controllers\Api\V1\ShopierCallbackController;
 use App\Http\Controllers\Api\V1\ShopierOsbController;
@@ -215,6 +216,21 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/account/entitlements', [AccountController::class, 'entitlements'])
         ->middleware(SetEtag::class)
         ->name('account.entitlements');
+
+    /*
+    | Hakkı iptal et / vazgeç (Faz 14, 14.5 · K138).
+    |
+    | Tekil kaynak: bir siparişte en fazla BİR açık talep var (kısmi UNIQUE),
+    | bu yüzden talebin kendi kimliği URL'de yok. POST açar, DELETE geri çeker.
+    | Para burada gitmez: yönetici `refunds:approve` ile kapatır (14.6).
+    */
+    Route::post('/orders/{order}/refund-request', [RefundRequestController::class, 'store'])
+        ->whereUlid('order')
+        ->name('orders.refund-request.store');
+
+    Route::delete('/orders/{order}/refund-request', [RefundRequestController::class, 'destroy'])
+        ->whereUlid('order')
+        ->name('orders.refund-request.destroy');
 
     /*
     | AI asistan (Faz 8) — sistemin PARA HARCAYAN tek ucu.

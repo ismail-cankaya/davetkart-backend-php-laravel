@@ -1,6 +1,6 @@
 {
-    "generatedAt": "2026-10-25T08:14:43+00:00",
-    "count": 26,
+    "generatedAt": "2026-10-25T13:45:09+00:00",
+    "count": 27,
     "codes": {
         "ASSISTANT_QUOTA_EXCEEDED": {
             "status": 429,
@@ -105,6 +105,13 @@
                 "retryAfter"
             ],
             "retryable": true
+        },
+        "REFUND_NOT_ALLOWED": {
+            "status": 409,
+            "params": [
+                "reason"
+            ],
+            "retryable": false
         },
         "REGISTRATION_FAILED": {
             "status": 422,

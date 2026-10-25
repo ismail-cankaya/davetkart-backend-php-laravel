@@ -182,7 +182,7 @@ Durum kodu **kaba sınıflandırma**, `code` **ince ayrım**. İkisi birlikte ç
 | **402** | Ödeme gerekli | `PAYWALL_TIER_INSUFFICIENT`, `PAYMENT_REQUIRED` |
 | **403** | Kimlik var, işlem yasak | `INVITATION_LOCKED`, `RSVP_DEADLINE_PASSED`, `PAYMENT_METHOD_DISABLED` (Faz 13, `params.method`) |
 | **404** | Kaynak yok **veya** senin değil | `RESOURCE_NOT_FOUND` |
-| **409** | Durum çakışması | `INVITATION_ALREADY_PUBLISHED`, `SLUG_TAKEN` |
+| **409** | Durum çakışması | `INVITATION_ALREADY_PUBLISHED`, `SLUG_TAKEN`, `REFUND_NOT_ALLOWED` (Faz 14, `params.reason`) |
 | **413** | Dosya çok büyük | `FILE_TOO_LARGE` |
 | **422** | Doğrulama başarısız | `VALIDATION_FAILED`, `GIFT_CODE_INVALID`, `GIFT_CODE_ALREADY_USED`, `GIFT_CODE_NOT_APPLICABLE` |
 | **429** | Hız sınırı | `RATE_LIMITED` |

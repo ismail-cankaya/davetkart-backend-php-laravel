@@ -603,3 +603,14 @@ kopyası Faz 11'in frontend adımında (11.12) güncellenecek.
   hatasıdır: `PROVIDER_UNAVAILABLE` (503), parametresiz.
 - `method` sızıntı değil: açık yöntemler fiyat ucunda zaten herkese açık.
 - Sözleşme dosyası: `php artisan errors:export` → `contracts/error-codes.json`.
+
+---
+
+## 🆕 Faz 14 (14.5 · K139): `REFUND_NOT_ALLOWED`
+
+| Kod | HTTP | `params` |
+|---|---|---|
+| `REFUND_NOT_ALLOWED` | 409 | `reason`: `already_requested` · `not_paid` · `in_use` · `free` · `window_closed` |
+
+409 çünkü engel bir **durum**, biçim değil (`INVITATION_ALREADY_PUBLISHED` ailesi). Sebep
+sızıntı sayılmaz: soran siparişin sahibi; başkası 404 alır (H7).

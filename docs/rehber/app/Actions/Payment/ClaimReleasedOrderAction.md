@@ -195,3 +195,8 @@ incelemesiyle korunur.
 
 Sorguya bir koşul eklendi: yanmış hak (`consumed_at` dolu) bağlanmaz. Kalıcı silinen bir
 davetiyenin siparişi `invitation_id = NULL` ile serbest hakla aynı görünüyordu.
+
+## 🆕 Faz 14 (14.5 · K138): `withoutOpenRefundRequest()`
+
+İptal edilip iade istenen hak **donmuştur**: talep kapanana kadar bağlanmaz. Gerekçe:
+`docs/rehber/app/Actions/Refund/RequestRefundAction.md` §2.

@@ -65,6 +65,7 @@ final class ClaimReleasedOrderAction
             ->grantingPublishRight()   // yalnizca odenmis (OrderStatus)
             ->releasable()             // yalnizca tekil kapsam (OrderScope)
             ->unconsumed()             // Faz 14 (K137): yanmis hak geri dogmaz
+            ->withoutOpenRefundRequest() // Faz 14 (K138): iptal istenen hak donmus
             ->whereNull('invitation_id')
             ->where('user_id', $invitation->user_id)
             ->lockForUpdate()
