@@ -163,6 +163,16 @@ class Order extends Model
     }
 
     /**
+     * İndirimin geldiği kampanya (Faz 13); yalnızca promotion = campaign iken dolu.
+     *
+     * @return BelongsTo<PriceCampaign, $this>
+     */
+    public function priceCampaign(): BelongsTo
+    {
+        return $this->belongsTo(PriceCampaign::class);
+    }
+
+    /**
      * Bu siparişte kullanılan hediye kodu (Faz 11). Sipariş başına en fazla bir (UNIQUE).
      *
      * @return HasOne<GiftCodeRedemption, $this>
