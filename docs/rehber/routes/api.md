@@ -1041,3 +1041,11 @@ Route::post('/payments/shopier/osb',      ShopierOsbController::class)->name('pa
 
 Frontend'de fiyat yok (K128): fiyat kartları, paywall ve ödeme sayfası sayıları bu iki
 uçtan okur. Ayrıntı: `app/Http/Controllers/Api/V1/PricingController.md`.
+
+---
+
+## 🆕 Faz 14 — hesap ayarları
+
+| Rota | Ad | Grup | Adım |
+|---|---|---|---|
+| `GET /api/account/entitlements` | `account.entitlements` | `auth:sanctum` + `SetEtag` | 14.4 |

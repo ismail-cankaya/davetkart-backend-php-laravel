@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AssistantController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\GiftCodeController;
@@ -203,6 +204,17 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('orders', OrderController::class)
         ->only(['index', 'show'])
         ->whereUlid('order');
+
+    /*
+    | Hesap ayarları — "Planlarım" (Faz 14, 14.4 · K140).
+    |
+    | Satın alınan, kullanılan, yanan ve iade edilen haklar plan plan. Parametre
+    | YOK: yalnızca istek sahibinin kendi siparişleri (sahiplik sorguda, P3).
+    | SetEtag: ekran sekme değiştikçe yeniden ister, değişmediyse 304.
+    */
+    Route::get('/account/entitlements', [AccountController::class, 'entitlements'])
+        ->middleware(SetEtag::class)
+        ->name('account.entitlements');
 
     /*
     | AI asistan (Faz 8) — sistemin PARA HARCAYAN tek ucu.
