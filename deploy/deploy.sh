@@ -32,12 +32,20 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
     exit 1
 fi
 
-PREV="$(git rev-parse --short HEAD)"
+# Yeniden baslatildiysak (asagida) asil "onceki surum" ilk calistirmadan gelir.
+PREV="${DAVETKART_DEPLOY_PREV:-$(git rev-parse --short HEAD)}"
 trap 'echo "HATA: deploy yarida kesildi. Onceki surum: $PREV (geri alma: docs/rehber/deploy/deploy.md)" >&2' ERR
 
 step "Kod cekiliyor (onceki surum: $PREV)"
 git pull --ff-only
 NEW="$(git rev-parse --short HEAD)"
+
+# Bash betigi calisirken dosyadan okur; git pull bu dosyayi degistirdiyse geri kalan
+# adimlar ESKI surumle kosar. deploy/ degistiyse betigi yeni haliyle bastan baslat (bir kez).
+if [ -z "${DAVETKART_DEPLOY_PREV:-}" ] && ! git diff --quiet "$PREV" "$NEW" -- deploy/; then
+    step "deploy/ betikleri degisti: yeni surumle yeniden baslatiliyor"
+    DAVETKART_DEPLOY_PREV="$PREV" exec bash "$APP_DIR/deploy/deploy.sh" "$@"
+fi
 
 step "Composer bagimliliklari (--no-dev)"
 composer install --no-dev --optimize-autoloader --no-interaction --no-scripts

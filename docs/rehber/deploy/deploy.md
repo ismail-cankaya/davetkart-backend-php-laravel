@@ -60,6 +60,17 @@ canlıya çıkardı.
 varsa **birleştirme (merge) commit'i üretmez, hata verir**. Sunucuda hiç yerel
 commit olmaması gerektiği için, bu durumda bir şey ters gitmiş demektir.
 
+### Adım 1b: Betik kendini güncellediyse yeniden başla
+Bash bir betiği çalışırken **parça parça** okur, ama hep başta açtığı dosyadan.
+`git pull` `deploy/deploy.sh`'ı yerinde düzenlemez, yeni bir dosyayla değiştirir;
+çalışmakta olan süreç eski dosyayı okumaya devam eder ve **eski** sürümün geri
+kalanını koşar. 26 Ekim'de tam bu oldu: frontend
+adımını ekleyen commit çekildi ama o deploy eski betikle bitti, frontend
+derlenmedi. Çözüm: `git pull`'dan sonra `deploy/` klasöründe değişiklik varsa
+betik kendini `exec` ile **yeni hâliyle baştan** başlatır. `DAVETKART_DEPLOY_PREV`
+değişkeni iki işe yarar: ikinci turda tekrar başlatmayı engeller (sonsuz döngü
+yok) ve hata mesajındaki "önceki sürüm"ün gerçek önceki sürüm olmasını sağlar.
+
 ### Adım 2: Composer
 - `--no-dev`: PHPUnit, Pint gibi geliştirme paketleri üretime gitmez (daha az
   yüzey, daha az disk).
