@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PricingController;
+use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\PublicContactController;
 use App\Http\Controllers\Api\V1\PublicInvitationController;
 use App\Http\Controllers\Api\V1\PublicMediaController;
@@ -61,6 +62,9 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('/me', [AuthController::class, 'me'])->name('me');
+
+        // Faz 14 (14.7): ad/soyad. E-posta buradan DEĞİŞMEZ (doğrulamalı akış, 14.10).
+        Route::patch('/me', [ProfileController::class, 'update'])->name('update');
 
         // Faz 10 (10.40): hesabi sil (K97). Parola onayi istedigi icin bir
         // TAHMIN hedefi: calinmis bir token'la parola denenmesin diye
