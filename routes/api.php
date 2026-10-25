@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\V1\PublicMediaController;
 use App\Http\Controllers\Api\V1\PublicPaymentWebhookController;
 use App\Http\Controllers\Api\V1\PublicRsvpController;
 use App\Http\Controllers\Api\V1\RsvpController;
+use App\Http\Controllers\Api\V1\ShopierCallbackController;
+use App\Http\Controllers\Api\V1\ShopierOsbController;
 use App\Http\Middleware\SetEtag;
 use Illuminate\Support\Facades\Route;
 
@@ -298,6 +300,26 @@ Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(func
     */
     Route::post('/payments/webhook', PublicPaymentWebhookController::class)
         ->name('payments.webhook');
+
+    /*
+    | Faz 12: Shopier'in iki dönüş kanalı (K117, K122). Fake'in /payments/webhook
+    | ucu yerinde kalıyor; Shopier'in uçları ayrı, çünkü yanıt biçimleri farklı.
+    |
+    |   callback -> kullanıcının TARAYICISI gönderir; yanıt 303 yönlendirme.
+    |               'osb' modunda hiçbir siparişi değiştirmez.
+    |   osb      -> Shopier'in SUNUCUSU gönderir; yanıt düz metin 'success'.
+    |               'paid' kararını veren kanal.
+    |
+    | 🔴 Yol ShopierGateway::CALLBACK_PATH ile aynı olmalı (forma yazılan adres);
+    | ShopierCallbackTest ikisini kilitler.
+    | CSRF muafiyeti yine YAPISAL ('api' grubu) — tarayıcıdan gelen form POST'u
+    | olmasına rağmen yazılacak bir istisna yok.
+    */
+    Route::post('/payments/shopier/callback', ShopierCallbackController::class)
+        ->name('payments.shopier.callback');
+
+    Route::post('/payments/shopier/osb', ShopierOsbController::class)
+        ->name('payments.shopier.osb');
 
     /*
     | 🔴 Sistemin DORDUNCU auth'suz yazma yolu (Faz 8) — ve tehdit modeli
