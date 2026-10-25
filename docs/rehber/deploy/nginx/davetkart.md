@@ -90,6 +90,13 @@ sürümüne geçilirse bu yazım uyarı verir, yerine ayrı satır `http2 on;` g
 `ssl_*` satırları ve `options-ssl-nginx.conf` (TLS 1.2/1.3, güvenli şifre listesi)
 certbot'un ürettiği dosyalardır; elle şifre listesi yazmıyoruz, certbot güncel tutuyor.
 
+**Aynı kapıda seçenekler aynı olmalı.** `ssl` ve `http2` bir `server` bloğunun değil
+**adres:kapı çiftinin** (ör. `0.0.0.0:443`) özelliğidir; o kapıyı dinleyen bütün
+bloklar tek bir soketi paylaşır. Varsayılan 443 bloğunda `http2` unutulunca
+`nginx -t` şu uyarıyı verdi: `protocol options redefined for 0.0.0.0:443`.
+Uyarı test sonucunu bozmaz ama "hangisi geçerli?" belirsizliği bırakır. Bu yüzden
+dört `listen 443` satırı da birebir `ssl http2` taşır (Y7.3, 26 Ekim).
+
 ### `www` bloğu ve `location /` içindeki `return`
 `www.davetkart.com` ile `davetkart.com` aynı siteyi iki adres altında göstermesin
 diye (SEO, çerez, `CORS_ALLOWED_ORIGINS` tek değer) tek adrese 301 yapıyoruz.
