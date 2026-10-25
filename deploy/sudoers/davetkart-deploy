@@ -1,0 +1,11 @@
+# DavetKart: 'deploy' kullanicisinin SINIRLI sudo yetkisi (deploy.sh icin).
+# Ayrinti: docs/rehber/deploy/sudoers/davetkart-deploy.md
+# Kurulum: sudo visudo -cf <dosya> && sudo install -m 440 -o root -g root <dosya> /etc/sudoers.d/davetkart-deploy
+
+# 1) www-data olarak: artisan (php) ve config onbelleginin izni (chmod).
+#    deploy zaten www-data'nin calistirdigi kodu yaziyor; bu bir yetki yukseltmesi degil.
+deploy ALL=(www-data) NOPASSWD: /usr/bin/php, /usr/bin/chmod
+
+# 2) root olarak: YALNIZCA bu tam komut. Arguman yazildigi icin birebir eslesir;
+#    'systemctl stop ...' ya da baska bir servis reddedilir.
+deploy ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.5-fpm

@@ -10,7 +10,8 @@ HEALTH_HOST="davetkart.com"
 
 step() { printf '\n==> %s\n' "$1"; }
 # artisan HER ZAMAN web kullanicisiyla: storage/ ve cache dosyalarinin sahibi karismasin.
-artisan() { sudo -u "$WEB_USER" php "$APP_DIR/artisan" "$@"; }
+# sudo -n: parola SORMA, yetki yoksa hemen hata ver (yetkiler: deploy/sudoers/davetkart-deploy).
+artisan() { sudo -n -u "$WEB_USER" /usr/bin/php "$APP_DIR/artisan" "$@"; }
 
 if [ "$(id -u)" -eq 0 ]; then
     echo "root ile calistirma; 'deploy' kullanicisiyla calistir." >&2
@@ -19,7 +20,10 @@ fi
 
 cd "$APP_DIR"
 [ -f .env ] || { echo ".env bulunamadi: $APP_DIR/.env" >&2; exit 1; }
-sudo -v
+if ! sudo -n -u "$WEB_USER" /usr/bin/php -v >/dev/null 2>&1; then
+    echo "sudo yetkisi yok: /etc/sudoers.d/davetkart-deploy kurulu mu? (rehber: deploy/sudoers)" >&2
+    exit 1
+fi
 
 step "Calisma agaci temiz mi?"
 if ! git diff --quiet || ! git diff --cached --quiet; then
@@ -42,13 +46,13 @@ artisan package:discover --ansi
 step "Onbellekler (config, route)"
 artisan config:cache
 artisan route:cache
-sudo -u "$WEB_USER" chmod 640 bootstrap/cache/config.php
+sudo -n -u "$WEB_USER" /usr/bin/chmod 640 bootstrap/cache/config.php
 
 step "Veritabani gocleri"
 artisan migrate --force
 
 step "PHP-FPM yeniden yukleniyor (OPcache temizligi)"
-sudo systemctl reload "$PHP_FPM_SERVICE"
+sudo -n /usr/bin/systemctl reload "$PHP_FPM_SERVICE"
 
 step "Kuyruk iscisine yeniden dogma sinyali"
 artisan queue:restart

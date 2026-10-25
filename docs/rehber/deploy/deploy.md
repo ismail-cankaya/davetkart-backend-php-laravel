@@ -48,7 +48,12 @@ canlıya çıkardı.
 - **Çalışma ağacı temiz olmalı:** Biri sunucuda dosyayı elle düzenlediyse
   `git pull` ya çakışır ya da değişikliği sessizce ezer. Betik, düzenleme varsa
   neyin değiştiğini gösterip durur. Sunucuda kod **düzenlenmez**, yalnızca depodan gelir.
-- `sudo -v` baştan parolayı sorar. Böylece deploy'un ortasında parola istemi çıkmaz.
+- **sudo yetkisi var mı?** `deploy`'un parolası yok; betik parola sormaz. Gereken
+  üç komut `deploy/sudoers/davetkart-deploy` ile parolasız izinlidir. Betik başta
+  `sudo -n -u www-data /usr/bin/php -v` ile bunu sınar, kural yoksa anlaşılır bir
+  mesajla durur. Tüm `sudo` çağrıları `-n` ile: eksik yetki parola isteminde
+  asılı kalmaz, hemen hata verir. (İlk sürümdeki `sudo -v` 26 Ekim'de kaldırıldı:
+  parolasız kullanıcıda hiç çalışmazdı.)
 
 ### Adım 1: `git pull --ff-only`
 `--ff-only` "yalnızca ileri sar" demek: sunucudaki dal ile depo arasında ayrışma
@@ -108,9 +113,9 @@ kırmızı bir hata görürsün.
 "PHP-FPM log dosyasına yazamıyor" hatası oluşmaz. Koda ise web sunucusu
 **yazamaz**; saldırgan uygulamayı ele geçirse bile kaynak dosyaları değiştiremez.
 
-`.env` için Y8.2'de bir ayrıntıya karar vereceğiz: `config:cache` komutu `.env`'i
-`www-data` ile okuyacak, bu yüzden dosya `deploy` sahibi, `www-data` grubu ve `640`
-izinli olmalı (`600` olursa betik okuyamaz).
+`.env`: `config:cache` onu `www-data` ile okur, bu yüzden dosya `deploy` sahibi,
+`www-data` grubu ve `640` izinli (`600` olursa okunamaz). Y8.3b'de `deploy`'un
+`umask 027` ayarı ve klasörün setgid biti sayesinde bu izin kendiliğinden oluştu.
 
 ## 4. Hata olursa: geri alma
 
@@ -139,8 +144,9 @@ patladıysa veritabanı yeni şemada kalır. Eski kod yeni şemayla genelde çal
 |---|---|
 | `Sunucuda commit'lenmemis degisiklik var` | Biri sunucuda dosya düzenlemiş: `git status` |
 | `fatal: Not possible to fast-forward` | Sunucuda yerel commit var ya da dal çakışması |
-| `sudo: a password is required` | `sudo -v` parolası girilmedi ya da `deploy` sudo yetkisi yok |
-| `Permission denied` (`storage/`) | `storage/` sahibi `www-data` değil (Y8.4) |
+| `sudo yetkisi yok: /etc/sudoers.d/...` | Sudoers kuralı kurulu değil (rehber: `deploy/sudoers`) |
+| `sudo: a password is required` | Betiğe kuralda olmayan bir `sudo` komutu eklenmiş (yol ya da argüman birebir aynı olmalı) |
+| `Permission denied` (`storage/`) | `storage/` ya da `bootstrap/cache/` grup yazma izni yok (`chmod -R g+w`) |
 | `curl: (60)` / `(35)` | Sertifika yok ya da Nginx 443'te dinlemiyor (Y7) |
 | `curl: (22) ... 5xx` | Laravel hata veriyor: `storage/logs/laravel.log` |
 | Değişiklik görünmüyor | `.env` değişti ama `config:cache` çalışmadı |
