@@ -24,6 +24,7 @@ dosya neden böyle yazıldı"* sorusunu cevaplar. Buradaki faz özetleri ise
 | **11** | Hediye kodu (backend) | ⚠️ kod ✅ · `composer check` ✅ 684 test (**bulut çalışma alanında**, bu makinede değil) · frontend ✅ (`npm run check` yeşil) · **elle doğrulama bekliyor** | [FAZ-11.md](FAZ-11.md) | 🔴 [16 adım](FAZ-11-ELLE-DOGRULAMA.md) |
 | **12** | Shopier ile kartla ödeme | ⚠️ kod ✅ · `composer check` ✅ 781 test (**bulut çalışma alanında**) · frontend `npm run check` ✅ · 🔴 **§A boş, gerçek Shopier'e karşı hiç sınanmadı** | [FAZ-12.md](FAZ-12.md) | 🔴 [9 adım, canlı](FAZ-12-ELLE-DOGRULAMA.md) |
 | **13** | Fiyat API'si, indirimler (ilk yayın %60, kampanya), ödeme yöntemi anahtarı | ⚠️ kod ✅ · `composer check` ✅ 865 test (**bulut çalışma alanında**) · frontend `npm run check` ✅ · **elle doğrulama bekliyor** | [FAZ-13.md](FAZ-13.md) | 🔴 [10 adım](FAZ-13-ELLE-DOGRULAMA.md) |
+| **14** | Hesap ayarları: Planlarım (hak sayacı), iptal/iade talebi, profil, parola, oturumlar, e-posta değişikliği · yanmış hak açığı kapandı | ⚠️ kod ✅ · `composer check` ✅ 958 test (**bulut çalışma alanında**) · frontend `npm run check` ✅ · **elle doğrulama bekliyor** | [FAZ-14.md](FAZ-14.md) | 🔴 [15 adım](FAZ-14-ELLE-DOGRULAMA.md) |
 
 > 🔴 23 Eylül 2026: backend "bitti" gözden geçirmesi →
 > [`../../../claude/GOZDEN-GECIRME-RAPORU.md`](../../../claude/GOZDEN-GECIRME-RAPORU.md)
