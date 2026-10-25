@@ -23,6 +23,7 @@ dosya neden böyle yazıldı"* sorusunu cevaplar. Buradaki faz özetleri ise
 | 9+ | Faz 9 sonrası eklemeler (17–21 Eylül) | ⚠️ kod ✅ · `composer check` **kayıt yok** | `docs/07` §4 Faz 9 | — |
 | **11** | Hediye kodu (backend) | ⚠️ kod ✅ · `composer check` ✅ 684 test (**bulut çalışma alanında**, bu makinede değil) · frontend ✅ (`npm run check` yeşil) · **elle doğrulama bekliyor** | [FAZ-11.md](FAZ-11.md) | 🔴 [16 adım](FAZ-11-ELLE-DOGRULAMA.md) |
 | **12** | Shopier ile kartla ödeme | ⚠️ kod ✅ · `composer check` ✅ 781 test (**bulut çalışma alanında**) · frontend `npm run check` ✅ · 🔴 **§A boş, gerçek Shopier'e karşı hiç sınanmadı** | [FAZ-12.md](FAZ-12.md) | 🔴 [9 adım, canlı](FAZ-12-ELLE-DOGRULAMA.md) |
+| **13** | Fiyat API'si, indirimler (ilk yayın %60, kampanya), ödeme yöntemi anahtarı | ⚠️ kod ✅ · `composer check` ✅ 865 test (**bulut çalışma alanında**) · frontend `npm run check` ✅ · **elle doğrulama bekliyor** | [FAZ-13.md](FAZ-13.md) | 🔴 [10 adım](FAZ-13-ELLE-DOGRULAMA.md) |
 
 > 🔴 23 Eylül 2026: backend "bitti" gözden geçirmesi →
 > [`../../../claude/GOZDEN-GECIRME-RAPORU.md`](../../../claude/GOZDEN-GECIRME-RAPORU.md)
