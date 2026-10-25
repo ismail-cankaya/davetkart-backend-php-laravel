@@ -733,3 +733,8 @@ Hiç ödenmiş siparişi olmayan kullanıcının (K131) siparişine uygulanan y�
 Kullanılmamış, ücretli bir hakkın ödeme anından itibaren kaç gün içinde iptal edilip iade
 istenebileceği. Varsayılan 14 (mesafeli satış cayma süresi). `release_window_days` ile aynı
 gerekçeyle `env()` yok: ticari söz, ortam farkı değil.
+
+## 🆕 Faz 14 (14.10 · K144): `auth.email_change_expire_minutes`, `frontend.email_change_path`
+
+E-posta değişikliği onay bağlantısı 60 dakika geçerli (parola sıfırlamayla aynı) ve frontend'in
+`/eposta-onay` sayfasına gider. Yol frontend'deki rotayla birlikte değişir.

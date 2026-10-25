@@ -229,6 +229,10 @@ return [
     'auth' => [
         'login_rate_limit_per_minute' => 5, // brute-force savunması
         'token_name' => 'davetkart-spa',
+
+        // Faz 14 (K144): e-posta değişikliği onay bağlantısının ömrü (dakika).
+        // Parola sıfırlamayla aynı: 60.
+        'email_change_expire_minutes' => 60,
     ],
 
     // AI çağrısı ücretli; kotasız bırakmak finansal risktir.
@@ -266,6 +270,8 @@ return [
     'frontend' => [
         'url' => env('FRONTEND_URL', 'http://localhost:3000'),
         'password_reset_path' => '/sifre-sifirla',
+        // Faz 14 (K144): yeni adrese giden onay bağlantısının hedefi.
+        'email_change_path' => '/eposta-onay',
     ],
 
     // Kullaniciya giden mail (K96): TEK dil, Turkce. K21'in (API tek dil,

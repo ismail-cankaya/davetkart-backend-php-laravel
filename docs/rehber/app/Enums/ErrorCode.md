@@ -614,3 +614,13 @@ kopyası Faz 11'in frontend adımında (11.12) güncellenecek.
 
 409 çünkü engel bir **durum**, biçim değil (`INVITATION_ALREADY_PUBLISHED` ailesi). Sebep
 sızıntı sayılmaz: soran siparişin sahibi; başkası 404 alır (H7).
+
+## 🆕 Faz 14 (14.10 · K144): `EMAIL_CHANGE_INVALID`
+
+| Kod | HTTP | `params` |
+|---|---|---|
+| `EMAIL_CHANGE_INVALID` | 422 | yok |
+
+Tek kod, beş sebep: imza bozuk, süresi dolmuş, bağlantı kullanılmış, hesap silinmiş, **yeni
+adres başka hesapta**. Sonuncusu ayrılsaydı onay bağlantısı bir hesap tarayıcısı olurdu (H6).
+`PASSWORD_RESET_INVALID`'in kardeşi.

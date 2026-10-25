@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AssistantController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\EmailChangeController;
 use App\Http\Controllers\Api\V1\GiftCodeController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PricingController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\PublicContactController;
+use App\Http\Controllers\Api\V1\PublicEmailChangeController;
 use App\Http\Controllers\Api\V1\PublicInvitationController;
 use App\Http\Controllers\Api\V1\PublicMediaController;
 use App\Http\Controllers\Api\V1\PublicPaymentWebhookController;
@@ -89,6 +91,13 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
         Route::delete('/sessions/{session}', [SessionController::class, 'destroy'])
             ->whereNumber('session')
             ->name('sessions.destroy');
+
+        // Faz 14 (14.10 · K144): yeni adrese onay bağlantısı. Mevcut parolayı
+        // istiyor ve dışarıya mail gönderiyor: tahmin + mail bombalama hedefi,
+        // throttle:auth (anahtar = yeni adres + IP).
+        Route::post('/email-change', [EmailChangeController::class, 'store'])
+            ->middleware('throttle:auth')
+            ->name('email-change.store');
     });
 });
 
@@ -413,4 +422,16 @@ Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(func
     Route::post('/contact', PublicContactController::class)
         ->middleware('throttle:contact')
         ->name('contact.store');
+
+    /*
+    | E-posta değişikliği onayı (Faz 14, 14.10 · K144).
+    |
+    | Kimliği bilinmeyen biri görebilir mi? Yalnızca İMZALI bağlantıyı taşıyan:
+    | yetkinin kanıtı oturum değil imza (kullanıcı maili telefonda açmış olabilir).
+    | Değerler sorguda, imza onları kapsıyor (EmailChangeLink, göreli imza).
+    | throttle:auth: imza tahmini anlamsız ama kova ucuz bir tavan.
+    */
+    Route::post('/email-change/confirm', PublicEmailChangeController::class)
+        ->middleware('throttle:auth')
+        ->name('email-change.confirm');
 });

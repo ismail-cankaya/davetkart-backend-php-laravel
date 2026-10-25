@@ -77,6 +77,15 @@ enum ErrorCode: string
     case PasswordResetInvalid = 'PASSWORD_RESET_INVALID';
 
     /**
+     * E-posta değişikliği onay bağlantısı geçersiz (Faz 14, K144).
+     *
+     * 🔴 Tek kod, beş sebep: imza bozuk, süresi dolmuş, zaten kullanılmış
+     * (eski adres değişti), hesap silinmiş ya da YENİ ADRES BAŞKA BİR HESAPTA.
+     * Sonuncusu ayrılsaydı onay bağlantısı bir hesap tarayıcısına dönerdi (H6).
+     */
+    case EmailChangeInvalid = 'EMAIL_CHANGE_INVALID';
+
+    /**
      * Hediye kodu kullanılamaz (Faz 11, D7).
      *
      * 🔴 Tek kod, dört sebep: yok, kapatılmış, süresi dolmuş ya da tükenmiş.
@@ -145,6 +154,7 @@ enum ErrorCode: string
             self::ValidationFailed,
             self::RegistrationFailed,
             self::PasswordResetInvalid,
+            self::EmailChangeInvalid,
             self::GiftCodeInvalid,
             self::GiftCodeAlreadyUsed,
             self::GiftCodeNotApplicable => 422,

@@ -184,7 +184,7 @@ Durum kodu **kaba sınıflandırma**, `code` **ince ayrım**. İkisi birlikte ç
 | **404** | Kaynak yok **veya** senin değil | `RESOURCE_NOT_FOUND` |
 | **409** | Durum çakışması | `INVITATION_ALREADY_PUBLISHED`, `SLUG_TAKEN`, `REFUND_NOT_ALLOWED` (Faz 14, `params.reason`) |
 | **413** | Dosya çok büyük | `FILE_TOO_LARGE` |
-| **422** | Doğrulama başarısız | `VALIDATION_FAILED`, `GIFT_CODE_INVALID`, `GIFT_CODE_ALREADY_USED`, `GIFT_CODE_NOT_APPLICABLE` |
+| **422** | Doğrulama başarısız | `VALIDATION_FAILED`, `GIFT_CODE_INVALID`, `GIFT_CODE_ALREADY_USED`, `GIFT_CODE_NOT_APPLICABLE`, `EMAIL_CHANGE_INVALID` (Faz 14) |
 | **429** | Hız sınırı | `RATE_LIMITED` |
 | **500** | Sunucu hatası (bizim kodumuz) | `SERVER_ERROR` |
 | **502** | Yukarı akış **geçersiz yanıt döndü** | `PAYMENT_PROVIDER_ERROR` |

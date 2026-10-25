@@ -1056,3 +1056,5 @@ uçtan okur. Ayrıntı: `app/Http/Controllers/Api/V1/PricingController.md`.
 | `GET /api/auth/sessions` | `auth.sessions.index` | `auth:sanctum` | 14.9 |
 | `DELETE /api/auth/sessions` | `auth.sessions.destroy-others` | `auth:sanctum` | 14.9 |
 | `DELETE /api/auth/sessions/{session}` | `auth.sessions.destroy` | `auth:sanctum` | 14.9 |
+| `POST /api/auth/email-change` | `auth.email-change.store` | `auth:sanctum` + `throttle:auth` | 14.10 |
+| `POST /api/public/email-change/confirm` | `public.email-change.confirm` | public + `throttle:auth` | 14.10 |
