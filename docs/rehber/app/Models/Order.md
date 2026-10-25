@@ -286,3 +286,13 @@ sabitte duruyor ve veritabanı kısıtı onu `amount_minor = 0` ile bağlıyor.
 Sağlayıcının ödeme kimliği (Shopier `payment_id`). Diğer bütün alanlar gibi
 `#[Fillable([])]` kapsamında: yalnızca `HandlePaymentCallbackAction` yazar, o da
 **ilk** değeri korur (iade bildirimi aynı ödemeyi anlatır). Cast gerekmiyor: düz metin.
+
+---
+
+## 🆕 Faz 13 (13.2 · K133) — otomatik indirim
+
+- Yeni cast'ler: `promotion` → `PromotionKind`, `promotion_discount_minor` → int.
+- `discount_minor` artık **toplam** indirim (otomatik + hediye kodu).
+- `listPriceMinor()` = `amount_minor + discount_minor`. Saklanmıyor, türetiliyor (E1).
+  Ayrıntı: `docs/rehber/database/migrations/2026_10_25_100100_add_promotion_to_orders.md`.
+- `priceCampaign()` ilişkisi 13.3'te, `PriceCampaign` modeliyle birlikte.

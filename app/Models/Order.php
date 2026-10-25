@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\OrderScope;
 use App\Enums\OrderStatus;
+use App\Enums\PromotionKind;
 use App\Enums\SubscriptionTier;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -70,7 +71,12 @@ class Order extends Model
             'amount_minor' => 'integer',
 
             // Faz 11: fiyattan düşülen indirim (kuruş). Fiyat = amount + discount.
+            // Faz 13: TOPLAM indirim — otomatik indirim + hediye kodu.
             'discount_minor' => 'integer',
+
+            // Faz 13 (K133): otomatik indirimin kaynağı ve tutarı.
+            'promotion' => PromotionKind::class,
+            'promotion_discount_minor' => 'integer',
 
             // K23: degismez tarih.
             'paid_at' => 'immutable_datetime',
@@ -126,6 +132,12 @@ class Order extends Model
     public function isExpired(): bool
     {
         return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    /** Liste fiyatı (kuruş): ödenen + toplam indirim. Saklanmaz, türetilir (Faz 13, E1). */
+    public function listPriceMinor(): int
+    {
+        return $this->amount_minor + $this->discount_minor;
     }
 
     /** Hediye kodunun tamamen karşıladığı sipariş mi? (Faz 11, D1) */
