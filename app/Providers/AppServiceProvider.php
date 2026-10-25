@@ -13,6 +13,7 @@ use App\Services\Ai\GeminiProvider;
 use App\Services\Ai\NullProvider;
 use App\Services\Payment\FakeGateway;
 use App\Services\Payment\PaymentGateway;
+use App\Services\Payment\ShopierGateway;
 use App\Services\Pricing\OrderEntitlementResolver;
 use App\Services\Rsvp\SubscriptionRsvpQuotaResolver;
 use App\Support\EmailNormalizer;
@@ -67,7 +68,7 @@ class AppServiceProvider extends ServiceProvider
      *
      * 🔴 Bilinmeyen surucu SESSIZCE null donmez, PROVIDER_UNAVAILABLE (503)
      * firlatir. Sessiz bir varsayilan ("bulamazsan fake kullan") uretimde
-     * IYZICO_API_KEY eksik oldugu gun her odemeyi sahte olarak BASARILI
+     * SHOPIER_API_SECRET eksik oldugu gun her odemeyi sahte olarak BASARILI
      * sayardi — bir yapilandirma hatasinin sessizce bedava yayina donusmesi.
      */
     private function resolvePaymentGateway(Application $app): PaymentGateway
@@ -80,7 +81,11 @@ class AppServiceProvider extends ServiceProvider
         return match ($driver) {
             'fake' => $app->make(FakeGateway::class),
 
-            // Faz 9: 'iyzico' => $app->make(IyzicoGateway::class),
+            // Faz 12: sir ya da OSB kimligi eksikse kurucu 503 firlatir (K123).
+            // Kontrol kurucuda, burada degil: callback/OSB uclari surucuyu
+            // DOGRUDAN istiyor ve ayni kapidan gecmeliler.
+            'shopier' => $app->make(ShopierGateway::class),
+
             default => throw PaymentProviderException::unavailable($default),
         };
     }

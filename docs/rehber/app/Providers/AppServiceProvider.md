@@ -859,3 +859,30 @@ plan değiştirip birkaç kez denerse 429 görmemeli
 
 > Prompt limiter'ın iki checkout rotasına da uygulanmasını istiyordu. Uygulandı, ama yalnızca
 > kod gönderildiğinde sayıyor. Bu prompttan küçük bir sapma ve FAZ-11.md'de kayıtlı.
+
+---
+
+## 🆕 Faz 12 (12.8 · K123): `'shopier' => ShopierGateway`
+
+```php
+return match ($driver) {
+    'fake'    => $app->make(FakeGateway::class),
+    'shopier' => $app->make(ShopierGateway::class),
+    default   => throw PaymentProviderException::unavailable($default),   // K70
+};
+```
+
+Strategy deseninin vaadi tuttu: gerçek sağlayıcı bağlanırken bu dosyada **bir satır**
+eklendi. `iyzico` yorumu silindi (sürücü hiç yazılmadı).
+
+### "Sır var mı?" sorusu neden burada değil?
+
+K123: sır ya da (`osb` modunda) OSB kimliği eksikse sürücü kurulmaz → 503. Kontrol
+`ShopierGateway`'in **kurucusunda**, çünkü sürücü iki yoldan kuruluyor:
+
+1. Buradan, `PaymentGateway` olarak (checkout)
+2. Doğrudan, `ShopierGateway` olarak (callback ve OSB controller'ları)
+
+Kontrol burada olsaydı ikinci yol onu atlardı. Kurucu, iki yolun da geçmek zorunda
+olduğu tek kapı. `resolveAiProvider`'ın notu aynı ayrımı yapıyor: *"HANGİ sürücü?"*
+burada, *"anahtar var mı?"* sürücünün kendi değişmezi (A8).
