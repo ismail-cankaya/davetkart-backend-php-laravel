@@ -33,5 +33,22 @@ final readonly class PaymentNotification
          * cevirmek surucunun isidir; bu sinirdan sonra tek bir sozluk var.
          */
         public OrderStatus $status,
+
+        /**
+         * Saglayicinin odemeye verdigi kimlik (Faz 12, K121). Shopier'de
+         * `payment_id`; destek ve iade icin orders.provider_payment_id'ye yazilir.
+         */
+        public ?string $providerPaymentId = null,
+
+        /**
+         * 🔴 Saglayicinin TAHSIL ETTIGINI soyledigi tutar (kurus) ve para birimi
+         * (Faz 12, K126). Doluysa HandlePaymentCallbackAction siparisin
+         * tutariyla karsilastirir; uyusmazsa gecis REDDEDILIR.
+         *
+         * null = bu bildirim tutar tasimiyor (Fake, Shopier tarayici callback'i).
+         * "Tasimiyor" ile "0" ayni sey degil (N4).
+         */
+        public ?int $amountMinor = null,
+        public ?string $currency = null,
     ) {}
 }

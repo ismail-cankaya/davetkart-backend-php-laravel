@@ -278,3 +278,11 @@ bakıyor, `provider`'a değil.
 `provider` neden `PaymentGateway::name()`'den gelmiyor? Hediye siparişi hiçbir sürücüden
 geçmiyor. F4 ("sürücü kendi adını söyler") burada uygulanamaz, çünkü sürücü yok. Değer
 sabitte duruyor ve veritabanı kısıtı onu `amount_minor = 0` ile bağlıyor.
+
+---
+
+## 🆕 Faz 12 (12.4 · K121): `provider_payment_id`
+
+Sağlayıcının ödeme kimliği (Shopier `payment_id`). Diğer bütün alanlar gibi
+`#[Fillable([])]` kapsamında: yalnızca `HandlePaymentCallbackAction` yazar, o da
+**ilk** değeri korur (iade bildirimi aynı ödemeyi anlatır). Cast gerekmiyor: düz metin.
