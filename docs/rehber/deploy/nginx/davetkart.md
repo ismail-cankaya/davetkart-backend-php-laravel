@@ -29,8 +29,11 @@ davetkart.com/giris             -> dosya yok -> index.html           (React kend
 davetkart.com/assets/app-3f9a.js-> frontend/dist/assets/...          (1 yıl önbellek)
 davetkart.com/api/v1/...        -> backend/public/index.php          (Laravel)
 davetkart.com/.env              -> 404
-www.davetkart.com/xyz           -> 301 -> https://davetkart.com/xyz
-85.159.x.x (doğrudan IP)        -> 444 (bağlantıyı sessizce kes)
+http://davetkart.com/xyz        -> 301 -> https://davetkart.com/xyz   (tek adım)
+http://www.davetkart.com/xyz    -> 301 -> https://davetkart.com/xyz   (tek adım)
+https://www.davetkart.com/xyz   -> 301 -> https://davetkart.com/xyz
+http://63.182.x.x (doğrudan IP) -> 444 (bağlantıyı sessizce kes)
+https://63.182.x.x              -> TLS el sıkışması reddedilir (sertifika gösterilmez)
 ```
 
 **Aynı alan adı (same-origin)** olduğu için tarayıcı API'ye "başka site" gözüyle
@@ -46,6 +49,46 @@ koddur: **hiç yanıt vermeden bağlantıyı keser**. Böylece rastgele bir iste
 sitenin içeriği sızmaz. `default_server`, "hiçbir ada uymayan istek buraya"
 demektir. Ubuntu'nun kurduğu `sites-enabled/default` dosyasında da bir
 `default_server` var; **ikisi birlikte olamaz**, o yüzden kurulumda silinir (bkz. §5).
+
+### `server_tokens off;` (dosyanın en üstünde, `server` bloklarının dışında)
+Nginx varsayılan olarak her yanıta ve hata sayfasına sürümünü yazar
+(`Server: nginx/1.24.0 (Ubuntu)`). Saldırgan için bu bir hedef listesidir:
+"bu sürümün bilinen açıkları neler?" sorusunu ücretsiz cevaplar. `off` ile başlık
+yalnızca `nginx` olur. Ubuntu yamaları sürüm numarasını değiştirmeden getirdiği
+için numara zaten yanıltıcıdır. Gizlemek tek başına güvenlik değildir, ama bedava
+bir bilgi sızıntısını kapatır.
+
+**Neden `server` içinde değil de en üstte?** `sites-enabled/` altındaki dosyalar
+Nginx'in `http { }` bloğunun **içine** eklenir. Yani dosyanın en üstündeki bir
+yönerge `http` seviyesinde çalışır ve **bütün** `server` bloklarına uygulanır.
+İlk sürümde bu satır yalnızca `davetkart.com` bloğundaydı. O halde `www`
+yönlendirmesinin 301 yanıtı sürümü sızdırmaya devam ederdi. (25 Ekim, Y7.2a'da
+düzeltildi.)
+
+### 443 için ikinci varsayılan sunucu: `ssl_reject_handshake on`
+80 numaralı kapıdaki `return 444` HTTPS'e etki etmez: her kapının kendi varsayılan
+sunucusu vardır. 443 için varsayılan tanımlanmazsa Nginx **dosyadaki ilk 443
+bloğunu** varsayılan sayar. O zaman `https://63.182.x.x` isteği gerçek sertifikamızı
+görür (alan adımızı sızdırır, IP tarayıcılar bizi alan adıyla eşleştirir) ve
+yönlendirilir. `ssl_reject_handshake on` TLS el sıkışmasını daha sertifika
+gösterilmeden keser. Bu blok sertifika istemez (Nginx 1.19.4+).
+
+### Tek yönlendirme bloğu (80): `davetkart.com` + `www`
+`certbot --nginx` ilk kurulumda her ad için ayrı bir 80 bloğu yazar:
+`if ($host = ...) { return 301 https://$host$request_uri; }`. Bu `http://www`
+isteğini önce `https://www`'ya, oradan apex'e gönderir: **iki yönlendirme**,
+iki ekstra gidiş-dönüş. Biz iki adı tek blokta toplayıp doğrudan
+`https://davetkart.com`'a gönderiyoruz. `if` de kullanmıyoruz: `server_name`
+zaten ada göre seçiyor (Nginx'te `if` yalnızca gerçekten gerektiğinde kullanılır).
+`return` yine `location /` içinde, çünkü certbot yenilemede bu bloğa
+`/.well-known/acme-challenge/` için daha özel bir `location` ekler ve o kazanır.
+
+### `listen 443 ssl http2`
+HTTP/2 tek bağlantı üzerinden çok sayıda dosyayı paralel taşır (Vite'ın çok sayıda
+küçük JS/CSS dosyası için önemli). 1.24'te yazımı `listen ... http2`. Nginx 1.25.1+
+sürümüne geçilirse bu yazım uyarı verir, yerine ayrı satır `http2 on;` gelir.
+`ssl_*` satırları ve `options-ssl-nginx.conf` (TLS 1.2/1.3, güvenli şifre listesi)
+certbot'un ürettiği dosyalardır; elle şifre listesi yazmıyoruz, certbot güncel tutuyor.
 
 ### `www` bloğu ve `location /` içindeki `return`
 `www.davetkart.com` ile `davetkart.com` aynı siteyi iki adres altında göstermesin
@@ -120,12 +163,25 @@ Nginx dosya bulamayıp 404 vermesin diye bilinmeyen her yol `index.html`'e düş
 
 ## 4. `certbot` ile birlikte hayat
 
-Depodaki dosya **yalnızca 80 numaralı kapıyı** içerir (sertifika henüz yok). Y7.2'de
-`certbot --nginx` sunucudaki kopyayı değiştirir: `443 ssl`, sertifika yolları ve
-`http → https` yönlendirmesi eklenir. Bu değişiklik depoya **otomatik dönmez**.
-Y7 bitince sunucudaki son hâli depoya geri alıp commit'leyeceğiz.
+İlk sürüm yalnızca 80 numaralı kapıyı içeriyordu. Y7.2'de `certbot --nginx`
+sunucudaki kopyaya 443 bloklarını ve yönlendirmeleri ekledi. Y7.3'te (26 Ekim)
+bu çıktı okunup **temiz hâli depoya yazıldı**: depodaki dosya artık sunucudakinin
+birebir aynısıdır, `# managed by Certbot` satırları yoktur.
 
-## 5. Sunucuya kurulum (Y7'de, özet)
+**Yenileme bu dosyayı bozmaz.** Certbot yenilemede (`certbot renew`) dosyayı
+yeniden yazmaz; yalnızca `/etc/letsencrypt/live/davetkart.com/` altındaki
+bağlantıları yeni sertifikaya çevirir ve Nginx'i yeniden yükler. Ayarlar
+`/etc/letsencrypt/renewal/davetkart.com.conf` içinde hatırlanır
+(`authenticator = nginx`, `installer = nginx`, `renew_before_expiry = 30 days`).
+Zamanlayıcı: `certbot.timer` (günde iki kez, rastgele gecikmeli).
+
+**Kural:** Bu dosyada her değişiklikten sonra `sudo nginx -t`, `reload` ve
+`sudo certbot renew --dry-run`. Let's Encrypt artık bitiş uyarı e-postası
+göndermiyor; sessiz bir yenileme hatasını UptimeRobot SSL izlemesi yakalar (Y11).
+
+## 5. Sunucuya kurulum
+
+**Sertifika zaten varsa** (bugünkü sunucu):
 
 ```bash
 sudo cp deploy/nginx/davetkart.conf /etc/nginx/sites-available/davetkart.conf
@@ -138,6 +194,24 @@ sudo systemctl reload nginx                    # kesintisiz yeniden yükle
 `nginx -t` **her zaman** `reload`'dan önce çalışır: hata varsa reload yapmazsın,
 site çalışmaya devam eder.
 
+**Sıfırdan yeni sunucuda** (sertifika henüz yok): dosya `/etc/letsencrypt/...`
+yollarını içerdiği için `nginx -t` hata verir. Tavuk-yumurta sorununu şöyle çöz:
+
+1. Geçici olarak **yalnızca 80 bloklarını** kur (bu dosyanın 443 bloklarını
+   çıkarılmış hâli ya da git geçmişindeki ilk sürüm), `nginx -t` + `reload`.
+2. Sertifikayı **dosyaya dokundurmadan** al:
+   ```bash
+   sudo apt install -y certbot python3-certbot-nginx
+   sudo certbot certonly --nginx -d davetkart.com -d www.davetkart.com \
+        --deploy-hook "systemctl reload nginx"
+   ```
+   `certonly` yalnızca sertifikayı alır, Nginx dosyasını değiştirmez. Nginx
+   eklentisi `options-ssl-nginx.conf` ve `ssl-dhparams.pem` dosyalarını da üretir,
+   yenileme ayarına `authenticator = nginx` yazar. `certonly`'de "kurucu"
+   (`installer`) olmadığı için yenilemeden sonra Nginx'i kimse yeniden yüklemez;
+   `--deploy-hook` bu boşluğu kapatır (yoksa Nginx eski sertifikayı bellekte tutar).
+3. Depodaki asıl dosyayı kur, `nginx -t`, `reload`, `certbot renew --dry-run`.
+
 ## 6. Sık hatalar
 
 | Belirti | Sebep |
@@ -148,7 +222,9 @@ site çalışmaya devam eder.
 | **403 Forbidden** | `www-data` kullanıcısı `dist/` ya da `public/` klasörünü okuyamıyor (izin) |
 | **Sayfa yenileyince 404** | `location /` içindeki `try_files` satırı eksik |
 | `duplicate default server` | `sites-enabled/default` silinmedi |
-| Sertifika doğrulaması başarısız | `www` bloğunda `return` `location` dışına taşınmış |
+| Sertifika doğrulaması başarısız | 80 bloğunda `return` `location` dışına taşınmış ya da `/.well-known/` engellenmiş |
+| `http://www` iki kez yönleniyor | certbot'un `if ($host ...)` blokları geri gelmiş (tek 80 bloğu yeterli) |
+| IP ile https'te sitenin sertifikası görünüyor | `ssl_reject_handshake` varsayılan bloğu eksik |
 | Deploy sonrası eski site görünüyor | `index.html` önbelleğe alınmış (`no-cache` kuralı bozulmuş) |
 
 ## 7. Sözlük
