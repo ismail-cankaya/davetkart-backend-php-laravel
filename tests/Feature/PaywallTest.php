@@ -162,18 +162,23 @@ final class PaywallTest extends TestCase
     }
 
     /**
-     * K102: premium liste = arka planı VİDEO olan 13 tema (İsmail'in kararı).
+     * K102: premium liste = arka planı VİDEO olan temalar (İsmail'in kararı):
+     * ilk 13 videolu tema + Faz 16'nın 10 sinematik teması = 23.
      *
      * Sabit yazıldı (10.49'un dersi): liste bir satış vaadi; frontend
-     * `TEMPLATE_PRESETS`'te aynı 13 tema `minimumTier: 'gold'` taşıyor.
+     * `TEMPLATE_PRESETS`'te aynı 23 tema `minimumTier: 'gold'` taşıyor
+     * (frontend `scripts/verify-payment.ts` aynı listeyi kilitler).
      */
     #[Test]
-    public function the_premium_themes_are_the_thirteen_video_themes(): void
+    public function the_premium_themes_are_the_video_themes(): void
     {
         $this->assertEqualsCanonicalizing([
             'dugun-gokyuzu', 'dugun-mum-isigi', 'dugun-gul-yapraklari', 'dugun-deniz-isiltisi',
             'dugun-sahil', 'dugun-onyx', 'kina-bordo', 'nisan-sampanya', 'sunnet-yildiz',
             'dogum-gunu-konfeti', 'mezuniyet-lacivert', 'baby-shower-kabarcik', 'parti-aurora',
+            // Faz 16 — premium sinematik koleksiyon
+            'dugun-saray-kapisi', 'dugun-yasemin', 'dugun-kristal-balo', 'nisan-iplik', 'kina-al-duvak',
+            'sunnet-sehzade', 'dogum-gunu-havai-fisek', 'mezuniyet-kep', 'baby-ay-besigi', 'parti-havuz',
         ], array_keys(Config::array('davetkart.preset_tiers')));
 
         $this->assertSame(['gold'], array_values(array_unique(Config::array('davetkart.preset_tiers'))));

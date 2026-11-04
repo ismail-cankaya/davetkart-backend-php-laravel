@@ -76,6 +76,18 @@ return [
         'mezuniyet-lacivert' => 'gold',
         'baby-shower-kabarcik' => 'gold',
         'parti-aurora' => 'gold',
+        // Faz 16: premium sinematik koleksiyon (kodla uretilmis videolar,
+        // frontend scripts/video/<id>/). Frontend minimumTier listesiyle birebir.
+        'dugun-saray-kapisi' => 'gold',
+        'dugun-yasemin' => 'gold',
+        'dugun-kristal-balo' => 'gold',
+        'nisan-iplik' => 'gold',
+        'kina-al-duvak' => 'gold',
+        'sunnet-sehzade' => 'gold',
+        'dogum-gunu-havai-fisek' => 'gold',
+        'mezuniyet-kep' => 'gold',
+        'baby-ay-besigi' => 'gold',
+        'parti-havuz' => 'gold',
     ],
 
     // LCV limitleri. Kota SUM(guest_count) ile kıyaslanır, COUNT(*) ile değil.
