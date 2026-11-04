@@ -25,6 +25,7 @@ dosya neden böyle yazıldı"* sorusunu cevaplar. Buradaki faz özetleri ise
 | **12** | Shopier ile kartla ödeme | ⚠️ kod ✅ · `composer check` ✅ 781 test (**bulut çalışma alanında**) · frontend `npm run check` ✅ · 🔴 **§A boş, gerçek Shopier'e karşı hiç sınanmadı** | [FAZ-12.md](FAZ-12.md) | 🔴 [9 adım, canlı](FAZ-12-ELLE-DOGRULAMA.md) |
 | **13** | Fiyat API'si, indirimler (ilk yayın %60, kampanya), ödeme yöntemi anahtarı | ⚠️ kod ✅ · `composer check` ✅ 865 test (**bulut çalışma alanında**) · frontend `npm run check` ✅ · **elle doğrulama bekliyor** | [FAZ-13.md](FAZ-13.md) | 🔴 [10 adım](FAZ-13-ELLE-DOGRULAMA.md) |
 | **14** | Hesap ayarları: Planlarım (hak sayacı), iptal/iade talebi, profil, parola, oturumlar, e-posta değişikliği · yanmış hak açığı kapandı | ⚠️ kod ✅ · `composer check` ✅ 958 test (**bulut çalışma alanında**) · frontend `npm run check` ✅ · **elle doğrulama bekliyor** | [FAZ-14.md](FAZ-14.md) | 🔴 [15 adım](FAZ-14-ELLE-DOGRULAMA.md) |
+| **15** | Yeni şablon kimlikleri (18 konsept + 7 "Yedi Davetiye"): backend kod değişikliği gerekmedi, sözleşme testi eklendi | ⚠️ test yazıldı · `composer check` **koşmadı** (bulut alanında PHP 8.3) | [FAZ-15.md](FAZ-15.md) | — |
 
 > 🔴 23 Eylül 2026: backend "bitti" gözden geçirmesi →
 > [`../../../claude/GOZDEN-GECIRME-RAPORU.md`](../../../claude/GOZDEN-GECIRME-RAPORU.md)
