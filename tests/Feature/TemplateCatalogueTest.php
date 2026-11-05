@@ -102,4 +102,83 @@ final class TemplateCatalogueTest extends TestCase
 
         $this->assertSame([], array_values(array_intersect(self::NEW_PRESETS, $premium)));
     }
+
+    // ------------------------------------------------- Faz 17 (on bir şablon)
+
+    /**
+     * Faz 17'nin on bir şablonu ve beklenen planları. Dokuzu premium (Gold),
+     * ikisi (kapsül makinesi, kazı kazan) her planda yayınlanır.
+     *
+     * @var array<string, SubscriptionTier>
+     */
+    private const FAZ17_PRESETS = [
+        'kurumsal-lansman' => SubscriptionTier::Gold,
+        'kina-bugulu-ayna' => SubscriptionTier::Gold,
+        'sunnet-ucan-hali' => SubscriptionTier::Gold,
+        'parti-lazer' => SubscriptionTier::Gold,
+        'dugun-kelebek' => SubscriptionTier::Gold,
+        'dugun-karanlik-oda' => SubscriptionTier::Gold,
+        'nisan-koi' => SubscriptionTier::Gold,
+        'parti-kokteyl' => SubscriptionTier::Gold,
+        'mezuniyet-yillik' => SubscriptionTier::Gold,
+        'dogum-gunu-surpriz-makinesi' => SubscriptionTier::Standart,
+        'baby-kazi-kazan' => SubscriptionTier::Standart,
+    ];
+
+    /** @return iterable<string, array{string, string, SubscriptionTier}> */
+    public static function faz17Presets(): iterable
+    {
+        foreach (self::FAZ17_PRESETS as $preset => $tier) {
+            $category = match (true) {
+                str_starts_with($preset, 'dogum-gunu-') => 'dogum-gunu',
+                str_starts_with($preset, 'baby-') => 'baby-shower',
+                default => explode('-', $preset)[0],
+            };
+
+            yield $preset => [$preset, $category, $tier];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('faz17Presets')]
+    public function a_faz17_preset_is_stored_and_reaches_the_guest_page(string $preset, string $category, SubscriptionTier $tier): void
+    {
+        $owner = User::factory()->create();
+
+        $id = $this->withToken($owner->createToken('api')->plainTextToken)
+            ->postJson(route('invitations.store'), [
+                'invitation' => [
+                    'categoryId' => $category,
+                    'imageTheme' => $preset,
+                    'palette' => 'midnight',
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.invitation.imageTheme', $preset)
+            ->json('data.id');
+
+        $this->assertDatabaseHas('invitations', ['id' => $id, 'preset_id' => $preset]);
+
+        $published = Invitation::factory()->published()->create(['preset_id' => $preset, 'category_id' => $category]);
+        $this->getJson(route('public.invitations.show', $published))
+            ->assertOk()
+            ->assertJsonPath('data.invitation.imageTheme', $preset);
+    }
+
+    /** Modülsüz bir davetiyede gereken plan yalnızca temadan gelir. */
+    #[Test]
+    #[DataProvider('faz17Presets')]
+    public function a_faz17_preset_requires_its_plan(string $preset, string $category, SubscriptionTier $tier): void
+    {
+        $invitation = Invitation::factory()->create([
+            'preset_id' => $preset,
+            'category_id' => $category,
+            'show_gallery' => false,
+            'show_gift' => false,
+            'show_envelope' => false,
+            'show_timeline' => false,
+        ]);
+
+        $this->assertSame($tier, app(TierResolver::class)->requiredFor($invitation));
+    }
 }

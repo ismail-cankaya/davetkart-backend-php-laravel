@@ -545,7 +545,7 @@ Dokuzu da öldü. Eski dosyaya karşı yeniden koşturuldu: yedisi bu adımdan �
 | Test | İddia |
 |---|---|
 | `a_premium_theme_requires_at_least_gold` | Videolu tema → Gold · + galeri → Elit · sıradan tema → Standart |
-| `the_premium_themes_are_the_thirteen_video_themes` | Liste **sabit**: 13 kimlik, hepsi `gold` |
+| `the_premium_themes_are_the_video_themes` | Liste **sabit**, hepsi `gold`: 13 videolu tema → Faz 16: 23 → 🆕 **Faz 17: 32** (4 videolu + 5 canlı etkileşimli premium; K102 genişledi, bkz. `TemplateCatalogueTest.md` §Faz 17) |
 | `a_standart_order_cannot_publish_a_premium_theme` | Uçtan uca 402 `PAYWALL_TIER_INSUFFICIENT`, `requiredTier = gold` |
 | `a_paid_or_refunded_order_refreshes_its_invitations_public_page` | `failed` → olay yok · `paid` → `InvitationChanged` |
 

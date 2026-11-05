@@ -164,9 +164,12 @@ final class PaywallTest extends TestCase
     /**
      * K102: premium liste = arka planı VİDEO olan temalar (İsmail'in kararı):
      * ilk 13 videolu tema + Faz 16'nın 10 sinematik teması = 23.
+     * Faz 17 (İsmail'in onayı, 2026-11-05): +9 premium tema — 4 videolu,
+     * 5 canlı WebGL / sensörlü etkileşimli. Premium artık "premium
+     * etkileşimli" demek; toplam 32.
      *
      * Sabit yazıldı (10.49'un dersi): liste bir satış vaadi; frontend
-     * `TEMPLATE_PRESETS`'te aynı 23 tema `minimumTier: 'gold'` taşıyor
+     * `TEMPLATE_PRESETS`'te aynı 32 tema `minimumTier: 'gold'` taşıyor
      * (frontend `scripts/verify-payment.ts` aynı listeyi kilitler).
      */
     #[Test]
@@ -179,6 +182,9 @@ final class PaywallTest extends TestCase
             // Faz 16 — premium sinematik koleksiyon
             'dugun-saray-kapisi', 'dugun-yasemin', 'dugun-kristal-balo', 'nisan-iplik', 'kina-al-duvak',
             'sunnet-sehzade', 'dogum-gunu-havai-fisek', 'mezuniyet-kep', 'baby-ay-besigi', 'parti-havuz',
+            // Faz 17 — premium koleksiyon (videolu + canlı etkileşimli)
+            'kurumsal-lansman', 'kina-bugulu-ayna', 'sunnet-ucan-hali', 'parti-lazer',
+            'dugun-kelebek', 'dugun-karanlik-oda', 'nisan-koi', 'parti-kokteyl', 'mezuniyet-yillik',
         ], array_keys(Config::array('davetkart.preset_tiers')));
 
         $this->assertSame(['gold'], array_values(array_unique(Config::array('davetkart.preset_tiers'))));

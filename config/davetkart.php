@@ -88,6 +88,19 @@ return [
         'mezuniyet-kep' => 'gold',
         'baby-ay-besigi' => 'gold',
         'parti-havuz' => 'gold',
+        // Faz 17: premium koleksiyon. Dördü kodla üretilmiş videolu, beşi canlı
+        // WebGL / sensörlü etkileşimli (İsmail'in onayı, 2026-11-05: premium
+        // artık "videolu" değil "premium etkileşimli" demek). Aynı turun iki
+        // şablonu (dogum-gunu-surpriz-makinesi, baby-kazi-kazan) Standart'tır.
+        'kurumsal-lansman' => 'gold',
+        'kina-bugulu-ayna' => 'gold',
+        'sunnet-ucan-hali' => 'gold',
+        'parti-lazer' => 'gold',
+        'dugun-kelebek' => 'gold',
+        'dugun-karanlik-oda' => 'gold',
+        'nisan-koi' => 'gold',
+        'parti-kokteyl' => 'gold',
+        'mezuniyet-yillik' => 'gold',
     ],
 
     // LCV limitleri. Kota SUM(guest_count) ile kıyaslanır, COUNT(*) ile değil.
