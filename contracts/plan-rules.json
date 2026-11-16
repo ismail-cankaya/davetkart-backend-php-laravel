@@ -1,0 +1,55 @@
+{
+    "moduleTiers": {
+        "show_envelope": "gold",
+        "show_gallery": "elit",
+        "show_gift": "elit",
+        "show_rsvp": "standart",
+        "show_timeline": "gold",
+        "show_timer": "standart"
+    },
+    "presetTiers": {
+        "baby-ay-besigi": "gold",
+        "baby-shower-kabarcik": "gold",
+        "dogum-gunu-havai-fisek": "gold",
+        "dogum-gunu-konfeti": "gold",
+        "dugun-deniz-isiltisi": "gold",
+        "dugun-gokyuzu": "gold",
+        "dugun-gul-yapraklari": "gold",
+        "dugun-karanlik-oda": "gold",
+        "dugun-kelebek": "gold",
+        "dugun-kristal-balo": "gold",
+        "dugun-mum-isigi": "gold",
+        "dugun-onyx": "gold",
+        "dugun-sahil": "gold",
+        "dugun-saray-kapisi": "gold",
+        "dugun-yasemin": "gold",
+        "kina-al-duvak": "gold",
+        "kina-bordo": "gold",
+        "kina-bugulu-ayna": "gold",
+        "kurumsal-lansman": "gold",
+        "mezuniyet-kep": "gold",
+        "mezuniyet-lacivert": "gold",
+        "mezuniyet-yillik": "gold",
+        "nisan-iplik": "gold",
+        "nisan-koi": "gold",
+        "nisan-sampanya": "gold",
+        "parti-aurora": "gold",
+        "parti-havuz": "gold",
+        "parti-kokteyl": "gold",
+        "parti-lazer": "gold",
+        "sunnet-sehzade": "gold",
+        "sunnet-ucan-hali": "gold",
+        "sunnet-yildiz": "gold"
+    },
+    "rsvpLimits": {
+        "elit": null,
+        "gold": null,
+        "standart": 100
+    },
+    "tierOrder": [
+        "standart",
+        "gold",
+        "elit"
+    ],
+    "whiteLabelTier": "elit"
+}

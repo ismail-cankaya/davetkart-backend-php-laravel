@@ -250,10 +250,22 @@ php artisan errors:export --check   # yazmaz; dosya güncel değilse hata verir 
 `app\Enums\ErrorCode.php`'ye yeni bir kod eklediğinde çalıştırılır. Çıkan dosya frontend'e
 **elle kopyalanır**: `davetkart-frontent\src\contracts\error-codes.json`.
 
+### 5.1b `plans:export` — plan kuralları sözleşmesi (Faz 18, K146)
+
+```powershell
+php artisan plans:export           # contracts/plan-rules.json dosyasını yeniden yazar
+php artisan plans:export --check   # yazmaz; dosya config'le aynı değilse hata verir (composer check bunu kullanır)
+```
+
+`config\davetkart.php`'de `tiers` (`rank`, `rsvp_limit`), `module_tiers`, `preset_tiers` ya da
+`branding.white_label_tier` değiştiğinde çalıştırılır. Çıkan dosya frontend'e **elle kopyalanır**:
+`davetkart-frontent\src\contracts\plan-rules.json`; ardından orada `npm run verify:plans`.
+Ayrıntı: [`ExportPlanRules.md`](app/Console/Commands/ExportPlanRules.md).
+
 ### 5.2 `composer` betikleri (artisan değil ama her gün kullanılanlar)
 
 ```powershell
-composer check     # pint --test + phpstan + errors:export --check + testler (commit öncesi)
+composer check     # pint --test + phpstan + errors:export --check + plans:export --check + testler (commit öncesi)
 composer analyse   # yalnızca phpstan
 composer lint      # pint: kod biçimini DÜZELTİR
 composer test      # yalnızca testler

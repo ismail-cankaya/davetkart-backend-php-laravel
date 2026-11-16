@@ -35,6 +35,7 @@ canlıya çıkardı.
 |---|---|---|
 | 0 | Güvenlik kontrolleri | root değil, `.env` var, çalışma ağacı temiz |
 | 1 | `git pull --ff-only` | Yeni kod |
+| 1c | `git describe --tags --exact-match` | Yayınlanan commit'in **etiketi** günlüğe yazılır; etiketsizse uyarı (Faz 18, K149) |
 | 2 | `composer install --no-dev -o --no-scripts` + `package:discover` | Bağımlılıklar, üretimde test araçları yok |
 | 3 | `config:cache` → `route:cache` → `chmod 640` | Önbellekler, **migrate'ten önce** |
 | 4 | `migrate --force` | Veritabanı şeması |
@@ -70,6 +71,45 @@ derlenmedi. Çözüm: `git pull`'dan sonra `deploy/` klasöründe değişiklik v
 betik kendini `exec` ile **yeni hâliyle baştan** başlatır. `DAVETKART_DEPLOY_PREV`
 değişkeni iki işe yarar: ikinci turda tekrar başlatmayı engeller (sonsuz döngü
 yok) ve hata mesajındaki "önceki sürüm"ün gerçek önceki sürüm olmasını sağlar.
+
+### Adım 1c: Sürüm etiketi (Faz 18 · `OPS-01` · K149)
+
+```bash
+TAG="$(git describe --tags --exact-match HEAD 2>/dev/null || echo etiketsiz)"
+step "Surum: $NEW ($TAG)"
+```
+
+Çıktı ya `==> Surum: 3f2a1bc (v1.1.0)` ya da `==> Surum: 3f2a1bc (etiketsiz)` olur; aynı
+bilgi son satırda da yazar (`Backend bitti: … -> 3f2a1bc (v1.1.0)`).
+
+**Neden?** Backend ve frontend tek ürünün iki yarısı. "Bu backend commit'i hangi frontend
+commit'iyle birlikte doğrulandı?" sorusunun cevabı bir dal adı olamaz: dal her commit'te
+ilerler. Cevap **etiket**tir: iki depoda aynı adı (`v1.1.0`) taşıyan iki commit birlikte
+sınanmış demektir. Denetimde (`OPS-01`) iki depoda da etiket yoktu ve "yayına hazır commit"
+hiçbir yerde işaretli değildi.
+
+| Parça | Anlamı |
+|---|---|
+| `git describe --tags` | HEAD'e en yakın etiketi söyler |
+| `--exact-match` | Yalnızca etiket **tam HEAD'deyse** yazar; "3 commit sonrası" (`v1.1.0-3-gabc`) kabul edilmez |
+| `2>/dev/null \|\| echo etiketsiz` | Etiket yoksa komut hata verir; `\|\|` hem `set -e`'nin betiği kesmesini önler hem günlüğe açık bir kelime yazar |
+
+**Etiketsiz commit uyarı verir, deploy'u durdurmaz.** İlk sürümde katı kural fazla: acil
+bir düzeltme etiket beklemeden çıkabilmeli. Uyarı `stderr`'e yazılır ve günlükte kalır.
+Karar ileride sıkılaştırılabilir (etiketsizse dur).
+
+**Sık hata:** etiketi commit'ten **sonra** itmeyi unutmak. `git pull` etiketleri kendiliğinden
+getirir, ama yalnızca uzakta varsa: `git push origin v1.1.0`. Etiket atıldı ama günlükte
+`etiketsiz` yazıyorsa etiket yereldedir, itilmemiştir.
+
+**Kendin dene (yerelde, Git Bash):**
+
+```bash
+git describe --tags --exact-match HEAD 2>/dev/null || echo etiketsiz
+```
+
+Çalıştırma kitabı (sıra, kontrol listesi, etiket komutları): docs deposu
+`operations/deployment/YAYIN-SIRASI.md`.
 
 ### Adım 2: Composer
 - `--no-dev`: PHPUnit, Pint gibi geliştirme paketleri üretime gitmez (daha az
@@ -137,6 +177,12 @@ git reset --hard abc1234                       # kodu eski sürüme döndür
 bash deploy/deploy.sh                          # önbellekleri/FPM'i/kuyruğu yeniden kur
 ```
 
+⚠️ **Bu yol yalnızca yarıda kalan bir deploy'u toparlar** (Faz 18, `OPS-01`). Betik her
+çalıştığında `git pull --ff-only` yapar: `main` yeni sürümü gösterdiği sürece ikinci satır
+kodu yeniden ileri sarar. Yayındaki bir sürümü **önceki etikete** döndürmek `main` üzerinden,
+yeni bir commit'le yapılır ve sıra tersine döner (önce frontend, sonra backend): docs deposu
+`operations/deployment/YAYIN-SIRASI.md` §5.
+
 ⚠️ **Göçler (migrations) otomatik geri alınmaz.** `migrate` çalışıp sonraki adım
 patladıysa veritabanı yeni şemada kalır. Eski kod yeni şemayla genelde çalışır
 (sütun eklemeleri), ama silme/yeniden adlandırma içeren bir göç varsa geri almadan
@@ -163,6 +209,7 @@ patladıysa veritabanı yeni şemada kalır. Eski kod yeni şemayla genelde çal
 | `Permission denied` (`storage/`) | `storage/` ya da `bootstrap/cache/` grup yazma izni yok (`chmod -R g+w`) |
 | `curl: (60)` / `(35)` | Sertifika yok ya da Nginx 443'te dinlemiyor (Y7) |
 | `curl: (22) ... 5xx` | Laravel hata veriyor: `storage/logs/laravel.log` |
+| `UYARI: … etiketli bir surum degil` | Commit etiketlenmemiş ya da etiket itilmemiş (`git push origin vX.Y.Z`). Deploy devam eder (Adım 1c) |
 | Değişiklik görünmüyor | `.env` değişti ama `config:cache` çalışmadı |
 
 ## 7. Sözlük

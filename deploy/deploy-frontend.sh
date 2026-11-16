@@ -4,6 +4,7 @@
 set -euo pipefail
 
 FRONT_DIR="/var/www/davetkart/frontend"
+BACKEND_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HEALTH_HOST="davetkart.com"
 KEEP_OLD_ASSETS_DAYS=14
 
@@ -37,6 +38,16 @@ step "Kod cekiliyor (onceki surum: $PREV)"
 git pull --ff-only
 NEW="$(git rev-parse --short HEAD)"
 
+# Iki depo AYNI etiketi tasir (K149). Etiketsiz ya da farkli etiket UYARI verir, DURDURMAZ.
+TAG="$(git describe --tags --exact-match HEAD 2>/dev/null || echo etiketsiz)"
+BACKEND_TAG="$(git -C "$BACKEND_DIR" describe --tags --exact-match HEAD 2>/dev/null || echo etiketsiz)"
+step "Surum: $NEW ($TAG) | backend: $BACKEND_TAG"
+if [ "$TAG" = "etiketsiz" ]; then
+    echo "UYARI: $NEW etiketli bir surum degil; hangi backend commit'iyle dogrulandigi kayitli degil." >&2
+elif [ "$TAG" != "$BACKEND_TAG" ]; then
+    echo "UYARI: frontend $TAG, backend $BACKEND_TAG: iki depo ayni etikette degil. Once backend'i yayinla." >&2
+fi
+
 step "npm ci (--ignore-scripts: bagimliliklarin kurulum betikleri calismaz)"
 npm ci --ignore-scripts --no-audit --no-fund
 
@@ -62,4 +73,4 @@ step "Saglik kontrolu"
 curl -fsS --max-time 10 --resolve "$HEALTH_HOST:443:127.0.0.1" "https://$HEALTH_HOST/" | grep -q '<div id="root">' \
     || { echo "Ana sayfa beklenen HTML'i dondurmedi. Geri al: mv dist dist.bad && mv dist.old dist" >&2; false; }
 
-step "Bitti: $PREV -> $NEW"
+step "Bitti: $PREV -> $NEW ($TAG)"

@@ -47,6 +47,14 @@ if [ -z "${DAVETKART_DEPLOY_PREV:-}" ] && ! git diff --quiet "$PREV" "$NEW" -- d
     DAVETKART_DEPLOY_PREV="$PREV" exec bash "$APP_DIR/deploy/deploy.sh" "$@"
 fi
 
+# Etiket = "bu commit frontend'in ayni etiketli commit'iyle birlikte dogrulandi" (K149).
+# Etiketsiz commit UYARI verir, deploy'u DURDURMAZ.
+TAG="$(git describe --tags --exact-match HEAD 2>/dev/null || echo etiketsiz)"
+step "Surum: $NEW ($TAG)"
+if [ "$TAG" = "etiketsiz" ]; then
+    echo "UYARI: $NEW etiketli bir surum degil; hangi frontend commit'iyle dogrulandigi kayitli degil." >&2
+fi
+
 step "Composer bagimliliklari (--no-dev)"
 composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 artisan package:discover --ansi
@@ -69,7 +77,7 @@ step "Saglik kontrolu"
 curl -fsS --max-time 10 --resolve "$HEALTH_HOST:443:127.0.0.1" "https://$HEALTH_HOST/api/ping"
 echo
 
-step "Backend bitti: $PREV -> $NEW"
+step "Backend bitti: $PREV -> $NEW ($TAG)"
 
 # Backend ONCE: yeni frontend yeni API'ye guvenebilsin (API geriye uyumlu yazilir).
 trap - ERR   # buradan sonraki hata backend'in degil; frontend betigi kendi mesajini yazar
