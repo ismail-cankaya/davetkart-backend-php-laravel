@@ -92,6 +92,8 @@ Bunlar Laravel'in değil, **bizim tanımladığımız** kısayollardır. Tanıml
         ↓ geçerse
 3. errors:export --check    katalog güncel mi?
         ↓ geçerse
+3b. plans:export --check    plan kuralları sözleşmesi güncel mi?   (Faz 18, K146)
+        ↓ geçerse
 4. php artisan test         davranış doğru mu?
 ```
 
@@ -316,6 +318,17 @@ php artisan errors:export --check     # yazmaz, güncel mi diye bakar
 
 `ErrorCode` enum'undan makine okunabilir katalog üretir (K31). Frontend bu
 dosyadan çeviri anahtarlarını türetir.
+
+Faz 18'de aynı desenin ikinci komutu geldi (K146):
+
+```powershell
+php artisan plans:export              # contracts/plan-rules.json üretir
+php artisan plans:export --check      # yazmaz, güncel mi diye bakar
+```
+
+Plan kurallarını (`module_tiers`, `preset_tiers`, LCV sınırı) `config/davetkart.php`'den
+okur; frontend kendi kural kopyalarını bu dosyayla denetler. Ayrıntı:
+[`ExportPlanRules.md`](../app/Console/Commands/ExportPlanRules.md).
 
 `--check` bayrağı `composer check` zincirinde (K34) — katalog kodla uyumsuzsa
 zincir kırılır ve sessizce eskimesi imkânsızlaşır.

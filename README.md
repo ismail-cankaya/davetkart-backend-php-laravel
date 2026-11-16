@@ -13,7 +13,7 @@ fotoğraf/video ekler. Frontend ayrı depoda (`davetkart-frontent`, React 19 + T
 | Dil / framework | **PHP ^8.5** · **Laravel 13** · Sanctum 4 |
 | Veritabanı | **PostgreSQL 18** — geliştirme, test ve üretimde aynı motor (K19) |
 | Mimari | Modüler monolit + **Action tabanlı** katman — Repository/Fat Service **yok** |
-| Kalite | Pint · Larastan (level 8) · `errors:export --check` · PHPUnit → `composer check` |
+| Kalite | Pint · Larastan (level 8) · `errors:export --check` · `plans:export --check` · PHPUnit → `composer check` |
 | Hata izleme | Sentry (DSN boşsa kapalı) |
 | CI | GitHub Actions — `composer check` + `composer audit` |
 
@@ -39,9 +39,10 @@ ile 8000'e yollar; yerelde CORS devreye girmez.
 
 | Komut | Ne yapar |
 |---|---|
-| `composer check` | Faz bitiş kapısı: pint → phpstan → errors:export → testler (fail-fast, **son satıra bak**) |
+| `composer check` | Faz bitiş kapısı: pint → phpstan → errors:export → plans:export → testler (fail-fast, **son satıra bak**) |
 | `composer lint` | Kod stilini düzeltir (`check` yalnızca bakar) |
 | `php artisan errors:export` | `contracts/error-codes.json`'u üretir (frontend'e tek yönlü kopyalanır) |
+| `php artisan plans:export` | `contracts/plan-rules.json`'u üretir: plan sırası, LCV sınırı, modül ve şablon planları (frontend'e tek yönlü kopyalanır) |
 | `php artisan orders:expire --dry-run` | Süresi dolmuş bekleyen siparişler |
 | `php artisan media:prune-orphans --dry-run` | LCV'ye bağlanmamış misafir yüklemeleri |
 | `php artisan gift-codes:create KOD --benefit=percent --percent=20 --max-uses=50` | Elle belirlenen hediye kodu (Faz 11) |
