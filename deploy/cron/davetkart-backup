@@ -1,0 +1,11 @@
+# DavetKart gece veritabani yedegi (pg_dump -> S3). Ayrinti: docs/rehber/deploy/cron/davetkart-backup.md
+# Kurulum: /etc/cron.d/davetkart-backup  (root:root 644; dosya adinda nokta OLMAZ)
+SHELL=/bin/sh
+# aws CLI /usr/local/bin (resmi kurucu) ya da /snap/bin (snap) altinda olabilir; ikisi de PATH'te.
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+MAILTO=""
+
+# dk sa gun ay hg  kullanici  komut
+# 02:00 UTC (sunucu saati UTC). Lightsail goruntusu 01:00, media:prune-orphans 03:15: cakismaz.
+# root, betigin KURULU kopyasini calistirir (depodaki dosyayi degil). Cikti: journalctl -t davetkart-backup
+0 2 * * * root /usr/local/sbin/davetkart-pg-dump 2>&1 | /usr/bin/logger -t davetkart-backup

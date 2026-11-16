@@ -1,7 +1,7 @@
 # FAZ 18 — Denetim düzeltmeleri (`AUD-2026-11-12`)
 
 > **Başlangıç:** 16 Kasım 2026 · **Entegrasyon dalı:** `faz-18-audit-fixes` (`d810410` üstü; frontend'de `main`'deki `47aedc8` birleştirildi)
-> **Durum:** sürüyor (1/6). Her bulgu ayrı bir `fix/…` dalında kapanır, `faz-18-audit-fixes`'e birleşir; faz sonunda `main` + `v1.1.0`.
+> **Durum:** sürüyor (2/6). Her bulgu ayrı bir `fix/…` dalında kapanır, `faz-18-audit-fixes`'e birleşir; faz sonunda `main` + `v1.1.0`.
 > **Kaynak:** docs deposu `audits/2026-11-12-full-system-audit/REPORT.md` §1 ve §4 · takip tablosu `phases/faz-18/README.md`
 > **Kararlar:** docs deposu `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-18.md`
 > **Önceki:** [`FAZ-15.md`](FAZ-15.md). Faz 16–17'nin kaydı yok (`ARC-02`, bu fazın kapsamı dışında).
@@ -11,7 +11,7 @@
 | Sıra | Bulgu | Konu | Dal | K | Durum |
 |---|---|---|---|---|---|
 | 18.1 | `OPS-01` | Yayına çıkacak commit ve dağıtım sırası; plan kuralları sözleşmesi (+ `TST-01`) | `fix/2026-11-16-ops-01-release-alignment` | K146–K150 | kod ✅ · `composer check` ✅ 1074 test · frontend `npm run check` ✅ · sunucu adımları koşmadı. Commit ve birleştirme durumu: docs deposu `phases/faz-18/README.md` |
-| 18.2 | `OPS-02` | Veritabanı yedeği ve geri yükleme provası | — | — | bekliyor |
+| 18.2 | `OPS-02` | Veritabanı yedeği ve geri yükleme provası | `fix/2026-11-16-ops-02-db-backup` | K151–K157 | kod ✅ · yerel kuru koşu ve prova ✅ · `composer check` ✅ 1074 test · S3 yüklemesi, sunucu kurulumu ve üretim provası koşmadı (İsmail'in elle işleri, §18.2) |
 | 18.3 | `SEC-01` | İlk yayın indirimi tek açık siparişe | — | — | bekliyor |
 | 18.4 | `SEC-02` | Yayınlanmış hakkın iadesi | — | — | bekliyor |
 | 18.5 | `SEC-03` | Shopier `callback` kipi üretimde reddedilir | — | — | bekliyor |
@@ -151,3 +151,159 @@ Makine: Windows 11, PHP 8.5.12, PostgreSQL (`davetkart_test`), Node 24.18.0, npm
 | — | `docs/rehber/deploy/deploy.md` §4'teki eski geri alma (`git reset --hard` + `deploy.sh`) `git pull` yüzünden yeni sürüme geri sarar; yanına ⚠️ notu kondu, iki komut satırı değiştirilmedi |
 | — | `.github/workflows/ci.yml` iş adı "Pint + PHPStan + errors:export + testler" diyor; `plans:export` adı geçmiyor (iş `composer check` koştuğu için denetim CI'da da çalışır) |
 | — | `deploy-frontend.sh` sözleşme kopyalarını karşılaştırıp fark varsa **durmuyor**; öneri `YAYIN-SIRASI.md` §7'de, karar bekliyor |
+
+---
+
+## 18.2 — `OPS-02`: veritabanı yedeği ve geri yükleme provası yok
+
+### Sorun
+
+Tek yedek Lightsail'in günlük disk görüntüsüydü (son 7 gün, aynı AWS hesabında). Mantıksal döküm
+yoktu ve geri yükleme hiç denenmemişti; yayın planındaki Y11.5 (gece `pg_dump` → S3) ve Y11.6 (prova)
+yapılmamıştı, `deploy/` içinde yedek betiği yoktu. Hatalı bir göç ya da elle çalıştırılan bir `DELETE`
+siparişleri bozsaydı tek tablo geri getirilemezdi; disk görüntüsüne dönmek aradaki ödemeleri ve LCV'leri
+de silerdi. Canlıda henüz müşteri verisi yok: açığı kapatmanın en ucuz anı şimdi. Kök neden kod değil,
+**eksik bir katmandı**: disk görüntüsü "sunucu yandı"yı çözer, "veri bozuldu"yu çözmez; ve denenmemiş
+bir yedek yalnızca bir umuttur.
+
+### Kararlar
+
+| K | Karar (tek cümle) |
+|---|---|
+| **K151** | Her gece 02:00 UTC'de `pg_dump -Fc` (tek tablo `pg_restore -t` ile geri gelir); ayrı cron dosyası, `root`; çakışan koşu betiğin içindeki `flock` ile engellenir. |
+| **K152** | Hedef, medya bucket'ından **ayrı** bir S3 bucket'ı: Block Public Access açık, sürümleme açık, SSE-S3; geçerli sürüm 30 gün, eski sürüm 7 gün (etkili saklama en çok ~37 gün). |
+| **K153** | Sunucudaki kimlik yalnızca **yazabilir** (`s3:PutObject`, `daily/*`); anahtar `/etc/davetkart/backup.env` (root:600, betik izni denetler); betik depodan değil root'a ait kurulu kopyadan çalışır. |
+| **K154** | Veritabanına `postgres` sistem kullanıcısı ve peer kimlik doğrulamayla bağlanılır; parola hiçbir dosyada ve komut satırında yok. |
+| **K155** | Döküm yüklenmeden doğrulanır (`pg_restore --list`, boyut, zorunlu tabloların verisi) ve yanına `manifest.json` yazılır; satır sayıları dökümle **aynı anlık görüntüden** alınır (`pg_export_snapshot` + `--snapshot`). |
+| **K156** | İzleme asgari: ayar dosyasında tanımlıysa başarı ve başarısızlık için iki kalp atışı adresi; adres günlüğe yazılmaz; alarmın tamamı `OPS-03`. |
+| **K157** | Kabul ölçütü: kayıt açılmadan önce üretim dökümüyle bir prova ve ölçülen süre plana yazılır; sonra ayda bir prova; RPO 24 saat bilinçli kabul, WAL/PITR ayrı karar. |
+
+### Değişen dosyalar
+
+**Backend** (`fix/2026-11-16-ops-02-db-backup`)
+
+| Adım | Dosya | Ne | Kılavuz |
+|---|---|---|---|
+| 18.2.1 | `deploy/backup/pg-dump.sh` | Yedek betiği (yeni) | [`pg-dump.md`](../deploy/backup/pg-dump.md) |
+| 18.2.1 | `deploy/backup/backup.env.example` | Ayar dosyası şablonu (yeni; gerçek değer yok) | aynı, §5 |
+| 18.2.2 | `deploy/cron/davetkart-backup` | Cron satırı (yeni) | [`davetkart-backup.md`](../deploy/cron/davetkart-backup.md) |
+| 18.2.3 | `deploy/backup/restore-drill.ps1` | Geri yükleme provası ve tek tablo kipi (yeni) | [`restore-drill.md`](../deploy/backup/restore-drill.md) |
+| 18.2.4 | `docs/rehber/fazlar/FAZ-18.md` · `README.md` | Bu kayıt | — |
+
+PHP kodu, göç, test ve bağımlılık **değişmedi**. Frontend değişmedi.
+
+**Docs** (`docs/2026-11-16-faz-18-audit-fixes`): `operations/deployment/YEDEK-VE-GERI-YUKLEME.md`
+(çalıştırma kitabı: bucket, IAM politikası, sunucu kurulumu, prova takvimi), `YAYIN-PLANI.md` ve
+`YAYIN-SIRASI.md` bağlantıları, `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-18.md`,
+`decisions/DECISION-INDEX.md`, `phases/faz-18/FAZ-18-OPS-02-COMMIT-KOMUTLARI.md` ve dizin satırları.
+
+### Denemeler ve öldürdükleri mutantlar
+
+Betiklerin PHPUnit testi yok (PHP değil). Denemeler yerelde, Git Bash + PostgreSQL 18.4 ile, bu
+oturumda kurulup kaldırılan `davetkart_backup_selftest` veritabanına karşı koştu. Bozuk dökümleri
+`PATH`'in başına konan **sahte bir `pg_dump`** üretti. Mutantlar asıl dosyada değil, `sed` ile
+üretilen **kopyalarda** uygulandı (dosya henüz izlenmediği için `git diff --stat` bir şey
+göstermezdi); asıl dosyanın SHA-256'sı koşulardan önce ve sonra aynıydı (`65a94a843db99757…`).
+
+| # | Betik | Verilen döküm | Sonuç | Anlamı |
+|---|---|---|---|---|
+| A | asıl | gerçek | çıkış 0 · `TAMAM` | taban |
+| B | asıl | dolu ama bozuk dosya | çıkış 1 · `dokum okunamiyor: pg_restore --list basarisiz` | `--list` yakaladı |
+| C | asıl | boş dosya | çıkış 1 · aynı mesaj | `--list` boş dosyayı da yakalar |
+| D | **M-list** (`--list` bloğu silindi) | dolu ama bozuk dosya | çıkış **0** · `TAMAM` | ✅ mutant öldü: doğrulama olmadan bozuk dosya sessizce geçiyor |
+| E | M-list | boş dosya | çıkış 1 · `dokum dosyasi bos` | boyut denetimi ikinci ağ |
+| F | **M-listcode** (`\|\| fail` → `\|\| true`) | dolu ama bozuk dosya | çıkış 1 · `dokumde 'users' tablosunun verisi yok` | TOC denetimi ikinci ağ |
+| G | **M-size** (boyut denetimi silindi) | boş dosya | çıkış 1 · `--list` mesajı | ⚠️ mutant **hayatta**: `--list` varken boyut denetimi tek başına hiçbir şey yakalamıyor (yedek ağ; D5'te sayıldığı için kaldı) |
+| H | asıl | başka veritabanının geçerli dökümü | çıkış 1 · `dokumde 'users' tablosunun verisi yok` | TOC denetimi yakaladı |
+| I | **M-toc** (TOC denetimi silindi) | başka veritabanının geçerli dökümü | çıkış **0** · `TAMAM` | ✅ mutant öldü: tablosuz döküm "yedek" diye geçiyor |
+| J | asıl | `BACKUP_DB_NAME=postgres` | çıkış 1 · `zorunlu tablo veritabaninda yok: users` | yanlış veritabanı |
+| K | asıl | döküm sırasında `INSERT` | manifest `orders: 5`, prova `5 = 5`, çıkış 0 | anlık görüntü çalışıyor (canlıda o an 6 satır vardı) |
+| L | **M-nosnap** (`--snapshot` silindi) | döküm sırasında `INSERT` | manifest `orders: 6`, prova `6 ≠ 7` `FARK`, çıkış 1 | ✅ mutant öldü: prova yakaladı |
+
+Prova betiğinin olumsuz durumları (hepsi çıkış 1): hedef veritabanı `davetkart` (koruma) · dökümün
+sonuna bir bayt eklendi (`boyut farkli`) · aynı boyutta tek bit değişti (`SHA-256 farkli`) ·
+manifestte `orders` 24 → 25 (`FARK`) · uzantısı `.dump` olmayan dosya · geçersiz JSON manifest.
+
+### Doğrulama durumu (B7)
+
+Makine: Windows 11, Git Bash (bash 5.3.15), PostgreSQL 18.4 (yerel), Windows PowerShell 5.1. Tarih: 16 Kasım 2026.
+
+| Komut | Sonuç | Çıktıdan |
+|---|---|---|
+| `bash -n deploy/backup/pg-dump.sh` | ✅ | sözdizimi temiz (çıkış 0) |
+| `shellcheck` | koşmadı | kurulu değil |
+| Satır sonu: `git ls-files --eol --others` | ✅ | dört yeni dosya `w/lf` |
+| `pg-dump.sh --local` (yerel `davetkart`) | ✅ | `TAMAM: … (66856 bayt, 21 tablo, 233 satir, 1 sn)` · çıkış 0 · geçici dizin silindi |
+| `DRY_RUN=1 pg-dump.sh` | ✅ | `backup-out/` altında `.dump` + `.manifest.json` |
+| `pg-dump.sh` parametresiz, root değil | ✅ beklenen | `HATA: S3 kipi root ister …` · çıkış 1 |
+| Mutant koşuları A–L | ✅ | yukarıdaki tablo |
+| Kılavuzdaki "mutantı kendin dene" komutları | ✅ | asıl: çıkış 1 · mutant: çıkış 0 |
+| `restore-drill.ps1 -Dump` (yerel döküm) | ✅ | 21 tablo `ok` · `Geri yukleme : 0.3 sn (21 tablo, 233 satir)` · çıkış 0 |
+| `restore-drill.ps1 -OnlyTable orders` | ✅ | `orders 24 24 ok` · yan veritabanı `davetkart_restore_side` · çıkış 0 |
+| Prova: altı olumsuz durum | ✅ | hepsi çıkış 1, mesajlar yukarıda |
+| S3 kolu, **sahte** `aws`/`id`/`runuser`/`stat`/`flock`/`curl` ile (7 durum) | ✅ (sahte araçla) | başarı: `flock -n 9` → `runuser -u postgres -- psql` → `… pg_dump` → `aws s3 cp … .dump --sse AES256` → `aws s3 cp … .manifest.json` → kalp atışı `status=ok` · izin `root:644`, yer tutucu bucket, yükleme hatası, dolu kilit, bozuk döküm: çıkış 1 · kalp atışı gönderilemedi: çıkış 0 + uyarı · yedi günlükte de sahte anahtar ve adres **yok** |
+| Gerçek S3 yüklemesi, bucket, IAM politikası | koşmadı | canlı sisteme istek atılmadı; bu makinede `aws` yok |
+| Gerçek `flock` kilidi | koşmadı | Git Bash'te `flock` yok; yalnızca dal sahte araçla sınandı |
+| Root + `runuser` + peer kimlik doğrulama | koşmadı | Linux sunucu yok; yerelde libpq ortamıyla bağlanıldı |
+| Ayar dosyası izin denetimi (gerçek `stat`) | koşmadı | Windows'ta sahip/izin anlamlı değil; sahte `stat` ile sınandı |
+| Cron dosyası | koşmadı | cron yok; dosya okundu |
+| `restore-drill.ps1 -S3Uri` (indirme kolu) | koşmadı | `aws` yok |
+| Gerçek kalp atışı isteği | koşmadı | sahte `curl` |
+| `composer check` (dalın sağlığı) | ✅ | pint `passed` · phpstan `errors: 0` · `Katalog guncel.` · `Plan kurallari sozlesmesi guncel.` · phpunit `tests: 1074, passed: 1074, assertions: 3989` |
+
+⚠️ Yerelde ölçülen 0,3 saniye **geliştirme verisinin** (66 KB) süresidir, üretimin RTO'su değil.
+K157'nin istediği prova üretim dökümüyle yapılır.
+
+### Elle doğrulama (İsmail)
+
+Sıra ve komutlar: docs deposu `operations/deployment/YEDEK-VE-GERI-YUKLEME.md`.
+
+1. Yerelde kuru koşu ve prova: [`pg-dump.md`](../deploy/backup/pg-dump.md) §6,
+   [`restore-drill.md`](../deploy/backup/restore-drill.md) §6. Mutantı kendin dene: `pg-dump.md` §6.
+2. AWS: yedek bucket'ı ve `davetkart-backup` kimliği (çalıştırma kitabı §2–§3).
+3. Sunucu: AWS CLI kurulumu (**karar senin**, §4.1), ayar dosyası, betiğin kurulu kopyası, elle ilk
+   koşu (`TAMAM`), sonra cron dosyası (§4).
+4. Olumsuz deneme: sunucudan `aws s3 ls` ve `aws s3 cp s3://… .` **reddedilmeli** (§5).
+5. Ertesi sabah: `journalctl -t davetkart-backup --since today` ve S3'te o günün iki dosyası.
+6. İlk üretim provası; süreyi çalıştırma kitabı §6'daki prova kaydına yaz. **Kayıt açılmadan önce.**
+7. Prova veritabanlarını sil (aşağıda).
+
+Bu oturumdan kalan yerel veritabanları (içlerinde geliştirme verisinin kopyası var; istenince silinir):
+
+```powershell
+& 'C:\Program Files\PostgreSQL\18\bin\dropdb.exe' -h 127.0.0.1 -p 5432 -U postgres davetkart_restore_drill
+& 'C:\Program Files\PostgreSQL\18\bin\dropdb.exe' -h 127.0.0.1 -p 5432 -U postgres davetkart_restore_side
+```
+
+### Plandan sapmalar
+
+- **İki kalp atışı adresi (D6 tek değişken diyordu).** `BACKUP_HEARTBEAT_URL` başarıda,
+  `BACKUP_HEARTBEAT_FAIL_URL` hatada çağrılır. Tek adrese `?status=error` eklemek Sentry'de çalışır,
+  başka araçlarda hatayı **başarı** diye bildirirdi; betik hiçbir aracı varsaymıyor.
+- **Manifest dört tabloyu değil `public` şemasının tamamını sayar (D5 "önemli tablolar" diyordu).**
+  Dört tablo "zorunlu" olarak ayrıca denetlenir. Elle tutulan liste yeni tabloyla birlikte eskirdi.
+- **Anlık görüntü eşitlemesi ve TOC denetimi eklendi (D5'te yoktu).** İlki provanın tam eşitlik
+  arayabilmesi için (mutant L), ikincisi "geçerli ama yanlış döküm"ü aynı gece yakalamak için (mutant I).
+- **Betik depodan değil kurulu kopyadan çalışır.** Root, `deploy` kullanıcısının yazabildiği bir
+  dosyayı çalıştırırsa `deploy` fiilen root olur. Kurulum bu yüzden `deploy.sh`'ta değil, çalıştırma
+  kitabında (cron ve sudoers dosyalarıyla aynı yol).
+- **`backup.env.example` eklendi (adım tablosunda yoktu).** Ayar dosyasının biçimi depoda dursun diye;
+  18.2.1'in commit'inde.
+- **Dosya adları zaman damgalı** (`davetkart-<damga>.dump` / `.manifest.json`; D5 `manifest.json`
+  diyordu): aynı gün iki koşu birbirini ezmesin, indirilen dosyalar klasörde karışmasın.
+- **AWS CLI için durulmadı (§8 son madde).** Plan kaydında sunucuda `aws` yok. Betik kurulum
+  yönteminden bağımsız olduğu için iş sürdü; seçenekler çalıştırma kitabı §4.1'de, karar İsmail'in.
+- **§6'daki mutant birebir uygulanınca kırmızı kalıyor.** "`--list`'i kaldır, **boş** dosya ver"
+  koşusunu (E) boyut denetimi yakalıyor. `--list`'in değerini gösteren koşu dolu ama bozuk dosyadır (D).
+
+### Gördüm, dokunmadım
+
+| Bulgu | Ne |
+|---|---|
+| `SEC-11` | Gizlilik metni yedek süresini söylemiyor. Yazılırken sayı **30 değil ~37 gün** olmalı: geçerli sürüm 30 günde sona erer, eski sürüm 7 gün daha durur (K152); Lightsail görüntüsü ayrıca 7 gün |
+| `OPS-03` | İzleme ve alarm. Kalp atışı adresleri boş; `/api/ping` veritabanına dokunmuyor |
+| `OPS-04` | `docs/10-URETIM-ENV-SABLONU.md` sunucudaki `.env`'den sapmış. Yedek ayarları bilerek oraya değil ayrı dosyaya kondu |
+| — | `deploy.sh`, sunucudaki **kurulu kopyaların** (cron, sudoers, yedek betiği) depodakiyle aynı olduğunu denetlemiyor. Öneri: deploy sonunda `cmp` ile uyarı (durdurmadan) |
+| — | Yedekler istemci tarafında şifrelenmiyor ve bucket'ta Object Lock yok: `PutObject` var olan anahtarın üstüne yazabilir, eski sürüm 7 gün durur (K153'ün sınırı). İleride ayrı karar |
+| — | `YAYIN-PLANI.md` §1 şeması ve Y3.3 yedekler için hâlâ "ayrı önek / `backups/` 30 gün" diyor; karar Y3.1 kaydında "ayrı bucket"a dönmüştü. Geçmiş satırlar yeniden yazılmadı |
+| `ARC-01` | `DECISION-INDEX.md` K128–K145'i hâlâ içermiyor |
