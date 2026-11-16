@@ -10,7 +10,7 @@
 
 | Sıra | Bulgu | Konu | Dal | K | Durum |
 |---|---|---|---|---|---|
-| 18.1 | `OPS-01` | Yayına çıkacak commit ve dağıtım sırası; plan kuralları sözleşmesi (+ `TST-01`) | `fix/2026-11-16-ops-01-release-alignment` | K146–K150 | backend: kod ✅ · commit bekliyor — frontend: §18.1 "Doğrulama durumu" |
+| 18.1 | `OPS-01` | Yayına çıkacak commit ve dağıtım sırası; plan kuralları sözleşmesi (+ `TST-01`) | `fix/2026-11-16-ops-01-release-alignment` | K146–K150 | kod ✅ · `composer check` ✅ 1074 test · frontend `npm run check` ✅ · sunucu adımları koşmadı. Commit ve birleştirme durumu: docs deposu `phases/faz-18/README.md` |
 | 18.2 | `OPS-02` | Veritabanı yedeği ve geri yükleme provası | — | — | bekliyor |
 | 18.3 | `SEC-01` | İlk yayın indirimi tek açık siparişe | — | — | bekliyor |
 | 18.4 | `SEC-02` | Yayınlanmış hakkın iadesi | — | — | bekliyor |
@@ -61,12 +61,17 @@ bağlayan ne bir dosya ne bir sıra kuralı vardı.
 
 | Adım | Dosya | Ne |
 |---|---|---|
-| 18.1.0 | `package.json` · `package-lock.json` | `main`'deki `47aedc8` birleştirmesinin çakışması çözüldü (birleştirme commit'i) |
+| 18.1.0 | `package.json` · `package-lock.json` | `main`'deki `47aedc8` birleştirmesinin çakışması çözüldü (birleştirme commit'i `f35aa2c`, `faz-18-audit-fixes`) |
 | 18.1.5 | `src/contracts/plan-rules.json` | Sözleşmenin kopyası |
 | 18.1.5 | `src/contracts/planRules.ts` | Tipli okuyucu + `MODULE_FIELDS` (kolon adı → davetiye alanı) |
 | 18.1.5 | `scripts/verify-plan-rules.ts` | Denetim betiği |
-| 18.1.5 | `package.json` | `verify:plans` ve `verify` zinciri |
 | 18.1.5 | `docs/rehber/scripts/verify-plan-rules.md` | Kılavuz |
+| 18.1.5 | `package.json` | `verify:plans` ve `verify` zinciri (düzeltme dalındaki tek dosya) |
+
+⚠️ 18.1.5'in ilk dört dosyası düzeltme dalına değil, 18.1.0 birleştirme commit'ine (`f35aa2c`) girdi:
+birleştirme commit'i atılırken çalışma ağacında izlenmeyen dosya olarak bekliyorlardı ve birlikte
+eklendiler. İçerik aynı; yalnızca "hangi commit" farklı. O commit tek başına da yeşildir (betik
+zincire `package.json` ile, düzeltme dalında bağlanır).
 
 **Docs** (`docs/2026-11-16-faz-18-audit-fixes`): `operations/deployment/YAYIN-SIRASI.md` (çalıştırma kitabı),
 `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-18.md`, `decisions/DECISION-INDEX.md`,
@@ -103,7 +108,11 @@ Makine: Windows 11, PHP 8.5.12, PostgreSQL (`davetkart_test`), Node 24.18.0, npm
 | Frontend 18.1.0: `npm install` · `npm ci` · `npm run check` | ✅ | çıkış 0 · `added 155 packages … found 0 vulnerabilities` · `npm run check` çıkış 0 |
 | Frontend: `node scripts/run-check.mjs scripts/verify-plan-rules.ts` | ✅ | `32 premium şablon iki tarafta aynı (toplam 373 şablon)` · `3 kartın bütün satırları…` · `501 durumda…` (çıkış 0) |
 | Frontend: `tsc --noEmit` (yeni dosyalarla) | ✅ | çıkış 0 |
-| Frontend: `npm run verify:plans` (zincirden) · son `npm ci` + `npm run check` | koşmadı | `package.json`'a `verify:plans` satırı henüz eklenmedi: 18.1.0 birleştirme commit'i bekleniyor (satır o commit'e karışmamalı). Betik doğrudan çağrılarak koştu (üst satır) |
+| Frontend (düzeltme dalı, `f35aa2c` + `package.json`): `npm ci` | ✅ | `added 155 packages … found 0 vulnerabilities` (çıkış 0) |
+| Frontend: `npm run verify:plans` | ✅ | `✓ Plan kuralları backend sözleşmesiyle aynı: premium şablonlar, fiyat kartı, gereken plan hesabı.` (çıkış 0) |
+| Frontend: `npm run check` (lint → build → verify) | ✅ | çıkış 0 · `✓ built in 21.82s` · zincirde `verify:plans` koştu (`verify:pricing` ile `verify:render` arasında) |
+| Frontend: iki mutant, `npm run verify:plans` ile | ✅ öldü | ikisinde de çıkış 1; geri alındıktan sonra `git diff --stat` yalnızca `package.json` (2 ekleme, 1 silme) |
+| Sözleşme kopyası ↔ backend dosyası (`Compare-Object`) | ✅ | `AYNI` |
 
 ### Elle doğrulama (İsmail)
 
@@ -122,6 +131,10 @@ Makine: Windows 11, PHP 8.5.12, PostgreSQL (`davetkart_test`), Node 24.18.0, npm
 - **`deploy-frontend.sh` de değişti.** Plan "gerekirse" diyordu. Frontend kendi commit'ini ayrı günlüğe
   yazıyor ve tek başına çalıştırılabiliyor; tehlikeli sıra o yoldan geldiği için backend'in etiketini de
   yazıp fark varsa uyarıyor.
+- **18.1.0'daki "dur" yalnızca frontend dalı için uygulandı.** Backend ve docs adımları frontend
+  birleştirme commit'ini beklemeden yürüdü; frontend'in yeni dosyaları o sırada izlenmeyen dosya olarak
+  hazırlandı ve birleştirme commit'ine girdi (yukarıdaki ⚠️). Bu kayıt 18.1.4'te commit'lendikten sonra
+  frontend sonucuyla güncellendi (18.1.7).
 - **Geri alma `git reset` ile değil `main` üzerinden.** `deploy.sh` her çalıştığında `git pull` yaptığı
   için sunucuda `reset` kalıcı değil; `YAYIN-SIRASI.md` §5 yeni bir commit'le dönüşü anlatıyor
   (komutlar denenmedi).
