@@ -6,6 +6,7 @@ namespace App\Actions\Payment;
 
 use App\Actions\Invitation\WithdrawUncoveredInvitationAction;
 use App\Enums\OrderStatus;
+use App\Enums\PromotionKind;
 use App\Events\InvitationChanged;
 use App\Models\Invitation;
 use App\Models\Order;
@@ -36,6 +37,9 @@ use Illuminate\Support\Facades\Log;
  * 🔴 Faz 10 (K-4): reddedilen bir `paid` artik SESSIZ DEGIL. Saglayici parayi
  * cektigini soyluyor ama siparis odenemiyorsa bu bir insanin bakmasi gereken
  * bir tutarsizliktir -> Log::critical. Kabul edilen gec odeme de iz birakir.
+ *
+ * 🔴 Faz 18.3 (SEC-01, K158): ilk yayın indiriminin SON KAPISI. İndirimli ikinci
+ * bir sipariş ödenirse geçiş yapılır ama Log::critical düşer.
  * Ayrintili aciklama: docs/rehber/app/Actions/Payment/HandlePaymentCallbackAction.md
  */
 final class HandlePaymentCallbackAction
@@ -138,6 +142,16 @@ final class HandlePaymentCallbackAction
                 ]);
             }
 
+            // 🔴 Faz 18.3 (K158, 3. katman — SON KAPI): ilk yayın indirimi tek
+            // kullanımlık. Checkout'taki kilit ve index açık siparişi sayar; kapanmış
+            // (expired) bir siparişe geç gelen ödeme onları aşabilir. Geçiş
+            // geri çevrilmez (para alındı), bir insana haber verilir.
+            // Commit'ten SONRA bakılır: eşzamanlı iki bildirimden geç commit
+            // edeni diğerini mutlaka görür; kilit gerekmez.
+            if ($order->status === OrderStatus::Paid && $order->promotion === PromotionKind::FirstPublish) {
+                DB::afterCommit(fn () => $this->reportRepeatedFirstPublish($order));
+            }
+
             // Faz 10 (10.66 · K102): hak değişti (ödendi ya da iade). Misafir
             // sayfasının imzası buna bağlı; önbellek commit'ten sonra düşsün.
             if ($order->status->hasBeenPaid() && $order->invitation_id !== null) {
@@ -161,6 +175,41 @@ final class HandlePaymentCallbackAction
 
             return $order;
         });
+    }
+
+    /**
+     * Bu kullanıcının ilk yayın indirimiyle ödenmiş BAŞKA bir siparişi varsa yazar.
+     *
+     * `paid_at` damgası sorulur, durum değil: iade edilen sipariş de indirimi
+     * kullanmıştı (K131). Yönetici bildirim kanalı henüz yok; kanal `critical` log'dur.
+     */
+    private function reportRepeatedFirstPublish(Order $order): void
+    {
+        // Hesap silinmişse (K97) sipariş kimsenin değil; karşılaştırılacak kullanıcı yok.
+        if ($order->user_id === null) {
+            return;
+        }
+
+        $others = Order::query()
+            ->where('user_id', $order->user_id)
+            ->whereKeyNot($order->getKey())
+            ->where('promotion', PromotionKind::FirstPublish->value)
+            ->whereNotNull('paid_at')
+            ->orderBy('paid_at')
+            ->pluck('id')
+            ->all();
+
+        if ($others === []) {
+            return;
+        }
+
+        Log::critical('First publish discount paid on more than one order', [
+            'order_id' => $order->id,
+            'user_id' => $order->user_id,
+            'other_order_ids' => $others,
+            'amount_minor' => $order->amount_minor,
+            'promotion_discount_minor' => $order->promotion_discount_minor,
+        ]);
     }
 
     /**

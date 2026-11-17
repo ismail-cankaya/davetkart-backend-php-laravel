@@ -59,3 +59,18 @@ curl -X POST http://127.0.0.1:8000/api/gift-codes/preview `
   fiyata uygulanır (K133).
 - `gift_code` yöntemi kapalıysa 403 `PAYMENT_METHOD_DISABLED` (`method: gift_code`), kod
   hiç aranmaz.
+
+---
+
+## 🆕 Faz 18.3 (`SEC-01` · K159)
+
+`handle(User, string $code, SubscriptionTier, ?string $invitationId = null)`. Önizlemenin tabanı
+artık checkout'un kullanacağı fiyatla **aynı hedef için** hesaplanır:
+`quotePrice->handle($user, $tier, $invitationId)`. Örnek (Gold 399, ilk yayın %60, kod %50):
+
+| Durum | Taban | Önizleme toplamı |
+|---|---|---|
+| İndirimi bu davetiyenin siparişi tutuyor, `invitationId` = o davetiye | 159,60 | 79,80 |
+| Aynı kullanıcı, hedefsiz (paket) | 399,00 | 199,50 |
+
+Test: `GiftCodePreviewTest::the_preview_prices_the_target_it_is_asked_for`.

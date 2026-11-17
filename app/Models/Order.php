@@ -140,6 +140,22 @@ class Order extends Model
         $query->whereNull('consumed_at');
     }
 
+    /**
+     * ÖDEME BEKLEYEN siparişler: `pending` ve penceresi dolmamış (Faz 18.3, K158).
+     *
+     * 🔴 Durum tek başına yetmez: penceresi dolmuş satır, `orders:expire` uğrayana
+     * kadar `pending` görünür. isExpired() ile aynı sınır; NULL pencere sınırsızdır (N4).
+     *
+     * @param  Builder<Order>  $query
+     */
+    public function scopeAwaitingPayment(Builder $query): void
+    {
+        $query->where('status', OrderStatus::Pending->value)
+            ->where(static function (Builder $window): void {
+                $window->whereNull('expires_at')->orWhere('expires_at', '>=', now());
+            });
+    }
+
     /** Hak yandı mı? (Faz 14, K137) */
     public function isConsumed(): bool
     {

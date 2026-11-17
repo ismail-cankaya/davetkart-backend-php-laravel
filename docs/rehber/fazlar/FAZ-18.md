@@ -1,7 +1,7 @@
 # FAZ 18 — Denetim düzeltmeleri (`AUD-2026-11-12`)
 
 > **Başlangıç:** 16 Kasım 2026 · **Entegrasyon dalı:** `faz-18-audit-fixes` (`d810410` üstü; frontend'de `main`'deki `47aedc8` birleştirildi)
-> **Durum:** sürüyor (2/6). Her bulgu ayrı bir `fix/…` dalında kapanır, `faz-18-audit-fixes`'e birleşir; faz sonunda `main` + `v1.1.0`.
+> **Durum:** sürüyor (3/6). Her bulgu ayrı bir `fix/…` dalında kapanır, `faz-18-audit-fixes`'e birleşir; faz sonunda `main` + `v1.1.0`.
 > **Kaynak:** docs deposu `audits/2026-11-12-full-system-audit/REPORT.md` §1 ve §4 · takip tablosu `phases/faz-18/README.md`
 > **Kararlar:** docs deposu `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-18.md`
 > **Önceki:** [`FAZ-15.md`](FAZ-15.md). Faz 16–17'nin kaydı yok (`ARC-02`, bu fazın kapsamı dışında).
@@ -12,7 +12,7 @@
 |---|---|---|---|---|---|
 | 18.1 | `OPS-01` | Yayına çıkacak commit ve dağıtım sırası; plan kuralları sözleşmesi (+ `TST-01`) | `fix/2026-11-16-ops-01-release-alignment` | K146–K150 | kod ✅ · `composer check` ✅ 1074 test · frontend `npm run check` ✅ · sunucu adımları koşmadı. Commit ve birleştirme durumu: docs deposu `phases/faz-18/README.md` |
 | 18.2 | `OPS-02` | Veritabanı yedeği ve geri yükleme provası | `fix/2026-11-16-ops-02-db-backup` | K151–K157 | kod ✅ · yerel kuru koşu ve prova ✅ · `composer check` ✅ 1074 test · S3 yüklemesi, sunucu kurulumu ve üretim provası koşmadı (İsmail'in elle işleri, §18.2) |
-| 18.3 | `SEC-01` | İlk yayın indirimi tek açık siparişe | — | — | bekliyor |
+| 18.3 | `SEC-01` | İlk yayın indirimi tek açık siparişe | `fix/2026-11-16-sec-01-first-publish-once` | K158–K163 | kod ✅ · `composer check` ✅ 1126 test · frontend `npm run check` ✅ · 13 mutanttan 13'ü öldü (biri kod sadeleştirilerek) · yerel göç, tarayıcı denemesi ve gerçek yarış testi koşmadı (§18.3) |
 | 18.4 | `SEC-02` | Yayınlanmış hakkın iadesi | — | — | bekliyor |
 | 18.5 | `SEC-03` | Shopier `callback` kipi üretimde reddedilir | — | — | bekliyor |
 | 18.6 | `SEC-04` | Frontend güvenlik başlıkları + Faz 18 kapanışı | — | — | bekliyor |
@@ -307,3 +307,195 @@ Bu oturumdan kalan yerel veritabanları (içlerinde geliştirme verisinin kopyas
 | — | Yedekler istemci tarafında şifrelenmiyor ve bucket'ta Object Lock yok: `PutObject` var olan anahtarın üstüne yazabilir, eski sürüm 7 gün durur (K153'ün sınırı). İleride ayrı karar |
 | — | `YAYIN-PLANI.md` §1 şeması ve Y3.3 yedekler için hâlâ "ayrı önek / `backups/` 30 gün" diyor; karar Y3.1 kaydında "ayrı bucket"a dönmüştü. Geçmiş satırlar yeniden yazılmadı |
 | `ARC-01` | `DECISION-INDEX.md` K128–K145'i hâlâ içermiyor |
+
+---
+
+## 18.3 — `SEC-01`: "ilk yayın" indirimi aynı anda açılan her siparişe uygulanıyordu
+
+### Sorun
+
+"İlk yayın" indirimi (%60) bir kullanıcıya bir kez verilmek üzere tasarlandı, ama kural yalnızca
+**ödenmiş** siparişe bakıyordu ("`paid_at` damgalı sipariş yoksa ilk yayındır", K131) ve bekleyen
+siparişi saymıyordu. Yeni bir kullanıcı ödeme sayfasını iki sekmede açınca iki `pending` sipariş
+de indirimli oluyordu (249,00 → 99,60 TL); ödeme bildirimi tutarı siparişteki donmuş tutarla
+karşılaştırıyor, indirimin hâlâ geçerli olup olmadığına bakmıyordu. Sınır yoktu: on sekme, on
+indirimli hak (denetim sondası P13). Kök neden bir **TOCTOU** hatası (kontrol anı ≠ kullanım anı):
+"indirim boşta mı?" gözlemi bir kayda bağlanmadan ikinci istek aynı soruyu sorup aynı cevabı
+alıyordu. Hediye kodunda aynı sorun doğru çözülmüştü (K111: kod satırı kilitlenir, kullanım aynı
+transaction'da yazılır); ilk yayın indiriminde o desen yoktu. Zemini de `ARC-09` hazırlıyordu:
+her checkout çağrısı, öncekilerden habersiz yeni bir satır açıyordu.
+
+### Kararlar
+
+| K | Karar (tek cümle) |
+|---|---|
+| **K158** | Bir kullanıcının aynı anda en fazla bir `pending` + `first_publish` siparişi olur; üç katman: kullanıcı satırı kilidi, kısmi UNIQUE index, ödeme anında son kapı (`Log::critical`; geçiş reddedilmez). |
+| **K159** | Uygunluk tek yerde (`FirstPublishEligibility`): `paid_at` damgalı sipariş yok **ve** başka bir hedefin ödeme bekleyen indirimli siparişi yok; önizleme ve checkout aynı cevabı kullanır (K131'i daraltır). |
+| **K160** | Aynı niyet (hedef, plan, otomatik fiyat tutarı, hediye kodu, sağlayıcı) için ödeme bekleyen sipariş varsa checkout yeni satır açmaz, onu olduğu gibi döndürür. |
+| **K161** | Aynı hedefte farklı niyet eski siparişi `expired` kapatır ve indirim yenisine geçer; penceresi dolmuş `pending` satırlar checkout başında kapatılır (geç ödeme K89 ile yine kabul edilir). |
+| **K162** | Index'in göçü veri değiştirmez: çakışan satır varsa anlaşılır mesajla durur, çözüm sorgusu kılavuzda. |
+| **K163** | Fiyat uçlarının yanıt biçimi değişmez; istek isteğe bağlı hedef alır (`GET /pricing?invitation=`, önizlemede `invitationId`), yoksa davetiyesiz paket. |
+
+### Değişen dosyalar
+
+**Backend** (`fix/2026-11-16-sec-01-first-publish-once`)
+
+| Adım | Dosya | Ne | Kılavuz |
+|---|---|---|---|
+| 18.3.1 | `database/migrations/2026_11_16_100000_add_one_pending_first_publish_index_to_orders.php` | Kısmi UNIQUE index; çakışmada durur (yeni) | [göç kılavuzu](../database/migrations/2026_11_16_100000_add_one_pending_first_publish_index_to_orders.md) |
+| 18.3.1 | `database/factories/OrderFactory.php` | `firstPublish()` durumu | [`OrderFactory.md`](../database/factories/OrderFactory.md) §Faz 18.3 |
+| 18.3.1 | `tests/Feature/OrderFirstPublishIndexTest.php` | 10 test (yeni) | göç kılavuzu §7 |
+| 18.3.2 | `app/Services/Pricing/FirstPublishEligibility.php` | Uygunluk kuralı, tek sorgu (yeni) | [`FirstPublishEligibility.md`](../app/Services/Pricing/FirstPublishEligibility.md) |
+| 18.3.2 | `app/Models/Order.php` | `scopeAwaitingPayment()` | [`Order.md`](../app/Models/Order.md) §Faz 18.3 |
+| 18.3.2 | `app/Actions/Pricing/QuotePriceAction.php` | Hedef parametresi; kural komşu sınıfa | [`QuotePriceAction.md`](../app/Actions/Pricing/QuotePriceAction.md) §Faz 18.3 |
+| 18.3.2 | `app/Actions/Pricing/ShowPricingAction.php` · `app/Http/Controllers/Api/V1/PricingController.php` · `app/Http/Requests/Pricing/ShowPricingRequest.php` (yeni) | `GET /pricing?invitation=` | [`ShowPricingRequest.md`](../app/Http/Requests/Pricing/ShowPricingRequest.md) + iki kısa ek |
+| 18.3.2 | `app/Actions/GiftCode/PreviewGiftCodeAction.php` · `app/Http/Controllers/Api/V1/GiftCodeController.php` · `app/Http/Requests/GiftCode/PreviewGiftCodeRequest.php` | Önizlemede `invitationId` | üçünün kılavuzunda §Faz 18.3 |
+| 18.3.2 | `tests/Feature/FirstPublishEligibilityTest.php` (yeni, 12) · `QuotePriceActionTest.php` (+2) · `PricingTest.php` (+3) · `GiftCodePreviewTest.php` (+2) | 19 test | `PricingTest.md`, `GiftCodePreviewTest.md` |
+| 18.3.3 | `app/Actions/Payment/StartCheckoutAction.php` | Kilit, yeniden kullanma, eskiyi kapatma | [`StartCheckoutAction.md`](../app/Actions/Payment/StartCheckoutAction.md) §Faz 18.3 |
+| 18.3.3 | `tests/Feature/FirstPublishCheckoutTest.php` (+14, 1 değişti) · `GiftCodeCheckoutTest.php` (1 değişti) | | [`FirstPublishCheckoutTest.md`](../tests/Feature/FirstPublishCheckoutTest.md) · `GiftCodeCheckoutTest.md` |
+| 18.3.4 | `app/Actions/Payment/HandlePaymentCallbackAction.php` | Son kapı (`DB::afterCommit`) | [`HandlePaymentCallbackAction.md`](../app/Actions/Payment/HandlePaymentCallbackAction.md) §Faz 18.3 |
+| 18.3.4 | `tests/Feature/FirstPublishFinalGateTest.php` | 9 test (yeni) | aynı |
+| 18.3.5 | `docs/rehber/fazlar/FAZ-18.md` · `README.md` · `FAZ-13.md` | Bu kayıt; K131'e "daraltıldı → K159" notu | — |
+
+Yeni hata kodu, yeni bağımlılık ve config anahtarı **yok**; `contracts/` değişmedi. Göç bir index
+ekler, kolon eklemez.
+
+**Frontend** (`fix/2026-11-16-sec-01-first-publish-once`), adım 18.3.6
+
+| Dosya | Ne |
+|---|---|
+| `src/services/pricing.ts` | `myCatalog(invitationId?)` → `GET /pricing?invitation=` |
+| `src/stores/usePricingStore.ts` · `src/hooks/usePricing.ts` | Hedefli katalog ayrı yuvada (`targeted`, `loadFor`, `refresh`); ortak katalog değişmedi |
+| `src/services/payments.ts` · `src/stores/useCheckoutStore.ts` | Kod önizlemesi hedefi taşır; kapanan yöntemde iki katalog da tazelenir |
+| `src/pages/CheckoutPage.tsx` · `src/components/payment/checkout/GiftCodeField.tsx` · `FreeActivationPanel.tsx` | Sayfa kendi davetiyesinin fiyatını sorar |
+| `scripts/verify-pricing.ts` (+11 denetim) · `scripts/verify-endpoints.ts` (+2) | |
+| `docs/rehber/…` | Yedi kılavuzda §Faz 18.3 |
+
+**Docs** (`docs/2026-11-16-faz-18-audit-fixes`), adım 18.3.7: `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-18.md`
+§18.3, `decisions/DECISION-INDEX.md` (K158–K163, sıradaki K164), `phases/faz-18/README.md`,
+`phases/faz-18/FAZ-18-SEC-01-COMMIT-KOMUTLARI.md`, `CHANGELOG.md`.
+
+### Eklenen testler ve öldürdükleri mutantlar
+
+Her mutant elle uygulandı, hedefli testler koştu (`FirstPublish|QuotePriceActionTest|PricingTest|GiftCodePreviewTest|OrderFirstPublishIndexTest`),
+dosya geri alındı. Geri alma, dosyanın SHA-256'sı önce ve sonra karşılaştırılarak doğrulandı
+(13/13 aynı); `git diff --stat` mutantlardan önce ve sonra aynı çıktıyı verdi.
+
+| # | Mutant | Sonuç | Kırmızıya dönen (ilki §6'daki hedef test) |
+|---|---|---|---|
+| M1 | "Açık indirimli sipariş var mı" sorgusu kaldırıldı (`FirstPublishEligibility`) | ✅ öldü (98 testten 10'u) | `FirstPublishCheckoutTest::the_first_publish_discount_is_granted_to_one_order_only` · `…the_quote_and_the_checkout_agree…` · `FirstPublishEligibilityTest` ×3 · `PricingTest` ×2 · `QuotePriceActionTest` ×2 · `GiftCodePreviewTest` ×1 |
+| M2 | Yeniden kullanma kaldırıldı (`$existing = null`) | ✅ öldü (4) | `…a_second_checkout_for_the_same_target_reuses_the_pending_order` · `…same_package…` · `…the_same_gift_code…` · `…a_provider_failure_on_a_reused_order…` |
+| M3 | `->lockForUpdate()` kaldırıldı | ✅ öldü (1) | `…the_user_row_is_locked_before_the_checkout_looks_at_orders` |
+| M4 | Göçte `CREATE UNIQUE INDEX` → `CREATE INDEX` | ✅ öldü (1) | `OrderFirstPublishIndexTest::a_second_pending_first_publish_order_…is_rejected_by_the_database` |
+| M5 | Son kapı kaldırıldı (`DB::afterCommit` satırı) | ✅ öldü (2 test, 3 veri kümesi) | `FirstPublishFinalGateTest::a_second_paid_first_publish_order_is_logged_as_critical` · `…a_late_payment_for_a_closed…` |
+| M6 | Eski siparişi kapatma kaldırıldı (`supersede`) | ✅ öldü (3) | `…a_different_plan_for_the_same_target_closes_the_old_order…` · `…a_price_that_changed…` · `…dropping_the_gift_code…` |
+| M7 | Penceresi dolmuş satırı kapatma kaldırıldı | ✅ öldü (1) | `…an_abandoned_checkout_keeps_the_discount_for_the_next_try` |
+| M8 | Yeniden kullanmada `promotion` **türü** karşılaştırması kaldırıldı | ⚠️ **hayatta** → koşul gereksizdi | Tür değişince tutar ya da kampanya kimliği de değişiyor. Karşılaştırma tutara indirildi (liste + otomatik indirim); iki satır silindi |
+| M8a | Otomatik indirim tutarı karşılaştırması kaldırıldı | ✅ öldü (1) | `…a_price_that_changed_between_two_tries_opens_a_new_order` |
+| M8b | Liste fiyatı karşılaştırması kaldırıldı | ✅ öldü (1) | `…a_list_price_that_changed_between_two_tries_opens_a_new_order` (bu mutant için eklendi) |
+| M8c | Plan karşılaştırması kaldırıldı | ilk koşuda hayatta → test eklendi → ✅ öldü | `…another_plan_at_the_same_price_is_not_the_same_intent` |
+| M8d | Hediye kodu karşılaştırması kaldırıldı | ✅ öldü (1) | `…dropping_the_gift_code_closes_the_old_order_and_frees_the_code` |
+| M9 | `if (! $reused)` → `if (true)` | ✅ öldü (1) | `…a_provider_failure_on_a_reused_order_leaves_it_pending` |
+| M10 | Yeniden kullanılan siparişin `provider_ref`'i eziliyor | ✅ öldü (1) | `…a_second_checkout_for_the_same_target_reuses_the_pending_order` |
+| M11 | Uygunlukta pencere koşulu kaldırıldı (`awaitingPayment` → yalnızca `pending`) | ✅ öldü (1) | `FirstPublishEligibilityTest::only_an_open_first_publish_order_of_the_same_user_holds_the_discount` ("past its window") |
+| F1 | Frontend: `loadFor` başka davetiyenin kataloğunu ekranda tutuyor | ✅ öldü | `npm run verify:pricing` çıkış 1: "başka davetiyenin fiyatı ekranda kalmaz" |
+
+M8'in dersi: hayatta kalan mutant her zaman eksik test demek değildir; bazen **fazla kod** demektir.
+
+### Doğrulama durumu (B7)
+
+Makine: Windows 11, PHP 8.5.12, PostgreSQL 18.4 (`davetkart_test`), Node 24, Windows PowerShell 5.1. Tarih: 16 Kasım 2026.
+
+| Komut | Sonuç | Çıktıdan |
+|---|---|---|
+| §2 önkoşulları (üç depo) | ✅ | çalışma ağaçları boş · backend `1c75661 Merge OPS-02 fix into faz-18-audit-fixes` · `fix/2026-11-16-ops-02-db-backup` birleşmiş listede |
+| 18.3.1 RED: `--filter=OrderFirstPublishIndexTest` (göç yokken) | ❌ beklenen | `tests=10 passed=7 failed=1 errors=2`: ikinci satır kabul edildi; göç dosyası yok |
+| 18.3.1 GREEN | ✅ | `tests=10 passed=10 assertions=14` · pint `passed` · phpstan `errors: 0` |
+| 18.3.2 RED: dört test dosyası | ❌ beklenen | `tests=60 passed=41 failed=7 errors=12`: `Target class [...FirstPublishEligibility] does not exist`, hedef dikkate alınmıyor, 422 yerine 200 |
+| 18.3.2 GREEN | ✅ | `tests=60 passed=60 assertions=179` · pint `passed` · phpstan `errors: 0` |
+| 18.3.2 sonrası ilgili testler (387) | ❌ beklenen, 1 kırmızı | `FirstPublishCheckoutTest::an_abandoned_checkout_keeps_the_discount_for_the_next_try`: `SQLSTATE[23505] Unique violation`. Index var, onu gözeten checkout 18.3.3'te. **18.3.1 ve 18.3.2 commit'leri tek başına yeşil değildir** (18.3.1 için ayrı koşu yapılmadı; aynı testin kırılması beklenir) |
+| 18.3.3 RED: `--filter=FirstPublishCheckoutTest` | ❌ beklenen | `tests=19 passed=9 failed=7 errors=3` |
+| 18.3.3 GREEN | ✅ | `tests=19 passed=19 assertions=103` |
+| 18.3.3 sonrası tam paket | ❌ 1 kırmızı → test güncellendi | `tests=1115 passed=1114`: `GiftCodeCheckoutTest::the_same_user_cannot_use_a_code_twice` (aynı hedefte plan değiştiriyordu; K161 ile artık meşru). Test başka hedefe çevrildi; sonra iki dosya `tests=42 passed=42` |
+| 18.3.3 phpstan | ❌ → ✅ | Testte `equalTo()`'ya null olabilir tarih; karşılaştırma ISO metne çevrildi → `errors: 0` |
+| 18.3.4 RED: `--filter=FirstPublishFinalGateTest` | ❌ beklenen | `tests=9 passed=6 errors=3`: `critical(...) should be called at least 1 times but called 0 times`. Yeşil olan 6'sı "haber verme" (yokluk) testleri |
+| 18.3.4 GREEN | ✅ | `tests=9 passed=9 assertions=31` |
+| 18.3.4 phpstan | ❌ → ✅ | Testte `shouldHaveReceived()->once()` tipi bulunamadı; depodaki biçime (`shouldHaveReceived('critical', [..., Mockery::on(...)])`) çevrildi → `errors: 0` |
+| Mutantlar (M1–M11, F1) | ✅ | yukarıdaki tablo; mutantsız aynı süzgeç `tests=100 passed=100 assertions=337` |
+| **`composer check` (son)** | ✅ | pint `passed` · phpstan `errors: 0` · `Katalog guncel.` · `Plan kurallari sozlesmesi guncel.` · phpunit `tests: 1126, passed: 1126, assertions: 4161` · çıkış 0 |
+| Frontend `npm run lint` (`tsc --noEmit`) | ✅ | çıkış 0 |
+| Frontend `npm run verify:pricing` | ✅ | "Hedefli katalog (ödeme sayfası)" altında 11 ✓ · çıkış 0 |
+| **Frontend `npm run check`** (lint → build → verify) | ✅ | çıkış 0 · `✓ built in 25.64s` · 12 doğrulama betiği koştu |
+| Frontend satır sonları | ✅ | `git ls-files --eol`: 17 dosya `i/lf w/crlf` (depodaki diğer dosyalarla aynı); `git diff --stat` 17 dosya, tam dosya değişikliği yok |
+| Yerel `davetkart` veritabanı, salt okunur | ✅ | bekleyen ilk yayın indirimli sipariş: 0 satır · çakışan kullanıcı: 0 (göç orada durmayacak) |
+| Göç kılavuzu §4 sorguları | kısmen | "önce bak" `SELECT`'i koştu (0 satır). "Sonra kapat" `UPDATE`'i **çalıştırılmadı**: yalnızca `EXPLAIN` ile planlandı (sözdizimi geçerli) |
+| `php artisan migrate` (yerel `davetkart`) | koşmadı | geliştirme veritabanını değiştirir; İsmail'in adımı. Göç test veritabanında her koşuda `migrate:fresh` ile uygulandı |
+| İki bağlantılı gerçek yarış testi | koşmadı | kapsam dışı (`TST-02`). Kilit yalnızca SQL düzeyinde sınandı (`DB::listen`) |
+| `DB::afterCommit`, test dışı gerçek transaction'da | koşmadı | yalnızca `RefreshDatabase` altında koştu |
+| Shopier sürücüsüyle yeniden kullanma | koşmadı | sır yok, canlı istek atılmadı; `ShopierGateway::startCheckout()` koddan okundu (referans = sipariş kimliği, ikinci çağrı aynı referansı verir). Testler `fake` sürücüyle |
+| Tarayıcıda elle deneme | koşmadı | sunucular çalıştırılmadı; adımlar aşağıda |
+| Sunucu, Shopier, AWS, Sentry | koşmadı | canlı sisteme istek atılmadı |
+
+### Elle doğrulama (İsmail)
+
+1. Backend'de `composer check`: son satırda `"tests":1126,"passed":1126`.
+2. Birleştirmeden sonra `php artisan migrate`. Durursa: göç kılavuzu §4.
+3. Tarayıcı (`PAYMENT_DRIVER=fake`, yeni kullanıcı, iki davetiye): frontend
+   `docs/rehber/src/pages/CheckoutPage.md` §Faz 18.3 "Elle deneme".
+4. SEC-01'in kendisi, API'den: A davetiyesi için `POST /api/invitations/{A}/checkout` (`first_publish`),
+   ardından `POST /api/payments/checkout` → ikinci yanıtta `promotion: null`, tutar liste fiyatı.
+   Aynı isteği yinele → aynı `orderId`.
+5. Mutantı kendin dene: [`StartCheckoutAction.md`](../app/Actions/Payment/StartCheckoutAction.md)
+   §Faz 18.3 "Mutantlar", [`FirstPublishEligibility.md`](../app/Services/Pricing/FirstPublishEligibility.md) §7.
+6. Son kapıyı gör: `php artisan test --filter=FirstPublishFinalGateTest`; log'da aranacak metin
+   `First publish discount paid on more than one order`.
+
+### Plandan sapmalar
+
+- **Fiyat uçları isteğe bağlı hedef alıyor ve frontend değişti (K163).** Plan "yanıt biçimi
+  değişmediyse frontend'e dokunma" diyordu; yanıt değişmedi ama **istek** değişti. `GET /pricing` ve
+  `POST /gift-codes/preview` hedefi bilmiyordu. D2'nin kuralı ("başka bir hedef için açık indirimli
+  sipariş yok") önizlemede hedef olmadan söylenemez: hedefsiz katı cevap, ödeme sayfasına geri dönen
+  kullanıcıya kendi indirimini kaybolmuş gösterir (K131 ve D3'ün korumak istediği kişi); hedefsiz
+  gevşek cevap, başka davetiyenin sayfasında 99,60 gösterip 249,00 keser. İkisi de "gösterilen =
+  tahsil edilen"i bozar. Parametre isteğe bağlı ve geriye uyumlu; yalnızca biçimi doğrulanır.
+- **Frontend'de ortak katalog hedefe göre anahtarlanmadı.** İlk taslak öyleydi; ortak kataloğu aynı
+  anda okuyan bileşenler (plan duvarı, pazarlama metinleri) "yükleniyor"da kalabilirdi. Hedefli
+  katalog ayrı yuvaya alındı (`targeted`).
+- **D2'deki "`paid` `first_publish` yok" ifadesi K131'in mevcut hâliyle uygulandı:** "`paid_at`
+  damgalı **hiçbir** sipariş yok". Daha sıkı olan bu; gevşetmek kampanyayla alınmış bir ilk
+  siparişten sonra ikinci siparişe ilk yayın indirimi verirdi ve dört mevcut test (M36'yı öldürenler)
+  buna dayanıyor.
+- **D3'ün "aynı niyet" tanımına tutar ve sağlayıcı eklendi.** Plan hedef + plan + hediye kodu
+  diyordu. Arada kampanya açılır ya da fiyat değişirse eski siparişi geri vermek gösterilenden farklı
+  bir tahsilat olurdu; sürücü değiştiyse eski oturum yeniden açılamaz.
+- **Penceresi dolmuş satırlar checkout başında kapatılıyor (planda yoktu).** Index zamanı bilemez;
+  `orders:expire` uğrayana kadar o satır yeni indirimli siparişi bloklardı.
+- **Son kapı `paid_at`'e bakar ve commit'ten sonra sorar.** Plan "başka `paid` sipariş" diyordu;
+  iade edilmiş sipariş de sayılır (K131 ile aynı ölçü). `DB::afterCommit`, eşzamanlı iki bildirimde
+  en az bir kayıt düşmesini kilitsiz sağlar.
+- **Yönetici bildirim mekanizması yok;** kanal yalnızca `Log::critical` (plan bunu öngörmüştü).
+- **İki mevcut test değişti:** `an_abandoned_checkout_keeps_the_discount_for_the_next_try` (iki
+  indirimli siparişi doğruluyordu: `SEC-01`'in kendisi) ve `the_same_user_cannot_use_a_code_twice`
+  (aynı hedefte plan değiştiriyordu; K161 ile meşru). İkisinin de sözü korunuyor.
+- **18.3.1 ve 18.3.2 commit'leri bir testi kırmızı bırakır** (yukarıdaki tablo). Adım sırası
+  plandaki gibi tutuldu (index önce); dal 18.3.3'ten itibaren yeşil.
+- **`FirstPublishEligibility` `app/Services/Pricing/` altında** (`TierResolver` ile aynı aile:
+  kendi veritabanımıza bakan sunucu cevabı). Bir Action değil; yan etkisi ve `handle()`'ı yok.
+
+### Gördüm, dokunmadım
+
+| Bulgu | Ne |
+|---|---|
+| — (yeni) | **Kapatılmış siparişe geç ödeme.** Bir siparişin sağlayıcıdaki ödeme sayfası, sipariş `expired` olduktan sonra da açık kalabilir; ödeme gelirse K89 kabul eder. Kararlı bir kullanıcı hâlâ birden çok indirimli siparişi ödeyebilir (K161 kapatmayı anında yaptığı için 30 dakika beklemesi de gerekmez). Engellenmiyor, **yakalanıyor**: ikinci ödemeden itibaren `critical`. Ne yapılacağı (fark, iade, K89'u kapatılan siparişler için daraltmak) karar bekliyor |
+| — (yeni) | **Geç ödenen siparişin hediye kodu kullanımı yeniden aktif olur.** Kullanımın durumu siparişten türetilir (Faz 11, D4): `expired` iade eder, `expired → paid` geri alır. O arada kod başka bir siparişte kullanıldıysa tek kullanımlık kod iki siparişte ödenmiş olur. Faz 11'den beri var; son kapı yalnızca ilk yayın indirimine bakar |
+| `TST-02` | Kalan 16 `lockForUpdate()` hâlâ testsiz; iki bağlantılı gerçek yarış testi yok. Bu fazda yalnızca yeni kilit SQL düzeyinde sınandı |
+| `ARC-09` | `Idempotency-Key` başlığı yok; kodsuz checkout hâlâ yalnızca genel 60/dk tavanına tabi |
+| `SEC-09` · `SEC-15` | Değişmez **kullanıcı başına**. E-posta doğrulaması olmadan yeni hesap açan biri her hesapta bir ilk yayın indirimi alır (denetim `REPORT.md` "E-posta sahipliği" satırı) |
+| — | `ExpireStaleOrders` ile `StartCheckoutAction::expireStaleOrders()` aynı koşulu (bekliyor + penceresi dolmuş) iki yerde yazıyor. Komuta dokunulmadı; ortak bir `Order` kapsamına alınabilir |
+| — | Ödeme bildirimi kullanıcı satırını kilitlemiyor: checkout'un "hiç ödememiş" gözlemi, aynı anda işlenen bir bildirim karşısında milisaniyeler için bayat kalabilir |
+| — | Yeniden kullanılan sipariş de 201 döner (katı REST'te 200); yanıt biçimi kararı gereği (K163) dokunulmadı |
+| — | Frontend plan duvarı (`PaywallModal`) ortak kataloğu okur: kullanıcının o davetiye için bekleyen indirimli siparişi varken duvar liste fiyatını, ödeme sayfası indirimli fiyatı gösterir |
+| — | Başka hedefin sayfasında indirimin neden görünmediğini söyleyen bir metin yok (D6: UX sorusu) |
+| — | Frontend deposunda 4 Kasım'dan kalma `.git/packed-refs.lock` (0 bayt) dal açarken uyarı verdi; silinmedi |
+| `ARC-01` | `DECISION-INDEX.md` K128–K145'i hâlâ içermiyor; K131'in "daraltıldı" notu bu yüzden `FAZ-13.md`'deki satırına işlendi |

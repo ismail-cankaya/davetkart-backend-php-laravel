@@ -17,6 +17,7 @@ use App\Exceptions\GiftCodeException;
 use App\Exceptions\PaymentMethodException;
 use App\Exceptions\PaymentProviderException;
 use App\Exceptions\PaywallViolationException;
+use App\Models\GiftCode;
 use App\Models\GiftCodeRedemption;
 use App\Models\Invitation;
 use App\Models\Order;
@@ -26,6 +27,9 @@ use App\Services\Payment\PaymentGatewayResolver;
 use App\Services\Payment\PaymentMethods;
 use App\Services\Payment\RedirectAction;
 use App\Services\Pricing\TierResolver;
+use App\Support\GiftCodes\GiftCodeFormat;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -50,6 +54,11 @@ use Throwable;
  * kodu KALAN fiyata (K133). Yontem kapisi (K134): kod kapaliysa kod, kart
  * kapaliysa odenecek tutari olan siparis reddedilir (403). Saglayici yalnizca
  * gerektiginde kurulur (K136).
+ *
+ * Faz 18.3 (SEC-01): ilk yayın indirimi TEK açık siparişe. Kullanıcı satırı
+ * kilitlenir (K158); aynı niyet var olan siparişi döndürür (K160), farklı niyet
+ * hedefin eski siparişini `expired` kapatır (K161). Uygunluk kuralı burada
+ * değil FirstPublishEligibility'de (K159).
  *
  * 4. katman bu fazin en kisa ve en pahali satiridir: fiyat istekten okunsaydi
  * `{"tier":"elit","price":1}` govdesi Elit plani 1 kurusa satardi.
@@ -108,9 +117,40 @@ final class StartCheckoutAction
         // Kod satirinin kilidi kullanim satiri yazilana kadar tutulur (E9).
         // Saglayici (gerekirse) transaction icinde kurulur: kurulamazsa (503)
         // rezervasyon da siparis de geri alinir.
-        [$order, $gateway] = DB::transaction(function () use ($user, $invitation, $tier, $giftCode): array {
-            // 4. KATMAN: fiyat SUNUCUDA, tek hesaptan (K129).
-            $price = $this->quotePrice->handle($user, $tier);
+        [$order, $gateway, $reused] = DB::transaction(function () use ($user, $invitation, $tier, $giftCode): array {
+            // 🔴 Faz 18.3 (K158, 1. katman): aynı kullanıcının checkout'ları SIRAYA
+            // girer. Aşağıdaki her karar (uygunluk, yeniden kullanma) bu kilidin
+            // altında verilir; kilitsiz iki istek aynı "indirim boşta" cevabını okurdu (E9).
+            User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+
+            // K161: penceresi dolmuş satır orders:expire'ı beklemez; beklerse
+            // kısmi UNIQUE index yeni indirimli siparişi bloklar.
+            $this->expireStaleOrders($user);
+
+            $open = $this->openOrdersFor($user, $invitation);
+
+            // 4. KATMAN: fiyat SUNUCUDA, tek hesaptan (K129) ve BU hedef için (K159).
+            $price = $this->quotePrice->handle($user, $tier, $invitation?->id);
+
+            // K160: aynı niyet -> aynı sipariş. Yenilenen sayfa yeni satır açmaz.
+            $existing = $this->sameIntent($open, $price, $giftCode);
+
+            if ($existing !== null) {
+                $this->methods->ensureEnabled(PaymentMethod::Card);
+                $gateway = $this->gateways->resolve();
+
+                // Sağlayıcı arada değiştiyse eski siparişin oturumu yeniden açılamaz.
+                if ($existing->provider === $gateway->name()) {
+                    // Sürücü alıcıyı ilişkiden okur; elimizdeki kullanıcı o.
+                    $existing->setRelation('user', $user);
+
+                    return [$existing, $gateway, true];
+                }
+            }
+
+            // K161: farklı niyet (plan, kod, fiyat) hedefin eski siparişini kapatır.
+            // Kod rezervasyonundan ÖNCE: eski siparişin tuttuğu kod serbest kalsın.
+            $this->supersede($open);
 
             $giftQuote = $giftCode === null
                 ? null
@@ -138,7 +178,7 @@ final class StartCheckoutAction
                 $this->recordRedemption($order, $user, $giftQuote);
             }
 
-            return [$order, $gateway];
+            return [$order, $gateway, false];
         });
 
         // D1: hediye siparisi zaten odenmis; saglayici YOK (hic kurulmadi).
@@ -156,8 +196,14 @@ final class StartCheckoutAction
             // TELAFI (compensating transaction). Siparis silinmiyor,
             // 'failed' isaretleniyor: silmek denemenin izini de silerdi ve
             // "neden odeyemiyorum" sorusu cevapsiz kalirdi.
-            $order->status = OrderStatus::Failed;
-            $order->save();
+            //
+            // Faz 18.3 (K160): yalnızca BU isteğin açtığı satır. Yeniden kullanılan
+            // siparişin ilk oturumu hâlâ ödenebilir; `failed` final olduğu için
+            // o ödeme reddedilirdi.
+            if (! $reused) {
+                $order->status = OrderStatus::Failed;
+                $order->save();
+            }
 
             // H8: saglayicinin HAM hatasi yanita GIRMEZ, log'a gider.
             // Hediye kodu kullanimi varsa 'failed' ile kendiliginden iade olur (D4).
@@ -174,16 +220,125 @@ final class StartCheckoutAction
         // Saglayicinin verdigi kimlik ve pencere satira isleniyor.
         // provider_ref UNIQUE: ayni referansi tasiyan ikinci bir siparis
         // veritabani seviyesinde imkansiz (idempotansin yarisi, 7.2).
-        $order->provider_ref = $session->providerRef;
+        //
+        // Faz 18.3 (K160): kimliği olan sipariş (yeniden kullanılan) olduğu gibi
+        // kalır. Kimlik değişseydi ilk oturumun bildirimi siparişi bulamazdı;
+        // pencere uzasaydı sayfayı yenilemek rezervasyonu süresiz tutardı.
+        if ($order->provider_ref === null) {
+            $order->provider_ref = $session->providerRef;
 
-        if ($session->expiresAt !== null) {
-            $order->expires_at = $session->expiresAt;
+            if ($session->expiresAt !== null) {
+                $order->expires_at = $session->expiresAt;
+            }
+
+            $order->save();
         }
-
-        $order->save();
 
         // Faz 12 (K118): adres ya da imzali form; Action hangisi oldugunu bilmez.
         return new CheckoutResult($order, $session->action);
+    }
+
+    /**
+     * Bu HEDEF için ödeme bekleyen siparişler; en yenisi başta (Faz 18.3).
+     * Hedef: davetiye ya da davetiyesiz paket (`invitation_id IS NULL`).
+     *
+     * @return Collection<int, Order>
+     */
+    private function openOrdersFor(User $user, ?Invitation $invitation): Collection
+    {
+        $query = Order::query()
+            ->where('user_id', $user->id)
+            ->awaitingPayment()
+            // Niyet karşılaştırması kodu da okur; lazy loading kapalı (N+1 kuralı).
+            ->with('giftCodeRedemption');
+
+        if ($invitation === null) {
+            $query->whereNull('invitation_id');
+        } else {
+            $query->where('invitation_id', $invitation->id);
+        }
+
+        return $query->latest()->get();
+    }
+
+    /**
+     * Aynı NİYETİ taşıyan açık sipariş (K160): aynı plan, aynı otomatik fiyat,
+     * aynı hediye kodu. Fiyat da sınanır: arada kampanya açıldıysa eski tutarı
+     * geri vermek, ekrandaki fiyattan farklı bir tutar tahsil etmek olurdu.
+     *
+     * @param  Collection<int, Order>  $open
+     */
+    private function sameIntent(Collection $open, PriceQuote $price, ?string $giftCode): ?Order
+    {
+        if ($open->isEmpty()) {
+            return null;
+        }
+
+        // Yalnızca KİMLİK karşılaştırması: kilit yok, kural yok (onlar rezervasyonda).
+        $giftCodeId = $giftCode === null
+            ? null
+            : GiftCode::query()->where('code_hash', GiftCodeFormat::hash($giftCode))->value('id');
+
+        // Kod yazıldı ama öyle bir kod yok: eşleşecek sipariş de yok; rezervasyon 422 verir.
+        if ($giftCode !== null && $giftCodeId === null) {
+            return null;
+        }
+
+        // Fiyatta TUTAR karşılaştırılır (liste + otomatik indirim), indirimin adı değil:
+        // tutar aynıysa ekrandaki fiyat ile tahsil edilen fiyat da aynıdır.
+        return $open->first(
+            static fn (Order $order): bool => $order->tier === $price->tier
+                && $order->listPriceMinor() === $price->listMinor
+                && $order->promotion_discount_minor === $price->promotionDiscountMinor()
+                && $order->giftCodeRedemption?->gift_code_id === $giftCodeId,
+        );
+    }
+
+    /**
+     * Hedefin önceki açık siparişlerini kapatır (K161).
+     *
+     * 🔴 `failed` DEĞİL `expired`: kullanıcının eski sekmesindeki ödeme sayfası
+     * hâlâ açık olabilir. `expired -> paid` meşru (K89), `failed` finaldir; geç
+     * gelen ödeme reddedilseydi para alınmış, hak açılmamış olurdu.
+     *
+     * @param  Collection<int, Order>  $open
+     */
+    private function supersede(Collection $open): void
+    {
+        if ($open->isEmpty()) {
+            return;
+        }
+
+        $this->markExpired(Order::query()->whereKey($open->modelKeys()));
+
+        Log::info('Pending orders closed by a new checkout for the same target', [
+            'order_ids' => $open->modelKeys(),
+        ]);
+    }
+
+    /** Penceresi dolmuş ama hâlâ `pending` duran satırlar: orders:expire'ın işi, bu kullanıcı için öne çekilir. */
+    private function expireStaleOrders(User $user): void
+    {
+        $this->markExpired(
+            Order::query()
+                ->where('user_id', $user->id)
+                ->whereNotNull('expires_at')
+                ->where('expires_at', '<', now()),
+        );
+    }
+
+    /**
+     * `pending` koşulu UPDATE'in KENDİ içinde (E2): bu arada ödenmiş bir satır
+     * hiçbir şekilde `expired` olamaz (ExpireStaleOrders ile aynı desen).
+     *
+     * @param  Builder<Order>  $orders
+     */
+    private function markExpired(Builder $orders): void
+    {
+        $orders->where('status', OrderStatus::Pending->value)->update([
+            'status' => OrderStatus::Expired->value,
+            'updated_at' => now(),
+        ]);
     }
 
     /**

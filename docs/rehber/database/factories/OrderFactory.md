@@ -223,3 +223,31 @@ Varsayılan kapsam `'account'` → `'invitation'` (davetiyesiz). `package()` ayn
 `released()` ile davranış olarak özdeş; adı, testte *"fiyat sayfasından alındı"* niyetini okutmak
 için duruyor. Kullanan testler (`OrderTest`, `AccountDeletionTest`) davetiyesiz bir sipariş
 istiyordu; yeni tanımla da geçerli kaldılar.
+
+---
+
+## 🆕 Faz 18.3 (`SEC-01` · K158) — `firstPublish()`
+
+```php
+Order::factory()->for($user)->tier(SubscriptionTier::Gold)->firstPublish()->create();
+```
+
+İlk yayın indirimiyle açılmış sipariş. Dört kolon **birlikte** değişir, çünkü Faz 13'ün üç
+kısıtı (`orders_promotion_*`) onları birbirine bağlar:
+
+| Kolon | Değer |
+|---|---|
+| `promotion` | `first_publish` |
+| `promotion_discount_minor` | liste fiyatı × oran / 100 (aşağı yuvarlanır) |
+| `discount_minor` | aynı tutar (hediye kodu yok) |
+| `amount_minor` | liste fiyatı − indirim |
+
+- **Oran elle yazılmadı:** `QuotePriceAction::firstPublishPercent()` ve `Promotion::discountFor()`,
+  yani üretim kodunun okuduğu yer (B4, §3'teki `minorFor()` ile aynı gerekçe).
+- **Sıra önemli:** `tier()`'dan **sonra** çağrılır; indirim o anki `amount_minor` üstünden hesaplanır.
+- **Oran 0 ise `LogicException`:** test ortamında oran kapalı gelebilir. Kısıta çarpıp anlaşılmaz
+  bir `23514` görmek yerine fabrika nedenini söyler. Testin `setUp()`'ında
+  `Config::set('davetkart.pricing.first_publish_percent', 60)` yaz.
+- **Aynı kullanıcıya iki kez `create()` edilemez** (ikisi de `pending` iken):
+  `orders_one_pending_first_publish_per_user` index'i reddeder. Bu bir engel değil, K158'in
+  kendisidir; `paid()`'in `paid_at` kısıtıyla aynı "öğretmen" rolü.

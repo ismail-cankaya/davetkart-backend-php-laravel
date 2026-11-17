@@ -81,3 +81,14 @@ anonim sınıfın imzası güncellendi. `PaywallTest::signatureHeader()` artık
 `FakeGateway::SIGNATURE_HEADER` sabitini okuyor (config anahtarı silindi). **Hiçbir
 iddia (assert) değişmedi**: aynı testler aynı şeyi kanıtlıyor. Bir arayüz değişikliğinin
 testleri kırmadan geçmesi, testlerin uygulamaya değil davranışa bağlı olduğunun işareti.
+
+---
+
+## 🆕 Faz 18.3 (`SEC-01` · K161) — `the_same_user_cannot_use_a_code_twice`
+
+Test eskiden aynı hedefte (davetiyesiz paket) plan değiştirip aynı kodu ikinci kez deniyordu ve
+422 bekliyordu. K161'den sonra o senaryo meşru: eski sipariş kapanır, kodu serbest kalır.
+Kişi başı tek aktif kullanım kuralı (K111) duruyor; test artık ikinci denemeyi **başka bir
+hedef** (bir davetiye) için yapıyor ve yine `GIFT_CODE_ALREADY_USED` bekliyor. Aynı hedefteki
+davranış `FirstPublishCheckoutTest`'te (`the_same_gift_code_for_the_same_target_reuses_the_order`,
+`dropping_the_gift_code_closes_the_old_order_and_frees_the_code`).

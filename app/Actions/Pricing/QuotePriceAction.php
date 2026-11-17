@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Actions\Pricing;
 
 use App\Enums\SubscriptionTier;
-use App\Models\Order;
 use App\Models\PriceCampaign;
 use App\Models\User;
+use App\Services\Pricing\FirstPublishEligibility;
 use Illuminate\Support\Facades\Config;
 use LogicException;
 
@@ -20,19 +20,28 @@ use LogicException;
  * Kurallar:
  *   1. Liste fiyatı config'ten (`davetkart.tiers.*.price`), istekten ASLA.
  *   2. Adaylar: plana uygun, şu an geçerli kampanyaların en büyüğü ve —
- *      kullanıcının hiç ödenmiş siparişi yoksa — ilk yayın indirimi.
+ *      kullanıcı uygunsa (FirstPublishEligibility, K159) — ilk yayın indirimi.
  *   3. Toplanmazlar: büyük olan kazanır; eşitlikte ilk yayın (K133).
  *   4. Hediye kodu burada YOK: çağıran onu kalan fiyata ekler (withGiftCode).
+ *
+ * Faz 18.3: fiyat bir HEDEF için sorulur (davetiye ya da davetiyesiz paket).
  *
  * Salt okunur: kilit yok, yazma yok.
  * Ayrıntılı açıklama: docs/rehber/app/Actions/Pricing/QuotePriceAction.md
  */
 final class QuotePriceAction
 {
-    /** @param  User|null  $user  null = misafir (fiyat sayfası): ilk yayın adaylığı bilinmez */
-    public function handle(?User $user, SubscriptionTier $tier): PriceQuote
+    public function __construct(
+        private readonly FirstPublishEligibility $eligibility,
+    ) {}
+
+    /**
+     * @param  User|null  $user  null = misafir (fiyat sayfası): ilk yayın adaylığı bilinmez
+     * @param  string|null  $invitationId  Fiyatı sorulan HEDEF (Faz 18.3, K159); null = davetiyesiz (paket)
+     */
+    public function handle(?User $user, SubscriptionTier $tier, ?string $invitationId = null): PriceQuote
     {
-        return $this->forTiers($user, [$tier])[$tier->value];
+        return $this->forTiers($user, [$tier], $invitationId)[$tier->value];
     }
 
     /**
@@ -40,13 +49,14 @@ final class QuotePriceAction
      * (bir kampanya sorgusu + bir sipariş sorgusu).
      *
      * @param  list<SubscriptionTier>|null  $tiers  null = hepsi, rank sırasında
+     * @param  string|null  $invitationId  Fiyatı sorulan hedef; null = davetiyesiz (paket)
      *
      * @return array<string, PriceQuote> plan değeri => fiyat
      */
-    public function forTiers(?User $user, ?array $tiers = null): array
+    public function forTiers(?User $user, ?array $tiers = null, ?string $invitationId = null): array
     {
         $tiers ??= SubscriptionTier::cases();
-        $firstPublish = $this->firstPublishPromotion($user);
+        $firstPublish = $this->firstPublishPromotion($user, $invitationId);
         $campaigns = $this->activeCampaigns();
         $quotes = [];
 
@@ -79,15 +89,13 @@ final class QuotePriceAction
     }
 
     /**
-     * Kullanıcı ilk yayın indirimine uygun mu? (K131)
+     * İlk yayın indirimi adayı; uygunluğu FirstPublishEligibility söyler (K131, K159).
      *
-     * 🔴 "Hiç ödenmiş siparişi yok" = `paid_at` damgalı satır yok. Hediye
-     * koduyla bedava açılan sipariş de, sonradan iade edilen ya da başka bir
-     * davetiyeye bırakılan sipariş de sayılır: ilk yayın bir kez yaşanır.
-     * Bekleyen (pending) sipariş SAYILMAZ: ödeme sayfasından dönen kullanıcı
-     * indirimini kaybetmemeli.
+     * 🔴 Kural burada DEĞİL: checkout da aynı sınıfa sorar. Ödeme sayfasından
+     * dönen kullanıcı kendi bekleyen siparişinin ayırdığı indirimi kaybetmez;
+     * BAŞKA bir hedef için ikinci kez de alamaz.
      */
-    private function firstPublishPromotion(?User $user): ?Promotion
+    private function firstPublishPromotion(?User $user, ?string $invitationId): ?Promotion
     {
         $percent = self::firstPublishPercent();
 
@@ -95,12 +103,7 @@ final class QuotePriceAction
             return null;
         }
 
-        $hasPaid = Order::query()
-            ->where('user_id', $user->id)
-            ->whereNotNull('paid_at')
-            ->exists();
-
-        return $hasPaid ? null : Promotion::firstPublish($percent);
+        return $this->eligibility->isEligible($user, $invitationId) ? Promotion::firstPublish($percent) : null;
     }
 
     /** @return list<PriceCampaign> */

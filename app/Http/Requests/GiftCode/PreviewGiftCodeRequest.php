@@ -8,7 +8,7 @@ use App\Enums\SubscriptionTier;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Hediye kodu önizleme gövdesi: `code` ve `tier` (Faz 11).
+ * Hediye kodu önizleme gövdesi: `code`, `tier` ve isteğe bağlı `invitationId` (Faz 11, 18.3).
  *
  * Kodun biçimi burada yalnızca kaba: uzunluk sınırı. Ayrı bir regex "biçim
  * hatası" ile "kod yok" arasında fark yaratır, D7'nin tek yanıtını delerdi.
@@ -31,7 +31,19 @@ final class PreviewGiftCodeRequest extends FormRequest
             'code' => ['required', 'string', 'max:64'],
             // StoreCheckoutRequest ile aynı: 'in:' kuralı, Rule::enum değil (D6, Faz 7).
             'tier' => ['required', 'string', 'in:'.implode(',', SubscriptionTier::values())],
+            // Faz 18.3 (K163): fiyatı sorulan hedef. Biçim doğrulanır, sahiplik değil:
+            // kimlik yalnızca kullanıcının kendi siparişleriyle karşılaştırılır.
+            'invitationId' => ['sometimes', 'nullable', 'string', 'ulid'],
         ];
+    }
+
+    /** Fiyatı sorulan davetiye; null = davetiyesiz (paket). */
+    public function invitationId(): ?string
+    {
+        /** @var array{invitationId?: string|null} $validated */
+        $validated = $this->validated();
+
+        return $validated['invitationId'] ?? null;
     }
 
     public function code(): string

@@ -18,3 +18,17 @@ cevaplayamazdı.
 
 Erişimciler (`code()`, `tier()`) doğrulanmış veriden okur; Action'a ham `$request->input()`
 gitmez.
+
+---
+
+## 🆕 Faz 18.3 (`SEC-01` · K163) — `invitationId`
+
+```php
+'invitationId' => ['sometimes', 'nullable', 'string', 'ulid'],
+```
+
+Kodun uygulanacağı taban "otomatik indirimden sonra kalan fiyat"tır (K133) ve ilk yayın indirimi
+artık hedefe bağlı (K159). Önizleme hedefi bilmezse tabanı yanlış hesaplar. Alan isteğe bağlı:
+yoksa davetiyesiz (paket). Sahiplik sınanmaz; gerekçesi
+[`ShowPricingRequest.md`](../Pricing/ShowPricingRequest.md) §3 ile aynı. Kimlik burada gövdede,
+çünkü uç zaten `POST` ve `code`, `tier` de gövdede.

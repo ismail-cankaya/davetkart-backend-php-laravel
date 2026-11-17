@@ -25,3 +25,12 @@ bunu kilitliyor: token gönderilse bile public uç kişisel cevap vermez.
 İki uç da `SetEtag` arkasında. Yanıt değişmediyse `304 Not Modified`. Kampanya açılınca
 gövde değişir, ETag de değişir. Böylece önbellek kendi kendine tazelenir, ayrıca bir
 "önbelleği sil" adımı gerekmez.
+
+---
+
+## 🆕 Faz 18.3 (`SEC-01` · K163)
+
+`forUser()` artık düz `Request` yerine [`ShowPricingRequest`](../../../Requests/Pricing/ShowPricingRequest.md)
+alıyor: isteğe bağlı `?invitation=<ulid>` orada doğrulanır ve `ShowPricingAction`'a geçer.
+Controller hâlâ yalnızca yönlendirir. `publicCatalog()` değişmedi: misafirin yanıtı herkes için
+aynıdır, hedef almaz.

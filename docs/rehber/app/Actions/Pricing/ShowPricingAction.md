@@ -29,3 +29,11 @@ servis çağırmaz. Bu yüzden ortaya bir Action ve onun döndürdüğü saf ver
 `BANK_TRANSFER_*` dolu ama `PAYMENT_METHODS` içinde `bank_transfer` yoksa hesap **gitmez**.
 Frontend "hesap geldiyse havale açıktır" diye düşünmek zorunda kalmasın. Tek doğru kaynak
 `paymentMethods` listesi.
+
+---
+
+## 🆕 Faz 18.3 (`SEC-01` · K159, K163)
+
+`handle(?User $user, ?string $invitationId = null)`: oturumlu katalog bir hedef için sorulabilir.
+Değer `QuotePriceAction::forTiers()`'a aynen geçer; bu sınıf onu yorumlamaz. Misafir kataloğunda
+(`$user = null`) hedefin etkisi yoktur. Yanıtın biçimi (`PricingOverview`) değişmedi.

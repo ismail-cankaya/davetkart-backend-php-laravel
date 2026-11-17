@@ -498,3 +498,77 @@ if (! $this->amountMatches($order, $notification)) {
 
 `amountMatches()`'in gövdesini `return true;` yap → `PaymentNotificationAmountTest`'in
 iki testi ve `ShopierOsbTest::an_osb_with_a_different_amount_does_not_pay` kırmızı.
+
+---
+
+## 🆕 Faz 18.3 (`SEC-01` · K158, 3. katman) — son kapı
+
+### Ne eklendi?
+
+Bir sipariş `paid`'e geçtiğinde ve `promotion = first_publish` taşıdığında, **commit'ten sonra**
+bir soru sorulur: *bu kullanıcının ilk yayın indirimiyle ödenmiş başka bir siparişi var mı?*
+Varsa:
+
+```
+CRITICAL  First publish discount paid on more than one order
+          order_id, user_id, other_order_ids, amount_minor, promotion_discount_minor
+```
+
+### Neden reddetmiyoruz?
+
+Para alındı. Sağlayıcı "ödendi" diyor ve müşterinin kartından tutar çıktı; siparişi `paid`
+yapmamak "para alındı, hak açılmadı" durumunu üretirdi (Faz 10, K-4: en pahalı tutarsızlık).
+Doğru sıra: **önce hakkı ver, sonra bir insana haber ver.** Fark (Gold'da 239,40 TL) elle
+tahsil edilir ya da sipariş iade edilir; ikisi de otomatik verilecek kararlar değil.
+
+### Bu duruma nasıl gelinir?
+
+Checkout'taki kilit ve index yalnızca **bekleyen** siparişleri sayar. Kapanmış bir sipariş
+(`expired`) index'ten çıkar ama kullanıcının eski sekmesindeki ödeme sayfası açık kalabilir:
+
+1. A siparişi açılır (indirimli), sayfası açık bırakılır.
+2. A kapanır: süresi dolar ya da aynı hedef için başka bir plan seçilir (K161).
+3. B siparişi açılır (indirimli) ve ödenir.
+4. A'nın sayfasından da ödeme gelir: `expired → paid` meşru (K89). **İki indirimli ödeme.**
+
+Üçüncü katman bunu **engellemez, görünür kılar**. Engellemek için sağlayıcıdaki oturumu iptal
+edebilmek gerekirdi; Shopier'in klasik formunda öyle bir çağrı yok.
+
+### Neden `DB::afterCommit`?
+
+İki bildirim aynı anda işlenirse her biri kendi transaction'ında diğerinin henüz commit
+edilmemiş `paid_at`'ini **göremez** (READ COMMITTED). Sorgu transaction'ın içinde olsaydı ikisi
+de "başka yok" deyip susabilirdi. Commit'ten sonra bakınca, geç commit eden bildirim diğerini
+**mutlaka** görür: en az bir kayıt düşer. Alternatif kullanıcı satırını burada da kilitlemekti;
+checkout ters sırada kilitlediği için (kullanıcı → sipariş) kilitlenme (deadlock) riski doğardı.
+
+### Neden `paid_at`, neden `status = 'paid'` değil?
+
+İade edilmiş sipariş de indirimi kullanmıştı (K131: ilk yayın bir kez yaşanır). Uygunluk kuralı
+`paid_at`'e bakıyor; son kapı da aynı ölçüyü kullanır.
+
+### Yönetici bildirimi
+
+Projede yöneticiye giden bir bildirim kanalı yok (yalnızca kullanıcıya e-posta değişikliği
+bildirimi var). Kanal bugün `critical` log'dur; `OPS-03` (izleme ve alarm) kurulunca bu satır
+alarma bağlanır. Aynı sınıftaki diğer iki `critical` kaydı da aynı durumda.
+
+### Sık hatalar
+
+| Hata | Sonuç |
+|---|---|
+| Geçişi reddetmek | Para alınır, hak açılmaz |
+| Sorguyu transaction'ın içinde yapmak | Eşzamanlı iki bildirimde ikisi de susabilir |
+| Her `paid` geçişinde uyarmak | Liste fiyatından alınan ikinci sipariş de alarm üretir; okunmayan alarm olur |
+| `paid → paid` tekrarında yeniden yazmak | Sağlayıcı bildirimi tekrarlar; aynı olay beş kez görünür (geçiş zaten reddedildiği için koda hiç ulaşmaz) |
+
+### Kendin dene
+
+```powershell
+php artisan test --filter=FirstPublishFinalGateTest
+```
+
+**Mutant:** `DB::afterCommit(...)` satırını sil → `a_second_paid_first_publish_order_is_logged_as_critical`
+ve `a_late_payment_for_a_closed_first_publish_order_is_accepted_and_reported` kırmızı.
+
+**Log'da ararken:** `grep 'First publish discount paid on more than one order' storage/logs/laravel.log`

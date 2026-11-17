@@ -8,6 +8,7 @@ use App\Enums\ErrorCode;
 use App\Enums\SubscriptionTier;
 use App\Models\GiftCode;
 use App\Models\GiftCodeRedemption;
+use App\Models\Invitation;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -149,6 +150,41 @@ final class GiftCodePreviewTest extends TestCase
             ->postJson(route('gift-codes.preview'), ['tier' => 'gold'])
             ->assertStatus(422)
             ->assertJsonPath('error.code', ErrorCode::ValidationFailed->value);
+    }
+
+    /** Faz 18.3 (K159, K163): kodun uygulanacağı taban, fiyatı sorulan HEDEF için hesaplanır. */
+    #[Test]
+    public function the_preview_prices_the_target_it_is_asked_for(): void
+    {
+        Config::set('davetkart.pricing.first_publish_percent', 60);
+        GiftCode::factory()->withCode(self::CODE)->percent(50)->create();
+        $invitation = Invitation::factory()->create();
+        $user = User::query()->findOrFail($invitation->user_id);
+        Order::factory()->forInvitation($invitation)->firstPublish()->create();
+
+        // Hakkı tutan siparişin davetiyesi: 399 → %60 → 159,60 → %50 → 79,80.
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('gift-codes.preview'), ['code' => self::CODE, 'tier' => 'gold', 'invitationId' => $invitation->id])
+            ->assertOk()
+            ->assertJsonPath('data.promotion.kind', 'first_publish')
+            ->assertJsonPath('data.totalMinor', 7980);
+        $this->forgetAuthState();
+
+        // Hedefsiz (paket): indirim başka hedefte ayrılmış; kod liste fiyatına uygulanır.
+        $this->preview($user, self::CODE, 'gold')
+            ->assertOk()
+            ->assertJsonPath('data.promotion', null)
+            ->assertJsonPath('data.totalMinor', 19950);
+    }
+
+    #[Test]
+    public function a_malformed_invitation_id_is_a_validation_error(): void
+    {
+        $this->withToken($this->tokenFor(User::factory()->create()))
+            ->postJson(route('gift-codes.preview'), ['code' => self::CODE, 'tier' => 'gold', 'invitationId' => 'not-a-ulid'])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', ErrorCode::ValidationFailed->value)
+            ->assertJsonPath('error.fields.invitationId.0.rule', 'ulid');
     }
 
     #[Test]
