@@ -52,7 +52,7 @@ Fiyat yalnızca backend'de dursun. Frontend onu API'den okusun. İki tür indiri
 | K128 | Fiyatın tek kaynağı backend. Frontend gösterir, hesaplamaz. `OrderResource`'un "tutar gönderilmez" kararı (Faz 7, C1 notu) geri alındı |
 | K129 | Bütün hesap `QuotePriceAction` → `PriceQuote`; checkout, önizleme ve fiyat uçları aynı sınıfı çağırır |
 | K130 | İlk yayın %60, `davetkart.pricing.first_publish_percent`, `env()` yok (ticari söz), 0–90 |
-| K131 | "İlk yayın" = `paid_at` damgalı hiç sipariş yok. Hediye (bedava) ve iade edilmiş sipariş de sayılır; bekleyen sayılmaz |
+| K131 | "İlk yayın" = `paid_at` damgalı hiç sipariş yok. Hediye (bedava) ve iade edilmiş sipariş de sayılır; bekleyen sayılmaz · ⚠️ **daraltıldı → K159** (Faz 18.3, `SEC-01`): bekleyen sipariş yalnızca **aynı hedef** için sayılmaz; başka hedefin açık indirimli siparişi indirimi tutar ([`FAZ-18.md`](FAZ-18.md) §18.3) |
 | K132 | Kampanya: `price_campaigns` tablosu + artisan; deploy yok, bitiş kendiliğinden |
 | K133 | Otomatik indirimler toplanmaz: büyük olan (eşitlikte ilk yayın). Hediye kodu kalan fiyata |
 | K134 | `PAYMENT_METHODS`; backend reddeder (403 `PAYMENT_METHOD_DISABLED`), fiyat ucu bildirir; tanımsız kelime 503 |
