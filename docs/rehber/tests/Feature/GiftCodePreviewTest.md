@@ -21,3 +21,11 @@ sayısı) test kırılır ve ekleme bilinçli bir karar olur.
 
 Her istekten sonra `forgetAuthState()` çağrılıyor: Laravel'in guard'ı çözdüğü kullanıcıyı
 önbellekte tutuyor ve ikinci istek token'a hiç bakmıyor (T13, `tests/TestCase.md`).
+
+---
+
+## 🆕 Faz 18.3 (`SEC-01` · K159, K163)
+
+`the_preview_prices_the_target_it_is_asked_for`: aynı kod, aynı kullanıcı, iki hedef, iki taban
+(79,80 ve 199,50). `a_malformed_invitation_id_is_a_validation_error`: bozuk `invitationId` 422.
+Bu dosya ilk yayın oranını `setUp()`'ta açmaz; ilk test onu kendisi açar.

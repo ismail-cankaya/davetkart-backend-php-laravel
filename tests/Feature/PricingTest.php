@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\ErrorCode;
+use App\Models\Invitation;
 use App\Models\Order;
 use App\Models\PriceCampaign;
 use App\Models\User;
@@ -106,6 +108,60 @@ final class PricingTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.plans.1.promotion', null)
             ->assertJsonPath('data.plans.1.totalMinor', 39900);
+    }
+
+    /** Faz 18.3 (K159, K163): katalog, fiyatı sorulan HEDEFİ bilir; yanıt biçimi aynı. */
+    #[Test]
+    public function the_personal_catalog_prices_the_target_it_is_asked_for(): void
+    {
+        $invitation = Invitation::factory()->create();
+        $user = User::query()->findOrFail($invitation->user_id);
+        $other = Invitation::factory()->for($user)->create();
+        Order::factory()->forInvitation($invitation)->firstPublish()->create();
+        $token = $user->createToken('t')->plainTextToken;
+
+        // Hakkı tutan siparişin kendi davetiyesi: indirim görünür.
+        $this->withToken($token)->getJson(route('pricing.show', ['invitation' => $invitation->id]))
+            ->assertOk()
+            ->assertJsonPath('data.plans.1.promotion.kind', 'first_publish')
+            ->assertJsonPath('data.plans.1.totalMinor', 15960);
+        $this->forgetAuthState();
+
+        // Başka bir davetiye ve davetiyesiz (paket): liste fiyatı.
+        $this->withToken($token)->getJson(route('pricing.show', ['invitation' => $other->id]))
+            ->assertOk()
+            ->assertJsonPath('data.plans.1.promotion', null)
+            ->assertJsonPath('data.plans.1.totalMinor', 39900);
+        $this->forgetAuthState();
+
+        $this->withToken($token)->getJson(route('pricing.show'))
+            ->assertOk()
+            ->assertJsonPath('data.plans.1.promotion', null);
+    }
+
+    #[Test]
+    public function a_malformed_invitation_in_the_catalog_query_is_a_validation_error(): void
+    {
+        $this->withToken(User::factory()->create()->createToken('t')->plainTextToken)
+            ->getJson(route('pricing.show', ['invitation' => 'not-a-ulid']))
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', ErrorCode::ValidationFailed->value)
+            ->assertJsonPath('error.fields.invitation.0.rule', 'ulid');
+    }
+
+    /** Hedef yalnızca kullanıcının KENDİ siparişleriyle karşılaştırılır: başkasının kimliği bir şey açmaz. */
+    #[Test]
+    public function someone_elses_invitation_in_the_catalog_query_unlocks_nothing(): void
+    {
+        $mine = Invitation::factory()->create();
+        $user = User::query()->findOrFail($mine->user_id);
+        Order::factory()->forInvitation($mine)->firstPublish()->create();
+        $foreign = Invitation::factory()->create();
+
+        $this->withToken($user->createToken('t')->plainTextToken)
+            ->getJson(route('pricing.show', ['invitation' => $foreign->id]))
+            ->assertOk()
+            ->assertJsonPath('data.plans.1.promotion', null);
     }
 
     #[Test]

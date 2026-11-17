@@ -310,3 +310,26 @@ Ayrıntı: `docs/rehber/database/migrations/2026_10_26_100000_add_consumed_at_to
 `refundRequests()` (geçmiş), `openRefundRequest()` (karar bekleyen tek talep) ve
 `scopeWithoutOpenRefundRequest()`. Açık talep hakkı dondurur; kural
 `RefundRequestStatus::isOpen()`'da. Ayrıntı: `docs/rehber/app/Models/RefundRequest.md`.
+
+---
+
+## 🆕 Faz 18.3 (`SEC-01` · K158) — `scopeAwaitingPayment()`
+
+```php
+Order::query()->where('user_id', $id)->awaitingPayment()->get();
+```
+
+"Ödeme bekleyen" = `status = 'pending'` **ve** penceresi dolmamış
+(`expires_at IS NULL OR expires_at >= now()`).
+
+🔴 **Durum tek başına yetmez.** `pending → expired` geçişini `orders:expire` komutu yazar; iki koşu
+arasında penceresi dolmuş satır hâlâ `pending` görünür. "Açık sipariş" diye onu da sayan kod,
+terk edilmiş bir ödemeyi canlı sanar. Sınır `isExpired()` ile aynı; `NULL` pencere sınırsızdır (N4).
+
+| Kullanan | Neden |
+|---|---|
+| `FirstPublishEligibility` | İndirimi **şu an** tutan siparişi bulmak |
+| `StartCheckoutAction` | Aynı hedefin açık siparişini bulmak (yeniden kullan ya da kapat) |
+
+İçindeki `OR` bir alt sorgu parantezinde: kapsam başka `where`'lerle zincirlenince
+`a AND b OR c` hatasına düşmez.

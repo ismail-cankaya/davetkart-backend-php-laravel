@@ -109,3 +109,39 @@ php artisan tinker
 >>> $q = app(App\Actions\Pricing\QuotePriceAction::class)->handle($u, App\Enums\SubscriptionTier::Gold);
 >>> [$q->listMinor, $q->promotion?->kind, $q->totalMinor()]
 ```
+
+---
+
+## 🆕 Faz 18.3 (`SEC-01` · K159) — fiyat bir hedef için sorulur
+
+**Ne değişti?**
+
+| | Önce | Sonra |
+|---|---|---|
+| İmza | `handle(?User, SubscriptionTier)` | `handle(?User, SubscriptionTier, ?string $invitationId = null)` |
+| | `forTiers(?User, ?array $tiers)` | `forTiers(?User, ?array $tiers, ?string $invitationId = null)` |
+| İlk yayın kuralı | sınıfın içinde, `paid_at` sorgusu | `FirstPublishEligibility::isEligible()` (kurucu enjeksiyonu) |
+
+`$invitationId` fiyatı sorulan **hedef**: davetiyenin kimliği ya da `null` (davetiyesiz paket).
+Bu sınıf hâlâ fiyat kuralının tek yeri; yalnızca "kim uygun" sorusu komşu sınıfa taşındı
+([`FirstPublishEligibility.md`](../../Services/Pricing/FirstPublishEligibility.md)). Kampanya,
+"büyük olan kazanır" (K133) ve yuvarlama aynı.
+
+**Kim hangi hedefi geçirir?**
+
+| Çağıran | Hedef |
+|---|---|
+| `StartCheckoutAction` | checkout'un davetiyesi (`$invitation?->id`) |
+| `ShowPricingAction` (`GET /pricing`) | `?invitation=` sorgu parametresi |
+| `PreviewGiftCodeAction` (`POST /gift-codes/preview`) | gövdedeki `invitationId` |
+| `ShowPricingAction` (`GET /public/plans`) | yok: misafire ilk yayın hiç sorulmaz |
+
+Üçü de aynı metodu çağırdığı için **gösterilen fiyat = tahsil edilen fiyat** bir kural değil,
+yapının sonucudur. `FirstPublishCheckoutTest::the_quote_and_the_checkout_agree_on_the_first_publish_discount`
+bunu iki hedef için uçtan uca sınar.
+
+**Sorgu sayısı değişmedi:** uygunluk tek `EXISTS` sorgusu; `three_tiers_cost_two_queries` hâlâ yeşil.
+
+**Sık hata:** hedefi vermeyi unutmak. Varsayılan `null` "davetiyesiz paket" demektir, "bilinmiyor"
+değil. Bir davetiye için fiyat sorarken kimliği geçirmeyen çağıran, o davetiyenin kendi
+rezervasyonunu "başka hedef" sanar ve indirimsiz fiyat döner.

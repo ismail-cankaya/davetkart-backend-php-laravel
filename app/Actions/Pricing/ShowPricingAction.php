@@ -16,6 +16,9 @@ use App\Services\Payment\PaymentMethods;
  * görür; oturum açmış kullanıcı ayrıca ilk yayın indirimini (K131).
  *
  * Havale hesabı yalnızca yöntem AÇIKKEN verilir (K135).
+ *
+ * Faz 18.3 (K159): oturumlu katalog bir HEDEF için sorulabilir; ilk yayın
+ * indirimi başka bir hedefin açık siparişinde ayrılmışsa görünmez.
  * Ayrıntılı açıklama: docs/rehber/app/Actions/Pricing/ShowPricingAction.md
  */
 final class ShowPricingAction
@@ -25,12 +28,15 @@ final class ShowPricingAction
         private readonly PaymentMethods $methods,
     ) {}
 
-    public function handle(?User $user): PricingOverview
+    /**
+     * @param  string|null  $invitationId  Fiyatı sorulan hedef (Faz 18.3, K159); null = davetiyesiz (paket)
+     */
+    public function handle(?User $user, ?string $invitationId = null): PricingOverview
     {
         $methods = $this->methods->enabled();
 
         return new PricingOverview(
-            plans: array_values($this->quotePrice->forTiers($user)),
+            plans: array_values($this->quotePrice->forTiers($user, null, $invitationId)),
             paymentMethods: $methods,
             bankTransfer: in_array(PaymentMethod::BankTransfer, $methods, true) ? $this->methods->bankAccount() : null,
             firstPublishPercent: QuotePriceAction::firstPublishPercent(),

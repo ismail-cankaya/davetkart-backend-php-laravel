@@ -24,6 +24,8 @@ final class GiftCodeController extends Controller
         /** @var User $user auth:sanctum null olmadığını garanti eder */
         $user = $request->user();
 
-        return new GiftCodeQuoteResource($action->handle($user, $request->code(), $request->tier()));
+        return new GiftCodeQuoteResource(
+            $action->handle($user, $request->code(), $request->tier(), $request->invitationId()),
+        );
     }
 }

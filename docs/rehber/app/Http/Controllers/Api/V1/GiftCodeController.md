@@ -26,3 +26,10 @@ yok" ara durumunu doğururdu. Kod checkout gövdesindeki `giftCode` alanıyla ge
 aynı transaction'da yazılır.
 
 Rota: `POST /api/gift-codes/preview` (`/api/v1` değil, sürüm namespace'te: CLAUDE.md §2).
+
+---
+
+## 🆕 Faz 18.3 (`SEC-01` · K163)
+
+`preview()` isteğin `invitationId()` değerini `PreviewGiftCodeAction`'a dördüncü parametre olarak
+geçirir. Başka değişiklik yok.

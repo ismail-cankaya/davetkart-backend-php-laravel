@@ -11,6 +11,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PromotionKind;
 use App\Enums\SubscriptionTier;
 use App\Models\GiftCode;
+use App\Models\Invitation;
 use App\Models\Order;
 use App\Models\PriceCampaign;
 use App\Models\User;
@@ -98,6 +99,39 @@ final class QuotePriceActionTest extends TestCase
         Order::factory()->for($user)->create(['status' => OrderStatus::Expired]);
 
         $this->assertSame(PromotionKind::FirstPublish, $this->quote($user, SubscriptionTier::Gold)->promotion?->kind);
+    }
+
+    /** Faz 18.3 (K159): hakkı tutan açık sipariş, indirimi yalnızca KENDİ hedefi için bırakır. */
+    #[Test]
+    public function an_open_discounted_order_leaves_the_discount_to_its_own_target(): void
+    {
+        $invitation = Invitation::factory()->create();
+        $user = User::query()->findOrFail($invitation->user_id);
+        Order::factory()->forInvitation($invitation)->firstPublish()->create();
+
+        $own = $this->quote($user, SubscriptionTier::Gold, $invitation->id);
+        $this->assertSame(PromotionKind::FirstPublish, $own->promotion?->kind);
+        $this->assertSame(15960, $own->totalMinor());
+
+        $package = $this->quote($user, SubscriptionTier::Gold);
+        $this->assertNull($package->promotion);
+        $this->assertSame(39900, $package->totalMinor());
+    }
+
+    #[Test]
+    public function the_three_tier_catalog_prices_the_same_target(): void
+    {
+        $invitation = Invitation::factory()->create();
+        $user = User::query()->findOrFail($invitation->user_id);
+        Order::factory()->forInvitation($invitation)->firstPublish()->create();
+
+        $forInvitation = app(QuotePriceAction::class)->forTiers($user, null, $invitation->id);
+        $forPackage = app(QuotePriceAction::class)->forTiers($user);
+
+        foreach (SubscriptionTier::cases() as $tier) {
+            $this->assertSame(PromotionKind::FirstPublish, $forInvitation[$tier->value]->promotion?->kind);
+            $this->assertNull($forPackage[$tier->value]->promotion);
+        }
     }
 
     #[Test]
@@ -271,8 +305,9 @@ final class QuotePriceActionTest extends TestCase
         $quote->withGiftCode($onListPrice);
     }
 
-    private function quote(?User $user, SubscriptionTier $tier): PriceQuote
+    /** @param  string|null  $invitationId  Fiyatı sorulan hedef; null = davetiyesiz (paket) */
+    private function quote(?User $user, SubscriptionTier $tier, ?string $invitationId = null): PriceQuote
     {
-        return app(QuotePriceAction::class)->handle($user, $tier);
+        return app(QuotePriceAction::class)->handle($user, $tier, $invitationId);
     }
 }

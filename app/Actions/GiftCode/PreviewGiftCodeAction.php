@@ -35,14 +35,17 @@ final class PreviewGiftCodeAction
     ) {}
 
     /**
+     * @param  string|null  $invitationId  Fiyatı sorulan hedef (Faz 18.3, K159); null = davetiyesiz (paket)
+     *
      * @throws GiftCodeException
      * @throws PaymentMethodException Hediye kodu yöntemi kapalı (403)
      */
-    public function handle(User $user, string $code, SubscriptionTier $tier): PriceQuote
+    public function handle(User $user, string $code, SubscriptionTier $tier, ?string $invitationId = null): PriceQuote
     {
         $this->methods->ensureEnabled(PaymentMethod::GiftCode);
 
-        $price = $this->quotePrice->handle($user, $tier);
+        // Taban, checkout'un kullanacağı fiyatla AYNI hedef için hesaplanır.
+        $price = $this->quotePrice->handle($user, $tier, $invitationId);
 
         $giftCode = GiftCode::query()
             ->where('code_hash', GiftCodeFormat::hash($code))
