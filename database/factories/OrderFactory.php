@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Actions\Pricing\Promotion;
+use App\Actions\Pricing\QuotePriceAction;
 use App\Enums\OrderScope;
 use App\Enums\OrderStatus;
+use App\Enums\PromotionKind;
 use App\Enums\SubscriptionTier;
 use App\Models\Invitation;
 use App\Models\Order;
@@ -13,6 +16,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
+use LogicException;
 
 /**
  * Test ve seeder icin sahte siparis uretir.
@@ -116,6 +120,38 @@ class OrderFactory extends Factory
             'tier' => $tier,
             'amount_minor' => self::minorFor($tier),
         ]);
+    }
+
+    /**
+     * İlk yayın indirimiyle açılmış sipariş (Faz 18.3, K158).
+     *
+     * 🔴 Dört kolon BİRLİKTE değişir (orders_promotion_* kısıtları): kaynak,
+     * otomatik indirim, toplam indirim, ödenecek tutar. Oran üretim koduyla
+     * aynı yerden okunur (B4). tier()'dan SONRA çağrılır.
+     */
+    public function firstPublish(): static
+    {
+        return $this->state(function (array $attributes): array {
+            $list = $attributes['amount_minor'] ?? null;
+
+            if (! is_int($list)) {
+                throw new LogicException('firstPublish() needs the list price in amount_minor.');
+            }
+
+            $discount = Promotion::firstPublish(QuotePriceAction::firstPublishPercent())->discountFor($list);
+
+            // Oran kapalıyken (0) satır orders_promotion_source_check'e çarpardı; neden burada söylenir.
+            if ($discount <= 0) {
+                throw new LogicException('firstPublish() needs davetkart.pricing.first_publish_percent above 0.');
+            }
+
+            return [
+                'amount_minor' => $list - $discount,
+                'discount_minor' => $discount,
+                'promotion' => PromotionKind::FirstPublish,
+                'promotion_discount_minor' => $discount,
+            ];
+        });
     }
 
     /**
