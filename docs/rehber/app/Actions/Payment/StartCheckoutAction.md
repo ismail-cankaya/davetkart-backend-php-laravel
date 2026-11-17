@@ -451,3 +451,125 @@ kod girildiyse sipariş açılamaz. Kontrol transaction içinde olduğu için f�
 Havale sipariş açmıyor. Kullanıcı IBAN'a para gönderir, sen elle kontrol edersin. Bu uç
 yalnızca **kart** ya da **bedava kod** ile sipariş açar. `bank_transfer` açık olsa bile kart
 kapalıyken ödenecek tutarı olan bir checkout 403 alır.
+
+---
+
+## 🆕 Faz 18.3 (`SEC-01` · K158, K160, K161) — ilk yayın indirimi tek açık siparişe
+
+### Sorun
+
+Her checkout çağrısı yeni bir `pending` sipariş açıyordu ve hiçbiri diğerinden haberdar değildi.
+İki sekme = iki indirimli sipariş (`SEC-01`); çift tıklama = iki satır (`ARC-09`). Kök neden bir
+**TOCTOU** hatası: "indirim boşta mı?" diye bakılıyor, cevap bir satıra yazılmadan önce ikinci
+istek aynı soruyu sorup aynı cevabı alıyordu.
+
+### Yeni akış (transaction'ın içi)
+
+```
+1. Kullanıcı satırını kilitle            User::…->lockForUpdate()       K158, 1. katman
+2. Penceresi dolmuş satırları kapat      pending -> expired             K161
+3. Bu hedefin açık siparişlerini oku     awaitingPayment() + hedef
+4. Fiyatı hesapla (BU hedef için)        QuotePriceAction               K159
+5. Aynı niyet mi?  evet -> o siparişi DÖNDÜR                            K160
+6. Değilse hedefin eski siparişini kapat pending -> expired             K161
+7. Hediye kodunu ayır, siparişi yaz      (Faz 11 ve 13'teki gibi)
+```
+
+### 1. Neden **kullanıcı** satırı kilitleniyor?
+
+Korunan şey henüz var olmayan bir satır: "ikinci indirimli sipariş". Olmayan satır kilitlenemez
+(hayalet/phantom sorunu). Çözüm, bütün checkout'ların ortak atası olan satırı kilitlemek:
+aynı kullanıcının iki isteği sıraya girer, ikincisi birincinin yazdığını **görerek** karar verir.
+Hediye kodundaki (K111) desenin aynısı; orada kilitlenen ortak satır kodun kendisiydi.
+
+Kilit, siparişlere bakan ilk sorgudan **önce** alınır. Sonra alınsaydı okuma ile kilit arasında
+yine boşluk kalırdı (E9). `FirstPublishCheckoutTest::the_user_row_is_locked_before_the_checkout_looks_at_orders`
+koşan SQL'i `DB::listen` ile yakalar ve sırayı da sınar (`TST-02` deseni).
+
+**Kilit sırası** (kilitlenme/deadlock olmasın diye): kullanıcı → siparişler → hediye kodu. Ödeme
+bildirimi (`HandlePaymentCallbackAction`) yalnızca sipariş satırını kilitler, kullanıcıyı
+kilitlemez; döngü oluşmaz.
+
+### 5. "Aynı niyet" ne demek? (K160)
+
+| Karşılaştırılan | Neden |
+|---|---|
+| hedef | sorgunun kendisi: aynı davetiye ya da ikisi de davetiyesiz |
+| plan (`tier`) | Gold siparişi Elit isteğine geri verilmez |
+| liste fiyatı + otomatik indirim **tutarı** | arada kampanya açıldıysa ya da fiyat değiştiyse eski tutar geri verilmez: gösterilen = tahsil edilen |
+| hediye kodu (kimliğiyle) | kodsuz istek, kodlu siparişi geri almaz; tersi de |
+| sağlayıcı (`provider`) | sürücü arada değiştiyse eski oturum yeniden açılamaz |
+
+Hepsi tutuyorsa sipariş **olduğu gibi** döner: yeni satır yok, yeni rezervasyon yok.
+
+- **`provider_ref` ve `expires_at` korunur.** Kimlik değişseydi ilk oturumun bildirimi siparişi
+  bulamazdı; pencere uzasaydı sayfayı yenilemek indirimi süresiz tutardı.
+- **Yanıt yine 201.** Yanıt biçimi değişmedi (K163); istemci aynı `orderId` ve `checkout` alanını
+  alır. Katı REST'te ikinci yanıt 200 olurdu; frontend'in tek bir başarı yolu kalsın diye dokunulmadı.
+- **Sağlayıcı ikinci denemede patlarsa sipariş `failed` yapılmaz.** İlk oturum hâlâ ödenebilir;
+  `failed` final olduğu için o ödeme reddedilirdi. Telafi yalnızca bu isteğin açtığı satıra uygulanır.
+- **Kart kapalıysa (K134) yeniden kullanma da reddedilir:** 403.
+
+Eskiden aynı kodla ikinci deneme `GIFT_CODE_ALREADY_USED` alıyordu (kullanımı kendi bekleyen
+siparişi tutuyordu). Artık aynı sipariş döner.
+
+### 6. Farklı niyet eskisini kapatır (K161)
+
+Kullanıcı Gold seçip ödeme sayfasına gitti, vazgeçti, Elit seçti. İki seçenek vardı:
+
+| Seçenek | Sonuç |
+|---|---|
+| Yeni sipariş **indirimsiz** açılsın | Güvenli ama fikir değiştiren kullanıcıyı 30 dakika cezalandırır |
+| **Eskisi kapansın, indirim yenisine geçsin** ✅ | Kullanıcı dostu; geç ödeme davranışına bağlı |
+
+İkincisi seçildi, çünkü geç ödeme koddan net okunuyor: kapatma durumu `expired`, ve
+`expired → paid` geçişi açık (K89). Eski sekmedeki sayfadan sonradan ödeme gelirse sipariş
+**donmuş tutarıyla** `paid` olur, `Late payment accepted…` uyarısı düşer, ve iki indirimli sipariş
+ödenmişse son kapı `critical` yazar. `failed` yazılsaydı o para alınır ama hak açılmazdı.
+
+Kapatma, kod rezervasyonundan **önce** yapılır: eski siparişin tuttuğu hediye kodu serbest kalır
+ve yeni sipariş aynı kodu kullanabilir. Geçersiz bir kodla gelen istek hiçbir şeyi kapatmaz:
+`GiftCodeException` transaction'ı geri alır.
+
+Aynı mekanizma 2. adımda da çalışır: penceresi dolmuş ama `orders:expire`'ın henüz uğramadığı
+satır kısmi UNIQUE index'e takılırdı (index zamanı bilmez). Komutun işi bu kullanıcı için öne çekilir.
+
+### Bu düzeltme neyi KAPATMAZ? (B6)
+
+| Kalan | Neden | Ne yakalar |
+|---|---|---|
+| Kapatılmış (ya da süresi dolmuş) indirimli siparişin açık kalan ödeme sayfasından **geç ödeme** | Sağlayıcının sayfasını biz kapatamayız; para alınmışsa geri çevrilemez (K89) | Son kapı: `Log::critical` (`HandlePaymentCallbackAction`) |
+| Geç ödenen siparişin hediye kodu kullanımının yeniden "aktif" olması | Kullanım durumu siparişin durumundan türetilir (D4); Faz 11'den beri var | — (görüldü, dokunulmadı) |
+| Checkout ile ödeme bildirimi aynı anda işlenirse "hiç ödememiş" gözleminin bayatlaması | Bildirim kullanıcı satırını kilitlemez (kilitlenme riski) | Pencere milisaniyeler; yalnızca iki indirimli ödeme olursa son kapı |
+
+### Sık hatalar
+
+| Hata | Sonuç |
+|---|---|
+| Kilidi fiyat hesabından sonra almak | Kilit var ama hiçbir şeyi korumuyor: karar kilitsiz verildi |
+| Eski siparişi `failed` yapmak | Geç gelen ödeme reddedilir: para alınır, hak açılmaz |
+| Eski siparişi silmek | Denemenin izi ve `provider_ref` kaybolur; geç bildirim "bilinmeyen referans" olur |
+| Yeniden kullanmada tutarı karşılaştırmamak | Kampanya başladıktan sonra ekranda yeni fiyat, tahsilatta eski fiyat |
+| Kodu rezerve ettikten sonra eski siparişi kapatmak | Aynı kod "zaten kullanıldı" der: kullanımı hâlâ eski sipariş tutuyor |
+| Yeniden kullanılan siparişin `provider_ref`'ini ezmek | İlk oturumun bildirimi siparişi bulamaz |
+
+### Kendin dene
+
+```powershell
+php artisan test --filter=FirstPublishCheckoutTest
+```
+
+Tarayıcıda (yerel, `PAYMENT_DRIVER=fake`): yeni bir kullanıcıyla bir davetiyenin ödeme sayfasında
+"Öde"ye bas, geri dön, yeniden bas. `orders` tablosunda **tek** `pending` satır olmalı. Sonra
+panelden başka bir davetiye için ödeme sayfasını aç: fiyat liste fiyatı olmalı ve açılan sipariş
+`promotion = NULL` taşımalı.
+
+**Mutantlar** (her biri ilgili testi kırmızıya çevirir):
+
+| Mutant | Kırmızıya dönen test |
+|---|---|
+| `->lockForUpdate()` silinir | `the_user_row_is_locked_before_the_checkout_looks_at_orders` |
+| `$existing = null;` (yeniden kullanma kalkar) | `a_second_checkout_for_the_same_target_reuses_the_pending_order` |
+| `$this->supersede($open);` silinir | `a_different_plan_for_the_same_target_closes_the_old_order_and_takes_the_discount` |
+| `$this->expireStaleOrders($user);` silinir | `an_abandoned_checkout_keeps_the_discount_for_the_next_try` |
+| `if (! $reused)` → `if (true)` | `a_provider_failure_on_a_reused_order_leaves_it_pending` |

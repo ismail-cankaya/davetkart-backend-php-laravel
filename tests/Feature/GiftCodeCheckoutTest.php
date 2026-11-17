@@ -276,20 +276,27 @@ final class GiftCodeCheckoutTest extends TestCase
 
     // ------------------------------------------------- kişi başı ve toplam (D4, D5, D8)
 
+    /**
+     * Faz 18.3 (K161): ikinci deneme BAŞKA bir hedef için. Aynı hedefte plan
+     * değiştirmek artık eski siparişi kapatıp kodu serbest bırakır
+     * (FirstPublishCheckoutTest); kişi başı tek aktif kullanım kuralı yerinde.
+     */
     #[Test]
     public function the_same_user_cannot_use_a_code_twice(): void
     {
         GiftCode::factory()->withCode(self::CODE)->percent(10)->maxUses(100)->create();
-        $user = User::factory()->create();
+        [$user, $invitation] = $this->ownedInvitation();
 
         $this->checkout($user, ['tier' => 'gold', 'giftCode' => self::CODE])->assertCreated();
         $this->forgetAuthState();
 
-        $this->checkout($user, ['tier' => 'standart', 'giftCode' => self::CODE])
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('invitations.checkout', $invitation), ['tier' => 'standart', 'giftCode' => self::CODE])
             ->assertStatus(422)
             ->assertJsonPath('error.code', ErrorCode::GiftCodeAlreadyUsed->value);
 
-        $this->assertSame(1, Order::query()->count());
+        // Reddedilen deneme hiçbir şeyi değiştirmedi: ilk sipariş hâlâ bekliyor.
+        $this->assertSame(OrderStatus::Pending, Order::query()->sole()->status);
     }
 
     #[Test]
