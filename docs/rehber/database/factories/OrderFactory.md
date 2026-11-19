@@ -251,3 +251,27 @@ kısıtı (`orders_promotion_*`) onları birbirine bağlar:
 - **Aynı kullanıcıya iki kez `create()` edilemez** (ikisi de `pending` iken):
   `orders_one_pending_first_publish_per_user` index'i reddeder. Bu bir engel değil, K158'in
   kendisidir; `paid()`'in `paid_at` kısıtıyla aynı "öğretmen" rolü.
+
+---
+
+## 🆕 Faz 18.4 (`SEC-02` · K164) — `publishedOnce()`
+
+```php
+// Yayınladı, sonra 3 gün içinde silindi: serbest ama damgalı hak (SEC-02'nin durumu)
+Order::factory()->paid()->released()->publishedOnce()->create(['user_id' => $user->id]);
+
+// Belirli bir anla (liste çıktısını sınamak için)
+Order::factory()->paid()->publishedOnce(CarbonImmutable::parse('2026-11-10 09:30', 'UTC'))->create();
+```
+
+`first_published_at`'i doldurur. Bağa (`invitation_id`) dokunmaz: damga bağdan bağımsızdır ve
+fabrika da bunu böyle söyler.
+
+- **`paid()`'den sonra çağrılır.** `orders_first_published_at_check` ödenmemiş siparişte damgayı
+  reddeder; `paid()` kısıtıyla aynı "öğretmen" rolü.
+- 🔴 **`firstPublish()` ile karıştırma.** O bir **indirim** (ilk yayın indirimi, K158); bu bir
+  **olay** (hak bir davetiyeyi yayınladı). İkisi birlikte de kullanılabilir.
+- Üretim kodunda bu durumu yalnızca `StampFirstPublishAction` üretir. Akışın kendisini sınayan
+  testler (`OrderFirstPublishStampTest`, `RefundRequestTest`'teki `SEC-02` testi) fabrikayı değil
+  gerçek yayın ve silme uçlarını kullanır; fabrika durumu yalnızca **sonraki** adımı (iade kuralı,
+  onay, liste) sınayan testlerde kısayoldur.
