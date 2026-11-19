@@ -9,6 +9,7 @@ use App\Enums\RefundRequestStatus;
 use App\Models\Order;
 use App\Models\RefundRequest;
 use App\Notifications\RefundRequestResolvedNotification;
+use App\Services\Refund\RefundEligibility;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use LogicException;
@@ -24,12 +25,17 @@ use RuntimeException;
  *
  * İki satır da KİLİTLENİR: kullanıcı aynı anda "Vazgeç" derse ya da Shopier'in
  * iade bildirimi aynı anda gelirse, biri diğerini bekler.
+ *
+ * Faz 18.4 (SEC-02 · K167): onay, hakkın HÂLÂ kullanılmamış olduğunu kilit
+ * altında yeniden sınar; kullanılmışsa onaylamaz ve sebebini söyler.
  * Ayrıntılı açıklama: docs/rehber/app/Actions/Refund/ResolveRefundRequestAction.md
  */
 final class ResolveRefundRequestAction
 {
+    public function __construct(private readonly RefundEligibility $eligibility) {}
+
     /**
-     * @throws RuntimeException Talep yok ya da zaten kapanmış
+     * @throws RuntimeException Talep yok, zaten kapanmış ya da hak kullanılmış (yalnızca onayda)
      */
     public function handle(string $requestId, RefundRequestStatus $decision, ?string $note): RefundRequest
     {
@@ -53,6 +59,7 @@ final class ResolveRefundRequestAction
             $order = Order::query()->whereKey($request->order_id)->lockForUpdate()->firstOrFail();
 
             if ($decision === RefundRequestStatus::Approved) {
+                $this->ensureRightIsStillUnused($request, $order);
                 $this->refundOrder($order);
             }
 
@@ -74,6 +81,29 @@ final class ResolveRefundRequestAction
         ));
 
         return $resolved;
+    }
+
+    /**
+     * 🔴 Faz 18.4 (SEC-02 · K167): "hak kullanıldı mı" ONAY ANINDA, sipariş satırı
+     * kilitliyken yeniden sorulur (TOCTOU). Talep anındaki cevap onaya kadar bayatlar.
+     *
+     * @throws RuntimeException Hak kullanılmış: onay yok, talep açık kalır
+     */
+    private function ensureRightIsStillUnused(RefundRequest $request, Order $order): void
+    {
+        // Para zaten geri gitmiş (Shopier bildirimi önce geldi): korunacak bir şey yok.
+        if ($order->status === OrderStatus::Refunded) {
+            return;
+        }
+
+        $blocker = $this->eligibility->usageBlockerFor($order);
+
+        if ($blocker !== null) {
+            throw new RuntimeException(
+                "Refund request {$request->id} cannot be approved: the right has been used ({$blocker->value}). "
+                .'Do not send the money; close the request with refunds:reject.',
+            );
+        }
     }
 
     private function refundOrder(Order $order): void
