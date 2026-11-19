@@ -103,6 +103,84 @@ final class RefundRequestTest extends TestCase
         $this->assertRefused($user, $order, 'in_use');
     }
 
+    /**
+     * 🔴 SEC-02 (Faz 18.4 · K166): öde → yayınla → sil (pencere açık) → iade iste.
+     *
+     * Hak serbest kalır ve yeniden KULLANILABİLİR (K82); ama bir davetiyeyi
+     * yayınladığı için iade edilemez. Ekran da aynı cevabı verir.
+     */
+    #[Test]
+    public function a_right_that_published_an_invitation_cannot_be_refunded_after_release(): void
+    {
+        $user = User::factory()->create();
+        $invitation = Invitation::factory()->create(['user_id' => $user->id]);
+        $order = Order::factory()->paid()->forInvitation($invitation)->create();
+        $token = $user->createToken('t')->plainTextToken;
+
+        $this->withToken($token)->postJson(route('invitations.publish', $invitation))->assertOk();
+        $this->forgetAuthState();
+        $this->withToken($token)->deleteJson(route('invitations.destroy', $invitation))->assertNoContent();
+        $this->forgetAuthState();
+
+        // K82 aynen duruyor: bağ koptu, hak yanmadı.
+        $order->refresh();
+        $this->assertNull($order->invitation_id);
+        $this->assertNull($order->consumed_at);
+
+        $this->assertRefused($user, $order, 'used');
+        $this->assertSame(0, RefundRequest::query()->count());
+
+        $this->forgetAuthState();
+        $this->withToken($token)
+            ->getJson(route('account.entitlements'))
+            ->assertJsonPath('data.rights.0.state', 'available')
+            ->assertJsonPath('data.rights.0.refund.eligible', false)
+            ->assertJsonPath('data.rights.0.refund.blocker', 'used');
+    }
+
+    /** K82 değişmedi (D6): yayınlamış hak iade edilmez ama yeni bir davetiyeyi yayınlar. */
+    #[Test]
+    public function a_released_right_that_published_can_still_publish_again(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->paid()->released()->publishedOnce()->create(['user_id' => $user->id]);
+        $next = Invitation::factory()->create(['user_id' => $user->id]);
+
+        $this->withToken($user->createToken('t')->plainTextToken)
+            ->postJson(route('invitations.publish', $next))
+            ->assertOk();
+
+        $this->assertSame($next->id, $order->refresh()->invitation_id);
+    }
+
+    /** K139 bozulmadı: hiç yayınlanmamış davetiyeden ayrılan hak iade edilebilir. */
+    #[Test]
+    public function an_unpublished_right_is_still_refundable(): void
+    {
+        $user = User::factory()->create();
+        $draft = Invitation::factory()->create(['user_id' => $user->id]);
+        $order = Order::factory()->paid()->forInvitation($draft)->create();
+
+        $this->withToken($user->createToken('t')->plainTextToken)
+            ->deleteJson(route('invitations.destroy', $draft))
+            ->assertNoContent();
+        $this->forgetAuthState();
+
+        $this->requestRefund($user, $order)->assertCreated();
+        $this->assertSame($order->id, RefundRequest::query()->sole()->order_id);
+    }
+
+    /** Sebep sırası: hak şu an bir davetiyedeyse "kullanılıyor" denir, "kullanıldı" değil. */
+    #[Test]
+    public function a_right_in_a_published_invitation_reports_in_use_before_used(): void
+    {
+        $user = User::factory()->create();
+        $invitation = Invitation::factory()->published()->create(['user_id' => $user->id]);
+        $order = Order::factory()->paid()->forInvitation($invitation)->publishedOnce()->create();
+
+        $this->assertRefused($user, $order, 'in_use');
+    }
+
     #[Test]
     public function a_gift_right_cannot_be_cancelled(): void
     {

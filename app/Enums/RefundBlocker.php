@@ -25,6 +25,13 @@ enum RefundBlocker: string
     /** Hak bir davetiyede (yayında ya da taslakta) duruyor ya da yandı. */
     case InUse = 'in_use';
 
+    /**
+     * Hak şu an serbest ama daha önce bir davetiyeyi YAYINLADI (Faz 18.4, SEC-02 · K166).
+     *
+     * `in_use` değil: hak kullanılabilir durumda; "kullanılıyor" demek yanlış olurdu.
+     */
+    case Used = 'used';
+
     /** Hediye koduyla ücretsiz alınmış: geri gönderilecek para yok. */
     case Free = 'free';
 

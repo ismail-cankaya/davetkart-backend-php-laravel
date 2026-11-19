@@ -13,6 +13,7 @@ use App\Enums\SubscriptionTier;
 use App\Models\Invitation;
 use App\Models\Order;
 use App\Models\User;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
@@ -152,6 +153,20 @@ class OrderFactory extends Factory
                 'promotion_discount_minor' => $discount,
             ];
         });
+    }
+
+    /**
+     * Bir davetiyeyi YAYINLAMIŞ hak (Faz 18.4, SEC-02 · K164).
+     *
+     * Bağdan bağımsız: released() ile birlikte "yayınlandı, sonra serbest
+     * kaldı" durumunu üretir. firstPublish() ile karıştırma: o bir İNDİRİM.
+     * paid()'den SONRA çağrılır (orders_first_published_at_check).
+     */
+    public function publishedOnce(?DateTimeInterface $at = null): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'first_published_at' => $at ?? now(),
+        ]);
     }
 
     /**

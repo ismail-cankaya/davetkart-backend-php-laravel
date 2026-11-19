@@ -1,7 +1,7 @@
 # FAZ 18 — Denetim düzeltmeleri (`AUD-2026-11-12`)
 
 > **Başlangıç:** 16 Kasım 2026 · **Entegrasyon dalı:** `faz-18-audit-fixes` (`d810410` üstü; frontend'de `main`'deki `47aedc8` birleştirildi)
-> **Durum:** sürüyor (3/6). Her bulgu ayrı bir `fix/…` dalında kapanır, `faz-18-audit-fixes`'e birleşir; faz sonunda `main` + `v1.1.0`.
+> **Durum:** sürüyor (4/6). Her bulgu ayrı bir `fix/…` dalında kapanır, `faz-18-audit-fixes`'e birleşir; faz sonunda `main` + `v1.1.0`.
 > **Kaynak:** docs deposu `audits/2026-11-12-full-system-audit/REPORT.md` §1 ve §4 · takip tablosu `phases/faz-18/README.md`
 > **Kararlar:** docs deposu `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-18.md`
 > **Önceki:** [`FAZ-15.md`](FAZ-15.md). Faz 16–17'nin kaydı yok (`ARC-02`, bu fazın kapsamı dışında).
@@ -13,7 +13,7 @@
 | 18.1 | `OPS-01` | Yayına çıkacak commit ve dağıtım sırası; plan kuralları sözleşmesi (+ `TST-01`) | `fix/2026-11-16-ops-01-release-alignment` | K146–K150 | kod ✅ · `composer check` ✅ 1074 test · frontend `npm run check` ✅ · sunucu adımları koşmadı. Commit ve birleştirme durumu: docs deposu `phases/faz-18/README.md` |
 | 18.2 | `OPS-02` | Veritabanı yedeği ve geri yükleme provası | `fix/2026-11-16-ops-02-db-backup` | K151–K157 | kod ✅ · yerel kuru koşu ve prova ✅ · `composer check` ✅ 1074 test · S3 yüklemesi, sunucu kurulumu ve üretim provası koşmadı (İsmail'in elle işleri, §18.2) |
 | 18.3 | `SEC-01` | İlk yayın indirimi tek açık siparişe | `fix/2026-11-16-sec-01-first-publish-once` | K158–K163 | kod ✅ · `composer check` ✅ 1126 test · frontend `npm run check` ✅ · 13 mutanttan 13'ü öldü (biri kod sadeleştirilerek) · yerel göç, tarayıcı denemesi ve gerçek yarış testi koşmadı (§18.3) |
-| 18.4 | `SEC-02` | Yayınlanmış hakkın iadesi | — | — | bekliyor |
+| 18.4 | `SEC-02` | Yayınlanmış hakkın iadesi | `fix/2026-11-17-sec-02-refund-after-publish` | K164–K169 | kod ✅ · `composer check` ✅ 1159 test · frontend `npm run check` ✅ · 21 mutanttan 21'i öldü · yerel göç, tarayıcı denemesi ve HTTP düzeyinde gerçek yarış testi koşmadı (§18.4) |
 | 18.5 | `SEC-03` | Shopier `callback` kipi üretimde reddedilir | — | — | bekliyor |
 | 18.6 | `SEC-04` | Frontend güvenlik başlıkları + Faz 18 kapanışı | — | — | bekliyor |
 
@@ -499,3 +499,216 @@ Makine: Windows 11, PHP 8.5.12, PostgreSQL 18.4 (`davetkart_test`), Node 24, Win
 | — | Başka hedefin sayfasında indirimin neden görünmediğini söyleyen bir metin yok (D6: UX sorusu) |
 | — | Frontend deposunda 4 Kasım'dan kalma `.git/packed-refs.lock` (0 bayt) dal açarken uyarı verdi; silinmedi |
 | `ARC-01` | `DECISION-INDEX.md` K128–K145'i hâlâ içermiyor; K131'in "daraltıldı" notu bu yüzden `FAZ-13.md`'deki satırına işlendi |
+
+---
+
+## 18.4 — `SEC-02`: kullanılıp silinen davetiyenin hakkı iade edilebiliyordu; yönetici göremiyordu
+
+### Sorun
+
+Kullanıcı Standart alır, davetiyeyi yayınlar, bağlantıyı dağıtır, misafirler LCV bırakır; üç günlük
+pencere (K82) kapanmadan davetiyeyi siler. Sipariş serbest kalır (`invitation_id = NULL`,
+`consumed_at = NULL`). İade uygunluğu (K139) yalnızca "hak bir davetiyeye bağlı mı, yanmış mı" diye
+bakıyordu; ikisi de değil, talep 201 ile açılıyordu (denetim sondası P47). Yönetici `refunds:list`'te
+plan, tutar ve e-postayı görüyordu ama hakkın bir davetiyeyi yayınladığını gösteren hiçbir şey yoktu
+(P49) ve onaylıyordu. İki kural ayrı ayrı doğruydu; hata **birleşim yerindeydi**: K82 "kullanıldı"
+bilgisini siliyor, K139 o bilgiye güveniyordu. Kök neden, bir durumu (kullanıldı) bir **bağın
+yokluğundan** türetmek. Faz 14 aynı dersi `consumed_at` için almıştı (K137) ama o damga yalnızca
+pencere kapandıktan sonra basılıyordu. Ayrıca onay, talep anındaki cevabı yeniden sormuyordu
+(TOCTOU) ve talep açıkken eşzamanlı bir yayın hakkı bağlayabiliyordu (§"Doğrulama", iki bağlantılı
+deneme).
+
+### Kararlar
+
+| K | Karar (tek cümle) |
+|---|---|
+| **K164** | `orders.first_published_at` (tz'siz `timestamp`, nullable, `CHECK (… OR paid_at IS NOT NULL)`): bir hak yayındaki bir davetiyeye ilk kez hizmet ettiğinde yalnızca boşsa basılır; serbest bırakma ve başka hiçbir yol onu silmez; toplu atamaya kapalı, tek yazar `StampFirstPublishAction`. |
+| **K165** | Damga iki yerde basılır: `PublishInvitationAction` (yayın anı, aynı transaction) ve `DeleteInvitationAction` (hak davetiyeden ayrılmadan önce); ikincisi, yayından sonra ödenen yükseltme siparişinin yan kapısını kapatır. Damga zamanı yayın anı ile ödeme anının sonrakidir. |
+| **K166** | Yeni iade engeli `used` (`RefundBlocker::Used`): hak serbest ama bir davetiyeyi yayınlamış; `in_use` her zaman önce sorulur. Hata kodu (`REFUND_NOT_ALLOWED`, 409) ve `contracts/error-codes.json` değişmez; frontend tipi ve çevirisi eklenir. K139'u daraltır. |
+| **K167** | Onay anında yeniden sınama: `ResolveRefundRequestAction`, sipariş satırı kilitliyken `RefundEligibility::usageBlockerFor()`'u sorar; hak kullanılmışsa onaylamaz (talep açık kalır, ret ile kapanır). `refunds:approve` aynı soruyu "parayı gönderdiniz mi?" sorusundan **önce** sorar. Zaten `refunded` sipariş istisna. Durum makinesi değişmez. |
+| **K168** | `refunds:list` "Yayın" sütunu: damga tarihi (`davetkart.default_timezone`) · `davetiyeye bağlı` · `hiç yayınlanmadı`. |
+| **K169** | Geriye dönük doldurma (göç): (1) yayınlanmış davetiyeye bağlı ödenmiş sipariş → `GREATEST(published_at, paid_at)`; (2) yanmış hak → `consumed_at`; (3) serbest kalmış hak → aynı kullanıcının çöpteki yayınlanmış davetiyesi + sipariş `updated_at` ≈ davetiye `deleted_at` (±2 sn). İz yoksa damga yok; sınırlar kılavuzda. |
+
+**Daraltılan kararlar:** K139 → **K166** (iade edilebilir hak artık "bir davetiyeyi yayınlamamış" da
+olmalı; satırı `FAZ-14.md` §4'te, durum notu oraya işlendi). K82 → **K164** (hak serbest kalır ve
+yeniden **kullanılır**, iade edilmez; satırı docs deposu `DECISION-INDEX.md`'de). Geçersiz kılınan
+karar yok. K137 ve K141 değişmedi; K167 K141'in sorusundan önce bir denetim ekler.
+
+### Değişen dosyalar
+
+**Backend** (`fix/2026-11-17-sec-02-refund-after-publish`)
+
+| Adım | Dosya | Ne | Kılavuz |
+|---|---|---|---|
+| 18.4.1 | `database/migrations/2026_11_17_100000_add_first_published_at_to_orders_table.php` | Kolon + kısıt + üç doldurma kuralı (yeni) | [göç kılavuzu](../database/migrations/2026_11_17_100000_add_first_published_at_to_orders_table.md) |
+| 18.4.1 | `app/Models/Order.php` | Cast, `hasPublished()`, `scopeNeverPublished()`; `#[Fillable]` boş kaldı | [`Order.md`](../app/Models/Order.md) §Faz 18.4 |
+| 18.4.1 | `database/factories/OrderFactory.php` | `publishedOnce(?$at)` | [`OrderFactory.md`](../database/factories/OrderFactory.md) §Faz 18.4 |
+| 18.4.1 | `tests/Feature/OrderFirstPublishedAtTest.php` | 11 test (yeni) | göç kılavuzu §7 |
+| 18.4.2 | `app/Actions/Payment/StampFirstPublishAction.php` | Damgayı basan tek yer (yeni) | [`StampFirstPublishAction.md`](../app/Actions/Payment/StampFirstPublishAction.md) |
+| 18.4.2 | `app/Actions/Invitation/PublishInvitationAction.php` | 6. katman: damga | [`PublishInvitationAction.md`](../app/Actions/Invitation/PublishInvitationAction.md) §Faz 18.4 |
+| 18.4.2 | `app/Actions/Invitation/DeleteInvitationAction.php` | Hak ayrılmadan önce damga (K165) | [`DeleteInvitationAction.md`](../app/Actions/Invitation/DeleteInvitationAction.md) §Faz 18.4 |
+| 18.4.2 | `tests/Feature/OrderFirstPublishStampTest.php` | 10 test (yeni) | `StampFirstPublishAction.md` §9 |
+| 18.4.3 | `app/Enums/RefundBlocker.php` | `Used = 'used'` | [`RefundEligibility.md`](../app/Services/Refund/RefundEligibility.md) §7 |
+| 18.4.3 | `app/Services/Refund/RefundEligibility.php` | `usageBlockerFor()`; `blockerFor()` onu kullanır | aynı, §6–§9 |
+| 18.4.3 | `tests/Feature/RefundRequestTest.php` | +4 test | [`RefundRequestTest.md`](../tests/Feature/RefundRequestTest.md) |
+| 18.4.3 | `docs/rehber/app/Enums/ErrorCode.md` · `docs/rehber/app/Actions/Refund/RequestRefundAction.md` | `reason` değerlerine `used` | — |
+| 18.4.4 | `app/Actions/Refund/ResolveRefundRequestAction.php` | Onayda yeniden sınama (K167) | [`ResolveRefundRequestAction.md`](../app/Actions/Refund/ResolveRefundRequestAction.md) §5–§8 |
+| 18.4.4 | `app/Console/Commands/ApproveRefundRequest.php` | Para sorusundan önce ön denetim | `RefundCommands.md` §2.1 (18.4.5'in commit'inde, aşağıda) |
+| 18.4.4 | `tests/Feature/RefundApprovalRecheckTest.php` | 6 test (yeni) | `ResolveRefundRequestAction.md` §8 |
+| 18.4.5 | `app/Console/Commands/ListRefundRequests.php` | "Yayın" sütunu | [`RefundCommands.md`](../app/Console/Commands/RefundCommands.md) §4–§5 |
+| 18.4.5 | `tests/Feature/RefundCommandsTest.php` | +2 test | [`RefundCommandsTest.md`](../tests/Feature/RefundCommandsTest.md) |
+| 18.4.5 | `docs/rehber/PROJE-KOMUTLARI.md` | §3.3 ve kısa yol tablosu: önce "Yayın" sütununa bak | — |
+| 18.4.6 | `docs/rehber/fazlar/FAZ-18.md` · `README.md` · `FAZ-14.md` | Bu kayıt; K139'a "daraltıldı → K166" notu | — |
+
+Yeni hata kodu, yeni bağımlılık ve config anahtarı **yok**; `contracts/` değişmedi (`errors:export
+--check` yeşil). Yeni Composer/npm paketi yok.
+
+**Frontend** (`fix/2026-11-17-sec-02-refund-after-publish`), adım 18.4.7
+
+| Dosya | Ne |
+|---|---|
+| `src/types.ts` | `RefundBlocker` birliğine `'used'` |
+| `src/locales/tr/errors.json` · `src/locales/en/errors.json` | `refundReasons.used` (409 toast'ının devamı) |
+| `src/components/account/RightRow.tsx` | `available` + `blocker === 'used'` satırına açıklama |
+| `src/pages/PricingPage.tsx` | SSS "İade alabilir miyim?": yayın yapmış hak iade edilmez |
+| `docs/rehber/src/pages/account/README.md` §7 · `docs/rehber/src/pages/PricingPage.md` | Kılavuz |
+
+**Docs** (`docs/2026-11-16-faz-18-audit-fixes`), adım 18.4.8: `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-18.md`
+§18.4, `decisions/DECISION-INDEX.md` (K164–K169, sıradaki K170, K82 notu), `phases/faz-18/README.md`,
+`phases/faz-18/FAZ-18-SEC-02-COMMIT-KOMUTLARI.md`, `CHANGELOG.md`.
+
+### Eklenen testler ve öldürdükleri mutantlar
+
+Yeni test: 33 (`OrderFirstPublishedAtTest` 11, `OrderFirstPublishStampTest` 10, `RefundApprovalRecheckTest` 6,
+`RefundRequestTest` +4, `RefundCommandsTest` +2). Mevcut hiçbir test değişmedi.
+
+Mutantlar bir betikle uygulandı: dosya yedeklenir, tek bir metin değişikliği yapılır, ilgili test
+süzgeci koşar, dosya yedekten geri konur ve SHA'sı önceki hâliyle karşılaştırılır. `git diff`'in
+özeti mutantlardan önce ve sonra aynı (doğrulama tablosu).
+
+| # | Mutant | Sonuç | Kırmızıya dönen |
+|---|---|---|---|
+| M1 | `RefundEligibility`'den `hasPublished() => Used` kolu silindi (§6'daki hedef mutant) | ✅ öldü | `RefundRequestTest::a_right_that_published_an_invitation_cannot_be_refunded_after_release` (409 yerine 201) |
+| M2 | Serbest bırakma damgayı sıfırlıyor (§6'daki ikinci hedef) | ✅ öldü (4) | `releasing_a_right_keeps_its_first_published_at` · `a_second_publish_does_not_move_the_stamp` · `an_upgrade_paid_after_the_publish_…` · `a_pending_order_is_released_without_a_stamp` |
+| M3 | Yayın damga basmıyor | ✅ öldü (5) | `the_first_publish_stamps_the_order` · `a_package_claimed_by_the_publish_is_stamped` · `releasing_…` · `a_second_publish_…` · `every_paid_order_…` |
+| M4 | Silme damga basmıyor (yan kapı, K165) | ✅ öldü (2) | `an_upgrade_paid_after_the_publish_is_stamped_when_the_right_is_released` · `an_upgrade_is_stamped_when_the_right_burns` |
+| M5 | `neverPublished()` süzgeci silindi (damga her yayında yeniden basılır) | ✅ öldü | `a_second_publish_does_not_move_the_stamp` |
+| M6 | `grantingPublishRight()` süzgeci silindi (ödenmemiş sipariş de damgalanır) | ✅ öldü (2) | `every_paid_order_of_the_invitation_is_stamped_and_unpaid_ones_are_not` · `a_pending_order_is_released_without_a_stamp` |
+| M7 | Yükseltmede ödeme anı yerine yayın anı | ✅ öldü | `an_upgrade_paid_after_the_publish_is_stamped_when_the_right_is_released` |
+| M8 | Onayda yeniden sınama silindi (D3) | ✅ öldü (2) | `approval_is_refused_when_the_right_was_published_while_the_request_was_open` · `approval_is_refused_for_a_released_right_that_had_published` |
+| M9 | Onay komutunun ön denetimi kapatıldı (`if (false)`) | ✅ öldü | `the_approve_command_stops_before_asking_about_the_money` (beklenmeyen soru) |
+| M10 | Zaten `refunded` sipariş istisnası silindi | ✅ öldü | `an_already_refunded_order_is_closed_even_if_the_right_was_used` |
+| M11 | Listede tarih kolu silindi | ✅ öldü | `the_list_shows_whether_the_right_has_published` |
+| M12 | Listede "davetiyeye bağlı" kolu silindi | ✅ öldü | `the_list_marks_a_right_that_is_attached_to_an_invitation` |
+| M13 | Göç: serbest kalmış hakkın izi doldurulmuyor | ✅ öldü | `the_backfill_stamps_a_released_order_traced_to_a_trashed_published_invitation` |
+| M14 | Göç: izde zaman çakışması aranmıyor | ✅ öldü | `the_backfill_leaves_an_unused_order_of_the_same_user_alone` |
+| M15 | Göç: `GREATEST` yerine yayın anı | ✅ öldü | `the_backfill_uses_the_payment_time_for_an_order_paid_after_the_publish` |
+| M16 | Göç: `CHECK (true)` | ✅ öldü | `the_database_refuses_a_stamp_without_payment` |
+| M17 | Göç: yanmış hak doldurulmuyor | ✅ öldü | `the_backfill_stamps_a_consumed_order_with_its_consumption_time` |
+| M18 | `used` kolu `in_use`'tan önce | ✅ öldü | `a_right_in_a_published_invitation_reports_in_use_before_used` |
+| M19 | Göç: silmeden sonra ödenen sipariş de izleniyor | ✅ öldü | `the_backfill_leaves_an_unused_order_of_the_same_user_alone` |
+| M20 | Göç: hiç yayınlanmamış çöp davetiye de iz sayılıyor | ✅ öldü | aynı |
+| M21 | `#[Fillable(['first_published_at'])]` | ✅ öldü | `the_stamp_cannot_be_mass_assigned` |
+
+### Doğrulama durumu (B7)
+
+Makine: Windows 11, PHP 8.5 (Herd), PostgreSQL 18.4 (`davetkart_test`), Node, Windows PowerShell 5.1.
+Kod 17 Kasım, son koşular 19 Kasım 2026.
+
+| Komut | Sonuç | Çıktıdan |
+|---|---|---|
+| §2 önkoşulları | ⚠️ kısmen | backend ve frontend ağaçları boş, `faz-18-audit-fixes`'te; `git branch --merged faz-18-audit-fixes` içinde `fix/2026-11-16-sec-01-first-publish-once` var. **Docs ağacı boş değildi:** ` M prompts/PROMPT-FAZ-18-3-SEC-01.md` (tek boş satır eklenmiş; benim değil). Dokunulmadı, commit komutlarına girmedi (§Plandan sapmalar) |
+| Başlangıç: `--filter=RefundRequestTest` | ✅ | `tests=14 passed=14` |
+| 18.4.1 RED: `--filter=OrderFirstPublishedAtTest` | ❌ beklenen | `tests=11 passed=1 failed=1 errors=9`: `Undefined column … first_published_at`, `Call to undefined method …Order::hasPublished()`, göç dosyası yok |
+| 18.4.1 GREEN | ✅ | `tests=11 passed=11 assertions=21` |
+| 18.4.2 RED: `--filter=OrderFirstPublishStampTest` | ❌ beklenen | ilk koşu `Fatal error: Access level to …::delete() must be public` (yardımcı metodun adı `TestCase::delete()` ile çakıştı → `publishAs`/`deleteAs`); sonra `tests=10 passed=2 failed=8`: `Failed asserting that null is not null` |
+| 18.4.2 GREEN | ✅ | `tests=10 passed=10 assertions=50` |
+| Pint + PHPStan (18.4.2 sonu) | ❌ → ✅ | Pint iki dosyada `global_namespace_import`/`ordered_imports` → düzeltildi; PHPStan 8 hata (testte `object::up()`, null olabilen `equalTo()`) → yardımcılar ayrıldı, `assertNotNull` eklendi → `pint passed` · `phpstan errors: 0` |
+| Komşu testler | ✅ | `OrderFirstPublish` 31/31 · `OrderConsumptionTest` 5/5 · `PaywallTest` 84/84 |
+| 18.4.3 RED: `--filter=RefundRequestTest` | ❌ beklenen | `tests=18 passed=17 failed=1`: `Expected response status code [409] but received 201` (`SEC-02`'nin kendisi) |
+| 18.4.3 GREEN | ✅ | `tests=18 passed=18 assertions=67` · `--filter=Entitlements` 17/17 |
+| 18.4.4 RED: `--filter=RefundApprovalRecheckTest` | ❌ beklenen | `tests=6 passed=3 failed=2 errors=1`: onay reddedilmedi; komut "Parayı … gönderdiniz mi?" sorusunu sordu (`askQuestion(), but no expectations`) |
+| 18.4.4 GREEN | ✅ | `tests=6 passed=6 assertions=31` · `RefundCommandsTest` 10/10 |
+| 18.4.5 RED: `--filter=RefundCommandsTest` | ❌ beklenen | `tests=12 passed=10 failed=2`: `Output does not contain "Yayın"`, `… "davetiyeye bağlı"` |
+| 18.4.5 GREEN | ✅ | `tests=12 passed=12 assertions=63` · `pint passed` · `phpstan errors: 0` |
+| Mutantlar M1–M21 | ✅ 21/21 öldü | yukarıdaki tablo. İki kez koştu: kod yazılırken (M1–M20, M21 ayrı) ve **son ağaçta** (yorum kısaltmalarından ve faz kaydından sonra, hepsi birlikte). Son koşuda her dosyanın SHA'sı geri konduktan sonra aynı; `git diff --stat` önce ve sonra `26 files changed, 919 insertions(+), 20 deletions(-)`; `git diff \| sha1sum` önce ve sonra `6e3ec021209d`, izlenmeyen dosyaların özeti `1dcb610eab27` |
+| İki bağlantılı yarış denemesi (geçici şema `sec02_probe`, `davetkart_test`) | ✅ yarış **var** | A: sipariş satırını `FOR UPDATE` kilitler, talebi yazar, 3 sn bekler. B: `NOT EXISTS (açık talep)` süzgeçli `FOR UPDATE` ile bekler. Çıktı: `B: baglanacak siparis id=1` · `B commit aninda acik talep sayisi=1`. Kilit açılınca satır değişmediği için alt sorgu yeniden sınanmıyor. Şema silindi (`sema kaldi mi=0`) |
+| Yerel `davetkart` veritabanı, salt okunur sayım | ✅ | 24 sipariş · kolon henüz yok · kural 1: 5 · kural 2: 0 · kural 3: 1 · açık iade talebi: 0 |
+| **`composer check`** (son ağaç, 20 Kasım) | ✅ | `pint passed` · `phpstan errors: 0` · `Katalog guncel.` · `Plan kurallari sozlesmesi guncel.` · `tests: 1159, passed: 1159, assertions: 4298` · çıkış 0. İlk koşu (yorumlar kısaltılırken) aynı sayıları verdi |
+| Frontend `npm run check` (lint → build → verify) | ✅ | `tsc --noEmit` hatasız · `✓ built in 12.38s` · 12 doğrulama betiği (`verify:errors`: `[tr] 28 kod denetleniyor…`) · çıkış 0 |
+| Frontend satır sonları | ✅ | `git ls-files --eol`: 7 dosya `i/lf w/crlf`; `git diff --stat` yalnızca eklenen satırlar |
+| `php artisan migrate` (yerel `davetkart`) | koşmadı | geliştirme veritabanını değiştirir; İsmail'in adımı. Göç test veritabanında her koşuda uygulandı |
+| HTTP düzeyinde gerçek yarış (iki eşzamanlı istek) | koşmadı | yalnızca SQL düzeyinde denendi (yukarıda); K167'nin testi yarışın **sonucunu** satıra yazarak kurar (`TST-02`) |
+| Tarayıcıda elle deneme | koşmadı | sunucular çalıştırılmadı; adımlar aşağıda |
+| Sunucu, Shopier, AWS, Sentry | koşmadı | canlı sisteme istek atılmadı |
+
+### Elle doğrulama (İsmail)
+
+1. Backend'de `composer check`: son satırda `"tests":1159,"passed":1159`.
+2. Birleştirmeden sonra `php artisan migrate`. Ardından damgalananlara bak (yerelde 6 satır beklenir):
+   `php artisan tinker` → `App\Models\Order::query()->whereNotNull('first_published_at')->get(['id','tier','paid_at','first_published_at','invitation_id']);`
+   Yanlış damga varsa: [göç kılavuzu](../database/migrations/2026_11_17_100000_add_first_published_at_to_orders_table.md) §4.
+3. `SEC-02`'nin kendisi (backend `PAYMENT_DRIVER=fake`, yeni kullanıcı): Standart al → davetiyeyi yayınla →
+   aynı gün sil → Hesap Ayarları → Planlarım. Hak "Kullanılabilir"; "İptal Et" yok; altında "Bu hakla daha
+   önce bir davetiye yayınlandığı için iptal edilemez…" yazar. API'den `POST /api/orders/{id}/refund-request`
+   → 409 `REFUND_NOT_ALLOWED`, `params.reason = "used"`. Yeni bir davetiye yayınla: hak ona bağlanır (K82).
+4. Yönetici tarafı: kullanılmamış bir hakla talep aç → `php artisan refunds:list` → "Yayın" sütunu
+   `hiç yayınlanmadı`. Kullanılmış bir hakkın açık talebi için `refunds:approve <kimlik>`: soru sorulmadan
+   "Bu hak kullanılmış (used) … Parayı GÖNDERMEYİN" ve çıkış 1.
+5. Mutantı kendin dene: `RefundEligibility::usageBlockerFor()`'dan `hasPublished()` kolunu sil →
+   `php artisan test --filter=RefundRequestTest` kırmızı → geri al.
+6. Frontend'de `npm run check`.
+
+### Plandan sapmalar
+
+- **Damga silme akışında da basılıyor (K165; planda yalnızca yayın vardı).** Checkout yayındaki bir
+  davetiye için de sipariş açar (yükseltme). O sipariş ödendiği an canlı bir davetiyeye hizmet eder ama
+  `PublishInvitationAction`'dan hiç geçmez; davetiye üç gün içinde silinince damgasız serbest kalır ve
+  iade edilirdi: aynı açık, yan kapıdan. Ödeme bildiriminde basmak davetiye satırını kilitlemeyi
+  gerektirirdi; silme akışı onu ters sırada kilitlediği için para yolunda kilitlenme riski olurdu.
+  Silme akışı davetiyeyi zaten kilitli tutuyor.
+- **Kolon `timestampTz` değil `timestamp`.** Şemadaki bütün zaman kolonları tz'siz ve pgsql bağlantısında
+  saat dilimi ayarı yok. Tek bir tz'li kolon, UTC olmayan oturumda (bu makine) göçteki
+  `GREATEST(published_at, paid_at)` karşılaştırmasını kaydırırdı. Ayrıntı: göç kılavuzu §3.
+- **D2: yeni engel `used`, `in_use` değil.** Serbest kalan hak Planlarım'da "Kullanılabilir" rozetiyle
+  durur; `in_use`'un "hak bir davetiyede kullanılıyor" cümlesi aynı satırda çelişirdi. Hata kodu
+  değişmediği için `contracts/` aynı; frontend tip + çeviri + açıklama satırı.
+- **D3: onay tam uygunluğu değil yalnızca "kullanıldı mı"yı yeniden sorar** ve komut bunu para
+  sorusundan önce de sorar (planda yalnızca Action vardı). Tam uygunluk açık talebi (her zaman dolu) ve
+  14 günlük süreyi (yöneticinin gecikmesi kullanıcıyı cezalandırmamalı) de sorardı. Ön denetim, K141'in
+  sırası (önce para, sonra komut) yüzünden: yalnızca Action reddetseydi para çoktan gitmiş olurdu.
+- **D3'ün önkoşulu doğrulandı:** "talep açıkken yayın" sırayla imkânsız (donmuş hak 402) ama eşzamanlı iki
+  istekle mümkün (iki bağlantılı deneme). Düzeltme durum makinesine dokunmadığı için §8 dur koşulu değil.
+- **D4: sütunun üçüncü değeri `davetiyeye bağlı`.** Bağlı ama damgasız hak (yayındaki davetiyeye sonradan
+  ödenen yükseltme) "hiç yayınlanmadı" görünmemeli.
+- **D5: kural 1 `paid_at`'e bakar, durumu sormaz** (`consumed_at` doldurmasıyla aynı): iade edilmiş ama
+  yayın yapmış eski siparişler de damgalanır. Zararsız (iade zaten yapıldı), tarihsel olarak doğru.
+- **Frontend'de SSS cümlesi değişti** (plan yalnızca "Planlarım'daki engel metni" diyordu). "İade alabilir
+  miyim?" cevabı 3 günlük serbest bırakmayı iade cümlesinin hemen arkasına koyuyordu; düzeltmeden sonra
+  yanlış bir vaat olurdu. Yeni cümle Kullanım Şartları'ndaki "yayınlandığı anda hizmet ifa edilmiş sayılır"
+  maddesiyle aynı şeyi söylüyor.
+- **Dosya sahipliği:** `RefundCommands.md` hem 18.4.4'ü (§2.1 ön denetim) hem 18.4.5'i (§4–§5 sütun)
+  anlatıyor; tek bir commit'e, 18.4.5'e girer. `ApproveRefundRequest.php` 18.4.4'te kalır.
+- **Docs deposunun ağacı kirliydi** (§2 "boş değilse DUR"). Değişiklik tek boş satır, geçmiş bir prompt
+  dosyasında ve benim değil; dokunulmadı, commit komutlarına alınmadı ve komut dosyasında uyarı olarak
+  yazıldı. Durmak yerine devam ettim; maliyeti en kötü ihtimalle o satırın yanlış bir commit'e girmesi.
+- **Ara commit'ler tek tek koşulmadı** (`git stash`/`checkout` yasak). Bağımlılık sırası analizle
+  kontrol edildi: her adımın testi yalnızca kendisinden önceki adımların koduna dayanıyor.
+- **Final incelemesi yazarın kendisi tarafından** yapıldı (oturum kuralı gereği ayrı bir inceleme ajanı
+  açılmadı). İncelemede mantık hatası bulunmadı; dört yorum bloğu K18'in 1–3 satır sınırına indirildi.
+
+### Gördüm, dokunmadım
+
+| Bulgu | Ne |
+|---|---|
+| `TST-02` · — (yeni) | **Donmuş hak eşzamanlı yayında bağlanabiliyor.** `ClaimReleasedOrderAction`'ın `withoutOpenRefundRequest()` süzgeci bir alt sorgu; "iptal et" kilidi bıraktığında sipariş satırı değişmemiş olduğu için PostgreSQL süzgeci yeniden sınamıyor (iki bağlantılı deneme). K167 bunun **parasal** sonucunu onayda yakalıyor; kök düzeltme (kilit sonrası açık talebi yeniden okumak ya da talep açarken sipariş satırını güncellemek) ayrı iş |
+| — | **Para gönderildi ama onay reddedildi.** Yönetici "Yayın" sütununa bakmadan parayı gönderirse sipariş `paid` kalır ve talep onaylanamaz; Shopier iade bildirimi gelirse sipariş `refunded` olur ve talep kapanır. Bilerek "yine de onayla" bayrağı eklenmedi |
+| — | Frontend `DeleteAccountCard`: "Kullanılmamış N hakkınız … 14 gün içindeyse … iade isteyebilirsiniz" sayısı `available` kovasından; `used` engelli serbest haklar da bu sayıda (iade edilemedikleri hâlde) |
+| — | Frontend `TermsPage` "İade talepleri İletişim sayfası üzerinden iletilir" diyor; Faz 14'ten beri talep Planlarım'dan açılıyor. Hukuki metin, İsmail'in kararı |
+| — | Göçün 3. kuralı sezgisel; çöp kutusu boşaldıysa ya da sipariş sonradan güncellendiyse eski serbest haklar damgasız kalır (canlıda müşteri verisi yok) |
+
+### Açık kalanlar (karar İsmail'in)
+
+1. Para gönderilip onay reddedilirse ne yapılacağı (bugün: Shopier iade bildirimi beklenir ya da elle SQL).
+2. Göçten sonra yerelde damgalanan 6 siparişin doğru olup olmadığı (yalnızca deneme verisi).
+3. Kullanım Şartları'ndaki "İletişim sayfası üzerinden" ifadesi.

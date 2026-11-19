@@ -333,3 +333,42 @@ terk edilmiş bir ödemeyi canlı sanar. Sınır `isExpired()` ile aynı; `NULL`
 
 İçindeki `OR` bir alt sorgu parantezinde: kapsam başka `where`'lerle zincirlenince
 `a AND b OR c` hatasına düşmez.
+
+---
+
+## 🆕 Faz 18.4 (`SEC-02` · K164) — `first_published_at`, `hasPublished()`, `neverPublished()`
+
+```php
+$order->hasPublished();                      // bu hak bir davetiyeyi yayınladı mı?
+Order::query()->neverPublished()->get();     // damgasız siparişler
+```
+
+`consumed_at`'in kardeşi, bir adım erkeni: **yayın anının** kalıcı damgası.
+
+| Kolon | Ne zaman yazılır | Ne anlatır | Silinir mi? |
+|---|---|---|---|
+| `invitation_id` | Checkout, yayın (bağlama), silme (koparma) | Hak **şu an** nerede | evet, değişir |
+| `first_published_at` | Hak yayındaki bir davetiyeye ilk kez hizmet ettiğinde | Hak **kullanıldı** | **hayır** |
+| `consumed_at` | Pencere kapandıktan sonra davetiye silinince (K137) | Hak **bitti** | hayır |
+
+🔴 **"Kullanıldı" bağdan okunmaz.** Üç günlük pencerede silinen davetiyenin siparişi serbest kalır
+(`invitation_id = NULL`, K82) ve yeni bir davetiyeyi yayınlayabilir; ama bir kez yayın yaptığı için
+**iade edilemez**. Bu ayrımı yalnızca damga taşır. İade kuralı (`RefundEligibility::usageBlockerFor()`)
+bağa, yanma damgasına ve bu damgaya birlikte bakar.
+
+- **Tek yazar:** [`StampFirstPublishAction`](../Actions/Payment/StampFirstPublishAction.md). `#[Fillable]`
+  boş olduğu için `fill()` / `create()` damgayı yazamaz (`MassAssignmentException`).
+- **Cast:** `immutable_datetime` (K23). Kolon tz'siz `timestamp`, UTC duvar saati.
+- **Kısıt:** `orders_first_published_at_check`: damgalı sipariş `paid_at` taşımak zorunda.
+- `neverPublished()` bir **yazma** süzgeci (damga yalnızca boşsa basılır); serbest hak arayan sorgu
+  bunu **sormaz**: yayınlamış hak yeniden kullanılabilir. `unconsumed()` ile karıştırma.
+
+Ayrıntı: `docs/rehber/database/migrations/2026_11_17_100000_add_first_published_at_to_orders_table.md`.
+
+**Kendin dene** (`php artisan tinker`):
+
+```php
+$o = App\Models\Order::query()->whereNotNull('paid_at')->first();
+$o->hasPublished();
+$o->fill(['first_published_at' => now()]);   // MassAssignmentException: beklenen
+```

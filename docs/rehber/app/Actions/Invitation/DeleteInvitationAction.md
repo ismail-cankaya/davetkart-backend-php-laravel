@@ -266,3 +266,43 @@ Eskiden "hak yanar" bir **eylemsizlikti**: sipariş olduğu yerde, çöpteki dav
 kalıyordu. Ama 30 gün sonra `data:purge` davetiyeyi kalıcı silince FK bağı NULL oluyor ve
 yanmış hak serbest bir hakka dönüşüyordu. Artık `else` kolu ödenmiş siparişlere
 `consumed_at` yazar. Eylemsizlik bir **olguya** dönüştü.
+
+---
+
+## 🆕 Faz 18.4 (`SEC-02` · K164, K165): serbest kalan hak iade edilmez
+
+Bu Action `SEC-02`'nin iki kuralından biriydi: pencere açıkken bağı koparıyor (`invitation_id = NULL`)
+ve böylece "bu hak bir davetiyeyi yayınladı" bilgisini siliyordu. İade kuralı o bilgiye bağın
+kendisinden bakıyordu. **K82 değişmedi:** kullanıcı üç gün içinde yayını geri alıp hakkı başka bir
+davetiyede kullanabilir. Değişen yalnızca iade.
+
+İki şey değişti:
+
+1. **Damga silinmez.** Serbest bırakma yalnızca `invitation_id`'yi yazar; `first_published_at`'e
+   dokunmaz. Kural kodda bir satır değil, bir **yokluk**; onu koruyan şey test:
+   `releasing_a_right_keeps_its_first_published_at`.
+2. **Eksikse basılır (K165).** İki koldan da önce:
+
+   ```php
+   $this->stamps->handle($fresh);
+   ```
+
+   Yayından **sonra** ödenen yükseltme siparişi `PublishInvitationAction`'dan hiç geçmedi. Hak
+   davetiyeden ayrılmadan önce, davetiye yayınlanmışsa damgalanır. Hiç yayınlanmamış davetiyede
+   (`published_at === null`) hiçbir şey basılmaz: o hak gerçekten kullanılmadı ve iade edilebilir
+   kalır (K139).
+
+**Neden burada, ödeme bildiriminde değil?** Bu Action davetiye satırını zaten kilitlemiş durumda;
+"yayınlanmış mı" sorusu yarışsız sorulur. Gerekçenin tamamı:
+[`StampFirstPublishAction.md`](../Payment/StampFirstPublishAction.md) §5.
+
+§2'deki kural tablosunun güncel hâli:
+
+| Durum | Bağ | `consumed_at` | `first_published_at` | Hak |
+|---|---|---|---|---|
+| Hiç yayınlanmadı | kopar | — | — | serbest, **iade edilebilir** |
+| Yayınlandı, pencere açık | kopar | — | **kalır / basılır** | serbest, yeniden kullanılır, **iade edilemez** |
+| Yayınlandı, pencere kapalı | kalır | basılır | kalır / basılır | yandı |
+
+Test: `tests/Feature/OrderFirstPublishStampTest.php` · `tests/Feature/RefundRequestTest.php`
+(`a_right_that_published_an_invitation_cannot_be_refunded_after_release`).

@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  *   - status/paid_at  -> yalnizca odeme saglayicisinin bildirimi degistirir
  *   - provider_ref    -> saglayici uretir
  *   - provider_payment_id -> saglayicinin bildirimi yazar (Faz 12, K121)
+ *   - first_published_at  -> yalnizca StampFirstPublishAction basar (Faz 18.4, K164)
  *
  * Toplu atama acik olsaydi `{"tier":"elit","status":"paid"}` govdesi bir
  * odemeyi bedava yapardi. Alanlarin tamami acikca atanir (E7 ailesi).
@@ -85,6 +86,9 @@ class Order extends Model
 
             // Faz 14 (K137): hak yandı. Bağ (invitation_id) kopsa da kalır.
             'consumed_at' => 'immutable_datetime',
+
+            // Faz 18.4 (K164): hak bir davetiyeyi yayınladı. Serbest bırakmada SİLİNMEZ.
+            'first_published_at' => 'immutable_datetime',
         ];
     }
 
@@ -160,6 +164,27 @@ class Order extends Model
     public function isConsumed(): bool
     {
         return $this->consumed_at !== null;
+    }
+
+    /**
+     * Bu hak bir davetiyeyi yayınladı mı? (Faz 18.4, SEC-02 · K164)
+     *
+     * 🔴 Bağdan (invitation_id) okunmaz: 3 günlük pencerede bağ kopar (K82),
+     * damga kalır. Yayınlamış hak yeniden kullanılabilir ama iade edilemez.
+     */
+    public function hasPublished(): bool
+    {
+        return $this->first_published_at !== null;
+    }
+
+    /**
+     * Henüz hiçbir davetiyeyi yayınlamamış siparişler (Faz 18.4, K164).
+     *
+     * @param  Builder<Order>  $query
+     */
+    public function scopeNeverPublished(Builder $query): void
+    {
+        $query->whereNull('first_published_at');
     }
 
     /**

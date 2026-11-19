@@ -277,3 +277,30 @@ paywall'ın testte karşılığı yoktur.
 **7.13 — `StoreCheckoutRequest` + `OrderResource`.** İsteğin doğrulanması
 (hangi alanlar, hangi kurallar) ve yanıtın beyaz listesi — frontend'in
 `CheckoutResult` tipiyle birebir.
+
+---
+
+## 🆕 Faz 18.4 (`SEC-02` · K164): 6. katman — yayın damgası
+
+```php
+$fresh->save();                    // 5. katman: yayın
+$this->stamps->handle($fresh);     // 6. katman: bu yayına hizmet eden siparişler damgalanır
+```
+
+Yayın yazıldıktan sonra, **aynı transaction'da**, davetiyeye bağlı ödenmiş siparişlere
+`orders.first_published_at` basılır. Yeni bir kontrol değil, bir **kayıt**: "bu hak bir davetiyeyi
+yayınladı". Damga serbest bırakmada (K82) silinmez ve iadeyi kapatır.
+
+- **Neden burada değil de ayrı bir sınıfta?** Bu Action `orders` tablosunu bilmez (K42); §4b'deki
+  `ClaimReleasedOrderAction` ile aynı gerekçe. Ayrıntı:
+  [`StampFirstPublishAction.md`](../Payment/StampFirstPublishAction.md).
+- **Neden aynı transaction?** Yayın yazılıp damga yazılamazsa hak kullanılmış ama iade edilebilir
+  kalırdı. Birlikte yazılır, birlikte geri alınır. 402 ile reddedilen yayın bu satıra hiç ulaşmaz.
+- **Sıra:** `save()`'den **sonra**. Damganın zamanı davetiyenin `published_at`'idir; önce o yazılmalı.
+- **Bağlanan paket de damgalanır:** §4b'de `claims->handle()` siparişi bu davetiyeye bağladıysa,
+  6. katman onu bağlı siparişler arasında bulur.
+
+§9'a eklenecek hata: *çağrıyı transaction'ın dışına ya da `save()`'in önüne taşımak*.
+
+Test: `tests/Feature/OrderFirstPublishStampTest.php`. Mutant: `$this->stamps->handle($fresh);`
+satırını sil → beş test kırmızı.

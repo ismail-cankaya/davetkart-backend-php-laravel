@@ -610,10 +610,14 @@ kopyası Faz 11'in frontend adımında (11.12) güncellenecek.
 
 | Kod | HTTP | `params` |
 |---|---|---|
-| `REFUND_NOT_ALLOWED` | 409 | `reason`: `already_requested` · `not_paid` · `in_use` · `free` · `window_closed` |
+| `REFUND_NOT_ALLOWED` | 409 | `reason`: `already_requested` · `not_paid` · `in_use` · `used` · `free` · `window_closed` |
 
 409 çünkü engel bir **durum**, biçim değil (`INVITATION_ALREADY_PUBLISHED` ailesi). Sebep
 sızıntı sayılmaz: soran siparişin sahibi; başkası 404 alır (H7).
+
+Faz 18.4 (`SEC-02` · K166): `reason` yeni bir değer alabilir, `used` (hak daha önce bir davetiyeyi
+yayınladı). Kod, HTTP durumu ve parametre adı değişmedi; `contracts/error-codes.json` aynı.
+Değerlerin kaynağı `RefundBlocker` enum'u.
 
 ## 🆕 Faz 14 (14.10 · K144): `EMAIL_CHANGE_INVALID`
 

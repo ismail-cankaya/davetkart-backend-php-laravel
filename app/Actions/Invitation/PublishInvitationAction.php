@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Invitation;
 
 use App\Actions\Payment\ClaimReleasedOrderAction;
+use App\Actions\Payment\StampFirstPublishAction;
 use App\Contracts\PublishEntitlementResolver;
 use App\Enums\InvitationStatus;
 use App\Exceptions\InvitationAlreadyPublishedException;
@@ -28,6 +29,7 @@ use Illuminate\Support\Facades\DB;
  *   3. Gereken plan  -> TierResolver (SUNUCUDA hesaplanir)
  *   4. Sahip olunan  -> PublishEntitlementResolver (K42: iki kaynak, tek arayuz)
  *   5. Yayin         -> status + published_at, kilitli transaction icinde
+ *   6. Damga         -> orders.first_published_at (Faz 18.4, K164)
  *
  * 🔴 Istemciden gelen `tier` bilgisi HICBIR ADIMDA kullanilmaz (docs/09).
  * Frontend'in `activeTier`'i yalnizca arayuz karari ve DevTools'tan
@@ -40,6 +42,7 @@ final class PublishInvitationAction
         private readonly TierResolver $tiers,
         private readonly PublishEntitlementResolver $entitlements,
         private readonly ClaimReleasedOrderAction $claims,
+        private readonly StampFirstPublishAction $stamps,
     ) {}
 
     /**
@@ -117,6 +120,11 @@ final class PublishInvitationAction
             // cache'i temizlemeyi HATIRLAMASI gerekmiyor — Faz 4'te tam olarak
             // bu unutulma riski icin oyle tasarlanmisti.
             $fresh->save();
+
+            // 6. KATMAN — DAMGA (Faz 18.4, SEC-02 · K164): hak veren siparişler "bir davetiyeyi
+            // yayınladı" diye işaretlenir, aynı transaction'da. Serbest bırakmada silinmez ve
+            // iadeyi kapatır. Ayrı Action, çünkü bu sınıf `orders` tablosunu bilmez (K42).
+            $this->stamps->handle($fresh);
 
             return $fresh;
         });

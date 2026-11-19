@@ -43,10 +43,15 @@ Kısmi UNIQUE indeks (14.2) son kalkan: aynı anda iki iptal isteğinin ikincisi
 
 ## 4. Hata sözleşmesi: `409 REFUND_NOT_ALLOWED`
 
-`params.reason` = `RefundBlocker` değeri: `already_requested`, `not_paid`, `in_use`, `free`,
-`window_closed`. **Neden 409, 422 değil?** İstek biçimsel olarak doğru; engel siparişin şu
-anki **durumu**. Durum değişince (davetiye silinip hak serbest kalınca) aynı istek geçer.
-`INVITATION_ALREADY_PUBLISHED` ile aynı aile.
+`params.reason` = `RefundBlocker` değeri: `already_requested`, `not_paid`, `in_use`, `used`
+(Faz 18.4), `free`, `window_closed`. **Neden 409, 422 değil?** İstek biçimsel olarak doğru; engel
+siparişin şu anki **durumu**. Durum değişince (taslak davetiye silinip hak serbest kalınca) aynı
+istek geçer. `INVITATION_ALREADY_PUBLISHED` ile aynı aile.
+
+🆕 **Faz 18.4 (`SEC-02` · K166):** yayınlanmış davetiye silinince hak serbest kalır ama bu istek
+**geçmez**: sebep `in_use`'tan `used`'a döner ve öyle kalır (kalıcı engel; damga silinmez). Bu
+Action değişmedi; kural `RefundEligibility`'de
+([kılavuz](../../Services/Refund/RefundEligibility.md) §6).
 
 **Neden sebep söyleniyor (H6 ihlali değil mi)?** H6 *kimliği bilinmeyen* birine bir şeyin
 varlığını sızdırmamaktır. Burada kullanıcı kendi siparişini soruyor; başkasının siparişi
