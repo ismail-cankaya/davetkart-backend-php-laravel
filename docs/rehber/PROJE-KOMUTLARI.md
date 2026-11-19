@@ -194,7 +194,9 @@ iade isteyebilir. Talep açılınca hak **donar** (yayında kullanılamaz). Kara
 php artisan refunds:list                 # karar bekleyenler, en eski üstte
 php artisan refunds:list --all           # kapanmışlar dahil, en yeni üstte
 
-# 1) Önce Shopier panelinden parayı geri gönder ("Shopier ödeme" sütunundaki kimlikle bul)
+# 0) "Yayın" sütununa bak (Faz 18.4): tarih ya da "davetiyeye bağlı" yazıyorsa hak
+#    KULLANILMIŞ. Para gönderme; refunds:reject ile kapat. approve zaten durur.
+# 1) "hiç yayınlanmadı" ise Shopier panelinden parayı geri gönder ("Shopier ödeme" kimliğiyle bul)
 # 2) Sonra kaydı kapat — komut "gönderdiniz mi?" diye sorar
 php artisan refunds:approve <talep-kimliği> --note="İadeniz yapıldı"
 
@@ -286,7 +288,7 @@ composer test      # yalnızca testler
 | 100 kişilik çekiliş kodu | `gift-codes:generate --count=100 --benefit=percent --percent=50` |
 | Bir kodu iptal et | `gift-codes:list` → `gift-codes:disable <kimlik>` |
 | Gelen mesajları oku | `contact:list --full` |
-| İade talebini onayla | Shopier'den iade et → `refunds:list` → `refunds:approve <kimlik>` |
+| İade talebini onayla | `refunds:list` ("Yayın" = hiç yayınlanmadı) → Shopier'den iade et → `refunds:approve <kimlik>` |
 | İade talebini reddet | `refunds:reject <kimlik> --note="..."` |
 | Bir komutun bütün seçenekleri | `php artisan help <komut>` |
 

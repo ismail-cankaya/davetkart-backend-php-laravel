@@ -9,11 +9,14 @@ use App\Enums\EntitlementState;
 use App\Enums\OrderStatus;
 use App\Enums\RefundRequestStatus;
 use App\Enums\SubscriptionTier;
+use App\Models\Invitation;
 use App\Models\Order;
 use App\Models\RefundRequest;
 use App\Models\User;
 use App\Notifications\RefundRequestResolvedNotification;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Testing\PendingCommand;
 use PHPUnit\Framework\Attributes\Test;
@@ -56,6 +59,40 @@ final class RefundCommandsTest extends TestCase
 
         $this->command('refunds:list', ['--all' => true])
             ->expectsOutputToContain($closed->id)
+            ->assertSuccessful();
+    }
+
+    /**
+     * 🔴 Faz 18.4 (SEC-02 · K168): yönetici, hakkın bir davetiyeyi yayınlayıp
+     * yayınlamadığını ONAYDAN ÖNCE görür. Denetimde (P49) bu sütun yoktu.
+     */
+    #[Test]
+    public function the_list_shows_whether_the_right_has_published(): void
+    {
+        $publishedAt = CarbonImmutable::parse('2026-11-10 09:30:00', 'UTC');
+        $used = Order::factory()->paid()->released()->publishedOnce($publishedAt)->create();
+        RefundRequest::factory()->forOrder($used)->create();
+        RefundRequest::factory()->create();
+
+        $local = $publishedAt->setTimezone(Config::string('davetkart.default_timezone'))->format('Y-m-d H:i');
+
+        // Bir çıktı satırı yalnızca BİR beklentiyi karşılar: başlık ve iki satır ayrı ayrı.
+        $this->command('refunds:list')->expectsOutputToContain('Yayın')->assertSuccessful();
+        $this->command('refunds:list')->expectsOutputToContain($local)->assertSuccessful();
+        $this->command('refunds:list')->expectsOutputToContain('hiç yayınlanmadı')->assertSuccessful();
+    }
+
+    /** Damgasız ama bir davetiyeye bağlı hak "hiç yayınlanmadı" diye gösterilmez. */
+    #[Test]
+    public function the_list_marks_a_right_that_is_attached_to_an_invitation(): void
+    {
+        $invitation = Invitation::factory()->create();
+        $attached = Order::factory()->paid()->forInvitation($invitation)->create();
+        RefundRequest::factory()->forOrder($attached)->create();
+
+        $this->command('refunds:list')
+            ->expectsOutputToContain('davetiyeye bağlı')
+            ->doesntExpectOutputToContain('hiç yayınlanmadı')
             ->assertSuccessful();
     }
 
