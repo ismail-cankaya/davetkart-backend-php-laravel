@@ -69,7 +69,7 @@ silinince serbest bir hakla aynı görünüyordu ve bedava bir yayın açıyordu
 |---|---|
 | K137 | Yanmış hak bir **damgadır** (`orders.consumed_at`), bağ değil. Bağ (`invitation_id`) purge'te kopar; bilgi kopabilecek bir bağın içinde saklanmaz |
 | K138 | İptal = iade **talebi**, ayrı tablo (`refund_requests`), sipariş durumu değil. Açık talep hakkı **dondurur** (yayında bağlanmaz); siparişte en fazla bir açık talep (kısmi UNIQUE) |
-| K139 | İptal edilebilir hak: `paid` + bağsız + yanmamış + ücretli + ödemeden itibaren 14 gün (`davetkart.refunds.window_days`, env yok). Kural tek sınıfta (`RefundEligibility`); ekran ve sunucu aynısını sorar. Engel 409 `REFUND_NOT_ALLOWED` + `reason` |
+| K139 | İptal edilebilir hak: `paid` + bağsız + yanmamış + ücretli + ödemeden itibaren 14 gün (`davetkart.refunds.window_days`, env yok). Kural tek sınıfta (`RefundEligibility`); ekran ve sunucu aynısını sorar. Engel 409 `REFUND_NOT_ALLOWED` + `reason` · ⚠️ **daraltıldı → K166** (Faz 18.4, `SEC-02`): "bağsız + yanmamış" yetmez; hak bir davetiyeyi **yayınlamamış** da olmalı (`orders.first_published_at`, K164; engel `used`). Onay anında yeniden sınanır (K167) ([`FAZ-18.md`](FAZ-18.md) §18.4) |
 | K140 | Planlarım bir okuma modeli: yeni tablo/kolon yok, sabit sayıda sorgu, kova kuralı enum'larda. Üç plan her zaman döner |
 | K141 | Para kodda gönderilmez: yönetici Shopier panelinden iade eder, sonra `refunds:approve` (önce sorar, varsayılan "hayır"). Mail commit'ten sonra |
 | K142 | Oturum açıkken parola değişince **bu cihaz hariç** bütün oturumlar kapanır; bekleyen sıfırlama silinir; "siz değilseniz" maili |
