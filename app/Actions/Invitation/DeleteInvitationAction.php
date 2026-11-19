@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Invitation;
 
+use App\Actions\Payment\StampFirstPublishAction;
 use App\Models\Invitation;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
@@ -27,10 +28,15 @@ use Illuminate\Support\Facades\DB;
  * "Serbest" demek: `orders.invitation_id = NULL`. Kapsam ('invitation')
  * DEGISMEZ — yani siparis pakete DONUSMEZ ve hicbir davetiyeye hak vermez;
  * sahibi onu yeni bir davetiyeye baglayana kadar bekler (A2.7).
+ *
+ * Faz 18.4 (K164): serbest kalan hak YENIDEN KULLANILIR ama IADE EDILMEZ;
+ * `first_published_at` damgasi bu Action'da silinmez, eksikse basilir (K165).
  * Ayrintili aciklama: docs/rehber/app/Actions/Invitation/DeleteInvitationAction.md
  */
 final class DeleteInvitationAction
 {
+    public function __construct(private readonly StampFirstPublishAction $stamps) {}
+
     /**
      * @throws ModelNotFoundException Davetiye kilit aninda silinmis -> 404
      */
@@ -47,6 +53,11 @@ final class DeleteInvitationAction
                 ->whereKey($invitation->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            // 🔴 Faz 18.4 (SEC-02 · K165): hak davetiyeden AYRILMADAN önce damga. Yayından
+            // sonra ödenen yükseltme yayın Action'ından geçmedi; damgasız ayrılsa iade
+            // edilirdi. Hiç yayınlanmamış davetiyede hiçbir şey basmaz.
+            $this->stamps->handle($fresh);
 
             if ($this->releaseWindowIsOpen($fresh)) {
                 // Kapsam DEGISMIYOR, yalnizca bag kopuyor. Bagsiz siparis
