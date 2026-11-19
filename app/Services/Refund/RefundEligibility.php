@@ -17,6 +17,9 @@ use Illuminate\Support\Facades\Config;
  * (talebi aç/reddet). Kural iki yerde yazılsaydı ekran "iptal edebilirsin"
  * der, sunucu reddederdi — ya da tersi, ki daha kötüsü (C3).
  *
+ * Faz 18.4 (SEC-02): "kullanıldı" sorusu usageBlockerFor()'da; onay
+ * (ResolveRefundRequestAction) ve refunds:list de onu sorar.
+ *
  * 🔴 `openRefundRequest` ilişkisi YÜKLENMİŞ olmalı: katı kipte (strict mode)
  * tembel yükleme hata fırlatır. Çağıranlar ya `with()` ya kilitli okumadan
  * sonra `load()` kullanır.
@@ -32,12 +35,29 @@ final class RefundEligibility
      */
     public function blockerFor(Order $order): ?RefundBlocker
     {
+        $usage = $this->usageBlockerFor($order);
+
         return match (true) {
             $order->openRefundRequest !== null => RefundBlocker::AlreadyRequested,
             $order->status !== OrderStatus::Paid => RefundBlocker::NotPaid,
-            $order->invitation_id !== null || $order->isConsumed() => RefundBlocker::InUse,
+            $usage !== null => $usage,
             $order->isGift() || $order->amount_minor === 0 => RefundBlocker::Free,
             ! $this->windowIsOpen($order) => RefundBlocker::WindowClosed,
+            default => null,
+        };
+    }
+
+    /**
+     * Hak KULLANILDI mı? null = hiç kullanılmadı (Faz 18.4, SEC-02 · K166, K167).
+     *
+     * 🔴 Bağın YOKLUĞU kanıt değildir: 3 günde serbest kalan hak (K82) yalnızca yayın
+     * damgasıyla ayırt edilir. Onay anında da yalnızca bu soru sorulur; ilişki gerektirmez.
+     */
+    public function usageBlockerFor(Order $order): ?RefundBlocker
+    {
+        return match (true) {
+            $order->invitation_id !== null || $order->isConsumed() => RefundBlocker::InUse,
+            $order->hasPublished() => RefundBlocker::Used,
             default => null,
         };
     }
