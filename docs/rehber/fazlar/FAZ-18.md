@@ -5,6 +5,7 @@
 > **Kaynak:** docs deposu `audits/2026-11-12-full-system-audit/REPORT.md` §1 ve §4 · takip tablosu `phases/faz-18/README.md`
 > **Kararlar:** docs deposu `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-18.md`
 > **Önceki:** [`FAZ-15.md`](FAZ-15.md). Faz 16–17'nin kaydı yok (`ARC-02`, bu fazın kapsamı dışında).
+> **Durum notu (20 Kasım 2026):** `SEC-07` [Faz 19.1](FAZ-19.md#191--sec-07-composer-bağımlılıklarında-bilinen-açıklar-composer-audit-kırmızı)'de ele alındı (K179–K181): yeni `composer.lock` temiz (`composer audit --locked` çıkış 0). `vendor` kurulumu, yeni `vendor` ile `composer check` + `composer audit` ve ardından `v1.1.0` docs `phases/faz-19/FAZ-19-SEC-07-COMMIT-KOMUTLARI.md` §0 ve §5'te.
 
 12–15 Kasım 2026 genel sistem denetimi altı yüksek (🟠) bulgu çıkardı. Hepsi yayından önce kapanır.
 
