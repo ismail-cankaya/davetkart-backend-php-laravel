@@ -132,5 +132,11 @@ php artisan test --filter=TestSuiteIsolationTest   # yeşil kalmalı
 Remove-Item Env:DB_DATABASE
 ```
 
+**🆕 Faz 19.0 (K182):** iddia artık `assertSame` değil, `\Adavetkart_test(_[a-z0-9_]+)?\z` kalıbı.
+Paralel hat `DAVETKART_TEST_DB_SUFFIX=hat_a` ile `davetkart_test_hat_a`'da koşar
+([`config/database.md`](../../config/database.md)). Test genişledi, zayıflamadı: `davetkart`,
+`davetkart_hat_a`, `davetkart_test_` ve boş ad yine kırmızı. Mutant: config'te ön ek `davetkart_`
+yapıldı → son ek tanımlıyken test kırmızı.
+
 > ⚠️ Bu denemeyi **gerçek** bir veritabanı adıyla yapmayın. Kural tutmazsa `RefreshDatabase` o
 > veritabanının tablolarını siler; bu dosyanın önlemeye çalıştığı şey tam olarak o.

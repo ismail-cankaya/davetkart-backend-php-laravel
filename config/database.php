@@ -5,6 +5,15 @@ declare(strict_types=1);
 use Illuminate\Support\Str;
 use Pdo\Mysql;
 
+// K182 (Faz 19.0): paralel hatlarin test veritabani davetkart_test_<son ek>; yalnizca APP_ENV=testing.
+// Gecersiz son ek ortak veritabanina dusmez, durur (fail-closed). Ayrinti: docs/rehber/config/database.md
+$testDbSuffix = env('APP_ENV') === 'testing' ? env('DAVETKART_TEST_DB_SUFFIX') : null;
+$testDbSuffix = is_string($testDbSuffix) ? $testDbSuffix : '';
+
+if ($testDbSuffix !== '' && preg_match('/\A[a-z0-9_]+\z/', $testDbSuffix) !== 1) {
+    throw new InvalidArgumentException('DAVETKART_TEST_DB_SUFFIX may only contain [a-z0-9_].');
+}
+
 return [
 
     /*
@@ -91,7 +100,7 @@ return [
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '5432'),
-            'database' => env('DB_DATABASE', 'laravel'),
+            'database' => $testDbSuffix === '' ? env('DB_DATABASE', 'laravel') : 'davetkart_test_'.$testDbSuffix,
             'username' => env('DB_USERNAME', 'root'),
             'password' => env('DB_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),

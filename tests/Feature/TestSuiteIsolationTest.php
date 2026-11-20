@@ -48,12 +48,16 @@ final class TestSuiteIsolationTest extends TestCase
      * Kabukta ya da CI'da DB_DATABASE tanimliyken <env> satiri ezilir ve
      * RefreshDatabase O veritabaninin tablolarini siler. Sentry testi gibi bu
      * da ancak ortamda bir deger varken anlam kazanir (kilavuz §4).
+     * K182 (Faz 19.0): paralel hat icin davetkart_test_<son ek> da kabul; davetkart ve bos ad yine kirmizi.
      */
     #[Test]
     public function the_test_suite_runs_on_its_own_database(): void
     {
         $this->assertSame('pgsql', Config::get('database.default'));
-        $this->assertSame('davetkart_test', Config::get('database.connections.pgsql.database'));
+        $this->assertMatchesRegularExpression(
+            '/\Adavetkart_test(_[a-z0-9_]+)?\z/',
+            Config::string('database.connections.pgsql.database'),
+        );
     }
 
     /** Sahtesi kurulmamis bir cagri aga degil HATAYA duser. */
