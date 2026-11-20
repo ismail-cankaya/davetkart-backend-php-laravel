@@ -14,8 +14,11 @@ use App\Services\Payment\Shopier\ShopierSignature;
 use App\Services\Payment\ShopierGateway;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
 /**
@@ -120,5 +123,48 @@ final class PaymentDriverResolutionTest extends TestCase
         Config::set('payment.providers.shopier.osb.key', null);
 
         $this->assertInstanceOf(ShopierGateway::class, $this->app->make(PaymentGateway::class));
+    }
+
+    /** 🔴 SEC-03 (K170): üretimde `callback` kipi bir yapılandırma hatasıdır; sır eksikliği gibi 503. */
+    #[Test]
+    public function the_callback_confirmation_mode_is_refused_in_production(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+        Config::set('payment.providers.shopier.confirmation', 'callback');
+        $logger = Log::spy();
+
+        $this->checkout()
+            ->assertStatus(503)
+            ->assertJsonPath('error.code', ErrorCode::ProviderUnavailable->value);
+
+        $this->assertDatabaseCount('orders', 0);
+        $logger->shouldHaveReceived('critical', ['Shopier callback confirmation mode refused in production']);
+    }
+
+    #[Test]
+    public function the_callback_mode_still_works_outside_production(): void
+    {
+        Config::set('payment.providers.shopier.confirmation', 'callback');
+
+        $this->checkout()->assertCreated()->assertJsonPath('data.checkout.type', 'form');
+        $this->assertSame(OrderStatus::Pending, Order::query()->sole()->status);
+    }
+
+    #[Test]
+    public function osb_mode_works_in_production(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+
+        $this->checkout()->assertCreated()->assertJsonPath('data.checkout.type', 'form');
+        $this->assertSame(OrderStatus::Pending, Order::query()->sole()->status);
+    }
+
+    /** @return TestResponse<Response> */
+    private function checkout(): TestResponse
+    {
+        $user = User::factory()->create();
+
+        return $this->withToken($user->createToken('test')->plainTextToken)
+            ->postJson(route('payments.checkout'), ['tier' => 'gold']);
     }
 }

@@ -16,6 +16,9 @@ enum ShopierConfirmation: string
     /** Yalnızca imzalı OSB bildirimi. Tarayıcı callback'i yalnızca yönlendirir. (Varsayılan) */
     case Osb = 'osb';
 
-    /** İmzası doğrulanmış tarayıcı callback'i de. 🔴 `status` imzasız: bilinçli risk. */
+    /**
+     * İmzası doğrulanmış tarayıcı callback'i de. 🔴 `status` imzasız: yalnızca yerel/test;
+     * üretimde sürücü kurulmaz (K170, SEC-03).
+     */
     case Callback = 'callback';
 }

@@ -16,6 +16,9 @@
 | `a_shopier_checkout_returns_a_signed_form` | **Uçtan uca**: HTTP checkout → `checkout.type=form`, `redirectUrl` YOK, sipariş `provider=shopier` ve `provider_ref=id`, imza tutuyor, sır yanıtta yok |
 | `a_misconfigured_provider_is_503_and_writes_no_order` (4 veri) | Bilinmeyen sürücü, boş sır, anahtar yok, `osb` modunda OSB yok |
 | `callback_mode_resolves_without_osb_credentials` | `callback` modunda OSB isteğe bağlı |
+| 🆕 `the_callback_confirmation_mode_is_refused_in_production` | Faz 18.5 (`SEC-03`, K170): üretim + `callback` → 503 `PROVIDER_UNAVAILABLE`, sipariş yok, `critical` log yazıldı |
+| 🆕 `the_callback_mode_still_works_outside_production` | Regresyon: test ortamında `callback` kipiyle checkout 201 + form |
+| 🆕 `osb_mode_works_in_production` | Regresyon: üretimde `osb` kipi kurulur, checkout 201 + form |
 
 ## 🔴 "Sipariş yazılmaz" neden önemli?
 
@@ -24,3 +27,18 @@ Action hiç kurulmuyor, yani sipariş satırı hiç yazılmıyor. Kontrol çağr
 (`startCheckout` içinde) olsaydı sipariş yazılır, sonra `failed` işaretlenirdi: her
 yapılandırma hatası veritabanında bir çöp satır bırakırdı. `assertDatabaseCount('orders', 0)`
 bu sıralamayı kilitliyor.
+
+## 🆕 Faz 18.5 — üretim ortamını testte nasıl kuruyoruz?
+
+```php
+$this->app->detectEnvironment(fn (): string => 'production');
+```
+
+`App::isProduction()` her çağrıda ortamı kapsayıcıdan okur; test içinde değiştirmek yeterli.
+Açılışta bir kez okunan ayarlar (`Model::shouldBeStrict`, `DB::prohibitDestructiveCommands`)
+değişmez, yani test yalnızca çalışma anındaki kontrolü sınar. Aynı yöntem `ShopierOsbTest`'in
+`istest` testinde de kullanılıyor.
+
+Üç test bir üçlü: biri kuralı (üretim + `callback` → 503), ikisi kuralın **dar** olduğunu
+(üretim dışında `callback`, üretimde `osb` çalışıyor) kilitler. Yalnızca birincisi olsaydı
+"her yerde 503" diyen bir mutant da geçerdi. Mutantlar: [`ShopierGateway.md`](../../app/Services/Payment/ShopierGateway.md) §11.
