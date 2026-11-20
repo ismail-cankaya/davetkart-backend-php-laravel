@@ -79,6 +79,35 @@ veritabanınla aynı olsaydı, test koşmak **elle girdiğin tüm veriyi silerdi
 `phpunit.xml` içinde `DB_DATABASE=davetkart_test` tanımlanır; bu değer
 `.env`'dekini ezer.
 
+### 🆕 Faz 19.0 (K182): paralel hatlar için son ek
+
+**Neden:** üç ajan hattı aynı anda `composer check` koşunca hepsi `davetkart_test`'i kullanıyordu;
+bir hattın `RefreshDatabase`'i diğerinin tablolarını silip testleri rastgele kırmızıya çeviriyordu.
+
+**Desen:** dosyanın başında `$testDbSuffix` hesaplanır. Yalnızca `APP_ENV=testing` **ve**
+`DAVETKART_TEST_DB_SUFFIX` doluysa `pgsql.database = davetkart_test_<son ek>` olur; başka hiçbir
+ortamda (yerel, üretim) etkisi yok. `phpunit.xml`'in `<server>` satırı değişmedi; son ek onun yerine geçer.
+
+| `.env` | Test veritabanı |
+|---|---|
+| (satır yok / boş) | `davetkart_test` |
+| `DAVETKART_TEST_DB_SUFFIX=hat_a` | `davetkart_test_hat_a` |
+| `DAVETKART_TEST_DB_SUFFIX=Hat-A` | 🔴 `InvalidArgumentException` (yalnızca `[a-z0-9_]`) |
+
+**Sık hata:** geçersiz son eki sessizce yok saymak. O zaman hat yine ortak veritabanına düşer ve
+yarış geri gelir; bu yüzden fail-closed (K70/K123). Ad sabit `davetkart_test_` ön ekiyle kurulur,
+`DB_DATABASE`'ten türetilmez: `.env`'deki `davetkart` hiçbir yoldan test adına karışmaz.
+
+**Nasıl kullanılır:** veritabanını bir kez yarat, worktree'nin `.env`'ine satırı ekle, migrate et:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\createdb.exe" -U postgres davetkart_test_hat_a
+# .env: DAVETKART_TEST_DB_SUFFIX=hat_a
+php artisan test --filter=TestSuiteIsolationTest   # RefreshDatabase tabloları kendisi kurar
+```
+
+Koruma: [`TestSuiteIsolationTest`](../tests/Feature/TestSuiteIsolationTest.md) §5.
+
 ## `redis` bölümü
 
 Şu an kullanılmıyor. Üretimde cache ve kuyruk için Redis'e geçildiğinde
