@@ -151,9 +151,9 @@ final class ShopierCallbackTest extends TestCase
     }
 
     /**
-     * 🔴 BİLİNÇLİ RİSKİN BELGESİ (K117): 'callback' modunda imzasız `status` güvenilir
-     * sayılır. Bu test kırmızıya dönerse (Shopier status'ü imzalamaya başladı ya
-     * da kod değişti) K117 yeniden değerlendirilmeli; ortadan kaldırılmamalı.
+     * 🔴 BİLİNÇLİ RİSKİN BELGESİ (K117): üretim DIŞINDA 'callback' modu imzasız `status`'e
+     * güvenir; üretimde mod hiç kurulmaz (K170, aşağıdaki test). Kırmızıya dönerse
+     * (Shopier status'ü imzalamaya başladı ya da kod değişti) K117 ve K170 yeniden değerlendirilir.
      */
     #[Test]
     public function callback_mode_trusts_the_unsigned_status_by_design(): void
@@ -166,6 +166,41 @@ final class ShopierCallbackTest extends TestCase
         $this->postCallback($body);
 
         $this->assertSame(OrderStatus::Paid, $order->refresh()->status);
+    }
+
+    /**
+     * 🔴 SEC-03 (K170): aynı saldırı üretimde. Sürücü kurulmaz; uç sipariş kimliğini
+     * yankılamadan hata sayfasına yönlendirir, sipariş `pending` kalır, 503 JSON görünmez.
+     */
+    #[Test]
+    public function a_forged_success_in_callback_mode_does_not_pay_in_production(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+        Config::set('payment.providers.shopier.confirmation', 'callback');
+        $order = $this->shopierOrder();
+        $body = $this->signed($order->id, 'failed');
+        $body['status'] = 'success';
+
+        $this->postCallback($body)
+            ->assertStatus(Response::HTTP_SEE_OTHER)
+            ->assertHeader('Location', self::FAILURE);
+
+        $this->assertSame(OrderStatus::Pending, $order->refresh()->status);
+        $this->assertNull($order->paid_at);
+    }
+
+    /** Sürücü hangi nedenle kurulamazsa kurulmasın (K123: sır yok) karşıdaki insan JSON değil sayfa görür. */
+    #[Test]
+    public function without_secrets_the_callback_goes_to_the_failure_page(): void
+    {
+        Config::set('payment.providers.shopier.api_secret', '');
+        $order = $this->shopierOrder();
+
+        $this->postCallback($this->signed($order->id, 'success'))
+            ->assertStatus(Response::HTTP_SEE_OTHER)
+            ->assertHeader('Location', self::FAILURE);
+
+        $this->assertSame(OrderStatus::Pending, $order->refresh()->status);
     }
 
     /** K89: süresi dolmuş siparişe geç gelen ödeme yine kabul edilir. */

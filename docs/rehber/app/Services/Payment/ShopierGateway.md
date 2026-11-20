@@ -3,7 +3,8 @@
 > **Kod dosyaları:** `ShopierGateway.php` · `Shopier/ShopierConfirmation.php` · `Shopier/ShopierCallback.php`
 > **Faz:** 12 — adım 12.6 · **Test:** `tests/Feature/ShopierGatewayTest.php`
 > **Kararlar:** K94 · **K117** (onay kanalı) · K120 (kendi sürücümüz) · **K121** (kimlikler) ·
-> **K123** (sır koruması) · K124 (tutar) · K125 (alıcı alanları) · **K127** (callback ayrı metot)
+> **K123** (sır koruması) · K124 (tutar) · K125 (alıcı alanları) · **K127** (callback ayrı metot) ·
+> **K170** (üretimde `callback` kipi yok, Faz 18.5 → §11)
 > **Formüller:** [`Shopier/ShopierSignature.md`](Shopier/ShopierSignature.md) · [`Shopier/ShopierAmount.md`](Shopier/ShopierAmount.md)
 
 ---
@@ -52,7 +53,7 @@ Savunma bir `if` değil, bir **mod**:
 | Mod | Callback | OSB |
 |---|---|---|
 | `osb` (varsayılan) | Yalnızca yönlendirir. `ShopierCallback::$notification` **null** | `paid` kararını verir |
-| `callback` | İmzası doğruysa durumu işler (riskli) | Kuruluysa yine işler (idempotan) |
+| `callback` | İmzası doğruysa durumu işler (riskli). **Yalnızca yerel/test; üretimde sürücü kurulmaz (K170, §11)** | Kuruluysa yine işler (idempotan) |
 
 Neden enum ve neden sürücünün yanında? Değerler sihirli string olmasın (CLAUDE.md
 §1). Ama bu bir alan kavramı değil, tek sürücünün ayarı: `app/Enums/`'a koymak onu
@@ -177,4 +178,81 @@ php artisan tinker
 >>> $s->action->fields()['total_order_value'];
 >>> config(['payment.providers.shopier.api_secret' => '']);
 >>> new App\Services\Payment\ShopierGateway;      // PaymentProviderException (503)
+```
+
+---
+
+## 11. 🆕 Faz 18.5 (`SEC-03` · K170) — üretimde `callback` kipi yok
+
+### Sorun
+
+§3'teki saldırı `callback` kipinde **çalışıyordu** ve bu biliniyordu (K117: "bilinçli risk").
+Varsayılan `osb` olduğu için risk kapalıydı; ama kapalı tutan tek şey `.env`'deki bir satırdı.
+Denetim (`AUD-2026-11-12`, `SEC-03`) bunu şöyle özetledi: *bir imza yalnızca kapsadığı alanları
+korur*. Callback imzası `random_nr + platform_order_id`'yi kapsıyor; kararı veren `status` ve
+tutar dışarıda. İmza "bu sipariş kimliği Shopier'den geldi" der, "ödeme başarılı" demez.
+
+### Çözüm: güvensiz seçenek üretimde imkânsız
+
+```php
+if ($this->confirmation === ShopierConfirmation::Callback && App::isProduction()) {
+    Log::critical('Shopier callback confirmation mode refused in production');
+
+    throw PaymentProviderException::unavailable(self::NAME);
+}
+```
+
+Bu, §6'daki **fail-safe** desenin aynısı: sır eksikse sürücü kurulmuyordu, artık üretimde
+`callback` kipi seçilmişse de kurulmuyor. Sonuç tek ve tanıdık: ödeme uçları **503
+`PROVIDER_UNAVAILABLE`**, sipariş yazılmaz (checkout sürücüyü transaction'ın içinde ister).
+Yeni hata kodu yok; izleme zaten bu kodu tanıyor.
+
+| Neden böyle? | |
+|---|---|
+| **Neden kurucuda?** | Sürücü üç yoldan kuruluyor: checkout (`PaymentGateway` bağlaması), callback ve OSB controller'ları (doğrudan `ShopierGateway`). Kurucu üçünün de geçtiği tek kapı (§6). |
+| **Neden 503, neden `osb`'ye düşmüyor?** | Sessizce `osb`'ye düşmek, birinin bilerek yazdığı bir ayarı yok saymak olurdu: "neden ödemeler onaylanmıyor" gizemi. Yapılandırma hatası **gürültülü** olmalı (K70). |
+| **Neden `Log::critical`?** | 503 kullanıcıya yalnızca "sağlayıcı yok" der. Nedeni log söyler; sır eksikliğinden ayırt etmek için ayrı bir satır. Sürücü her kurulma denemesinde bir kez yazar (checkout, callback, OSB). |
+| **Neden yalnızca üretimde?** | Yerel makinede ve testlerde `callback` kipi akışı uçtan uca denemenin yolu: Shopier'in OSB'si yerel makineye ulaşamaz. Orada sahte sır ve sahte kart var; kaybedilecek para yok. |
+| **Neden tamamen silinmedi?** | OSB'nin API ile başlatılan ödemelerde gelip gelmediği **doğrulanmadı** (K94 ⚠️ geçici, elle doğrulama adım 7). Kip silinirse o soru cevaplanmadan bir seçenek kapanır. Adım 7 OSB'yi doğrularsa kipin tamamen kaldırılması ayrıca karara bağlanır. |
+
+🔴 OSB adım 7'de **gelmezse** çözüm yine `callback` kipini üretimde açmak değildir. İmzasız bir
+alana para kararı bağlanmaz; o durumda sunucudan sunucuya bir sorgu (Shopier'e "bu sipariş
+ödendi mi?") ya da `status`'ü imzalayan bir formül gerekir ve bu yeni bir K kararıdır.
+
+### Callback ucu ne yapar?
+
+Sürücü kurulamazsa `ShopierCallbackController` kullanıcıyı `/odeme/hata`'ya yönlendirir (303,
+`?order=` yok); hiçbir sipariş değişmez (adım 18.5.2, K172). Ayrıntı:
+[controller kılavuzu](../../Http/Controllers/Api/V1/ShopierCallbackController.md), Faz 18.5 bölümü.
+
+### Sık yapılan hatalar
+
+| Hata | Sonuç |
+|---|---|
+| Kontrolü `resolvePaymentGateway`'e koymak | Callback ve OSB controller'ları sürücüyü doğrudan istiyor; o yollar kontrolü atlar |
+| `App::environment('local')` ile "yalnızca yerelde izin ver" demek | `testing` ortamı reddedilir, bütün `callback` kipi testleri kırılır; asıl soru "üretim mi?" |
+| `APP_ENV`'i sunucuda `production` dışında bir şey yapmak (`staging`) | Kontrol devreden çıkar. Gerçek parayla çalışan her ortam `production`'dır (`docs/10` şablonu) |
+| 503 yerine sessizce `osb`'ye düşmek | Yanlış yapılandırma görünmez olur |
+
+### Testler ve mutantlar
+
+`PaymentDriverResolutionTest`: `the_callback_confirmation_mode_is_refused_in_production` (üretim +
+`callback` → 503, sipariş yok, `critical` log) · `the_callback_mode_still_works_outside_production`
+· `osb_mode_works_in_production`.
+
+| Mutant | Kırmızıya dönen |
+|---|---|
+| `if` bloğunu sil | `the_callback_confirmation_mode_is_refused_in_production` (503 yerine 201) |
+| `&& App::isProduction()`'ı sil | `the_callback_mode_still_works_outside_production` ve `callback` kipinin bütün testleri |
+
+### Kendin dene
+
+```php
+php artisan tinker
+>>> config(['payment.providers.shopier.api_key' => 'k', 'payment.providers.shopier.api_secret' => 's',
+...         'payment.providers.shopier.confirmation' => 'callback']);
+>>> new App\Services\Payment\ShopierGateway;      // kurulur (yerel)
+>>> app()->detectEnvironment(fn () => 'production');
+>>> new App\Services\Payment\ShopierGateway;      // PaymentProviderException (503)
+>>> // storage/logs/laravel.log: CRITICAL Shopier callback confirmation mode refused in production
 ```

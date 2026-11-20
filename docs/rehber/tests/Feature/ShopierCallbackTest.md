@@ -24,6 +24,12 @@ kanıtlıyor. Amacı unutulmamak: biri `SHOPIER_CONFIRMATION=callback` yaptığ�
 kabul ediyor. Test bir gün kırmızıya dönerse (Shopier `status`'ü imzalamaya başladı) K117
 yeniden değerlendirilir: test silinmez, karar güncellenir.
 
+🆕 **Faz 18.5 (`SEC-03`, K170):** bu risk artık yalnızca **üretim dışında** kabul ediliyor
+(test ortamı `testing`). Üretimdeki karşılığı `a_forged_success_in_callback_mode_does_not_pay_in_production`:
+aynı sahte gövde, `APP_ENV=production` → sürücü kurulmaz, uç `/odeme/hata`'ya yönlendirir
+(`?order=` yok), sipariş `pending` kalır. İki test yan yana durunca kuralın sınırı okunuyor:
+aynı istek, iki ortam, iki sonuç.
+
 ## Gruplar
 
 | Grup | Testler |
@@ -31,6 +37,7 @@ yeniden değerlendirilir: test silinmez, karar güncellenir.
 | Yol kilidi | Forma yazılan adres = rota |
 | `osb` modu | Başarılı callback yalnızca yönlendirir · çevrilmiş durum ödemez · başarısız → hata sayfası |
 | `callback` modu | Başarılı → `paid` + `provider_payment_id` · tekrar → tek geçiş (`paid_at` aynı) · başarısız → `failed` · bilinçli risk · K89 geç ödeme |
+| 🆕 Sürücü kurulamıyor (Faz 18.5) | Üretim + `callback` + sahte `success` → hata sayfası, `pending` · sır yok → hata sayfası (503 JSON değil) |
 | Reddedilenler | Yanlış imza → değişiklik yok, `?order=` yok, log'da imza yok · boş gövde · bilinmeyen sipariş satır yaratmaz · open redirect |
 
 ## Neden `post()`, `postJson()` değil?

@@ -6,6 +6,8 @@
 > **Güncelleme:** 23 Eylül 2026 — Sentry, `GEMINI_MODEL`, PHP ^8.5, TrustProxies'in
 > hız sınırlarına etkisi ve ödeme sağlayıcısı notu (Shopier) eklendi.
 > **24 Ekim 2026 (Faz 12):** `IYZICO_*` satırları `SHOPIER_*` ile değişti.
+> **20 Kasım 2026 (Faz 18.5, `SEC-03`):** `SHOPIER_CONFIRMATION` üretimde yalnızca `osb`;
+> `callback` yalnızca yerel/test, üretimde ödeme uçlarını 503 yapar (K170).
 
 ---
 
@@ -157,8 +159,10 @@ PAYMENT_PROVIDER=shopier
 SHOPIER_API_KEY=
 SHOPIER_API_SECRET=
 SHOPIER_WEBSITE_INDEX=1
-# 'osb' disindaki deger bilincli bir karardir (K117): tarayici callback'inde
-# 'status' alani imzasiz. Elle dogrulama 5-6. adimlari gormeden degistirme.
+# 🔴 Uretimde YALNIZCA 'osb' (K117, K170). 'callback' yalnizca yerel/test:
+# tarayici callback'inde 'status' alani imzasiz. Uretimde 'callback' yazilirsa
+# surucu kurulmaz -> odeme uclari 503 + log'da CRITICAL "Shopier callback
+# confirmation mode refused in production" (Faz 18.5, SEC-03).
 SHOPIER_CONFIRMATION=osb
 SHOPIER_OSB_USERNAME=
 SHOPIER_OSB_KEY=

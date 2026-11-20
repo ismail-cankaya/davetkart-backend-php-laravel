@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Payment\HandlePaymentCallbackAction;
 use App\Exceptions\InvalidWebhookSignatureException;
+use App\Exceptions\PaymentProviderException;
 use App\Http\Controllers\Controller;
 use App\Services\Payment\ShopierGateway;
 use Illuminate\Http\RedirectResponse;
@@ -24,6 +25,7 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
  *   geçerli imza, success -> /odeme/basarili?order=…
  *   geçerli imza, failed  -> /odeme/hata?order=…
  *   geçersiz/bozuk        -> /odeme/hata            (+ warning log)
+ *   sürücü kurulamıyor    -> /odeme/hata            (K172: K123 sır yok · K170 üretimde `callback`)
  *
  * 🔴 K69'dan bilinçli sapma: imza hatası 404 JSON DEĞİL. 404 bir makineye
  * "burada bir şey yok" der; bir insana boş bir JSON sayfası gösterir. Saldırgan
@@ -37,12 +39,13 @@ final class ShopierCallbackController extends Controller
 {
     public function __invoke(
         Request $request,
-        ShopierGateway $gateway,
         HandlePaymentCallbackAction $action,
     ): RedirectResponse {
         try {
-            $callback = $gateway->parseCallback($request);
-        } catch (InvalidWebhookSignatureException|BadRequestHttpException $e) {
+            // Sürücü try'ın İÇİNDE kurulur: kurulamıyorsa (sır yok K123, üretimde `callback`
+            // kipi K170) insan 503 JSON değil hata sayfasını görür.
+            $callback = (new ShopierGateway)->parseCallback($request);
+        } catch (InvalidWebhookSignatureException|BadRequestHttpException|PaymentProviderException $e) {
             // Sebep log'da, yanıtta değil. İmza ve gövde log'a GİRMEZ.
             Log::warning('Shopier callback rejected', ['reason' => $e::class]);
 

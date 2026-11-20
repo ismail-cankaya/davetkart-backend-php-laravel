@@ -30,7 +30,7 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
  *   parseNotification() -> Otomatik Sipariş Bildirimi (OSB); 'paid' kararı (K117)
  *
  * 🔴 Kurucu sırları sınar (K123): boş sırla hesaplanan HMAC'i herkes üretebilir.
- * Eksikse sürücü KURULMAZ -> 503, sessizce çalışmaz.
+ * Eksikse sürücü KURULMAZ -> 503, sessizce çalışmaz. Üretimde `callback` kipi de (K170).
  *
  * Paket değil kendi kodumuz (K120): topluluk SDK'sı HTML basıp `die` ediyor;
  * bizde formu frontend gönderiyor. Formüller ShopierSignature'da.
@@ -78,7 +78,7 @@ final class ShopierGateway implements PaymentGateway
     private readonly ?string $osbKey;
 
     /**
-     * @throws PaymentProviderException Sır, OSB kimliği ya da mod eksik/geçersiz -> 503
+     * @throws PaymentProviderException Sır, OSB kimliği ya da mod eksik/geçersiz; üretimde `callback` -> 503
      */
     public function __construct()
     {
@@ -89,6 +89,14 @@ final class ShopierGateway implements PaymentGateway
         $mode = Config::get('payment.providers.shopier.confirmation');
         $this->confirmation = (is_string($mode) ? ShopierConfirmation::tryFrom($mode) : null)
             ?? throw PaymentProviderException::unavailable(self::NAME);
+
+        // 🔴 SEC-03 (K170): `callback` kipinde `paid` kararını imzasız `status` verir.
+        // Üretimde bu kip bir yapılandırma hatasıdır: sır eksikliği gibi 503 (K123).
+        if ($this->confirmation === ShopierConfirmation::Callback && App::isProduction()) {
+            Log::critical('Shopier callback confirmation mode refused in production');
+
+            throw PaymentProviderException::unavailable(self::NAME);
+        }
 
         $this->osbUsername = $this->secret('osb.username');
         $this->osbKey = $this->secret('osb.key');

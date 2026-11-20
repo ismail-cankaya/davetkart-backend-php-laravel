@@ -40,7 +40,8 @@ return [
             //   osb      -> siparişi YALNIZCA imzalı OSB bildirimi 'paid' yapar;
             //               tarayıcı callback'i yalnızca yönlendirir
             //   callback -> imzası doğrulanmış tarayıcı callback'i de durumu işler.
-            //               'status' imzasız olduğu için bilinçli bir risk (K117)
+            //               'status' imzasız: YALNIZCA yerel/test. Üretimde sürücü
+            //               kurulmaz -> ödeme uçları 503 (K170, SEC-03)
             'confirmation' => env('SHOPIER_CONFIRMATION', 'osb'),
 
             // Otomatik Sipariş Bildirimi kimlikleri. 'osb' modunda zorunlu.

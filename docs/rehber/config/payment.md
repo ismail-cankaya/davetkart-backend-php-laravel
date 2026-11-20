@@ -2,7 +2,8 @@
 
 > **İlk yazım:** Adım 2 (Faz 0) · **Yeniden yazım:** Faz 12, adım 12.3
 > **Kararlar:** K8 (Strategy) · K70 (bilinmeyen sürücü → 503) · **K94** (Shopier girdisi) ·
-> **K117** (onay kanalı) · **K123** (sır koruması) · **K125** (alıcı yer tutucuları)
+> **K117** (onay kanalı) · **K123** (sır koruması) · **K125** (alıcı yer tutucuları) ·
+> **K170** (üretimde `callback` kipi yok, Faz 18.5)
 
 Faz 12'de üç şey değişti: `iyzico` bloğu **silindi**, yerine `shopier` geldi;
 `webhook` bloğu **silindi** (aşağıda neden).
@@ -17,7 +18,7 @@ Faz 12'de üç şey değişti: `iyzico` bloğu **silindi**, yerine `shopier` gel
 | `providers.shopier.api_key` / `api_secret` | Shopier panelindeki API anahtarı ve sırrı. Biri boşsa sürücü kurulmaz (K123) |
 | `providers.shopier.website_index` | Paneldeki site sırası; tek siteli hesapta `1` |
 | `providers.shopier.payment_url` | Formun POST edildiği adres. **Env'den okunmuyor**: Shopier'in test ortamı yok, adres ortamdan ortama değişmiyor |
-| `providers.shopier.confirmation` | `osb` (varsayılan) \| `callback` → §3 |
+| `providers.shopier.confirmation` | `osb` (varsayılan) \| `callback` (yalnızca yerel/test; üretimde 503, K170) → §3 |
 | `providers.shopier.osb.username` / `key` | Otomatik Sipariş Bildirimi'nin imza kimlikleri. `osb` modunda zorunlu |
 | `providers.shopier.buyer_placeholders` | TCKN, telefon, adres için yer tutucular → §4 |
 | `return_urls` | Ödeme sonrası kullanıcının döneceği **frontend** rotaları. Shopier'de **mutlak** adres olmalı |
@@ -57,9 +58,16 @@ Bu yüzden varsayılan **`osb`**: tarayıcı callback'i yalnızca kullanıcıyı
 sayfaya **yönlendirir**, hiçbir siparişin durumunu değiştirmez. `paid` kararını
 yalnızca imzası bütün gövdeyi kapsayan OSB verir.
 
-`callback` moduna ancak §A'nın şu iki cevabından biri **gösterildiğinde** geçilir:
+~~`callback` moduna ancak §A'nın şu iki cevabından biri **gösterildiğinde** geçilir:
 `status` imzanın içinde (resmi doküman), ya da başarısız ödemede callback hiç
-gelmiyor (elle doğrulama adım 5-6). Bu bir `.env` değişikliğidir ve K94'e yazılır.
+gelmiyor (elle doğrulama adım 5-6). Bu bir `.env` değişikliğidir ve K94'e yazılır.~~
+
+🆕 **Faz 18.5 (`SEC-03`, K170): üretimde `callback` kipi yok.** `APP_ENV=production` iken
+`SHOPIER_CONFIRMATION=callback` sürücüyü kurdurmaz: ödeme uçları 503 `PROVIDER_UNAVAILABLE`,
+log'da `CRITICAL Shopier callback confirmation mode refused in production`. Kip yalnızca yerel
+makinede ve testlerde çalışır. Yukarıdaki üstü çizili kural geçersiz: `status`'ün imzalı olduğu
+gösterilse bile doğru düzeltme `.env` değil, imza doğrulamasına `status`'ü eklemek ve yeni bir
+K kararıdır. Gerekçe ve testler: [`ShopierGateway.md`](../app/Services/Payment/ShopierGateway.md) §11.
 
 Varsayılanın güvenli taraf olması K70'in ruhu: *bir yapılandırma eksiği (OSB'yi
 kurmayı unutmak) bedava yayına değil, bekleyen siparişe dönüşmeli.*

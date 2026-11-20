@@ -11,6 +11,7 @@ use App\Events\InvitationChanged;
 use App\Models\Invitation;
 use App\Models\Order;
 use App\Services\Payment\PaymentNotification;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -102,6 +103,7 @@ final class HandlePaymentCallbackAction
             // olmali. Imza "bu mesaji Shopier gonderdi" der, "bu odeme BU
             // siparisin bedelidir" demez: baska (ucuz) bir urunun odemesi bizim
             // siparisimizle eslesirse tutar tek savunmadir. Otomatik cozulmez.
+            // Faz 18.5 (K171): uretimde tutar tasimayan `paid` de buraya duser.
             if (! $this->amountMatches($order, $notification)) {
                 Log::critical('Payment notification rejected: amount or currency mismatch', [
                     'order_id' => $order->id,
@@ -213,13 +215,13 @@ final class HandlePaymentCallbackAction
     }
 
     /**
-     * Tutar tasimayan bildirim (null) her zaman uyar: o kanalin guvencesi
-     * baska yerdedir (Fake: imzali govde; Shopier callback: imzali kimlik).
+     * Tutar tasimayan bildirim (null) uretim disinda uyar (Fake, yerel callback kipi).
+     * 🔴 Uretimde tutarsiz `paid` kanitsizdir, uymaz (K171, SEC-03); iade/ret etkilenmez.
      */
     private function amountMatches(Order $order, PaymentNotification $notification): bool
     {
         if ($notification->amountMinor === null) {
-            return true;
+            return $notification->status !== OrderStatus::Paid || ! App::isProduction();
         }
 
         return $notification->amountMinor === $order->amount_minor

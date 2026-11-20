@@ -79,17 +79,17 @@ Her kod dosyasının kılavuzu `docs/rehber/<aynı yol>.md` altında, kendi adı
 
 | # | Karar |
 |---|---|
-| **K94** | §A boş. Varsayılanlar: klasik `api_pay4.php`, callback imzası `random_nr + platform_order_id`, `website_index=1`, alıcı yer tutucuları, OSB `res`+`hash`, yanıt `success`. Elle doğrulamadan sonra güncellenecek |
-| **K117** | Onay kanalı `SHOPIER_CONFIRMATION`, varsayılan **`osb`**. `callback` ancak `status`'ün imzalı olduğu ya da başarısız ödemede callback gelmediği **gösterilirse** |
+| **K94** | §A boş. Varsayılanlar: klasik `api_pay4.php`, callback imzası `random_nr + platform_order_id`, `website_index=1`, alıcı yer tutucuları, OSB `res`+`hash`, yanıt `success`. Elle doğrulamadan sonra güncellenecek · Faz 18.5 (K170): adım 7 OSB'yi doğrularsa `callback` kipinin tamamen kaldırılması ayrıca karara bağlanır |
+| **K117** | Onay kanalı `SHOPIER_CONFIRMATION`, varsayılan **`osb`**. `callback` ancak `status`'ün imzalı olduğu ya da başarısız ödemede callback gelmediği **gösterilirse** · ⚠️ **daraltıldı → K170** (Faz 18.5, `SEC-03`): üretimde `callback` kipi hiç kurulmaz (503); kip yalnızca yerel/test ([`FAZ-18.md`](FAZ-18.md) §18.5) |
 | **K118** | `CheckoutSession` bir `CheckoutAction` taşır (`RedirectAction` \| `FormPostAction`); `parseNotification(Request)` |
 | **K119** | `OrderResource.checkout`; `redirectUrl` `type=redirect` olduğu sürece korunur |
 | **K120** | Paket yok, kendi sürücümüz (`erkineren/shopier` HTML basıp `die` ediyor) |
 | **K121** | `platform_order_id = orders.id = provider_ref`; Shopier'in kimliği `orders.provider_payment_id` (UNIQUE değil) |
-| **K122** | Callback yanıtı 303, hedef config'ten; geçersiz imza → `/odeme/hata` (K69'dan bilinçli sapma: karşıda insan var). OSB K69'a uyar |
+| **K122** | Callback yanıtı 303, hedef config'ten; geçersiz imza → `/odeme/hata` (K69'dan bilinçli sapma: karşıda insan var). OSB K69'a uyar · genişletildi → **K172** (Faz 18.5): sürücü kurulamazsa da 303 → `/odeme/hata` |
 | **K123** | Sır, mod ya da (`osb` modunda) OSB kimliği eksikse sürücü kurulmaz → 503 |
 | **K124** | Tutar metni tamsayı aritmetiğiyle; imzaya giren ile forma yazılan aynı değişken |
 | **K125** | Ad/soyad/e-posta kullanıcıdan; TCKN, telefon, adres config'teki yer tutucular |
-| **K126** | Bildirim tutar taşıyorsa siparişinkiyle eşleşmeli; uymazsa geçiş yok + `critical`. `istest=1` üretimde reddedilir |
+| **K126** | Bildirim tutar taşıyorsa siparişinkiyle eşleşmeli; uymazsa geçiş yok + `critical`. `istest=1` üretimde reddedilir · genişletildi → **K171** (Faz 18.5): üretimde tutar taşımayan `paid` de reddedilir |
 | **K127** | Tarayıcı callback'i ayrı metot ve ayrı sonuç tipi (`ShopierCallback`); `osb` modunda bildirim nesnesi hiç üretilmez |
 
 ## 6. 🔴 Doğrulama durumu (dürüst liste)

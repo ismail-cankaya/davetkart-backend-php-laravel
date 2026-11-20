@@ -493,6 +493,7 @@ if (! $this->amountMatches($order, $notification)) {
   bakması gerekir (Faz 10'daki K-4 ile aynı sınıf).
 - **`null` = karşılaştırma yok.** Fake'in gövdesi ve Shopier callback'i tutar
   taşımıyor. "Taşımıyor" ile "0" aynı şey değil (N4); `0` gelseydi uyuşmazlıktı.
+  🆕 **Faz 18.5'ten beri yalnızca üretim dışında** (K171, aşağıda).
 
 ### Mutasyon
 
@@ -572,3 +573,79 @@ php artisan test --filter=FirstPublishFinalGateTest
 ve `a_late_payment_for_a_closed_first_publish_order_is_accepted_and_reported` kırmızı.
 
 **Log'da ararken:** `grep 'First publish discount paid on more than one order' storage/logs/laravel.log`
+
+---
+
+## 🆕 Faz 18.5 (`SEC-03` · K171) — üretimde tutarı olmayan `paid` kabul edilmez
+
+### Ne değişti?
+
+```php
+private function amountMatches(Order $order, PaymentNotification $notification): bool
+{
+    if ($notification->amountMinor === null) {
+        return $notification->status !== OrderStatus::Paid || ! App::isProduction();
+    }
+    // … tutar ve para birimi karşılaştırması (K126)
+}
+```
+
+| Bildirim | Üretim dışı | Üretim |
+|---|---|---|
+| Tutarlı, eşleşiyor | işlenir | işlenir |
+| Tutarlı, eşleşmiyor | ret + `critical` | ret + `critical` |
+| **Tutarsız `paid`** | işlenir (Fake, yerel `callback` kipi) | **ret + `critical`** (`notified_minor: null`) |
+| Tutarsız `failed` / `refunded` | işlenir | işlenir |
+
+### Neden? (derinlemesine savunma)
+
+K126'nın gerekçesi *"tutar tek savunmadır"* idi; ama tutar taşımayan bildirim o savunmayı hiç
+görmüyordu. Eski yorum bunu "o kanalın güvencesi başka yerde" diye açıklıyordu: Shopier
+callback'i için "imzalı kimlik". `SEC-03` tam olarak bu cümlenin yanlış olduğunu gösterdi:
+imzalı kimlik, **ödemenin başarılı olduğunu** kanıtlamaz (`ShopierGateway.md` §11).
+
+K170 ile üretimde `callback` kipi zaten kurulmuyor; bu yüzden bugün üretimde tutarsız `paid`
+üreten bir yol **yok**. K171 ikinci kilit: yarın eklenen bir sürücü (ya da yeniden açılan bir
+kip) tutar taşımayı unutursa, para kararı yine kanıtsız verilemez. Bir katman yanılırsa diğeri
+tutar.
+
+### Neden yalnızca `paid`?
+
+Tutar, **hak açan** kararın kanıtıdır. `failed` bildirimini reddetmek hiçbir şeyi korumaz
+(sipariş zaten `expired` olacak). `refunded` bildirimini reddetmek ise **ters yönde** hata
+olurdu: para geri gitmiş, hak açık kalmış (K100'ün yayından kaldırması tetiklenmez). Kural bu
+yüzden dar: yalnızca `paid`, yalnızca üretim.
+
+### Neden yalnızca üretimde?
+
+Yerelde ve testte Fake sürücü tutar taşımaz ve geliştirme akışının tamamı onun imzalı
+webhook'una dayanır. Kural her yerde geçerli olsaydı yerel ödeme akışı çalışmazdı. Üretimde
+Fake'in webhook'una meşru bir gönderen yok (imza `APP_KEY` ile).
+
+### Log neden aynı satır?
+
+Ret, var olan `Payment notification rejected: amount or currency mismatch` satırına düşer;
+bağlamda `notified_minor: null` "tutar yoktu" demektir. Ayrı bir mesaj yazmadık: elle
+doğrulama betikleri (`FAZ-12-ELLE-DOGRULAMA.md` adım 7) zaten bu satırı arıyor ve iki durumun
+anlamı aynı: *"sağlayıcı ödendi diyor, kanıtı tutmuyor; bir insan baksın."*
+
+### Sık hatalar
+
+| Hata | Sonuç |
+|---|---|
+| Kuralı bütün durumlara uygulamak | Tutarsız iade bildirimi reddedilir, hak açık kalır |
+| `App::environment('local')` ile yerelde serbest bırakmak | `testing` ortamında Fake akışının bütün testleri kırılır |
+| `amountMinor === 0`'ı "yok" saymak | `0` bir tutardır; uyuşmazlık sayılır (N4) |
+
+### Kendin dene
+
+```powershell
+php artisan test --filter=PaymentNotificationAmountTest
+```
+
+**Mutant 1:** `return $notification->status !== … || ! App::isProduction();` satırını
+`return true;` yap → `a_paid_notification_without_an_amount_is_refused_in_production` kırmızı.
+**Mutant 2:** `$notification->status !== OrderStatus::Paid ||` kısmını sil →
+`a_refund_notification_without_an_amount_still_applies_in_production` kırmızı.
+**Mutant 3:** `|| ! App::isProduction()` kısmını sil → `a_notification_without_an_amount_is_not_compared`
+ve Fake webhook'unun testleri kırmızı.
