@@ -144,7 +144,7 @@ final class ShopierGateway implements PaymentGateway
             'modul_version' => self::MODULE_VERSION,
             'random_nr' => $randomNr,
             'signature' => ShopierSignature::forPayment($randomNr, $orderId, $total, $currency, $this->apiSecret),
-            'callback' => url(self::CALLBACK_PATH),
+            'callback' => $this->callbackUrl(),
         ];
 
         return new CheckoutSession(
@@ -336,6 +336,15 @@ final class ShopierGateway implements PaymentGateway
             'shipping_country' => $country,
             'shipping_postcode' => $postcode,
         ];
+    }
+
+    /**
+     * 🔴 SEC-07 (K180): mutlak adres APP_URL'den, istekten değil. `url()` isteğin Host'unu
+     * kullanır; o başlık istemcinin elindedir (host header injection).
+     */
+    private function callbackUrl(): string
+    {
+        return rtrim(Config::string('app.url'), '/').self::CALLBACK_PATH;
     }
 
     /** Kolon 64 karakter; boş ya da daha uzun kimlik saklanmaz (bilgi kolonu, ödemeyi durdurmaz). */

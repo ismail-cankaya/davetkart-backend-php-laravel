@@ -19,6 +19,7 @@
 | 🆕 `the_callback_confirmation_mode_is_refused_in_production` | Faz 18.5 (`SEC-03`, K170): üretim + `callback` → 503 `PROVIDER_UNAVAILABLE`, sipariş yok, `critical` log yazıldı |
 | 🆕 `the_callback_mode_still_works_outside_production` | Regresyon: test ortamında `callback` kipiyle checkout 201 + form |
 | 🆕 `osb_mode_works_in_production` | Regresyon: üretimde `osb` kipi kurulur, checkout 201 + form |
+| 🆕 `the_shopier_callback_url_ignores_the_request_host` (2 veri) | Faz 19.1 (`SEC-07`, K180): `Host: evil.example` ve `TRUSTED_PROXIES=*` + `X-Forwarded-Host: evil.example` ile checkout; formdaki `callback` `APP_URL` + yol |
 
 ## 🔴 "Sipariş yazılmaz" neden önemli?
 
@@ -42,3 +43,24 @@ değişmez, yani test yalnızca çalışma anındaki kontrolü sınar. Aynı yö
 Üç test bir üçlü: biri kuralı (üretim + `callback` → 503), ikisi kuralın **dar** olduğunu
 (üretim dışında `callback`, üretimde `osb` çalışıyor) kilitler. Yalnızca birincisi olsaydı
 "her yerde 503" diyen bir mutant da geçerdi. Mutantlar: [`ShopierGateway.md`](../../app/Services/Payment/ShopierGateway.md) §11.
+
+## 🆕 Faz 19.1 — isteğin host'unu testte nasıl değiştiriyoruz?
+
+```php
+Config::set('app.url', 'https://davetkart.test');
+$this->postJson('http://evil.example'.route('payments.checkout', absolute: false), ['tier' => 'gold']);
+```
+
+- **Neden mutlak adres, neden `withHeader('Host', …)` değil?** Laravel test isteğini her zaman
+  mutlak bir adresten kurar (`prepareUrlForRequest` → `url()`), Symfony `Request::create` de
+  `HTTP_HOST`'u o adresin host'uyla **ezer**. `withHeader('Host', 'evil.example')` sessizce yok
+  sayılır: istek `APP_URL`'in host'una gider ve test hiçbir şey sınamamış olur. Bu, mutant
+  denemesinde ayrı bir veri satırıyla görüldü (callback `http://localhost:8000/…` çıktı).
+- **İkinci veri satırı:** `Config::set('trustedproxy.proxies', '*')` + `X-Forwarded-Host`. Laravel'in
+  `TrustProxies` ara katmanı listeyi **her istekte** sıfırlayıp config'ten yeniden kurar; ayar bir
+  sonraki teste sızmaz.
+- **`app.url` neden testte ayarlanıyor?** Beklenen değer `.env`'deki `APP_URL`'e bağlı kalmasın ve
+  saldırganın host'undan açıkça farklı olsun.
+
+Mutant (`url(self::CALLBACK_PATH)`'e geri dönüş) iki satırı da kırmızıya çevirir:
+[`ShopierGateway.md`](../../app/Services/Payment/ShopierGateway.md) §12.

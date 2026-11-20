@@ -4,7 +4,7 @@
 > **Faz:** 12 — adım 12.6 · **Test:** `tests/Feature/ShopierGatewayTest.php`
 > **Kararlar:** K94 · **K117** (onay kanalı) · K120 (kendi sürücümüz) · **K121** (kimlikler) ·
 > **K123** (sır koruması) · K124 (tutar) · K125 (alıcı alanları) · **K127** (callback ayrı metot) ·
-> **K170** (üretimde `callback` kipi yok, Faz 18.5 → §11)
+> **K170** (üretimde `callback` kipi yok, Faz 18.5 → §11) · **K180** (callback adresi `APP_URL`'den, Faz 19.1 → §12)
 > **Formüller:** [`Shopier/ShopierSignature.md`](Shopier/ShopierSignature.md) · [`Shopier/ShopierAmount.md`](Shopier/ShopierAmount.md)
 
 ---
@@ -103,7 +103,7 @@ sunucuya, bütün gövdesi imzalı, Fake'in webhook'unun gerçek karşılığı.
 | Tutar | `total_order_value` (`199.50`), `currency=0` (TL) | `amount_minor` (K124) |
 | Sabit | `platform=0`, `is_in_frame=0`, `current_language=0`, `modul_version` | SDK |
 | Güvenlik | `random_nr`, `signature` | `random_int` · HMAC |
-| Dönüş | `callback` | `url(CALLBACK_PATH)` |
+| Dönüş | `callback` | `APP_URL` + `CALLBACK_PATH` (K180, §12; Faz 19.1'e kadar `url(CALLBACK_PATH)`) |
 
 Notlar:
 
@@ -166,6 +166,7 @@ Sentry'ye giden her şey log'dan geçer; log'a girmeyen Sentry'ye de gitmez.
 | `base64_decode($sig)` (gevşek) | Bozuk girdi "düzeltilir", deneme alanı açılır |
 | OSB'de önce JSON'u çözüp sonra imzaya bakmak | İmzasız istek ayrıştırıcıyı çalıştırır (L1) |
 | `PAYMENT_SUCCESS_URL`'i göreli bırakmak | 303 API'nin alan adına gider |
+| Shopier'e giden adresi `url()` / `route()` ile üretmek | Adresin alan adı isteğin `Host`'undan gelir; istemci seçer (§12) |
 
 ## 10. Kendin dene
 
@@ -256,3 +257,116 @@ php artisan tinker
 >>> new App\Services\Payment\ShopierGateway;      // PaymentProviderException (503)
 >>> // storage/logs/laravel.log: CRITICAL Shopier callback confirmation mode refused in production
 ```
+
+---
+
+## 12. 🆕 Faz 19.1 (`SEC-07` · K180) — callback adresi isteğe değil yapılandırmaya bakar
+
+### Sorun
+
+Faz 12'den beri forma şu yazılıyordu: `'callback' => url(self::CALLBACK_PATH)`. Laravel'in
+`url()`'si mutlak adresin kökünü (şema + alan adı) **o anki istekten** alır: `Host` başlığından,
+güvenilen bir vekil varsa `X-Forwarded-Host`'tan. İkisi de istemcinin yazdığı metindir. Checkout
+isteğini `Host: evil.example` ile gönderen biri forma `http://evil.example/api/public/payments/shopier/callback`
+yazdırabiliyordu. Ödemeden sonra Shopier tarayıcıyı bu adrese POST ettirir: imzalı
+`platform_order_id`, `random_nr`, `signature`, `status`, `payment_id` alanları başka bir sunucuya
+gider. Bu saldırının adı **host header injection**.
+
+Önce / sonra (`the_shopier_callback_url_ignores_the_request_host`, 20 Kasım):
+
+| Kod | `Host: evil.example` | Güvenilen vekil + `X-Forwarded-Host: evil.example` |
+|---|---|---|
+| `url(self::CALLBACK_PATH)` | `http://evil.example/api/public/payments/shopier/callback` | `https://evil.example/api/public/payments/shopier/callback` |
+| `$this->callbackUrl()` | `https://davetkart.test/api/public/payments/shopier/callback` (testteki `APP_URL`) | aynı |
+
+**Bugün neden sömürülemiyordu?** Denetim de doğrudan bir yol bulmadı:
+
+1. Saldırgan yalnızca **kendi** checkout isteğinin başlığını değiştirebilir. Bu da yalnızca kendi
+   formunu bozar. Başkasının formunu zehirlemek için arada önbelleğe alan bir katman gerekir (web
+   cache poisoning). Checkout yanıtı kimlikli ve önbelleğe girmiyor.
+2. Üretimde Nginx'in `default_server` bloğu tanımadığı alan adını `444` ile keser
+   (`deploy/nginx/davetkart.conf`); Laravel'e yalnızca `davetkart.com` ulaşır.
+3. `TRUSTED_PROXIES` boş ([`config/trustedproxy.md`](../../../config/trustedproxy.md)): `X-Forwarded-Host` okunmaz.
+
+Yani bu düzeltme **derinlemesine savunma**. Üç kilit de bir gün gevşeyebilir: yeni bir alan adı,
+bir yük dengeleyici, `TRUSTED_PROXIES=*`. O gün para akışının adresi istemcinin elinde olmasın.
+Denetim bulguyu Symfony'nin 4 Kasım tavsiyesiyle ("Generated URLs Can Point to a Host Chosen by
+the Client", `composer audit`) birlikte işaretledi. Paket güncellemesi Symfony'nin kendi açığını
+kapatır; `url()`'nin isteğin host'unu kullanması ise bir açık değil, tasarımıdır. O yüzden bu
+satırı biz değiştiriyoruz.
+
+### Çözüm: dış adres = yapılandırma + sabit yol
+
+```php
+private function callbackUrl(): string
+{
+    return rtrim(Config::string('app.url'), '/').self::CALLBACK_PATH;
+}
+```
+
+Projede dışarıya verilen öbür mutlak adresler zaten böyle (19.1'de `app/`, `config/`, `bootstrap/`,
+`routes/` tarandı: `url(`, `route(`, `asset(`, `secure_url`, `->root()`, `getSchemeAndHttpHost`,
+`getHttpHost`, `redirect()->to`, `URL::to`, `signedRoute`):
+
+| Adres | Nereden | Kayıt |
+|---|---|---|
+| Shopier callback | `app.url` + `CALLBACK_PATH` | 🆕 K180 |
+| Ödeme dönüş sayfaları (callback'in 303'ü) | `payment.return_urls` (`PAYMENT_SUCCESS_URL`, `PAYMENT_FAILURE_URL`) | K122 |
+| Parola sıfırlama, "parolan değişti", "e-postan değişti" postaları | `davetkart.frontend.url` | Faz 10, 14 |
+| E-posta değişikliği onay bağlantısı | `frontend.url` + **göreli** imza (`absolute: false`) | K144 |
+| Medya adresleri | Disk `url`'i (`APP_URL/storage` ya da `AWS_URL`) | E1 |
+| OSB adresi | Shopier panelinde elle yazılır; kodda üretilmez | — |
+
+| Neden böyle? | |
+|---|---|
+| **Neden `route('public.payments.shopier.callback')` değil?** | `route()` da kökü istekten alır; sorun aynı kalır. Yolun rotayla aynı olduğunu `ShopierCallbackTest` zaten kilitliyor (§5). |
+| **Neden küresel `URL::forceRootUrl(config('app.url'))` değil?** | Tek bir adres için uygulamadaki bütün `url()`/`route()` çağrılarının, ileride yazılacakların da davranışını değiştirir ve etkisi çağrının yanında görünmez. Açık üretimde "bu adres nereden geliyor?" sorusunun cevabı aynı satırda. |
+| **Neden ortak bir yardımcı sınıf yok?** | Bugün istekten adres üreten tek yer burasıydı. İkinci bir kullanım çıkınca çıkarılır. |
+| **Neden `rtrim`?** | `APP_URL=https://davetkart.com/` yazılırsa adres `//api/…` olurdu. |
+| **Neden `frontend.url` değil `app.url`?** | Callback bir **API** ucu (`/api/public/…`); frontend sayfası değil. Üretimde ikisi aynı köken (`https://davetkart.com`), yerelde farklı (API `:8000`, frontend `:3000`). |
+
+### ⚠️ Bedeli: `APP_URL` artık ödeme dönüşü için kritik
+
+Eskiden `url()` isteğin host'unu kullandığı için `APP_URL` yanlış olsa da callback doğru çıkıyordu.
+Artık `APP_URL` yanlışsa (`http://localhost`, eski `https://api.davetkart.com`) Shopier tarayıcıyı
+yanlış adrese gönderir. Kullanıcı ödemeyi yapmış ama kırık bir sayfa görmüştür. Sipariş yine `paid`
+olur, çünkü `osb` kipinde kararı OSB verir ve tarayıcı callback'i yalnızca yönlendirir (§3, K117).
+
+- Üretimde `APP_URL=https://davetkart.com` olmalı. Yayın kaydı (Y8.3b, 26 Ekim) böyle yazıldığını
+  söylüyor; yayından önce sunucudaki `.env`'de gözle doğrula.
+- ⚠️ `docs/10-URETIM-ENV-SABLONU.md` hâlâ eski `APP_URL=https://api.davetkart.com`'u gösteriyor
+  (`OPS-04`, Faz 19.6). Yeni bir sunucu o şablondan kurulursa ödeme dönüşü kırılır.
+
+### Sık yapılan hatalar
+
+| Hata | Sonuç |
+|---|---|
+| Dış adres için `url()`, `route()`, `$request->root()`, `getSchemeAndHttpHost()` | Adresin alan adını istemci seçer |
+| Testte `withHeader('Host', 'evil.example')` | **Etkisiz.** Laravel test isteğini mutlak adresten kurar; Symfony `Request::create` `HTTP_HOST`'u adresin host'uyla ezer. İstek yine `APP_URL`'e gider (denendi: callback `http://localhost:8000/…` çıktı). Mutlak adres ver: `postJson('http://evil.example/api/…')` |
+| Yalnızca `Host` yolunu sınamak | `TRUSTED_PROXIES=*` olduğu gün ikinci yol `X-Forwarded-Host`; testin ikinci veri satırı |
+| `APP_URL`'i sunucuda boş ya da eski bırakmak | Ödeme dönüşü kırılır (yukarıda) |
+
+### Testler ve mutantlar
+
+`PaymentDriverResolutionTest::the_shopier_callback_url_ignores_the_request_host`: uçtan uca HTTP
+checkout, iki veri satırı (`Host: evil.example`; `TRUSTED_PROXIES=*` + `X-Forwarded-Host`).
+`ShopierGatewayTest`'te beklenen değer `url()` yerine `app.url` + yol.
+
+| Mutant | Sonuç |
+|---|---|
+| `$this->callbackUrl()` → `url(self::CALLBACK_PATH)` | ✅ öldü: iki veri satırı kırmızı (`http://evil.example/…`, `https://evil.example/…`) |
+
+### Kendin dene
+
+```php
+php artisan tinker
+>>> app('url')->setRequest(Illuminate\Http\Request::create('http://evil.example/api/payments/checkout'));
+>>> url(App\Services\Payment\ShopierGateway::CALLBACK_PATH);
+=> "http://evil.example/api/public/payments/shopier/callback"     // url() isteğin host'una uyar
+>>> rtrim(config('app.url'), '/').App\Services\Payment\ShopierGateway::CALLBACK_PATH;
+=> "http://localhost:8000/api/public/payments/shopier/callback"   // APP_URL'den (yerel .env)
+```
+
+Mutantı kendin öldür: `startCheckout`'ta `$this->callbackUrl()` yerine `url(self::CALLBACK_PATH)`
+yaz → `php artisan test --filter=the_shopier_callback_url_ignores_the_request_host` kırmızı
+(`evil.example`) → geri al.
