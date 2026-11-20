@@ -84,7 +84,7 @@ final class PaymentNotificationAmountTest extends TestCase
         $this->assertSame(OrderStatus::Pending, $order->refresh()->status);
     }
 
-    /** Tutar taşımayan bildirim (Fake, Shopier callback'i) eskisi gibi işlenir. */
+    /** Üretim DIŞINDA tutar taşımayan bildirim (Fake, yerel callback kipi) eskisi gibi işlenir. */
     #[Test]
     public function a_notification_without_an_amount_is_not_compared(): void
     {
@@ -95,6 +95,39 @@ final class PaymentNotificationAmountTest extends TestCase
         $order->refresh();
         $this->assertSame(OrderStatus::Paid, $order->status);
         $this->assertNull($order->provider_payment_id);
+    }
+
+    /** 🔴 SEC-03 (K171): üretimde tutarı olmayan `paid` kanıtsızdır; hak açmaz, bir insana haber verir. */
+    #[Test]
+    public function a_paid_notification_without_an_amount_is_refused_in_production(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+        $order = Order::factory()->create(['provider_ref' => 'ref-1']);
+        $logger = Log::spy();
+
+        $this->handle(new PaymentNotification('ref-1', OrderStatus::Paid, providerPaymentId: 'shp-9'));
+
+        $order->refresh();
+        $this->assertSame(OrderStatus::Pending, $order->status);
+        $this->assertNull($order->paid_at);
+        $this->assertNull($order->provider_payment_id);
+        $logger->shouldHaveReceived('critical', [
+            'Payment notification rejected: amount or currency mismatch',
+            Mockery::on(fn (array $context): bool => $context['order_id'] === $order->id
+                && $context['notified_minor'] === null),
+        ]);
+    }
+
+    /** Kural yalnızca hak AÇAN bildirimde: tutarsız iade bildirimini reddetmek hakkı açık bırakırdı. */
+    #[Test]
+    public function a_refund_notification_without_an_amount_still_applies_in_production(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+        $order = Order::factory()->paid()->create(['provider_ref' => 'ref-1']);
+
+        $this->handle(new PaymentNotification('ref-1', OrderStatus::Refunded));
+
+        $this->assertSame(OrderStatus::Refunded, $order->refresh()->status);
     }
 
     /** İlk yazılan kimlik kalır: iade bildirimi aynı ödemeyi anlatır. */
