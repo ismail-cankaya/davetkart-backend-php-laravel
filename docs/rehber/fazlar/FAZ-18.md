@@ -1,7 +1,7 @@
 # FAZ 18 — Denetim düzeltmeleri (`AUD-2026-11-12`)
 
 > **Başlangıç:** 16 Kasım 2026 · **Entegrasyon dalı:** `faz-18-audit-fixes` (`d810410` üstü; frontend'de `main`'deki `47aedc8` birleştirildi)
-> **Durum:** sürüyor (5/6). Her bulgu ayrı bir `fix/…` dalında kapanır, `faz-18-audit-fixes`'e birleşir; faz sonunda `main` + `v1.1.0`.
+> **Durum:** kod tamam (6/6, 20 Kasım 2026) · **`v1.1.0` etiketi bekliyor: `composer audit` kırmızı (`SEC-07`)**. Her bulgu ayrı bir `fix/…` dalında kapanır, `faz-18-audit-fixes`'e birleşir; faz sonunda `main` + `v1.1.0`.
 > **Kaynak:** docs deposu `audits/2026-11-12-full-system-audit/REPORT.md` §1 ve §4 · takip tablosu `phases/faz-18/README.md`
 > **Kararlar:** docs deposu `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-18.md`
 > **Önceki:** [`FAZ-15.md`](FAZ-15.md). Faz 16–17'nin kaydı yok (`ARC-02`, bu fazın kapsamı dışında).
@@ -15,7 +15,28 @@
 | 18.3 | `SEC-01` | İlk yayın indirimi tek açık siparişe | `fix/2026-11-16-sec-01-first-publish-once` | K158–K163 | kod ✅ · `composer check` ✅ 1126 test · frontend `npm run check` ✅ · 13 mutanttan 13'ü öldü (biri kod sadeleştirilerek) · yerel göç, tarayıcı denemesi ve gerçek yarış testi koşmadı (§18.3) |
 | 18.4 | `SEC-02` | Yayınlanmış hakkın iadesi | `fix/2026-11-17-sec-02-refund-after-publish` | K164–K169 | kod ✅ · `composer check` ✅ 1159 test · frontend `npm run check` ✅ · 21 mutanttan 21'i öldü · yerel göç, tarayıcı denemesi ve HTTP düzeyinde gerçek yarış testi koşmadı (§18.4) |
 | 18.5 | `SEC-03` | Shopier `callback` kipi üretimde reddedilir | `fix/2026-11-20-sec-03-shopier-callback-mode` | K170–K172 | kod ✅ · `composer check` ✅ 1166 test · 6 mutanttan 6'sı öldü · frontend değişmedi · sunucudaki `SHOPIER_CONFIRMATION` değeri ve tarayıcı denemesi koşmadı (§18.5) |
-| 18.6 | `SEC-04` | Frontend güvenlik başlıkları + Faz 18 kapanışı | — | — | bekliyor |
+| 18.6 | `SEC-04` | Frontend güvenlik başlıkları + Faz 18 kapanışı | `fix/2026-11-20-sec-04-security-headers` | K173–K178 | kod ✅ · `composer check` ✅ 1166 test · frontend `npm run check` ✅ (frontend değişmedi) · yerel Nginx + tarayıcı denemesi ✅ · 9 mutanttan 9'u öldü · sunucuda kurulum ve duman testi koşmadı (§18.6) |
+
+### Faz 18 kapanış özeti (20 Kasım 2026)
+
+| Bulgu | Durum | K | Kalan elle iş (İsmail) |
+|---|---|---|---|
+| `OPS-01` | kod ✅ · git'te `faz-18-audit-fixes`'e birleşmiş | K146–K150 | Sunucuda etiket ve sözleşme denetimi ilk kez `v1.1.0` yayınında (docs `YAYIN-SIRASI.md` §4) |
+| `OPS-02` | kod ✅ · birleşmiş | K151–K157 | Yedek bucket'ı ve yalnızca yazabilen kimlik (AWS), sunucuya kurulum, ilk üretim provası ve süresi (`YEDEK-VE-GERI-YUKLEME.md`) |
+| `SEC-01` | kod ✅ · birleşmiş | K158–K163 | Yerelde `php artisan migrate` (kısmi UNIQUE index), tarayıcıda ödeme sayfası |
+| `SEC-02` | kod ✅ · birleşmiş | K164–K169 | Yerelde `php artisan migrate` (`first_published_at` + geriye dönük doldurma), `refunds:list` |
+| `SEC-03` | kod ✅ · birleşmiş | K170–K172 | Sunucudaki `SHOPIER_CONFIRMATION` değerini gözle doğrulamak (`osb` olmalı) |
+| `SEC-04` | kod ✅ · commit bekliyor | K173–K178 | `sudo bash deploy/nginx/install.sh` + duman testi; bir haftalık CSP gözlemi ve zorlama kararı |
+
+"Birleşmiş": 20 Kasım'da `git log faz-18-audit-fixes`'te `Merge … fix into faz-18-audit-fixes`
+commit'leri görüldü (backend `96664dd`, frontend `fefa647`). Docs takip tablosundaki `birleşti`
+işaretini İsmail koyar.
+
+**Faz kapısı (son ağaç, 20 Kasım):** backend `composer check` ✅ (1166 test) · frontend `npm ci` +
+`npm run check` ✅ · backend `composer audit` ❌ (`SEC-07`: 6 pakette 9 açık; denetim günü 8). Bu yüzden
+**`v1.1.0` etiketi atılmadı ve etiket komutları verilmedi** (prompt 18.6 §11.5). `main`'e birleştirme
+komutları verildi (docs `phases/faz-18/FAZ-18-SEC-04-COMMIT-KOMUTLARI.md`); `SEC-07` kapanana kadar
+sunucuda `deploy.sh` çalıştırılmaz, çünkü sunucu `main`'i çeker (Y8.2a).
 
 ---
 
@@ -881,3 +902,202 @@ Kod ve koşular 20 Kasım 2026.
 2. Adım 7'de OSB **gelmezse** üretimde ödeme onaylanamaz: çözüm `callback` değil, sunucudan sunucuya
    bir sorgu ya da `status`'ü imzalayan bir formül (yeni K).
 3. Sunucudaki `SHOPIER_CONFIRMATION` değerinin yayından önce gözle doğrulanması (elle doğrulama 2).
+
+---
+
+## 18.6 — `SEC-04`: SPA sayfalarında güvenlik başlığı yoktu; token `localStorage`'da
+
+### Sorun
+
+Güvenlik başlıklarını Faz 9'dan beri Laravel'in `SecurityHeaders` ara katmanı basıyordu (K85). Ara
+katman yalnızca Laravel'in ürettiği yanıtları görür, yani `/api/*`'ı. `index.html`, JS, CSS ve videolar
+Nginx'ten doğrudan çıkıyordu ve hiçbir başlık taşımıyordu: CSP yok, `X-Frame-Options` /
+`frame-ancestors` yok, `nosniff` yok. HSTS'yi tarayıcı ancak ilk `/api` yanıtından öğreniyordu. Site
+görünmez bir çerçeveye konup tıklatılabiliyordu (clickjacking). Oturum token'ı `localStorage`'da
+durduğu için yarın çıkacak tek bir XSS onu okuyup dışarı gönderebilirdi ve araya giren ikinci bir
+kilit yoktu. Kod okuması denetimdeki satırlarla aynıydı (`deploy/nginx/davetkart.conf` 53–108: yalnızca
+`Cache-Control`; `SecurityHeaders.php` 40–77; frontend `src/services/auth.ts` 136/148/156). Nginx
+yapılandırması dağıtım betiklerinde kurulmuyordu (kılavuz §5, elle `cp`).
+
+### Kararlar
+
+| K | Karar (tek cümle) |
+|---|---|
+| **K173** | SPA başlıkları Nginx'te, tek kaynak `deploy/nginx/snippets/davetkart-security-headers.conf`. API dışındaki dört `location` onu `include` eder, `server` seviyesi etmez. `/api/*` yalnızca Laravel'den. Kurulum `deploy/nginx/install.sh`. K85'i daraltır. |
+| **K174** | Hemen zorlananlar: HSTS `max-age=31536000; includeSubDomains` (preload yok), `nosniff`, `strict-origin-when-cross-origin`, `X-Frame-Options: DENY`, CSP `frame-ancestors 'none'; base-uri 'self'; object-src 'none'`; hepsi `always`. |
+| **K175** | Tam CSP `-Report-Only` kipinde ve envantere dayalı. Toplayıcı uç yok. Zorlamaya geçiş bir haftalık gözlemden sonra, ayrı değişiklikle ve ayrı K ile. |
+| **K176** | `Permissions-Policy`: `accelerometer`, `gyroscope`, `fullscreen` `(self)`; `magnetometer`, `camera`, `microphone`, `geolocation`, `payment`, `usb` kapalı. |
+| **K177** | Token `localStorage`'da kalır (açık karar). httpOnly çerez `SEC-18`'in işi, yayından sonra; o zamana kadar CSP ikinci kilit. |
+| **K178** | Duman testi `deploy/smoke/check-security-headers.sh`: her `location` türünden bir yol + API'de tek kaynak. `install.sh` sonrası ve her dağıtımdan sonra çalışır (docs `YAYIN-SIRASI.md` §6); `deploy.sh` çağırmaz. |
+
+**Daraltılan karar:** K85 → **K173** (K85 yalnızca `/api/*` için; durum notu [`FAZ-9.md`](FAZ-9.md)'deki
+satırında). Geçersiz kılınan karar yok.
+
+### Değişen dosyalar
+
+**Backend** (`fix/2026-11-20-sec-04-security-headers`)
+
+| Adım | Dosya | Ne | Kılavuz |
+|---|---|---|---|
+| 18.6.1 | `deploy/nginx/snippets/davetkart-security-headers.conf` (yeni) | 7 başlık; iki CSP (zorlanan küçük + rapor kipinde tam) | [`davetkart-security-headers.md`](../deploy/nginx/snippets/davetkart-security-headers.md) |
+| 18.6.1 | `deploy/nginx/davetkart.conf` | 4 SPA `location`'ına `include`; API konumlarına yorum; başlık satırı | [`davetkart.md`](../deploy/nginx/davetkart.md) "HSTS", "Güvenlik başlıkları", §5, §6 |
+| 18.6.2 | `deploy/nginx/install.sh` (yeni) | Snippet + site → `nginx -t` → reload; kırmızıysa eskileri geri koyar | [`install.md`](../deploy/nginx/install.md) |
+| 18.6.3 | `deploy/smoke/check-security-headers.sh` (yeni) | 6 yol, sayım (tam bir kez), çıkış 0/1/2 | [`check-security-headers.md`](../deploy/smoke/check-security-headers.md) |
+| 18.6.4 | `docs/rehber/fazlar/FAZ-18.md` · `README.md` · `FAZ-9.md` · `docs/rehber/app/Http/Middleware/SecurityHeaders.md` | Bu kayıt + faz kapanışı; K85 durum notu; ara katman kılavuzuna "yalnızca API" notu | — |
+
+PHP kodu, test, göç, config, hata kodu, bağımlılık **yok**; `contracts/` değişmedi. 18.6.1'in
+kılavuzu `install.sh`'a (18.6.2) ve duman testine (18.6.3) ileri bağlantı veriyor: üçü aynı dalda
+birleşir.
+
+**Frontend:** değişmedi, commit yok. Yerel deneme `vite preview` ile yapıldı ama yapılandırma
+scratchpad'deydi ve başlıkları snippet'ten okudu (tek kaynak). `preview.headers` kalıcı **yapılmadı**:
+kalıcı olsaydı ya ikinci bir kopya olurdu ya da frontend kardeş depodan okurdu (K147'nin "kopya, kardeş
+depodan okuma yok" desenine aykırı, CI'da kırılır).
+
+**Docs** (`docs/2026-11-16-faz-18-audit-fixes`), adım 18.6.6: `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-18.md`
+§18.6, `decisions/DECISION-INDEX.md` (K173–K178, K85 notu, sıradaki K179), `operations/deployment/YAYIN-SIRASI.md`
+(§4.4 Nginx kurulumu, §6 duman testi), `phases/faz-18/README.md`, `phases/faz-18/FAZ-18-SEC-04-COMMIT-KOMUTLARI.md`,
+`phases/README.md`, `CHANGELOG.md`.
+
+### Yerel deneme düzeneği
+
+| Ne | Nasıl |
+|---|---|
+| Nginx | Herd'in `nginx.exe`'si (1.25.2, ssl + http2). Depodaki `davetkart.conf` + snippet'in **kopyası**; yalnızca ortama özgü satırlar değişti: 80/443 → 18080/18443, `[::]` satırları, sertifika (kendinden imzalı `davetkart.com`), `options-ssl-nginx.conf`, dhparam, iki `root`, `fastcgi_pass` → `127.0.0.1:19000` (`diff` çıktısı oturumda görüldü). İstekler `curl --resolve davetkart.com:18443:127.0.0.1` |
+| API | Herd'in `php-cgi.exe -b 127.0.0.1:19000`'ı; gerçek `public/index.php`, gerçek `SecurityHeaders` |
+| Tarayıcı | `vite preview` (frontend `npm run build` çıktısı), başlıklar snippet'ten okunarak; `/api` → `php -S 127.0.0.1:8000` (scratch veritabanı `davetkart_sec04`, sonunda silindi). Playwright (chromium-1228) 12 adım: ana sayfa, fiyatlar, giriş (arayüzden), panel, editör sihirbazı + konum seçici (OSM `<iframe>`), dört misafir sayfası (`dugun-gul-3d` WebGL, `dugun-harita-kir-yolu` çalışma anında Google Fonts `<link>`'i, `nisan-manzara`, `dogum-gunu-mumlar` JSX `<style>`), ödeme (`/odeme?tier=gold&invitation=…`), hesap, mobilde 3D şablon. İhlaller `securitypolicyviolation` olayından ve konsoldan toplandı |
+
+### Tarayıcı denemesi: önce / sonra
+
+| Politika | Kip | Adım | İhlal | Sayfa hatası | Ne oldu |
+|---|---|---|---|---|---|
+| Denetimin örnek CSP'si (`REPORT.md` §4) | rapor | 12 | **2** (`frame-src https://www.openstreetmap.org`) | 0 | Harita açık kaldı, konsola ihlal yazıldı |
+| Denetimin örnek CSP'si | **zorla** | 12 | **1** (aynı) | 0 | 🔴 Konum seçicinin haritası **boş gri kutu** (ekran görüntüsüyle görüldü) |
+| Bu dal (snippet) | rapor + küçük CSP zorla | 12 | **0** | 0 | Konsolda CSP ya da `Permissions-Policy` satırı yok (`Unrecognized feature` dahil) |
+| Bu dal, tam CSP | **zorla** | 12 | **0** | 0 | Harita, Google Fonts, 3D canvas, ödeme özeti (API'den fiyat) çizildi (ekran görüntüleriyle görüldü) |
+| Bu dal, tam CSP, `'unsafe-inline'` **çıkarılmış** | zorla | 12 | **1** (`style-src-elem inline`, `dogum-gunu-mumlar`) | 0 | `'unsafe-inline'`'ın gerçekten gerektiğinin kanıtı (11 şablon JSX `<style>` çiziyor) |
+
+Envanterden düşen: `https://images.unsplash.com` (`NisanManzara.tsx:18`) ölü kod, çünkü `bgImage`
+içe aktarılan yerel bir dosya ve hiç boş değil. Politikaya girmedi. Görülmeyenler: gerçek medya alan
+adı (yerelde medya `localhost:8000/storage`'dan), Shopier'e form gönderimi ve dönüşü (yerelde kart
+kapalı, Shopier'e istek atılmadı), `blob:` yükleme önizlemeleri, iOS Safari. Gözlem haftası (K175)
+bunlar için.
+
+### Eklenen testler ve öldürdükleri mutantlar
+
+PHPUnit testi yok (PHP kodu değişmedi). Sınama araçları: duman testi betiğinin kendisi (depoda) ve
+kurulum betiğinin senaryo düzeneği (scratchpad'de; aynı yöntem [`install.md`](../deploy/nginx/install.md)
+§4'te elle tekrarlanabilir). Kurulum betiğinin beş senaryosu yeşil: güncelleme + `nginx -t` yeşil
+(dosyalar yeni, `nginx -t` sonra reload), güncelleme + kırmızı (iki dosya eski hâline döndü, reload
+yok, çıkış 1), ilk kez kurulan snippet + kırmızı (snippet silindi), `sites-enabled` bağlantısı yok
+(hiçbir dosyaya dokunulmadı, `nginx` çağrılmadı), gerçek `/etc/nginx` + root değil (çıkış 1).
+
+Mutantlar bir betikle uygulandı: dosya yedeklenir, tek bir değişiklik yapılır (uygulanmadıysa betik
+durur), Nginx yeniden yüklenir (Nginx mutantları) ve ilgili sınama koşar, dosya yedekten geri konur
+ve SHA'sı karşılaştırılır.
+
+| # | Mutant | Sonuç | Kırmızıya dönen |
+|---|---|---|---|
+| N1 | `= /index.html`'den `include` silindi | ✅ öldü | duman testi `/` ve SPA yolu `EKSIK` (7 başlık 0 kez) |
+| N2 | `location /`'tan `include` silindi | ✅ öldü | `/favicon.svg` `EKSIK` |
+| N3 | `^~ /assets/`'tan `include` silindi | ✅ öldü | `/assets/index-….js` `EKSIK` |
+| N4 | Nokta yolları konumundan `include` silindi | ✅ öldü | `/.env` (404) `EKSIK` |
+| N5 | **Miras tuzağı:** dört `include` silinip tek `include` `server` seviyesine kondu (prompt §6) | ✅ öldü | `/`, SPA yolu, `/assets/` `EKSIK` (kendi `add_header`'ları var, miras düştü); `/favicon.svg` ve `/.env` OK (kendi `add_header`'ları yok, miras aldı); `/api/ping` `EKSIK`: HSTS, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, CSP **2 kez**, `-Report-Only` ve `Permissions-Policy` sızdı |
+| N6 | Snippet'ten `X-Content-Type-Options` silindi | ✅ öldü | beş SPA yolu `EKSIK` |
+| N7 | Snippet'ten `-Report-Only` satırı silindi | ✅ öldü | beş SPA yolu: `content-security-policy: "default-src" yok` |
+| I1 | `install.sh`: kırmızıda `restore` çağrısı silindi | ✅ öldü | senaryo 2 ve 3: dosyalar eski hâline dönmedi (4 denetim) |
+| I2 | `install.sh`: `nginx -t` yerine `true` | ✅ öldü | 8 denetim (reload sınamadan yapıldı, geri alma hiç çalışmadı) |
+| — | Duman testi `vite preview`'a karşı, başlıklar kaldırılmış (`SEC04_MODE=none`, prompt §6) | ✅ kırmızı | beş SPA yolu `EKSIK`, çıkış 1 (başlıklarla aynı komut çıkış 0) |
+
+Geri alma: `git diff | sha1sum` mutantlardan önce ve sonra `bdc34fd17d67`, üç yeni dosyanın (snippet,
+`install.sh`, duman testi) birleşik SHA'sı önce ve sonra `25921fb5275b`; `git diff --stat` önce ve
+sonra `2 files changed, 64 insertions(+), 9 deletions(-)` (o anki ağaç; faz kaydı yazılmadan önce).
+Geri alındıktan sonra duman testi `SONUC: tamam`, kurulum senaryoları `basarisiz: 0`.
+
+### Doğrulama durumu (B7)
+
+Makine: Windows 11, PHP 8.5.12 (Herd), PostgreSQL 18.4, Node 24.18, Herd Nginx 1.25.2, Windows
+PowerShell 5.1. Koşular 20 Kasım 2026.
+
+| Komut | Sonuç | Çıktıdan |
+|---|---|---|
+| Önkoşullar (prompt §2) | ✅ | Üç ağaç boş; backend ve frontend `faz-18-audit-fixes`'te; `git branch --merged faz-18-audit-fixes` içinde `fix/2026-11-20-sec-03-shopier-callback-mode`; docs `docs/2026-11-16-faz-18-audit-fixes`'te |
+| `nginx -t` (sertifikası sahte kopya, Herd 1.25.2) | ✅ | `syntax is ok` · `test is successful`; yalnızca 1.25'in `listen … http2 directive is deprecated` uyarısı (sunucudaki 1.24'te yok, `davetkart.md` §3) |
+| Başlıklar, yerel Nginx (`curl`) | ✅ | `/`, `/dashboard`, `/assets/index-CgNoz2oc.js`, `/favicon.svg`, `/.env` (404), `/assets/yok.js` (404): yedi başlık; `/api/ping`: Laravel'in altı başlığı tam bir kez (`no-referrer`, `default-src 'none'`) |
+| Duman testi → yerel Nginx | ✅ | altı yol `OK`, `SONUC: tamam`, çıkış 0; kullanım hatası çıkış 2; bağlantı yok `HATA: … alinamadi` çıkış 2 |
+| Duman testi → `vite preview` (snippet başlıkları) | ✅ | `--skip-api` ile beş yol `OK`, çıkış 0; başlıksız (`none`) çıkış 1 |
+| Playwright, beş kip × 12 adım | ✅ | yukarıdaki önce/sonra tablosu; her kipte `basarisizAdim=0`, `sayfaHatasi=0` |
+| Mutantlar N1–N7, I1–I2 | ✅ 9/9 öldü | yukarıdaki tablo; geri alma SHA ile doğrulandı |
+| Kurulum betiği senaryoları (sahte `nginx`/`systemctl`) | ✅ | 17 denetim, `basarisiz: 0` |
+| **`composer check`** (son ağaç, faz kaydından önce) | ✅ | `pint passed` · `phpstan errors: 0` · `Katalog guncel.` · `Plan kurallari sozlesmesi guncel.` · `tests: 1166, passed: 1166, assertions: 4322` · çıkış 0 |
+| **`composer audit`** | ❌ (`SEC-07`, kapsam dışı) | çıkış 1 · `Found 9 security vulnerability advisories affecting 6 packages`: `laravel/framework` v13.35.0 (1), `symfony/filesystem` v8.1.9 (1), `symfony/http-foundation` v8.1.9 (4), `symfony/http-kernel` v8.1.1 (1), `symfony/mime` v8.1.0 (1), `symfony/routing` v8.1.0 (1). Denetim günü 8'di |
+| Frontend `npm ci` | ✅ | çıkış 0 · `found 0 vulnerabilities` (`allow-scripts` uyarısı: `esbuild` kurulum betikleri) |
+| Frontend `npm run check` (lint + build + verify) | ✅ | çıkış 0 · son satırlar `✓ Plan kuralları backend sözleşmesiyle aynı …` · `✓ Ekrana çizilen doğru …` |
+| Sunucuda `nginx -t`, `install.sh`, duman testi | koşmadı | canlı sisteme bağlanılmadı; komutlar aşağıda ve docs `YAYIN-SIRASI.md` §4.4, §6 |
+| Shopier form gönderimi (`form-action`) | koşmadı | yerelde kart kapalı; Shopier'e istek atılmadı (gözlem haftası) |
+| iOS Safari, gerçek `media.davetkart.com` | koşmadı | yerel ortamda yok |
+
+### Elle doğrulama (İsmail)
+
+1. Backend'de `composer check` (son satır `"result":"passed"`).
+2. **Yayında, backend dağıtımından sonra** (sunucuda, sudo yetkili kullanıcıyla):
+   `cd /var/www/davetkart/backend && sudo bash deploy/nginx/install.sh`. Beklenen son satırlar:
+   `nginx: configuration file /etc/nginx/nginx.conf test is successful` → `==> [nginx] reload (kesintisiz)`.
+3. Duman testi (kendi bilgisayarından): `bash deploy/smoke/check-security-headers.sh https://davetkart.com`
+   → altı `OK`, `SONUC: tamam`.
+4. Tarayıcıda: DevTools → Network → `davetkart.com` belgesi → Response Headers'ta yedi başlık. Console'da
+   `report-only Content Security Policy` satırı **olmamalı**; varsa not et (gözlem haftası).
+5. Clickjacking'i gör: masaüstüne `test.html` yaz: `<iframe src="https://davetkart.com/" width=800 height=600></iframe>`;
+   tarayıcıda aç → çerçeve boş, konsolda `X-Frame-Options` / `frame-ancestors` iletisi.
+6. Bir hafta: ödeme (kart açıksa Shopier'e gidiş ve dönüş), galeriye fotoğraf yükleme, telefonda 3D
+   şablon. Console'daki `report-only` satırları zorlamaya geçiş kararının girdisi (K175).
+7. Mutantı kendin dene (yerelde): `davetkart.conf`'ta `location ^~ /assets/` içindeki `include` satırını
+   sil → `nginx -t` yine yeşil → duman testi `/assets/…` için `EKSIK` → geri al. "Nginx bunu
+   okuyabiliyor" ile "başlıklar çıkıyor" ayrı sorulardır.
+
+### Plandan sapmalar
+
+- **D1: snippet `server` seviyesine konmadı.** Plan "`davetkart.com` sunucu bloğuna **ve** kendi
+  `add_header`'ı olan her `location`'a" diyordu. `server` seviyesi `/api/` ve `/index.php` konumlarına
+  miras kalır (ikisinin de `add_header`'ı yok). API yanıtı her başlığı Laravel'inkiyle birlikte iki kez
+  taşır, `Referrer-Policy` çelişir (mutant N5 bunu gösterdi). Sonuç planın niyetiyle aynı: her SPA
+  yanıtı başlık taşıyor, tek kaynak snippet. Bedeli şu: yeni bir SPA `location`'ı eklenirse `include`
+  elle yazılmalı. Bunu duman testi yakalar (N2–N4). K173 ⚠️.
+- **D2: `X-Frame-Options: DENY` / `frame-ancestors 'none'`.** Envanterde aynı kökenden çerçeve yok,
+  bu yüzden plandaki `'self'` seçeneği kullanılmadı.
+- **D3: Unsplash politikaya girmedi** (ölü kod). `'unsafe-inline'` planda vardı, ölçülerek doğrulandı.
+- **D6: duman testi API'yi de sınıyor** (planda yalnızca SPA başlıkları vardı). Gerekçe: K85/K173
+  sınırını ve yinelenmeyi yakalayan tek yer burası.
+- **18.6.2 bir betik oldu** (plan "dağıtım betiği ya da kılavuz" diyordu). Elle `cp` → `nginx -t`
+  sırası, test kırmızıyken diskte bozuk dosya bırakıyordu ([`install.md`](../deploy/nginx/install.md) §1).
+- **Faz 18 kapanışında etiket komutları verilmedi:** `composer audit` kırmızı (`SEC-07`, prompt §11.5).
+- 🔴 **Yerel geliştirme veritabanına yanlışlıkla yazıldı, geri alındı.** İlk denemede backend'i
+  `php artisan serve` ile scratch veritabanına yönlendirmek istedim. `artisan serve` alt süreçlere
+  ortam değişkenlerini süzerek geçirdiği için `DB_DATABASE` gitmedi. Deneme kullanıcısı (id 6), token'ı
+  ve üç taslak davetiye `davetkart` veritabanına yazıldı. Bağlı bütün tablolar FK'lerden sayıldı (kuyruk,
+  oturum, sipariş, medya, LCV, zaman çizelgesi: 0). Yalnızca o 5 satır kimlikleriyle, tek transaction'da
+  silindi. Sonra `users` 5 satır, en büyük id 5. Kalan tek iz `users` dizisi: bir sonraki kullanıcının
+  id'si 7 olacak. Sonraki koşular `php -S` ile yapıldı: önce olmayan bir veritabanıyla (500 `database
+  … does not exist`), sonra geliştirme veritabanında yayında olan bir davetiyenin 404 dönmesiyle
+  hedef doğrulandı, ondan sonra yazıldı.
+
+### Gördüm, dokunmadım
+
+| Bulgu | Ne |
+|---|---|
+| `SEC-07` | `composer audit` 6 pakette 9 açık (yukarıda). Etiketin önkoşulu |
+| `SEC-12` | Google Fonts (`index.css:1` + beş `fontlar.ts`) CSP'de iki Google alan adını zorunlu kılıyor; kendi alan adından sunulursa çıkar |
+| `SEC-18` | Token `localStorage`'da (K177). Ayrıca `src/services/rsvpReceipts.ts` misafirin LCV makbuzunu da `localStorage`'da tutuyor; httpOnly çereze geçişte o da değerlendirilmeli |
+| `FE-50` | Editör sihirbazı her ziyarette bir taslak bıraktı (deneme veritabanında 5 koşu → 5 taslak). Denetimdeki bulguyla aynı |
+| — | `NisanManzara.tsx:18` Unsplash yedeği ölü kod (`bgImage || '…'`, `bgImage` hiç boş değil); silinebilir |
+| — | `nisan-manzara` kimlikli davetiye `TemplateRenderer`'ın `nisan-manzara` eşlemesine rağmen başka bir görünümle çizildi (ekran görüntüsü); şablon kataloğunda (`data.ts`) bu kimlik yok. Ayrıca incelenmedi |
+| — | Vite derlemesi `index-*.js` 1,63 MB uyarısı veriyor (denetimdeki performans bulgusu) |
+
+### Açık kalanlar (karar İsmail'in)
+
+1. Bir haftalık gözlemden sonra tam CSP'nin zorlanması (yeni K; kılavuz §5'teki adımlar).
+2. Rapor toplayıcı uç (`report-to` / `report-uri`): ihlalleri konsol yerine bir yere toplamak.
+3. HSTS `preload` (geri alınamaz; ayrı karar).
+4. Token'ın httpOnly çereze taşınması (`SEC-18`).
+5. `deploy-frontend.sh`'ın sonunda duman testinin uyarı olarak çağrılması (K178'de "hayır"; yeniden
+   değerlendirilebilir).

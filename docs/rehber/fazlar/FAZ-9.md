@@ -176,7 +176,7 @@ değiştirdi:
 | **K82** | Yayınlanmış davetiye **silinebilir**; hak **3 gün** içinde serbest kalır | İsmail'in ticari kararı. Pencere `published_at`'ten sayılır; kapalıysa hak yanar. Sipariş satırı **hiç silinmez** — muhasebe kaydı bir tıkla yok olamaz |
 | **K83** | Serbest hak, yayın anında **yeten en düşük** siparişten harcanır | Resolver "en yüksek"i döndürür (okuma), tüketim tersini ister: 249 ₺'lik iş için 549 ₺'lik hak yakılmaz |
 | **K84** | Bakım komutları `--dry-run` taşır ve zamanlayıcıdan **önce elle** koşulur | İlk gerçek koşu üretimde ve gözlemsiz olmamalı |
-| **K85** | Güvenlik başlıkları **middleware'de**, nginx'te değil | **B10**: nginx.conf sunucuda yaşar ve taşımada geride kalır. Ayrıca test edilebilir ve paylaşımlı hostingde de çalışır (**K80**) |
+| **K85** | Güvenlik başlıkları **middleware'de**, nginx'te değil · ⚠️ **daraltıldı → K173** (Faz 18.6, `SEC-04`): karar yalnızca `/api/*` yanıtları için geçerli; SPA'yı (index.html, JS, CSS, video) Laravel hiç görmediği için onun başlıkları Nginx'te (`deploy/nginx/snippets/davetkart-security-headers.conf`) | **B10**: nginx.conf sunucuda yaşar ve taşımada geride kalır. Ayrıca test edilebilir ve paylaşımlı hostingde de çalışır (**K80**). Faz 18.6: B10 kaygısını depodaki snippet + `install.sh` + duman testi karşılıyor |
 | **K86** | `config/cors.php` **yayınlandı ve daraltıldı**; `exposed_headers: ['ETag']` | Laravel varsayılanı `['*']` + boş `exposed_headers`. İkincisi K7/K46'nın polling optimizasyonunu **sessizce** öldürüyordu |
 
 ---
