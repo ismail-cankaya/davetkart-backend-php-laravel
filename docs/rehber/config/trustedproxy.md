@@ -112,6 +112,12 @@ geliyorsa, bu başlık güvenilir olunca `$request->isSecure()` doğru döner ve
 > sıfırlama bağlantısı Dilim D'de frontend config'inden üretilecek (10.34).
 > Başlıkları daraltmak gerekirse:
 > `bootstrap/app.php` → `$middleware->trustProxies(headers: …)`.
+>
+> **Durum notu (20 Kasım 2026, Faz 19.1 · `SEC-07`, K180):** "hiçbir yer yok" cümlesi Faz 12'den
+> beri doğru değildi: `ShopierGateway` callback adresini `url(CALLBACK_PATH)` ile isteğin
+> host'undan üretiyordu. Adres artık `APP_URL`'den geliyor; 19.1'deki taramada `app/` içinde
+> istekten mutlak adres üreten yer kalmadı. Ayrıntı ve tarama listesi:
+> [`app/Services/Payment/ShopierGateway.md`](../app/Services/Payment/ShopierGateway.md) §12.
 
 ---
 

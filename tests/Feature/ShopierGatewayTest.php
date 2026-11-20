@@ -73,7 +73,8 @@ final class ShopierGatewayTest extends TestCase
         $this->assertSame('Yılmaz', $f['buyer_surname']);
         $this->assertSame('ayse@example.com', $f['buyer_email']);
         $this->assertSame('11111111110', $f['buyer_id_nr']);
-        $this->assertSame(url(ShopierGateway::CALLBACK_PATH), $f['callback']);
+        // SEC-07 (K180): APP_URL'den. Host'u değiştirilmiş istek: PaymentDriverResolutionTest.
+        $this->assertSame(rtrim(Config::string('app.url'), '/').ShopierGateway::CALLBACK_PATH, $f['callback']);
         $this->assertMatchesRegularExpression('/^\d{6}$/', $f['random_nr']);
 
         // İmza, formdaki metinlerle (aynı değişken, K124) yeniden hesaplanınca tutmalı.

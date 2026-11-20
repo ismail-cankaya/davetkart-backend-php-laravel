@@ -86,6 +86,37 @@ final class PaymentDriverResolutionTest extends TestCase
     }
 
     /**
+     * 🔴 SEC-07 (K180): forma giden callback adresi APP_URL'den; isteğin host'u istemcinin
+     * elindedir (host header injection). İki yol: `Host` ve güvenilen vekil arkasında `X-Forwarded-Host`.
+     *
+     * @param  array<string, string>  $headers
+     */
+    #[Test]
+    #[DataProvider('spoofedHosts')]
+    public function the_shopier_callback_url_ignores_the_request_host(string $root, array $headers, ?string $trustedProxies): void
+    {
+        Config::set('app.url', 'https://davetkart.test');
+        Config::set('trustedproxy.proxies', $trustedProxies);
+        $user = User::factory()->create();
+
+        $callback = $this->withToken($user->createToken('test')->plainTextToken)
+            ->withHeaders($headers)
+            ->postJson($root.route('payments.checkout', absolute: false), ['tier' => 'gold'])
+            ->assertCreated()
+            ->json('data.checkout.fields.callback');
+
+        $this->assertSame('https://davetkart.test'.ShopierGateway::CALLBACK_PATH, $callback);
+    }
+
+    /** @return iterable<string, array{string, array<string, string>, string|null}> */
+    public static function spoofedHosts(): iterable
+    {
+        // Testte Host başlığı istek adresinden kurulur (Request::create); withHeader('Host') etkisiz.
+        yield 'Host: evil.example' => ['http://evil.example', [], null];
+        yield 'güvenilen vekil + X-Forwarded-Host' => ['', ['X-Forwarded-Host' => 'evil.example', 'X-Forwarded-Proto' => 'https'], '*'];
+    }
+
+    /**
      * @param  array<string, string|null>  $config
      */
     #[Test]
