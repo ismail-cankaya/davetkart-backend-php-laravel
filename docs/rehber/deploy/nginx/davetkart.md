@@ -149,9 +149,36 @@ Adres çubuğundaki yol (`/api/v1/...`) değişmez, Laravel kendi yönlendirmesi
 `listen 443 ssl` eklediğinde `$https` değeri `on` olur ve Laravel
 `$request->secure()` ile isteğin güvenli olduğunu **kendisi** anlar. Araya başka
 bir proxy girmediği için `TRUSTED_PROXIES` boş kalır ve istemci IP'si gerçek IP'dir
-(hız sınırı bu yüzden doğru çalışır). `SecurityHeaders` HSTS'yi `includeSubDomains`
-ile **Laravel** gönderir. Nginx'e `add_header Strict-Transport-Security` eklenirse
-başlık iki kez gider; bu yüzden eklenmedi.
+(hız sınırı bu yüzden doğru çalışır).
+
+HSTS'yi (ve öteki güvenlik başlıklarını) **iki kaynak** basar, ama hiçbir yanıtta ikisi birden
+basmaz (Faz 18.6, K173):
+
+| Yanıt | Başlıkları basan |
+|---|---|
+| `/api/*` | Laravel `SecurityHeaders` (K85): HSTS, `nosniff`, `DENY`, `no-referrer`, `default-src 'none'` |
+| Geri kalan her şey (site, JS, CSS, video, 404) | Nginx: `snippets/davetkart-security-headers.conf` |
+
+Faz 18.6'ya kadar Nginx hiç başlık basmıyordu. Tarayıcı HSTS'yi ancak ilk `/api` yanıtından
+öğreniyordu, site de çerçevelenebiliyordu (`SEC-04`). İki kaynağın HSTS değeri aynı:
+`max-age=31536000; includeSubDomains`.
+
+### Güvenlik başlıkları: neden her `location`'da ayrı `include`? (Faz 18.6)
+🔴 **Nginx tuzağı: `add_header` üst bloktan miras alınmaz.** Kural şu: bir `location` kendi
+`add_header`'ını **hiç** tanımlamıyorsa üst bloğun (`server`) `add_header`'larını alır. **Tek
+bir tane** tanımladığı anda üsttekilerin **hepsi** düşer. Bizim `/assets/` ve `= /index.html`
+konumlarımız `Cache-Control` için zaten `add_header` kullanıyor. Başlıklar `server` seviyesinde
+olsaydı tam da en önemli iki yanıtta (`index.html` ve JS) kaybolurlardı.
+
+Bu yüzden başlıklar tek dosyada (`snippets/davetkart-security-headers.conf`) durur ve API dışındaki
+**dört** `location`'ın her biri onu `include` eder: nokta yolları (404), `/assets/`,
+`= /index.html`, `/`. `server` seviyesinde **değil**: oraya konsaydı `/api/` ve `/index.php`
+konumları onu miras alırdı (kendi `add_header`'ları yok) ve API yanıtı her başlığı Laravel'inkiyle
+birlikte **iki kez** taşırdı. Yerel denemede ikisi de ölçüldü (`FAZ-18.md` §18.6, N1–N5).
+Ayrıntı ve her başlığın gerekçesi: [`snippets/davetkart-security-headers.md`](snippets/davetkart-security-headers.md).
+
+**Yeni bir `location` eklersen** API'ye gitmiyorsa ona da `include` satırını yaz, sonra duman
+testini çalıştır (`deploy/smoke/check-security-headers.sh`).
 
 ### `/assets/` ve `index.html` önbelleği
 Vite derlemesi dosya adlarına içerik özeti (hash) koyar: `app-3f9a2c.js`. İçerik
@@ -160,8 +187,8 @@ değişince ad değişir, yani **bir dosya adı asla eski içeriği taşımaz**.
 listedir ve adı hep aynı. `no-cache` ("her seferinde sunucuya sor") dediğimiz için
 yeni bir deploy'dan sonra kullanıcı yeni hash'leri hemen görür.
 Not: `location` içinde `add_header` kullanmak, üst seviyedeki `add_header`'ları
-**iptal eder**. Bu yüzden `server` seviyesinde güvenlik başlığı koymadık, onları
-Y12.2'de ayrıca ele alacağız.
+**iptal eder**. Güvenlik başlıkları bu yüzden bu iki konumda ayrıca `include` edilir (yukarıdaki
+"Güvenlik başlıkları" bölümü).
 
 ### `location /` → `try_files $uri /index.html`
 React tek sayfalık uygulama (SPA). `/giris`, `/davetiyelerim` gibi yollar diskte
@@ -188,9 +215,23 @@ göndermiyor; sessiz bir yenileme hatasını UptimeRobot SSL izlemesi yakalar (Y
 
 ## 5. Sunucuya kurulum
 
-**Sertifika zaten varsa** (bugünkü sunucu):
+İki dosya birlikte kurulur: site dosyası ve onun `include` ettiği güvenlik başlıkları snippet'i
+(Faz 18.6). Snippet yoksa `nginx -t` `open() … failed` der.
+
+**Güncelleme** (site zaten kurulu; bugünkü sunucu, Faz 18.6'dan itibaren):
 
 ```bash
+cd /var/www/davetkart/backend
+sudo bash deploy/nginx/install.sh                       # kopyala → nginx -t → reload; kırmızıysa eskileri geri koyar
+bash deploy/smoke/check-security-headers.sh https://davetkart.com
+```
+
+Betiğin ayrıntısı: [`install.md`](install.md).
+
+**İlk kurulum, sertifika zaten varsa** (bir kez):
+
+```bash
+sudo install -m 644 deploy/nginx/snippets/davetkart-security-headers.conf /etc/nginx/snippets/
 sudo cp deploy/nginx/davetkart.conf /etc/nginx/sites-available/davetkart.conf
 sudo ln -s /etc/nginx/sites-available/davetkart.conf /etc/nginx/sites-enabled/
 sudo rm /etc/nginx/sites-enabled/default      # ikinci default_server olmasın
@@ -217,7 +258,8 @@ yollarını içerdiği için `nginx -t` hata verir. Tavuk-yumurta sorununu şöy
    yenileme ayarına `authenticator = nginx` yazar. `certonly`'de "kurucu"
    (`installer`) olmadığı için yenilemeden sonra Nginx'i kimse yeniden yüklemez;
    `--deploy-hook` bu boşluğu kapatır (yoksa Nginx eski sertifikayı bellekte tutar).
-3. Depodaki asıl dosyayı kur, `nginx -t`, `reload`, `certbot renew --dry-run`.
+3. Depodaki asıl dosyayı **ve snippet'i** kur (yukarıdaki "İlk kurulum" bloğu), `nginx -t`,
+   `reload`, `certbot renew --dry-run`, duman testi.
 
 ## 6. Sık hatalar
 
@@ -233,6 +275,9 @@ yollarını içerdiği için `nginx -t` hata verir. Tavuk-yumurta sorununu şöy
 | `http://www` iki kez yönleniyor | certbot'un `if ($host ...)` blokları geri gelmiş (tek 80 bloğu yeterli) |
 | IP ile https'te sitenin sertifikası görünüyor | `ssl_reject_handshake` varsayılan bloğu eksik |
 | Deploy sonrası eski site görünüyor | `index.html` önbelleğe alınmış (`no-cache` kuralı bozulmuş) |
+| Bir yolda güvenlik başlıkları yok | O `location`'da `include snippets/davetkart-security-headers.conf;` eksik (`add_header` miras alınmaz) |
+| `/api` yanıtında başlıklar iki kez | Snippet `server` seviyesine taşınmış; API konumları onu miras alıyor |
+| `open() "/etc/nginx/snippets/davetkart-security-headers.conf" failed` | Snippet kurulmamış; `install.sh` kullan |
 
 ## 7. Sözlük
 
@@ -241,3 +286,4 @@ yollarını içerdiği için `nginx -t` hata verir. Tavuk-yumurta sorununu şöy
 - **HSTS:** "Bu siteye bundan sonra yalnızca https ile gel" diyen tarayıcı kuralı.
 - **Same-origin:** Sayfa ve API aynı alan adından gelir, CORS gerekmez.
 - **Immutable:** "Bu dosya asla değişmeyecek, tekrar sormana gerek yok."
+- **Snippet:** Başka yapılandırma dosyalarının `include` ile içine aldığı küçük, tekrar kullanılan parça.

@@ -30,6 +30,15 @@ Bunu bilmek, hangi sorunun çözülüp hangisinin çözülmediğini ayırmayı s
 | **Test edilebilir** | `HardeningTest` her başlığı sınar. nginx yapılandırması `composer check`'in görüş alanının dışındadır |
 | **Her ortamda çalışır** | Paylaşımlı hostingde nginx'e erişim olmayabilir (**K80**) |
 
+> 🆕 **Faz 18.6 (`SEC-04`, K173): bu karar yalnızca API için.** Middleware yalnızca Laravel'in
+> ürettiği yanıtları görür. `index.html`, JS, CSS ve videolar Nginx'ten doğrudan çıkıyor ve
+> Laravel'e hiç uğramıyor; denetim onları başlıksız buldu. SPA'nın başlıkları artık Nginx'te:
+> `deploy/nginx/snippets/davetkart-security-headers.conf`
+> ([kılavuzu](../../../deploy/nginx/snippets/davetkart-security-headers.md)). Sınır kesin: `/api/*`
+> yanıtında başlıkları **yalnızca** bu sınıf basar, Nginx eklemez (iki kez gitmesinler diye).
+> Değerler bilerek farklı: API için `default-src 'none'` ve `no-referrer` doğru (saf JSON). Bir
+> HTML uygulamasında ikisi de her şeyi kırardı.
+
 ---
 
 ## 3. Altı başlık, altı gerekçe
@@ -126,6 +135,7 @@ sonra** çalışıyor. `ForceJsonResponse` yığının **başında** (M3), bu **
 | CORS | `config/cors.php` |
 | Yanıt gövdesini denetlemek | Resource beyaz listeleri (C1/C5) |
 | `curl`'ü durdurmak | 🔴 **Hiçbir şey** — bunlar tarayıcı talimatları (§1) |
+| React sitesinin (SPA) başlıkları | Nginx snippet'i (Faz 18.6, K173; §2'deki not) |
 | Yüklenen dosyaların web kökünde olmasını düzeltmek | 🔴 **K55 hâlâ açık** — S3 göçü |
 
 ---
