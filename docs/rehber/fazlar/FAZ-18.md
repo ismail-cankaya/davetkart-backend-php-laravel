@@ -1,7 +1,7 @@
 # FAZ 18 — Denetim düzeltmeleri (`AUD-2026-11-12`)
 
 > **Başlangıç:** 16 Kasım 2026 · **Entegrasyon dalı:** `faz-18-audit-fixes` (`d810410` üstü; frontend'de `main`'deki `47aedc8` birleştirildi)
-> **Durum:** sürüyor (4/6). Her bulgu ayrı bir `fix/…` dalında kapanır, `faz-18-audit-fixes`'e birleşir; faz sonunda `main` + `v1.1.0`.
+> **Durum:** sürüyor (5/6). Her bulgu ayrı bir `fix/…` dalında kapanır, `faz-18-audit-fixes`'e birleşir; faz sonunda `main` + `v1.1.0`.
 > **Kaynak:** docs deposu `audits/2026-11-12-full-system-audit/REPORT.md` §1 ve §4 · takip tablosu `phases/faz-18/README.md`
 > **Kararlar:** docs deposu `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-18.md`
 > **Önceki:** [`FAZ-15.md`](FAZ-15.md). Faz 16–17'nin kaydı yok (`ARC-02`, bu fazın kapsamı dışında).
@@ -14,7 +14,7 @@
 | 18.2 | `OPS-02` | Veritabanı yedeği ve geri yükleme provası | `fix/2026-11-16-ops-02-db-backup` | K151–K157 | kod ✅ · yerel kuru koşu ve prova ✅ · `composer check` ✅ 1074 test · S3 yüklemesi, sunucu kurulumu ve üretim provası koşmadı (İsmail'in elle işleri, §18.2) |
 | 18.3 | `SEC-01` | İlk yayın indirimi tek açık siparişe | `fix/2026-11-16-sec-01-first-publish-once` | K158–K163 | kod ✅ · `composer check` ✅ 1126 test · frontend `npm run check` ✅ · 13 mutanttan 13'ü öldü (biri kod sadeleştirilerek) · yerel göç, tarayıcı denemesi ve gerçek yarış testi koşmadı (§18.3) |
 | 18.4 | `SEC-02` | Yayınlanmış hakkın iadesi | `fix/2026-11-17-sec-02-refund-after-publish` | K164–K169 | kod ✅ · `composer check` ✅ 1159 test · frontend `npm run check` ✅ · 21 mutanttan 21'i öldü · yerel göç, tarayıcı denemesi ve HTTP düzeyinde gerçek yarış testi koşmadı (§18.4) |
-| 18.5 | `SEC-03` | Shopier `callback` kipi üretimde reddedilir | — | — | bekliyor |
+| 18.5 | `SEC-03` | Shopier `callback` kipi üretimde reddedilir | `fix/2026-11-20-sec-03-shopier-callback-mode` | K170–K172 | kod ✅ · `composer check` ✅ 1166 test · 6 mutanttan 6'sı öldü · frontend değişmedi · sunucudaki `SHOPIER_CONFIRMATION` değeri ve tarayıcı denemesi koşmadı (§18.5) |
 | 18.6 | `SEC-04` | Frontend güvenlik başlıkları + Faz 18 kapanışı | — | — | bekliyor |
 
 ---
@@ -712,3 +712,172 @@ Kod 17 Kasım, son koşular 19 Kasım 2026.
 1. Para gönderilip onay reddedilirse ne yapılacağı (bugün: Shopier iade bildirimi beklenir ya da elle SQL).
 2. Göçten sonra yerelde damgalanan 6 siparişin doğru olup olmadığı (yalnızca deneme verisi).
 3. Kullanım Şartları'ndaki "İletişim sayfası üzerinden" ifadesi.
+
+---
+
+## 18.5 — `SEC-03`: Shopier `callback` kipinde `status` ve tutar imzasızdı
+
+### Sorun
+
+`SHOPIER_CONFIRMATION=callback` seçilirse siparişi `paid` yapan şey tarayıcının getirdiği formdu.
+Callback imzası yalnızca `random_nr + platform_order_id`'yi kapsıyor; `status` ve tutar imzanın
+dışında. Başarısız bir ödemenin imzalı callback'inde (Shopier'in böyle bir callback üretip
+üretmediği **doğrulanmadı**) `status=failed` → `success` yapılınca imza yine geçerliydi; bildirim
+tutar taşımadığı için `amountMatches()` de `true` dönüyordu. Varsayılan kip `osb` ve orada callback
+hiçbir siparişi değiştirmiyor (K117); risk, güvensiz kipin tek bir `.env` satırı olması ve
+`docs/10`'un onu geçerli bir seçenek diye anlatmasıydı. Kod okuması denetimdeki satırlarla aynıydı
+(`ShopierGateway.php` 156–192 · `ShopierSignature.php` 49–62 · `config/payment.php:44` ·
+`HandlePaymentCallbackAction.php` 219–227). Yayın kaydına göre sunucuda `osb` (şablondan, Y8.3b);
+`callback` planlanmamış, bu yüzden "yayına çıkınca ödemeler durur" dur koşulu oluşmadı.
+
+### Kararlar
+
+| K | Karar (tek cümle) |
+|---|---|
+| **K170** | Üretimde (`App::isProduction()`) `callback` kipi bir yapılandırma hatasıdır: `ShopierGateway` kurulmaz, sır eksikliğiyle aynı sonuç (K123: `PaymentProviderException::unavailable` → 503 `PROVIDER_UNAVAILABLE`, sipariş yazılmaz) ve her kurulma denemesinde `CRITICAL Shopier callback confirmation mode refused in production`. Kip yalnızca yerel/test için kalır; tamamen kaldırılması K94'ün adım 7'si (OSB API ödemelerinde geliyor mu) doğrulandıktan sonra ayrıca karara bağlanır. K117'yi daraltır. |
+| **K171** | Üretimde tutar taşımayan **`paid`** bildirimi `amountMatches()`'ten geçmez (geçiş yok, mevcut `critical` satırı, `notified_minor: null`). `failed`/`refunded` ve üretim dışı etkilenmez. K126'yı genişletir. |
+| **K172** | Callback ucu sürücüyü `try`'ın içinde kurar; sürücü hangi nedenle kurulamazsa kurulmasın (K123, K170) kullanıcı 303 ile `/odeme/hata`'ya gider (`?order=` yok), sipariş değişmez, `warning Shopier callback rejected`. OSB ucu 503 kalır (karşıda makine var). K122'yi genişletir. |
+
+**Daraltılan/genişletilen kararlar:** K117 → **K170** (üretimde `callback` yok; "`status` imzalı
+gösterilirse `callback`'e geçilir" kuralı üretim için geçersiz: doğru düzeltme imza doğrulamasına
+`status`'ü eklemek ve yeni bir K'dir). K122 → **K172**. K126 → **K171**. Geçersiz kılınan karar yok.
+Durum notları `FAZ-12.md` §5'e işlendi; K94'e "kaldırma adım 7'den sonra" notu eklendi.
+
+**D2 (kaldırmak mı?):** `phases/faz-12/FAZ-12-RAPOR.md`'ye göre §A'nın sekiz satırı boş, OSB'nin API
+ödemelerinde gelip gelmediği doğrulanmadı (K94 ⚠️ geçici). Bu yüzden kip **kaldırılmadı**; kaldırma
+önerisi K olarak yazılmadı (koşulu oluşmadı). Açık kalanlar madde 1.
+
+### Değişen dosyalar
+
+**Backend** (`fix/2026-11-20-sec-03-shopier-callback-mode`)
+
+| Adım | Dosya | Ne | Kılavuz |
+|---|---|---|---|
+| 18.5.1 | `app/Services/Payment/ShopierGateway.php` | Kurucuda üretim + `callback` → `critical` + 503 | [`ShopierGateway.md`](../app/Services/Payment/ShopierGateway.md) §3, §11 |
+| 18.5.1 | `app/Services/Payment/Shopier/ShopierConfirmation.php` | `Callback` vakasının yorumu: yalnızca yerel/test | aynı, §11 |
+| 18.5.1 | `config/payment.php` | `confirmation` yorumu: üretimde 503 | [`config/payment.md`](../config/payment.md) §1, §3 |
+| 18.5.1 | `tests/Feature/PaymentDriverResolutionTest.php` | +3 test | [`PaymentDriverResolutionTest.md`](../tests/Feature/PaymentDriverResolutionTest.md) |
+| 18.5.2 | `app/Http/Controllers/Api/V1/ShopierCallbackController.php` | Sürücü `try`'ın içinde (`new`), `PaymentProviderException` → 303 hata sayfası | [`ShopierCallbackController.md`](../app/Http/Controllers/Api/V1/ShopierCallbackController.md) §8 |
+| 18.5.2 | `tests/Feature/ShopierCallbackTest.php` | +2 test; bilinçli risk testinin yorumu "üretim dışında" | [`ShopierCallbackTest.md`](../tests/Feature/ShopierCallbackTest.md) |
+| 18.5.3 | `app/Actions/Payment/HandlePaymentCallbackAction.php` | `amountMatches()`: üretimde tutarsız `paid` uymaz | [`HandlePaymentCallbackAction.md`](../app/Actions/Payment/HandlePaymentCallbackAction.md) §Faz 18.5 |
+| 18.5.3 | `tests/Feature/PaymentNotificationAmountTest.php` | +2 test | [`PaymentNotificationAmountTest.md`](../tests/Feature/PaymentNotificationAmountTest.md) |
+| 18.5.4 | `docs/10-URETIM-ENV-SABLONU.md` | `SHOPIER_CONFIRMATION`: üretimde yalnızca `osb` (D4) | — |
+| 18.5.4 | `docs/rehber/fazlar/FAZ-18.md` · `README.md` · `FAZ-12.md` | Bu kayıt; K94, K117, K122, K126 satırlarına notlar | — |
+
+Yeni hata kodu, config anahtarı, göç ve bağımlılık **yok**; `contracts/` değişmedi. Frontend
+değişmedi: hata sayfası (`/odeme/hata`) zaten var.
+
+**Docs** (`docs/2026-11-16-faz-18-audit-fixes`), adım 18.5.5: `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-18.md`
+§18.5, `decisions/DECISION-INDEX.md` (K170–K172, sıradaki K173, K94/K117/K122/K126 notları),
+`phases/faz-18/README.md`, `phases/faz-18/FAZ-18-SEC-03-COMMIT-KOMUTLARI.md`, `CHANGELOG.md`.
+
+### Eklenen testler ve öldürdükleri mutantlar
+
+Yeni test: 7 (`PaymentDriverResolutionTest` +3, `ShopierCallbackTest` +2, `PaymentNotificationAmountTest` +2).
+Mevcut testlerden yalnızca iki docblock değişti (`callback_mode_trusts_the_unsigned_status_by_design`,
+`a_notification_without_an_amount_is_not_compared`: "üretim dışında"); gövdeler aynı.
+
+| Test | Kanıtladığı |
+|---|---|
+| `the_callback_confirmation_mode_is_refused_in_production` | Üretim + `callback` → checkout 503 `PROVIDER_UNAVAILABLE`, `orders` boş, `critical` log |
+| `the_callback_mode_still_works_outside_production` | Regresyon: test ortamında `callback` + checkout 201 form |
+| `osb_mode_works_in_production` | Regresyon: üretimde `osb` + checkout 201 form |
+| `a_forged_success_in_callback_mode_does_not_pay_in_production` | Üretim + `callback` + imzalı `failed` gövdesinde `status=success` → 303 `/odeme/hata` (`?order=` yok), sipariş `pending`, `paid_at` boş |
+| `without_secrets_the_callback_goes_to_the_failure_page` | Sır yok → 503 JSON değil 303 hata sayfası, sipariş `pending` |
+| `a_paid_notification_without_an_amount_is_refused_in_production` | Üretimde tutarsız `paid` → `pending`, ödeme kimliği yazılmadı, `critical` (`notified_minor: null`) |
+| `a_refund_notification_without_an_amount_still_applies_in_production` | Kural dar: tutarsız iade bildirimi üretimde de işlenir |
+
+Mutantlar bir betikle uygulandı: dosya yedeklenir, tek bir metin değişikliği yapılır (uygulanmadıysa
+betik durur), ilgili test süzgeci koşar, dosya yedekten geri konur ve SHA'sı karşılaştırılır.
+
+| # | Mutant | Sonuç | Kırmızıya dönen |
+|---|---|---|---|
+| M1 | Kurucudaki üretim + `callback` bloğu silindi (prompt §6'daki hedef: "ortam kontrolünü kaldır") | ✅ öldü (2) | `the_callback_confirmation_mode_is_refused_in_production` · `a_forged_success_in_callback_mode_does_not_pay_in_production` |
+| M2 | Koşuldan `&& App::isProduction()` silindi (kip her ortamda reddedilir) | ✅ öldü (12) | `the_callback_mode_still_works_outside_production` · `callback` kipini kullanan `ShopierCallbackTest`/`ShopierGatewayTest`/`ShopierOsbTest` testleri |
+| M3 | Callback ucunun `catch`'inden `PaymentProviderException` çıkarıldı | ✅ öldü (2) | `a_forged_success_…_in_production` · `without_secrets_the_callback_goes_to_the_failure_page` (303 yerine 503) |
+| M4 | `amountMatches()`: tutarsız bildirimde `return true;` (D3'ün hedefi) | ✅ öldü | `a_paid_notification_without_an_amount_is_refused_in_production` |
+| M5 | Durum koşulu silindi (`return ! App::isProduction();`) | ✅ öldü | `a_refund_notification_without_an_amount_still_applies_in_production` |
+| M6 | Ortam koşulu silindi (`return $notification->status !== OrderStatus::Paid;`) | ✅ öldü (9) | `a_notification_without_an_amount_is_not_compared` · `PaywallTest`'in dört Fake webhook testi · `callback` kipinin dört ödeme testi |
+
+### Doğrulama durumu (B7)
+
+Makine: Windows 11, PHP 8.5.12 (Herd), PostgreSQL 18.4 (`davetkart_test`), Windows PowerShell 5.1.
+Kod ve koşular 20 Kasım 2026.
+
+| Komut | Sonuç | Çıktıdan |
+|---|---|---|
+| Önkoşullar (prompt §2) | ⚠️ kısmen | backend ağacı boş, `faz-18-audit-fixes`'te; `git branch --merged faz-18-audit-fixes` içinde `fix/2026-11-17-sec-02-refund-after-publish` var. **Docs ağacı boş değildi:** ` M prompts/PROMPT-FAZ-18-3-SEC-01.md` (18.4'teki aynı tek boş satır; benim değil). Dokunulmadı, commit komutlarına girmedi |
+| Başlangıç: Shopier test süzgeci (5 sınıf) | ✅ | `tests=58 passed=58` |
+| 18.5.1 RED: `--filter=PaymentDriverResolutionTest` | ❌ beklenen | `tests=10 passed=9 failed=1`: `Expected response status code [503] but received 201` |
+| 18.5.1 GREEN (5 sınıf) | ✅ | `tests=61 passed=61 assertions=175` |
+| PHPStan (18.5.1 sonu) | ❌ → ✅ | İlk koşu 30 hata, çoğu değişmemiş dosyalarda ("docblock'u olan metotta tip yok"): ilk denemeyi `PHPSTAN_TURBO=0` olmadan yaptım, `%TEMP%\phpstan` önbelleği bozuldu ([`phpstan.md`](../phpstan.md) "turbo" bölümü). Scratchpad'de ayrı önbellekle 1 gerçek hata (`LegacyMockInterface::with()`); önbellek kılavuzdaki gibi silindi; `->once()` da aynı nedenle çıkarıldı → `phpstan errors: 0` |
+| 18.5.2 RED: `--filter=ShopierCallbackTest` | ❌ beklenen | `tests=15 passed=13 failed=2`: `Expected response status code [303] but received 503` (`PaymentProviderException` kurucudan) |
+| 18.5.2 GREEN | ✅ | `tests=63 passed=63`; PHPStan önce *"Dead catch"* (kapsayıcıyla kurulum), sonra *"@throws … not thrown"* (yardımcı metot) → `new ShopierGateway` → `errors: 0` |
+| 18.5.3 RED: `--filter=PaymentNotificationAmountTest` | ❌ beklenen | `tests=7 passed=6 failed=1`: `Pending` beklenirken `Paid` |
+| 18.5.3 GREEN (5 sınıf + Paywall/Refund/FirstPublishFinalGate) | ✅ | `tests=137 passed=137 assertions=467` · `pint passed` · `phpstan errors: 0` |
+| **`composer check`** (iki kez: kod bittikten sonra ve son ağaçta, faz kaydından sonra) | ✅ | `pint passed` · `phpstan errors: 0` · `Katalog guncel.` · `Plan kurallari sozlesmesi guncel.` · `tests: 1166, passed: 1166, assertions: 4322` · çıkış 0 (iki koşuda aynı) |
+| Mutantlar M1–M6 | ✅ 6/6 öldü | yukarıdaki tablo; her dosyanın SHA'sı geri konduktan sonra aynı; `git diff --stat` önce ve sonra `17 files changed, 438 insertions(+), 28 deletions(-)`, `git diff \| sha1sum` önce ve sonra `89513f990673` (faz kaydı yazılmadan önce) |
+| Frontend `npm run check` | koşmadı | frontend'e dokunulmadı |
+| Sunucudaki `.env` (`SHOPIER_CONFIRMATION`) | koşmadı | canlı sisteme bağlanılmadı; `osb` olduğu yayın kaydından (Y8.3b, şablondan) okundu, gözlenmedi |
+| Tarayıcıda elle deneme | koşmadı | sunucular çalıştırılmadı; adımlar aşağıda |
+| Shopier, sunucu, AWS, Sentry | koşmadı | canlı sisteme istek atılmadı |
+
+### Elle doğrulama (İsmail)
+
+1. Backend'de `composer check`: son satırda `"tests":1166,"passed":1166`.
+2. **Yayından önce** sunucuda (salt okunur): `grep -n '^SHOPIER_CONFIRMATION' <backend dizini>/.env`.
+   `osb` ya da satır yok (varsayılan `osb`) olmalı. `callback` görürsen bu dal yayına çıktığı an
+   kartla ödeme 503 olur: önce satırı `osb` yap, sonra `php artisan config:cache`.
+3. Yerelde kuralın kendisi (`php artisan tinker`):
+   ```php
+   config(['payment.providers.shopier.api_key' => 'k', 'payment.providers.shopier.api_secret' => 's',
+           'payment.providers.shopier.confirmation' => 'callback']);
+   new App\Services\Payment\ShopierGateway;            // kurulur
+   app()->detectEnvironment(fn () => 'production');
+   new App\Services\Payment\ShopierGateway;            // PaymentProviderException
+   ```
+   `storage/logs/laravel.log`'da `CRITICAL: Shopier callback confirmation mode refused in production`.
+4. Mutantı kendin dene: `ShopierGateway::__construct`'taki üretim bloğunu sil →
+   `php artisan test --filter=PaymentDriverResolutionTest` kırmızı → geri al.
+5. Kart açıldığında `FAZ-12-ELLE-DOGRULAMA.md` adım 6 (çevrilmiş durum saldırısı) aynen geçerli;
+   adım 7'nin sonucu K94'e ve `callback` kipinin kaldırılması kararına girer.
+
+### Plandan sapmalar
+
+- **D3 daraltıldı: yalnızca `paid`.** Plan "tutar yoksa üretimde eşleşme sayılmaz" diyordu. Tutar,
+  **hak açan** kararın kanıtı; `failed`'ı reddetmek bir şey korumaz, `refunded`'ı reddetmek ters
+  yönde hata olurdu (para geri gitmiş, hak açık). Ayrıca D3 yerel/test akışını bozmasın diye
+  yalnızca üretimde. Bugün üretimde tutarsız `paid` üreten yol yok (K170 sonrası); K171 ikinci kilit.
+- **K172 planda ayrı bir karar değildi (D1'in "callback ucu güvenli yönlendirsin" maddesi).** Sürücü
+  metot parametresi olduğu için kurucu istisnası `try`'a hiç girmiyor, insan 503 JSON görüyordu.
+  Düzeltme sır eksikliği durumunu da kapsıyor: o durumda da artık 503 JSON yerine hata sayfası
+  (davranış değişikliği, testli).
+- **`new ShopierGateway` (bağımlılık enjeksiyonu değil).** Kapsayıcıyla kurmak PHPStan'de
+  "dead catch", `@throws`'lu yardımcı metot "throws.unusedType" verdi. Kurucunun bağımlılığı yok;
+  kapsayıcıda özel bağlaması yok. Gerekçe controller kılavuzu §8.
+- **"Kurulumda bir kez `Log::critical`"**: her kurulma denemesinde bir satır (checkout, callback,
+  OSB). Test sayıyı değil mesajı doğruluyor: `shouldHaveReceived(...)->once()` PHPStan'de tip
+  hatası veriyor; projenin diğer log testleri de sayı denetlemiyor.
+- **Docs deposunun ağacı kirliydi** (prompt §2 "boş değilse DUR"): 18.4'te görülen aynı tek boş
+  satır (`prompts/PROMPT-FAZ-18-3-SEC-01.md`). 18.4'te de aynı şekilde devam edilmişti; dokunulmadı.
+- **PHPStan önbelleği:** `%TEMP%\phpstan` silindi (yalnızca PHPStan'in geçici önbelleği, kılavuzdaki
+  çözüm). Bozulmasının nedeni benim ilk koşum (turbo kapatılmadan).
+- **Ara commit'ler tek tek koşulmadı** (`git stash`/`checkout` yasak). Bağımlılık sırası: 18.5.2'nin
+  `a_forged_success_…_in_production` testi 18.5.1'in kurucu kuralına dayanır; 18.5.3 bağımsız.
+
+### Gördüm, dokunmadım
+
+| Bulgu | Ne |
+|---|---|
+| `SEC-07` (kapsam dışı) | `docs/10` ve `FAZ-12-ELLE-DOGRULAMA.md` panel adreslerini `api.davetkart.com` üzerinde gösteriyor; yayın kaydı (Y8.3a) üretimin aynı kökenli `davetkart.com` olduğunu ve şablonun eskidiğini yazıyor. Callback adresi `url(CALLBACK_PATH)` ile `APP_URL`'den üretiliyor |
+| — | `docs/rehber/tests/Feature/PaymentDriverResolutionTest.md` "Sipariş yazılmaz" bölümü sürücünün `StartCheckoutAction` kurucusunda alındığını söylüyor; K136'dan beri `PaymentGatewayResolver` transaction içinde kuruyor. Sonuç (sipariş yazılmaz) aynı, gerekçe eskimiş |
+| — | `PAYMENT_PROVIDER=fake` üretimde engellenmiyor. K171 sonrası Fake'in webhook'u üretimde `paid` üretemez; checkout ise Fake'te başarı sayfasına yönlendirip siparişi `pending` bırakır. Ayrı bir koruma (üretimde Fake → 503) değerlendirilebilir |
+| — | docs deposu `operations/deployment/YAYIN-DEVIR.md` Y8 satırı `PAYMENT_PROVIDER=fake` diyor; `YAYIN-PLANI.md` Y8.3b gerçekleşeni `shopier` + `PAYMENT_METHODS=gift_code` olarak yazıyor |
+| — | OSB ucu üretimde `callback` kipindeyken 503 döner; Shopier'in tekrar deneme politikası bilinmiyor (§A-c) |
+
+### Açık kalanlar (karar İsmail'in)
+
+1. `callback` kipinin tamamen kaldırılması: K94 adım 7 OSB'yi doğrularsa öneri yeni bir K olarak gelir.
+2. Adım 7'de OSB **gelmezse** üretimde ödeme onaylanamaz: çözüm `callback` değil, sunucudan sunucuya
+   bir sorgu ya da `status`'ü imzalayan bir formül (yeni K).
+3. Sunucudaki `SHOPIER_CONFIRMATION` değerinin yayından önce gözle doğrulanması (elle doğrulama 2).
