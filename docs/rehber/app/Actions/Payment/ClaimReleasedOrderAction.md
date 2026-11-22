@@ -200,3 +200,24 @@ davetiyenin siparişi `invitation_id = NULL` ile serbest hakla aynı görünüyo
 
 İptal edilip iade istenen hak **donmuştur**: talep kapanana kadar bağlanmaz. Gerekçe:
 `docs/rehber/app/Actions/Refund/RequestRefundAction.md` §2.
+
+---
+
+## 🆕 Faz 19 (19.11 · K188, TST-02) — kilitten sonra yeniden sınama
+
+**Yarış (Faz 18.4 "gördüm, dokunmadım").** `RequestRefundAction` sipariş satırını kilitler ama satırı
+**güncellemez**; yalnızca `refund_requests`'e satır ekler. Aynı anda gelen sahiplenmenin
+`SELECT … FOR UPDATE`'i kilidi bekler. Kilit kalkınca PostgreSQL (READ COMMITTED) satırı yalnızca
+**değiştiyse** yeniden değerlendirir; değişmediği için `withoutOpenRefundRequest()` (NOT EXISTS) sorgunun
+başladığı anın görüntüsüyle kalır ve donmuş hak yeni davetiyeye bağlanırdı.
+
+**Düzeltme.** Kilitli adaylar alındıktan sonra aynı koşullar (`candidates()`) **yeni bir sorguyla**
+yeniden sınanır; yeni sorgu yeni anlık görüntü alır ve COMMIT edilmiş iade talebini görür. Durum
+makinesine ve iade akışına dokunulmadı.
+
+**Neden kilit yetmedi?** Kilit "aynı anda iki kişi yazmasın" der; "beklerken değişen başka tabloyu gör"
+demez. Koşul başka bir tabloya bakıyorsa (NOT EXISTS) kilitten sonra yeniden sorulmalı.
+
+**Kanıt.** `LockRaceTest::a_refund_requested_during_a_claim_keeps_the_right_frozen`: alt süreç siparişi
+kilitler + iade talebi ekler + 800 ms bekler + COMMIT; ana süreç sahiplenmeyi koşar. Düzeltmeden önce
+kırmızıydı ("İptal talebi olan (donmuş) hak yeni davetiyeye bağlandı"), sonra yeşil.

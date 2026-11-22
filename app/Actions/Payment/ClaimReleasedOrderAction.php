@@ -57,9 +57,29 @@ final class ClaimReleasedOrderAction
      * IKI yayin acar. Faz 7'nin M8'i bunun webhook'taki ikiziydi — UNIQUE
      * kisit "iki satir olamaz" der, "bir satir iki kez ilerleyemez" demez.
      *
+     * 🔴 K188 (TST-02): kilit BEKLENDIYSE kosullar sorgunun BASLADIGI anin goruntusuyle
+     * degerlendirildi. RequestRefundAction satiri kilitler ama GUNCELLEMEZ; PostgreSQL
+     * degismeyen satiri yeniden sinamaz ve "acik iade yok" bayat kalir. Kilit alindiktan
+     * sonra ayni kosullar YENI bir sorguyla (taze goruntu) yeniden sinanir.
+     *
      * @return \Illuminate\Database\Eloquent\Collection<int, Order>
      */
     private function releasedOrdersOf(Invitation $invitation): \Illuminate\Database\Eloquent\Collection
+    {
+        $locked = $this->candidates($invitation)->lockForUpdate()->get();
+
+        if ($locked->isEmpty()) {
+            return $locked;
+        }
+
+        /** @var list<string> $stillFree */
+        $stillFree = $this->candidates($invitation)->whereKey($locked->modelKeys())->pluck('id')->all();
+
+        return $locked->filter(fn (Order $order): bool => in_array($order->id, $stillFree, true))->values();
+    }
+
+    /** @return \Illuminate\Database\Eloquent\Builder<Order> */
+    private function candidates(Invitation $invitation): \Illuminate\Database\Eloquent\Builder
     {
         return Order::query()
             ->grantingPublishRight()   // yalnizca odenmis (OrderStatus)
@@ -67,9 +87,7 @@ final class ClaimReleasedOrderAction
             ->unconsumed()             // Faz 14 (K137): yanmis hak geri dogmaz
             ->withoutOpenRefundRequest() // Faz 14 (K138): iptal istenen hak donmus
             ->whereNull('invitation_id')
-            ->where('user_id', $invitation->user_id)
-            ->lockForUpdate()
-            ->get();
+            ->where('user_id', $invitation->user_id);
     }
 
     /**
