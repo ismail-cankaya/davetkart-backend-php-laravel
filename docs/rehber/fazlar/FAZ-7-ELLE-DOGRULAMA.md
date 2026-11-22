@@ -460,7 +460,7 @@ Buraya kadar her adım beklendiği gibi bittiyse:
 1. `FAZ-7.md` §12 kapanış listesini işaretle
 2. `FAZ-7.md` **durum alanını** güncelle (**B7**): *"25/25 adım tamamlandı ve
    doğrulandı"*
-3. `claude/PHP-LARAVEL-SETUP-EK-FAZ-7.md`'yi master dosyaya işle
+3. `davetkart-docs: decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-7.md`'yi master dosyaya işle
 4. §9'daki **6 açık kararı** cevapla — özellikle 1. madde (paket alım kaç yayın
    açar) ticari bir açık kapı
 5. Frontend uyarlamasına geç (`FAZ-7.md` §8)

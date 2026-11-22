@@ -234,7 +234,7 @@ Analizi PHP 8.3 kurallarına göre yapar. Senin makinende 8.4 kurulu olsa bile
 > hooks, asimetrik görünürlük, pipe operatörü…) yasak sayıyor. İki yol var:
 > ya `phpVersion: 80500` yap (hedef gerçekten 8.5 ise), ya da `composer.json`'ı
 > `^8.3`'e geri al (8.5'e özgü bir şey kullanılmıyorsa hosting seçeneği
-> genişler). Karar kaydı yok — bkz. `claude/GOZDEN-GECIRME-RAPORU.md`.
+> genişler). Karar kaydı yok — bkz. `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md`.
 
 ### `treatPhpDocTypesAsCertain: false`
 

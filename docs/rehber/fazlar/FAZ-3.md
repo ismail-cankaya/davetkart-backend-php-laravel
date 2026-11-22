@@ -440,8 +440,8 @@ Faz 3, Faz 2'nin **yeşil kapanmadığını** ortaya çıkardı.
 ### 10.1 Faz 3'ün kendi kalan işi
 
 - `FAZ-3-ELLE-DOGRULAMA.md` — uçtan uca doğrulama betiği
-- `claude/Notlar/03-FRONTEND-YAPILACAKLAR.md` güncellemesi (kapanan maddeler)
-- `claude/PHP-LARAVEL-SETUP.md` §7 karar tablosuna K37-K44 eklenmesi
+- `davetkart-docs: notes/03-FRONTEND-YAPILACAKLAR.md` güncellemesi (kapanan maddeler)
+- `davetkart-docs: context/PHP-LARAVEL-SETUP.md` §7 karar tablosuna K37-K44 eklenmesi
 
 ### 10.2 Sonraki fazlara
 

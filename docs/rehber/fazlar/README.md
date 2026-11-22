@@ -30,7 +30,7 @@ dosya neden böyle yazıldı"* sorusunu cevaplar. Buradaki faz özetleri ise
 | **19** | Denetimin orta öncelikli bulguları (`AUD-2026-11-12`, 28 🟡; `TST-01` Faz 18.1'de kapandı). 19.1 `SEC-07`: `composer audit` yeşil (`composer.lock`: Laravel 13.43, Symfony 8.1.10/8.1.11; majör yok, K179), Shopier callback adresi istek host'undan değil `APP_URL`'den (K180), yayın adayı = `check` + `audit` (K181) | ⚠️ 1/28 · 19.1 kod ✅ · yeni lock `audit --locked` ✅ · `vendor` kurulmadı (GitHub erişilemedi), yeni `vendor` ile `check`/`audit` koşmadı · eski `vendor` ile `check` ✅ 1168 test · sunucudaki `APP_URL` gözle doğrulanmadı | [FAZ-19.md](FAZ-19.md) | [FAZ-19.md](FAZ-19.md) §19.1 "Elle doğrulama" |
 
 > 🔴 23 Eylül 2026: backend "bitti" gözden geçirmesi →
-> [`../../../claude/GOZDEN-GECIRME-RAPORU.md`](../../../claude/GOZDEN-GECIRME-RAPORU.md)
+> `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md`
 
 ## Her özette bulunacaklar
 

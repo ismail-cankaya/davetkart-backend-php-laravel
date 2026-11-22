@@ -53,7 +53,7 @@ Backend bittiğinde ortaya çıkan şey:
 | **9+** | Galeri silme, görsel optimizasyonu, PHP ^8.5, Sentry, Gemini 2.5, CI (17–21 Eylül) | Galeri silme ✅ | — | ⚠️ kod ✅ · `composer check` **kayıt yok** |
 
 > 🔴 Bu tablo 23 Eylül 2026'da güncellendi. Backend kodu bitti; bulgular ve kalan
-> işler: `claude/GOZDEN-GECIRME-RAPORU.md`.
+> işler: `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md`.
 
 ## 3. Bağımlılık akışı
 
@@ -825,7 +825,7 @@ ayakta kalıyor.
 | 9.13 | `.env.example` + `docs/10-URETIM-ENV-SABLONU.md` | ✅ |
 | 9.14 | `FAZ-9.md` + elle doğrulama + bu dosya | ✅ |
 | — | **Redis + S3 + kuyruk süpervizörü** | ⬜ **ertelendi (K80)** |
-| — | **`IyzicoGateway` + imza + replay penceresi** | ⬜ **ertelendi** — sandbox anahtarı yok. 🔴 Eylül 2026: sağlayıcı olarak **Shopier** hesabı açıldı; arayüz uyumu `claude/GOZDEN-GECIRME-RAPORU.md` §4'te |
+| — | **`IyzicoGateway` + imza + replay penceresi** | ⬜ **ertelendi** — sandbox anahtarı yok. 🔴 Eylül 2026: sağlayıcı olarak **Shopier** hesabı açıldı; arayüz uyumu `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md` §4'te |
 | — | **Argon2id ölçümü · log rotasyonu · yedekleme** | ⬜ sunucu tarafı |
 
 > ⚠️ **Bu liste Faz 3'ten önce yazılan 7 satırlık kaba planın yerini alır.**
@@ -885,4 +885,4 @@ Kaynak dokümanlardaki eskimiş satırlar burada güncel hâliyle yazıldı:
 | Veri modeli detayı | `docs/03-MIMARI-PLAN.md` §3 |
 | Dosya yerleşimi | `docs/05-KLASOR-VE-DOSYA-REFERANSI.md` |
 | Kod standartları | `CLAUDE.md` |
-| Proje devir dosyası | `claude/PHP-LARAVEL-SETUP.md` |
+| Proje devir dosyası | `davetkart-docs: context/PHP-LARAVEL-SETUP.md` |

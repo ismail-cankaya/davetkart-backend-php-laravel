@@ -295,7 +295,7 @@ görünmesi tesadüf değil; sözleşme iki tarafta da aynı mantığı taşıma
 
 ### 7.2 Kalan frontend işi — Faz 2'yi bloke etmiyor
 
-`claude/Notlar/03` §14'teki kalan maddeler **K20'nin (hata sözleşmesi) frontend
+`davetkart-docs: notes/03-FRONTEND-YAPILACAKLAR.md` §14'teki kalan maddeler **K20'nin (hata sözleşmesi) frontend
 tarafıdır**, K35'in değil: `errors`/`validation`/`fields` çeviri bölümleri ve
 `toDisplayError()` katmanı. Şu an toast'larda sabit Türkçe metinler var; o
 katman geldiğinde 10 dile açılacaklar.
@@ -377,5 +377,5 @@ geliyor; editörde autosave çalışıyor.
 | Hata sözleşmesi | `docs/08-HATA-SOZLESMESI.md` |
 | Veri modeli | `docs/03-MIMARI-PLAN.md` §3 |
 | Kod standartları | `CLAUDE.md` |
-| Frontend'e düşen iş | `claude/Notlar/03-FRONTEND-YAPILACAKLAR.md` **Bölüm II** |
-| Proje devir dosyası | `claude/PHP-LARAVEL-SETUP.md` |
+| Frontend'e düşen iş | `davetkart-docs: notes/03-FRONTEND-YAPILACAKLAR.md` **Bölüm II** |
+| Proje devir dosyası | `davetkart-docs: context/PHP-LARAVEL-SETUP.md` |

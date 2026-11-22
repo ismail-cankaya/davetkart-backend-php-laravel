@@ -322,7 +322,7 @@ katmanı **hiç çalışmıyor** — ve hiçbir test bunu söylemez.
 - 🔴 `php artisan storage:link` **hiç çalıştırılmadı** — o olmadan hiçbir medya URL'i açılmaz
 - 🔴 Frontend uyarlaması (§8)
 - `CLAUDE.md` §1'in `if` kuralı gevşetildi ama **dosyaya işlenmedi** (B4)
-- `claude/PHP-LARAVEL-SETUP.md`'ye K54-K63 ve F1-F5/L5-L6/A8/T17/E10/B8 işlenmeli
+- `davetkart-docs: context/PHP-LARAVEL-SETUP.md`'ye K54-K63 ve F1-F5/L5-L6/A8/T17/E10/B8 işlenmeli
 
 ### 9.2 Sonraki fazlara
 

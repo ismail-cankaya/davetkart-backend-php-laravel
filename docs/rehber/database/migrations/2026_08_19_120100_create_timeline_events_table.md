@@ -232,7 +232,7 @@ aittir.
 { id: null, localKey: `tl-${Date.now()}`, ... }
 ```
 
-Bu iş frontend'e düşüyor ve `claude/Notlar/03-FRONTEND-YAPILACAKLAR.md`'ye
+Bu iş frontend'e düşüyor ve `davetkart-docs: notes/03-FRONTEND-YAPILACAKLAR.md`'ye
 eklenecek. Backend geçiş döneminde de doğru davranır: tanımadığı bir id gelirse
 onu yok sayıp yeni satır açar.
 

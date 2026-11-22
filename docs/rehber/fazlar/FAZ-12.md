@@ -1,7 +1,7 @@
 # FAZ 12 — Shopier ile kartla ödeme
 
 > **Tarih:** 24 Ekim 2026 · **Dal:** `faz-12-shopier` (backend + frontend)
-> **Önkoşul:** Faz 11 (hediye kodu) · **Prompt:** `claude/PROMPT-FAZ-12.md`
+> **Önkoşul:** Faz 11 (hediye kodu) · **Prompt:** `davetkart-docs: prompts/PROMPT-FAZ-12.md`
 > **Elle doğrulama:** [FAZ-12-ELLE-DOGRULAMA.md](FAZ-12-ELLE-DOGRULAMA.md) (🔴 canlıda, gerçek kartla)
 
 ---
@@ -71,7 +71,7 @@ Her kod dosyasının kılavuzu `docs/rehber/<aynı yol>.md` altında, kendi adı
 | Sır kontrolü `AppServiceProvider`'da değil `ShopierGateway` kurucusunda (K123) | Controller'lar sürücüyü doğrudan istiyor; tek kapı kurucu |
 | Callback adresi `route()` değil `ShopierGateway::CALLBACK_PATH` sabiti | Rota 12.7'de; her adım kendi başına yeşil kalsın. `ShopierCallbackTest` ikisini kilitliyor |
 | Ek dosyalar: `CheckoutActionTest` (12.1), `PaymentNotificationAmountTest` (12.4), `ShopierConfirmation`/`ShopierCallback` (12.6), `submitProviderForm` testleri `verify-payment.ts`'te (12.11), `paymentReturn.ts` (12.13) | Listede yoktu; her biri kendi adımının kodunu sınıyor ya da tamamlıyor |
-| `claude/PHP-LARAVEL-SETUP.md`'ye **dokunulmadı** | Faz 11'de olduğu gibi: ana dosyada commit'lenmemiş bir değişiklik ve işlenmemiş `EK-FAZ-11` var. Faz 12 kayıtları `PHP-LARAVEL-SETUP-EK-FAZ-12.md`'de |
+| `davetkart-docs: context/PHP-LARAVEL-SETUP.md`'ye **dokunulmadı** | Faz 11'de olduğu gibi: ana dosyada commit'lenmemiş bir değişiklik ve işlenmemiş `EK-FAZ-11` var. Faz 12 kayıtları `PHP-LARAVEL-SETUP-EK-FAZ-12.md`'de |
 | `SubscriptionTier::label()` artık kullanılıyor (`product_name`) | Faz 7 açık kararı #4 ("silinsin mi?") kendiliğinden kapandı |
 | 12.13, frontend'e Faz 12 sırasında gelen **11.6** commit'inin (otomatik yayın) üstüne yeniden kuruldu | Prompt K67'yi ("ödeme yayınlamaz") varsayıyordu; 11.6 dönüş sayfasında otomatik yayını getirdi. Backend'de K67 hâlâ geçerli (ödeme bildirimi yayınlamaz; yayın ayrı `POST …/publish`). "Davetiyeni yayınla" düğmesi yazılmadı |
 

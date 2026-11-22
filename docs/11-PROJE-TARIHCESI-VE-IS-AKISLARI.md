@@ -6,15 +6,15 @@
 > yakalama fazı (F1–F7) **tamamlandı** (§5.2 artık tarihsel), backend'e galeri silme
 > ucu, görsel optimizasyonu, PHP ^8.5, Sentry ve Gemini 2.5 eklendi. Güncellenen
 > bölümler: §1.3, §1.4, §4.10, §5.1, §5.2, §5.5, Ek A. Tam gözden geçirme ve açık
-> bulgular: `claude/GOZDEN-GECIRME-RAPORU.md`.
+> bulgular: `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md`.
 > **Kapsam:** Faz 0 → Faz 9 arası tüm geliştirme sürecinin toplu kaydı
 > **Kimin için:** Projeye **ilk kez** katılan bir geliştirici (insan veya AI asistanı)
 > **Okuma süresi:** ~45 dakika · Sonrasında kod tabanında güvenle çalışabilirsin
 >
-> **Bu doküman ne yapar:** `docs/03`, `docs/07`, `docs/08`, `docs/09`, `claude/FAZ-*-DEVIR.md`
+> **Bu doküman ne yapar:** `docs/03`, `docs/07`, `docs/08`, `docs/09`, `davetkart-docs: phases/faz-NN/FAZ-*-DEVIR.md`
 > ve gerçek kod tabanını tek bir giriş kapısında birleştirir.
 > **Bu doküman ne yapmaz:** Yeni karar üretmez. Bir çelişki görürsen sıralama şudur:
-> **kod > `claude/PHP-LARAVEL-SETUP-EK-FAZ-*.md` > `docs/08` > `docs/07` > `docs/09` > `docs/03`.**
+> **kod > `davetkart-docs: decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-*.md` > `docs/08` > `docs/07` > `docs/09` > `docs/03`.**
 
 ---
 
@@ -2803,7 +2803,7 @@ Faz 9'un asıl işi planlanan liste değildi. 9.7'ye hazırlanırken `orders.inv
 | Sıra | İş | Neden bu sırada |
 |:---:|---|---|
 | ~~1~~ | ~~Frontend yakalama fazı~~ | ✅ **13–16 Eylül'de tamamlandı** (F1–F7). Açık: F8 uçtan uca doğrulama |
-| **1** | 🔴 **Gözden geçirme raporunun kritik bulguları** | Yayın sonrası paywall aşımı + geç gelen ödemenin kaybolması — `claude/GOZDEN-GECIRME-RAPORU.md` §1 |
+| **1** | 🔴 **Gözden geçirme raporunun kritik bulguları** | Yayın sonrası paywall aşımı + geç gelen ödemenin kaybolması — `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md` §1 |
 | **2** | Faz 5–9 elle doğrulama betiklerini koştur | `composer check` yeşil ama **hiçbir faz kapanış ölçütü işaretlenmedi** |
 | **3** | Paket alımın yayın kotası (K43) | Bugün tek bir 399 ₺'lik paket **sınırsız** yayın açıyor |
 | **4** | Gerçek ödeme sağlayıcısı — 🔴 **Shopier** (Eylül 2026'da hesap açıldı), `IyzicoGateway` değil | Arayüz (K8) hazır ama Shopier'in imza/geri dönüş modeline göre uyarlanmalı — rapor §4 |
@@ -2903,7 +2903,7 @@ Faz 9'un iki maddesi de doğrudan frontend'e dokunuyor:
 | Asistan kotasının gün sınırı **UTC** | İstanbul'da 03:00'te yenileniyor. Doğru çözüm `users.timezone`; bugün eklemek **okunmayan bir alan** üretir |
 | `rsvps.id` ULID (K52) | Faz 5'ten beri bekliyor — frontend uyarlaması |
 | Ters yön yetim medya (diskte var, satırı yok) | S3 göçünden sonra bir kez elle sayım |
-| 🔴 Dört EK dosyası master'a işlenmedi | `-EK-FAZ-5/6/8/9` → `claude/PHP-LARAVEL-SETUP.md`. Bir çelişkide **EK dosyaları kazanır** |
+| 🔴 Dört EK dosyası master'a işlenmedi | `-EK-FAZ-5/6/8/9` → `davetkart-docs: context/PHP-LARAVEL-SETUP.md`. Bir çelişkide **EK dosyaları kazanır** |
 | `docs/04` §1 ve §4 geçersiz | MySQL diyor; K9'/K19 ile PostgreSQL 18. `docs/03` §8 de geçersiz (12 adım → 9 faz) |
 
 ---
@@ -2915,7 +2915,7 @@ söyler; **kullanıcının bunu kullanabildiğini** söylemez. Bugün frontend a
 elle doğrulama betikleri hiç koşulmadı.
 
 **2. Kurallar birikimlidir ve gerekçeleriyle birlikte taşınır.** 140 kural, 86 karar ve 64
-ders `docs/rehber/fazlar/` ile `claude/PHP-LARAVEL-SETUP*.md` altında duruyor. Bir kuralı
+ders `docs/rehber/fazlar/` ile `davetkart-docs: context/PHP-LARAVEL-SETUP.md` + `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-*.md` altında duruyor. Bir kuralı
 uygulamadan önce **gerekçesini kontrol et** — ders 42: *kural değişmez, girdi değişir.*
 
 **3. Bu projede en sık düşülen tuzaklar (hepsi burada yaşandı):**
@@ -2977,9 +2977,9 @@ uygulamadan önce **gerekçesini kontrol et** — ders 42: *kural değişmez, gi
 1. docs/11-PROJE-TARIHCESI-VE-IS-AKISLARI.md   ← bu dosya
 2. CLAUDE.md                                    ← bağlayıcı kod standartları
 3. docs/08-HATA-SOZLESMESI.md                   ← API hata sözleşmesi (K20)
-4. claude/FAZ-9-DEVIR.md                        ← en güncel durum
-5. claude/PHP-LARAVEL-SETUP.md                  ← ana karar/ders kaydı
-   + claude/PHP-LARAVEL-SETUP-EK-FAZ-5/6/8/9.md ← 🔴 master'a işlenmeyi bekliyor
+4. davetkart-docs: phases/faz-09/FAZ-9-DEVIR.md                        ← en güncel durum
+5. davetkart-docs: context/PHP-LARAVEL-SETUP.md                  ← ana karar/ders kaydı
+   + davetkart-docs: decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-5/6/8/9.md ← 🔴 master'a işlenmeyi bekliyor
 6. docs/rehber/fazlar/FAZ-0.md … FAZ-9.md       ← faz kayıtları
 7. docs/10-URETIM-ENV-SABLONU.md                ← üretim .env
 ```

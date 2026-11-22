@@ -1,7 +1,7 @@
 # FAZ 14 — Hesap ayarları: Planlarım, iptal/iade, profil, parola, oturumlar, e-posta
 
 > **Tarih:** 25 Ekim 2026 · **Dal:** `faz-14-account-settings` (backend + frontend)
-> **Önkoşul:** Faz 13 · **Plan:** `claude/FAZ-14-PLANI.md`
+> **Önkoşul:** Faz 13 · **Plan:** `FAZ-14-PLANI.md` (plan dosyası hiçbir depoda yok)
 > **Elle doğrulama:** [FAZ-14-ELLE-DOGRULAMA.md](FAZ-14-ELLE-DOGRULAMA.md)
 > **İşletme:** iade komutları [`../PROJE-KOMUTLARI.md`](../PROJE-KOMUTLARI.md) §3.3
 

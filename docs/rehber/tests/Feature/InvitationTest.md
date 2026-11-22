@@ -357,7 +357,7 @@ Bu, fazın son kod dosyasıydı. Kalan iki iş:
 Ve fazın **asıl bitiş ölçütü** henüz karşılanmadı: *"Dashboard'da davetiye
 listesi gerçek veritabanından geliyor; editörde autosave çalışıyor."*
 
-Bunun için frontend tarafında üç iş var (`claude/Notlar/03-FRONTEND-YAPILACAKLAR.md`):
+Bunun için frontend tarafında üç iş var (`davetkart-docs: notes/03-FRONTEND-YAPILACAKLAR.md`):
 
 - `services/invitations.ts` → K37'nin REST koleksiyonuna uyarlanması
 - `useDashboardData.ts` → tek kayıt varsayımının kaldırılması

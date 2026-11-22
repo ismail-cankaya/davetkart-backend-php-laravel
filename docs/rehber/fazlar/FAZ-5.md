@@ -428,8 +428,8 @@ gönderiyor. `FAZ-5-ELLE-DOGRULAMA.md`'de bunun için ayrı bir adım var.
 
 - 🔴 **`composer check` hiç koşmadı** — [`FAZ-5-ELLE-DOGRULAMA.md`](FAZ-5-ELLE-DOGRULAMA.md)
 - 🔴 Frontend uyarlaması (§8)
-- `claude/PHP-LARAVEL-SETUP.md` §7 karar tablosuna K49-K53 eklenmesi
-- `claude/Notlar/03-FRONTEND-YAPILACAKLAR.md` güncellemesi
+- `davetkart-docs: context/PHP-LARAVEL-SETUP.md` §7 karar tablosuna K49-K53 eklenmesi
+- `davetkart-docs: notes/03-FRONTEND-YAPILACAKLAR.md` güncellemesi
 
 > ⚠️ Son iki madde bu fazda **yapılamadı**: `claude/` klasörü çalışılan depo
 > kopyasında bulunmuyor (git'te izlenmiyor, `.gitignore`'da da değil).

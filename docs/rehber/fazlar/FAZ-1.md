@@ -311,4 +311,4 @@ Kalan takvim:
 | Yol haritası | `docs/07-GELISTIRME-YOL-HARITASI.md` |
 | Hata sözleşmesi | `docs/08-HATA-SOZLESMESI.md` |
 | Kod standartları | `CLAUDE.md` |
-| Proje devir dosyası | `claude/PHP-LARAVEL-SETUP.md` |
+| Proje devir dosyası | `davetkart-docs: context/PHP-LARAVEL-SETUP.md` |
