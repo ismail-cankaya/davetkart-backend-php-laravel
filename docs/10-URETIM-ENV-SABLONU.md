@@ -118,6 +118,8 @@ SESSION_DRIVER=file
 # S3'e gecis bunu YAPISAL olarak kapatir. media.disk kolonda saklandigi icin
 # (F4) gocten sonra eski satirlar hala kendi diskinden cozulur — gec de olsa
 # guvenli bir gecis.
+# 🔴 K183 (ARC-04): uretimde 's3' DISINDAKI her deger yuklemeyi 503 ile durdurur
+# (okuma calisir). Kontrol: `php artisan about --only=davetkart` -> Media disk.
 DAVETKART_MEDIA_DISK=s3
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=

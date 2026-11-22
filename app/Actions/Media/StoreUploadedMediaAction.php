@@ -6,9 +6,11 @@ namespace App\Actions\Media;
 
 use App\Enums\MediaKind;
 use App\Exceptions\MediaQuotaExceededException;
+use App\Exceptions\MediaStorageUnavailableException;
 use App\Jobs\OptimizeUploadedImage;
 use App\Models\Invitation;
 use App\Models\Media;
+use App\Support\MediaDiskGuard;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -41,11 +43,17 @@ use Throwable;
  */
 final class StoreUploadedMediaAction
 {
+    public function __construct(private readonly MediaDiskGuard $diskGuard) {}
+
     /**
      * @throws MediaQuotaExceededException Bu turden kota doldu -> 403
+     * @throws MediaStorageUnavailableException Üretimde disk s3 değil -> 503 (K183)
      */
     public function handle(Invitation $invitation, MediaKind $kind, UploadedFile $file): Media
     {
+        // K183: sahip ve misafir yüklemesi buradan geçer; yanlış diske tek bayt yazılmaz.
+        $this->diskGuard->assertUploadsAllowed();
+
         // 🔴 MIME ve BOYUT, dosya TASINMADAN once okunur.
         // store() gecici dosyayi TASIR; sonrasinda $file->getMimeType()
         // artik var olmayan bir yolu okumaya calisir. Bu, sirasi yanlis

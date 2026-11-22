@@ -203,7 +203,7 @@ php artisan key:generate
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Vite sunucusu; sonda `/` **yok** |
 | `PAYMENT_PROVIDER` | `fake` | 🔴 Bilinmeyen değer sessiz varsayılana düşmez, 503 verir (K70) |
 | `AI_PROVIDER` | `null` | `NullProvider` ağa hiç çıkmaz — yapılandırma eksiği para harcamasın |
-| `DAVETKART_MEDIA_DISK` | `public` | Üretimde `s3` (K55) |
+| `DAVETKART_MEDIA_DISK` | `public` | Üretimde `s3`; başka değer yüklemeyi 503 ile durdurur (K183) |
 
 ### Adım 3 — Şema, tohum verisi ve depolama
 

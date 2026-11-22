@@ -19,10 +19,12 @@ use App\Services\Rsvp\SubscriptionRsvpQuotaResolver;
 use App\Support\EmailNormalizer;
 use App\Support\Iban;
 use App\Support\IpBucket;
+use App\Support\MediaDiskGuard;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Foundation\Console\ServeCommand;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
@@ -134,6 +136,15 @@ class AppServiceProvider extends ServiceProvider
         $this->configureLocalServer();
         $this->configureRateLimiting();
         $this->configureValidationRules();
+        $this->configureAboutCommand();
+    }
+
+    /** K183: `php artisan about` medya diskini ve üretimde yüklemenin kapalı olup olmadığını gösterir. */
+    private function configureAboutCommand(): void
+    {
+        AboutCommand::add('DavetKart', fn (): array => [
+            'Media disk' => $this->app->make(MediaDiskGuard::class)->aboutLine(),
+        ]);
     }
 
     /**
