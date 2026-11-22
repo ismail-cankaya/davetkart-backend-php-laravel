@@ -42,6 +42,11 @@ adları, rota adları, `TierResolver`).
 **Kapanış için:** PHP 8.5 olan makinede `composer check` (ya da en az
 `php artisan test --filter=TemplateCatalogueTest`).
 
+> **Durum notu (Faz 19.3, 20 Kasım 2026, `ARC-02`):** kapı ilk kez `AUD-2026-11-12`'de koştu ve kırmızıydı
+> (`TST-01`: `TemplateCatalogueTest` Pint `ordered_class_elements`); yeşil: Faz 18.1 (K150, `composer check`
+> 1074 test) → [`FAZ-18.md`](FAZ-18.md). §4'teki soru bu fazın 25 kimliği için açık: Faz 17 "premium"u
+> genişletti (K252, [`FAZ-17.md`](FAZ-17.md) §4) ama bu kimliklerin hiçbiri `preset_tiers`'te değil (Standart).
+
 ## 4. Karar bekleyenler
 
 - **Yeni şablonlar premium mu?** 3B şablonlar (`dugun-gul-3d`, `dugun-fener`) ve shader'lı
