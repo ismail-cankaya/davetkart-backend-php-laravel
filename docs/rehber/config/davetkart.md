@@ -738,3 +738,17 @@ gerekçeyle `env()` yok: ticari söz, ortam farkı değil.
 
 E-posta değişikliği onay bağlantısı 60 dakika geçerli (parola sıfırlamayla aynı) ve frontend'in
 `/eposta-onay` sayfasına gider. Yol frontend'deki rotayla birlikte değişir.
+
+---
+
+## 🆕 Faz 19 (19.10 · K186, SEC-06) — `api.rate_limit` ve misafir medya IP kovası
+
+| Anahtar | Değer | Ne |
+|---|---|---|
+| `api.rate_limit.per_user_per_minute` | 120 | Kimlikli istek, kullanıcı başına |
+| `api.rate_limit.per_ip_per_minute` | 60 | Kimliksiz istek, `IpBucket` başına |
+| `api.rate_limit.public_read_per_ip_per_minute` | 300 | `GET /public/invitations/{id}`, ayrı kova |
+| `media.rate_limit.guest_per_ip_per_minute` | 15 → **60** | Salonun tek IP'si; asıl fren davetiye başına 150/saat |
+
+Gerekçe ve kova anahtarları: [`../app/Providers/AppServiceProvider.md`](../app/Providers/AppServiceProvider.md) (K186).
+Sayılar `RateLimitTest::weddingLimits`'te sabitlenmiştir; değişirse test bilerek kırılır.

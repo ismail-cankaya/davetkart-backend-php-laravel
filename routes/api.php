@@ -308,8 +308,11 @@ Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(func
     Route::get('/plans', [PricingController::class, 'publicCatalog'])
         ->name('plans.index');
 
+    // K186 (SEC-06): misafir okuması genel IP kovasından çıkar, kendi geniş kovasında.
     Route::get('/invitations/{id}', [PublicInvitationController::class, 'show'])
         ->whereUlid('id')
+        ->withoutMiddleware('throttle:api')
+        ->middleware('throttle:public-read')
         ->name('invitations.show');
 
     /*

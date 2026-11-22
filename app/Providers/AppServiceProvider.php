@@ -8,6 +8,7 @@ use App\Contracts\PublishEntitlementResolver;
 use App\Contracts\RsvpQuotaResolver;
 use App\Exceptions\AiProviderException;
 use App\Exceptions\PaymentProviderException;
+use App\Models\User;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\GeminiProvider;
 use App\Services\Ai\NullProvider;
@@ -194,6 +195,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('contact', $this->contactLimits(...));
         RateLimiter::for('gift-code', $this->giftCodeLimits(...));
         RateLimiter::for('api', $this->apiLimits(...));
+        RateLimiter::for('public-read', $this->publicReadLimits(...));
     }
 
     /**
@@ -285,7 +287,7 @@ class AppServiceProvider extends ServiceProvider
         // (Laravel'in middleware oncelik listesinde AuthenticatesRequests,
         // ThrottleRequests'ten oncedir), dolayisiyla user() burada COZULMUS
         // gelir. apiLimits() ise GRUP seviyesinde ve orada null doner.
-        /** @var \App\Models\User|null $user */
+        /** @var User|null $user */
         $user = $request->user();
 
         $identity = $user !== null
@@ -351,7 +353,7 @@ class AppServiceProvider extends ServiceProvider
             return [Limit::none()];
         }
 
-        /** @var \App\Models\User|null $user */
+        /** @var User|null $user */
         $user = $request->user();
 
         $identity = $user !== null
@@ -370,24 +372,44 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Genel API tavani — FAZ-4 §9.2'nin acik borcu.
+     * Genel API tavani (FAZ-4 §9.2) — K186 (SEC-06): anahtar KIMLIK.
      *
-     * Faz 4'te fark edilmisti: public davetiye ucunda 404'ler CACHE'LENMIYOR,
-     * yani rastgele ULID yagdiran biri her istekte bir sorgu actirabiliyordu.
-     * Ayrica logout/me uclarinin hicbir siniri yoktu.
-     *
-     * 🔴 Anahtar yalnizca IP: bu limiter GRUP seviyesinde, yani auth:sanctum'DAN
-     * ONCE calisir. $request->user() burada zaten null doner (varsayilan guard
-     * 'web'), ustelik T13'te ogrenildigi gibi guard'a erken dokunmak onbellek
-     * tuzagi acar. Kullanici bazli tavan gerekirse rota seviyesinde ayri bir
-     * limiter tanimlanir.
+     * Kimligi bilinen istek kullanici kovasinda: ayni salon Wi-Fi'indaki yuz
+     * misafir sahibin panelini kilitlemez. Kimligi bilinmeyen istek IP kovasinda.
+     * Laravel'in oncelik listesi Authenticate'i ThrottleRequests'ten ONCE siralar;
+     * auth:sanctum uclarinda $request->user() burada DOLU (testle kanitli).
+     * Ayrintili aciklama: docs/rehber/app/Providers/AppServiceProvider.md (K186)
      *
      * @return list<Limit>
      */
     private function apiLimits(Request $request): array
     {
+        $user = $request->user();
+
+        if ($user instanceof User) {
+            return [
+                Limit::perMinute(Config::integer('davetkart.api.rate_limit.per_user_per_minute'))
+                    ->by('api|user|'.$user->id),
+            ];
+        }
+
         return [
-            Limit::perMinute(60)->by('api|'.IpBucket::of($request->ip())),
+            Limit::perMinute(Config::integer('davetkart.api.rate_limit.per_ip_per_minute'))
+                ->by('api|'.IpBucket::of($request->ip())),
+        ];
+    }
+
+    /**
+     * K186: misafir davetiye okumasi (GET /public/invitations/{id}) kendi kovasinda.
+     * Uc onbellekli ve ETag'li (K7); tavan yalnizca ULID yagmuruna karsi.
+     *
+     * @return list<Limit>
+     */
+    private function publicReadLimits(Request $request): array
+    {
+        return [
+            Limit::perMinute(Config::integer('davetkart.api.rate_limit.public_read_per_ip_per_minute'))
+                ->by('public-read|'.IpBucket::of($request->ip())),
         ];
     }
 

@@ -38,8 +38,11 @@ final class RateLimitTest extends TestCase
         return [
             'LCV, IP başına dakikada' => ['davetkart.rsvp.rate_limit.per_ip_per_minute', 20],
             'LCV, davetiye başına saatte' => ['davetkart.rsvp.rate_limit.per_invitation_per_hour', 300],
-            'misafir medyası, IP başına dakikada' => ['davetkart.media.rate_limit.guest_per_ip_per_minute', 15],
+            'misafir medyası, IP başına dakikada' => ['davetkart.media.rate_limit.guest_per_ip_per_minute', 60],
             'misafir medyası, davetiye başına saatte' => ['davetkart.media.rate_limit.guest_per_invitation_per_hour', 150],
+            'genel API, kullanıcı başına dakikada' => ['davetkart.api.rate_limit.per_user_per_minute', 120],
+            'genel API, IP başına dakikada' => ['davetkart.api.rate_limit.per_ip_per_minute', 60],
+            'misafir davetiye okuması, IP başına dakikada' => ['davetkart.api.rate_limit.public_read_per_ip_per_minute', 300],
         ];
     }
 

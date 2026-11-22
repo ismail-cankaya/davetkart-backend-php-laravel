@@ -127,8 +127,10 @@ return [
         // istek yuzlerce KB degil onlarca MB tasiyor.
         // Faz 10 (10.60 · K104): salon Wi-Fi'ı (tek IP) ve düğün gecesi için
         // büyütüldü (eski: IP 5/dk, davetiye 40/saat). LCV'den yine dar.
+        // Faz 19 (19.10 · K186, SEC-06): IP 15 -> 60. Salonun tek IP'si için 15
+        // dar kaldı; asıl fren davetiye başına saatlik kova (150).
         'rate_limit' => [
-            'guest_per_ip_per_minute' => 15,
+            'guest_per_ip_per_minute' => 60,
             'guest_per_invitation_per_hour' => 150,
         ],
 
@@ -242,6 +244,17 @@ return [
         'rate_limit' => [
             'per_user_per_minute' => 10,
             'per_user_per_hour' => 30,
+        ],
+    ],
+
+    // Faz 19 (19.10 · K186, SEC-06): genel API tavanı. Kimliği bilinen istek
+    // KULLANICI kovasında, bilinmeyen IP kovasında; misafir davetiye okuması
+    // (önbellekli + ETag'li) ayrı ve geniş kovada: salonda yüz misafir tek IP.
+    'api' => [
+        'rate_limit' => [
+            'per_user_per_minute' => 120,
+            'per_ip_per_minute' => 60,
+            'public_read_per_ip_per_minute' => 300,
         ],
     ],
 

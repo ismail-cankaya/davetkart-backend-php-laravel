@@ -543,6 +543,8 @@ gönderim yapıp 100'lük kotayı yine doldurabilir — onu kota durdurur (5.7).
 
 ### `api` limiter — anahtarda neden kullanıcı yok?
 
+> ⚠️ **Faz 19 (K186, SEC-06): bu bölüm geçersiz.** Limiter `auth:sanctum`'dan **sonra** çalışıyor; aşağıdaki "K186" bölümüne bak.
+
 ```php
 Limit::perMinute(60)->by('api|'.$request->ip()),
 ```
@@ -886,3 +888,39 @@ K123: sır ya da (`osb` modunda) OSB kimliği eksikse sürücü kurulmaz → 503
 Kontrol burada olsaydı ikinci yol onu atlardı. Kurucu, iki yolun da geçmek zorunda
 olduğu tek kapı. `resolveAiProvider`'ın notu aynı ayrımı yapıyor: *"HANGİ sürücü?"*
 burada, *"anahtar var mı?"* sürücünün kendi değişmezi (A8).
+
+---
+
+## 🆕 Faz 19 (19.10 · K186, SEC-06) — `api` kovası kimlik anahtarlı, `public-read` ayrı
+
+**Sorun.** Düğün salonunda yüz misafir tek dış IP'de. Genel `api` kovası yalnızca IP'ye bağlıydı:
+61. misafir isteği 429, aynı Wi-Fi'daki davetiye sahibi de 429 (denetim P85/P86).
+
+**Düzeltme.**
+
+| Kova | Anahtar | Sayı (config `davetkart.api.rate_limit`) |
+|---|---|---|
+| `api`, kimlikli | `api\|user\|<id>` | `per_user_per_minute` 120 |
+| `api`, kimliksiz | `api\|<IpBucket>` | `per_ip_per_minute` 60 |
+| `public-read` (yalnızca `GET /public/invitations/{id}`) | `public-read\|<IpBucket>` | `public_read_per_ip_per_minute` 300 |
+
+Misafir medya IP kovası 15 → 60 (`media.rate_limit.guest_per_ip_per_minute`); davetiye başına saatlik
+kova (150) asıl fren.
+
+**Eski varsayım neden yanlıştı?** Laravel rota ara katmanlarını (grup + rota) `middlewarePriority`
+listesine göre sıralar ve listede `AuthenticatesRequests` `ThrottleRequests`'ten **önce** gelir. Yani
+`auth:sanctum` olan uçta `Authenticate` önce çalışır, `shouldUse('sanctum')` der; limiter'daki
+`$request->user()` dolu döner. Guard'a erken dokunulmuyor, T13 tuzağı açılmıyor. Kanıt:
+`ApiRateLimitTest::two_users_behind_one_ip_have_separate_buckets`.
+
+**Yan etki (bilinçli).** `auth:sanctum` uçlarına geçersiz token'la gelen istek `Authenticate`'te 401
+alır ve `api` kovasına hiç ulaşmaz. Bu davranış K186'dan önce de böyleydi (kapsam dışı; SEC-16).
+
+**Okuma ucu neden ayrı?** Uç önbellekli ve ETag'li (K7); maliyeti düşük, hacmi en yüksek. Rota
+`->withoutMiddleware('throttle:api')->middleware('throttle:public-read')`.
+
+**Sık hata.** Kimlikli kova için `$request->user('sanctum')` yazmak: public uçlarda da token sorgusu
+açar ve T13'teki guard önbelleğini erken doldurur. Varsayılan `user()` yeterli.
+
+**Nasıl denenir.** `php artisan test --compact --filter=ApiRateLimitTest` · mutantlar: kimlik dalını
+kapat → ilk iki test kırmızı; `withoutMiddleware` satırını sil → `the_public_invitation_read_has_its_own_bucket` kırmızı.
