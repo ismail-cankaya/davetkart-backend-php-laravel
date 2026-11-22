@@ -67,6 +67,7 @@
             "@php vendor/bin/phpstan analyse --memory-limit=1G",
             "@php artisan errors:export --check",
             "@php artisan plans:export --check",
+            "@php artisan env:template --check",
             "@php artisan test"
         ],
         "post-autoload-dump": [
