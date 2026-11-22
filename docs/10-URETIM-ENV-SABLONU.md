@@ -58,7 +58,9 @@ APP_DEBUG=false
 # ziyaretciler icin TEK kova olur ve ip_hash kolonlari anlamsizlasir.
 # Faz 10 (10.18): ayar asagidaki TRUSTED_PROXIES ile yapilir (config/trustedproxy.php).
 # Ayni sunucuda nginx + php-fpm (AWS Yol A) bundan etkilenmez.
-APP_URL=https://api.davetkart.com
+# 🔴 K184 (OPS-04, Y8.3b): API AYNI ORIGIN'de (https://davetkart.com/api), `api.`
+# alt alani YOK. Eski deger `https://api.davetkart.com` var olmayan bir adresti.
+APP_URL=https://davetkart.com
 
 # 🔴 Faz 10 (10.18): BOS = hicbir vekile guvenilmez (guvenli varsayilan).
 # Yuk dengeleyici arkasinda dengeleyicinin adresleri/CIDR'lari, virgulle.
@@ -124,7 +126,11 @@ DAVETKART_MEDIA_DISK=s3
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 AWS_DEFAULT_REGION=eu-central-1
-AWS_BUCKET=
+# Gercek ad sunucuda ve parola yoneticisinde (Y3.1, Y8.3b); bu bir ornektir.
+AWS_BUCKET=davetkart-media-000000
+# 🔴 K184: bucket KAPALI, disariya yalnizca CloudFront (OAC) acik (YD-2). Bu satir
+# yoksa Storage::url() S3'un DOGRUDAN adresini uretir -> butun gorseller 403.
+AWS_URL=https://media.davetkart.com
 AWS_USE_PATH_STYLE_ENDPOINT=false
 
 # VPS'te Redis acilirsa:
@@ -153,8 +159,8 @@ CORS_ALLOWED_ORIGINS=https://davetkart.com
 
 # --- Odeme (Faz 12: Shopier) ------------------------------------------------
 # 🔴 'shopier' yazmadan once panelde iki adres tanimli olmali (FAZ-12-ELLE-DOGRULAMA):
-#   callback: https://api.davetkart.com/api/public/payments/shopier/callback
-#   OSB     : https://api.davetkart.com/api/public/payments/shopier/osb
+#   callback: https://davetkart.com/api/public/payments/shopier/callback
+#   OSB     : https://davetkart.com/api/public/payments/shopier/osb
 # Sir ya da OSB kimligi bossa odeme uclari 503 verir (K123); sessizce fake'e
 # DUSMEZ (K70). Degisiklikten sonra `php artisan config:cache` UNUTULMAZ.
 PAYMENT_PROVIDER=shopier
@@ -187,6 +193,7 @@ PAYMENT_FAILURE_URL=https://davetkart.com/odeme/hata
 # satir yazilmazsa asistan calisir gorunur ama gercek cevap vermez.
 # Yayinin ILK GUNU uretim anahtariyla bir soru sorup gercek cevap geldigini
 # dogrula: Google 2.5 modellerine erisimi hesap bazinda kisitlayabiliyor.
+# Y8.3b: sunucuda Y11'e kadar `AI_PROVIDER=null`; hedef deger asagida.
 AI_PROVIDER=gemini
 GEMINI_API_KEY=
 # Model adi SABITLENIR ('latest' takma adi yok). config/ai.php varsayilani
@@ -231,7 +238,9 @@ SENTRY_SEND_DEFAULT_PII=false
 # Her iki yolda: alan adinin SPF + DKIM kayitlari, yoksa mail spam'e duser.
 # Mail kuyruktan gider (ResetPasswordNotification ShouldQueue): queue:work
 # calismiyorsa mail de GITMEZ (bkz. Kuyruk).
-MAIL_MAILER=log
+# 🔴 K185: uretimde 'log' kalirsa uygulama DURMAZ ama her gonderim denemesi
+# CRITICAL log birakir; `php artisan about --only=davetkart` -> Mail mailer.
+MAIL_MAILER=ses
 MAIL_FROM_ADDRESS="bilgi@davetkart.com"
 MAIL_FROM_NAME="${APP_NAME}"
 
@@ -242,8 +251,19 @@ FRONTEND_URL=https://davetkart.com
 
 # --- Yerel ayarlar -----------------------------------------------------------
 DAVETKART_DEFAULT_TIMEZONE=Europe/Istanbul
-BROADCAST_CONNECTION=log
 ```
+
+---
+
+## Şablon ↔ config denetimi (K184)
+
+`php artisan env:template --check` (`composer check` zincirinde): `config/`'in okuduğu her
+`env()` anahtarı yukarıdaki blokta ya da komuttaki bilinçli dışlama listesinde olmalı; blokta
+olup config'in okumadığı anahtar da hata verir. Ayrıntı: `docs/rehber/app/Console/Commands/CheckEnvTemplate.md`.
+
+**Sunucu ↔ şablon farkı:** sunucunun anahtar listesi görülmedi (OPS-04 §A-1 boş). Bilinen farklar
+yalnızca Y8.3b kaydından: `AWS_BUCKET` (gerçek ad), `AI_PROVIDER=null` (Y11'e kadar). Diğer üç
+düzeltme (APP_URL, AWS_URL, MAIL_MAILER) bu şablona işlendi.
 
 ---
 
