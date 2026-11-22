@@ -64,10 +64,10 @@ ile 8000'e yollar; yerelde CORS devreye girmez.
 | Nereden başla | |
 |---|---|
 | `CLAUDE.md` | Bağlayıcı kod standartları |
-| `claude/FAZ-10-PLANI.md` | 🔴 **Sıradaki faz** — sertleştirme ve lansman eksikleri, 85 adım (10.0–10.84) |
-| `claude/GOZDEN-GECIRME-RAPORU.md` · `claude/TEST-DENETIMI-2026-09-24.md` | 23-24 Eylül gözden geçirme ve test denetimi — Faz 10'un kaynakları |
-| `claude/GOZDEN-GECIRME-2026-10-09-BACKEND.md` · `claude/GOZDEN-GECIRME-2026-10-09-FRONTEND.md` | 9 Ekim backend + frontend gözden geçirmesi ve API sözleşmesi karşılaştırması (`faz-10` @ `3d301e5`) |
-| `claude/FAZ-9-DEVIR.md` | Devir dosyası (yeni geliştirici / asistan) |
+| `davetkart-docs: phases/faz-10/FAZ-10-PLANI.md` | 🔴 **Sıradaki faz** — sertleştirme ve lansman eksikleri, 85 adım (10.0–10.84) |
+| `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md` · `davetkart-docs: audits/2026-09-24-test-audit/TEST-DENETIMI-2026-09-24.md` | 23-24 Eylül gözden geçirme ve test denetimi — Faz 10'un kaynakları |
+| `davetkart-docs: audits/2026-10-09-code-review/GOZDEN-GECIRME-2026-10-09-BACKEND.md` · `davetkart-docs: audits/2026-10-09-code-review/GOZDEN-GECIRME-2026-10-09-FRONTEND.md` | 9 Ekim backend + frontend gözden geçirmesi ve API sözleşmesi karşılaştırması (`faz-10` @ `3d301e5`) |
+| `davetkart-docs: phases/faz-09/FAZ-9-DEVIR.md` | Devir dosyası (yeni geliştirici / asistan) |
 | `docs/11-PROJE-TARIHCESI-VE-IS-AKISLARI.md` | Uçtan uca giriş: mimari, iş akışları, 22 uçluk harita |
 | `docs/08-HATA-SOZLESMESI.md` | Hata sözleşmesi |
 | `docs/10-URETIM-ENV-SABLONU.md` | Üretim `.env` şablonu ve kurulum sırası |

@@ -219,7 +219,7 @@ Karar doğru ama bedava değil. Frontend şu an `fullName` okuyor:
 | `LoginPage.tsx:29` | `user.fullName` → aynı |
 | `RegisterPage.tsx` | Tek input → **iki input** |
 
-Bu iş `claude/Notlar/03-FRONTEND-YAPILACAKLAR.md` altında izlenir.
+Bu iş `davetkart-docs: notes/03-FRONTEND-YAPILACAKLAR.md` altında izlenir.
 
 Bir sözleşme değişikliğinin maliyetini yazıya dökmek, kararın kendisi kadar
 önemlidir: gelecekte "bu neden değişti, kaça mal oldu?" sorusunun cevabı burada

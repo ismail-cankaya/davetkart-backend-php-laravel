@@ -172,7 +172,7 @@ olduğunda** eklenir. Erken açılan kolon evrim değil borçtur.
 
 | Katman | Teknoloji | Sürüm | Neden |
 |---|---|---|---|
-| Dil | **PHP** | **^8.5** | Laravel 13'ün minimumu 8.3; proje 20 Eylül 2026'da `^8.5`'e çıktı (`composer.json`, CI). ⚠️ `phpstan.neon` hâlâ `phpVersion: 80300` — bkz. `claude/GOZDEN-GECIRME-RAPORU.md` |
+| Dil | **PHP** | **^8.5** | Laravel 13'ün minimumu 8.3; proje 20 Eylül 2026'da `^8.5`'e çıktı (`composer.json`, CI). ⚠️ `phpstan.neon` hâlâ `phpVersion: 80300` — bkz. `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md` |
 | Framework | **Laravel** | 13.x | Hızlı geliştirme; frontend zaten Laravel'e göre yapılandırılmış |
 | ORM | **Eloquent** | (Laravel içinde) | Active Record. Repository katmanı **yok** (K4) |
 | Kimlik doğrulama | **Laravel Sanctum** | 4.x | İptal edilebilir Bearer token. JWT bunu karşılayamaz (K5) |
@@ -379,7 +379,7 @@ oturum korunuyor.
 🆕 `utils/user.ts` (`fullName()` yardımcısı) · `RegisterPage` iki input ·
 `Header`/`Dashboard`/`LoginPage` · `services/api.ts`'te 🔴 **401 ayrımı**
 (`INVALID_CREDENTIALS` oturumu düşürmez). Ayrıntı:
-`claude/Notlar/03-FRONTEND-YAPILACAKLAR.md` **Bölüm II**.
+`davetkart-docs: notes/03-FRONTEND-YAPILACAKLAR.md` **Bölüm II**.
 
 **Öğrenilen:** FormRequest ↔ Action ↔ Resource iş bölümü · `validated()` ile
 `all()` farkı · Sanctum token üretimi ve iptali · Argon2id geçişi · 401 ile 403
@@ -554,7 +554,7 @@ Plan 10 dosyaydı, **17 adım** oldu:
 | — | 🔴 `Jobs/SendRsvpNotification` | ❌ **YAZILMADI (K53)** |
 
 **Bitti ölçütü:** Misafir LCV gönderiyor, sahip panelde 15 sn'de bir güncellenen
-listeyi görüyor. → ⬜ Frontend uyarlaması bekliyor (`claude/Notlar/04`).
+listeyi görüyor. → ⬜ Frontend uyarlaması bekliyor (`davetkart-docs: notes/04-FAZ-5-FRONTEND-YAPILACAKLAR.md`).
 
 **Öğrenilecek:** Katmanlı savunma, rate limiting, honeypot, KVKK veri
 minimizasyonu, özel exception → HTTP kodu eşlemesi, kuyruk (⚠️ kuyruk K53
@@ -720,7 +720,7 @@ sistem 503 dönüp ayakta kalıyor. (Dil maddesi **kaldırıldı** — K21.)
 | — | Gemini **2.5-flash** + `thinking_budget: 0` | ✅ · kılavuzlar 23 Eylül'de güncellendi |
 
 > Bu satırların hiçbiri için `composer check` sonucu kayda geçmedi. Gözden
-> geçirme bulguları: `claude/GOZDEN-GECIRME-RAPORU.md`.
+> geçirme bulguları: `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md`.
 
 > ⚠️ **Bu liste Faz 3'ten önce yazılan 7 satırlık kaba planın yerini alır.**
 > Eski plan birikmiş borçları (9.9–9.11) ve `orders.scope` bulgusunu
@@ -752,7 +752,7 @@ sistem 503 dönüp ayakta kalıyor. (Dil maddesi **kaldırıldı** — K21.)
 | **H** 🟢 | Temizlik (K87: `phpVersion 80500`) | 10.76–10.81 |
 | **Z** | Kapanış | 10.82–10.84 |
 
-Tam plan, kararlar ve tuzaklar: [`../claude/FAZ-10-PLANI.md`](../claude/FAZ-10-PLANI.md).
+Tam plan, kararlar ve tuzaklar: `davetkart-docs: phases/faz-10/FAZ-10-PLANI.md`.
 
 ---
 
@@ -775,7 +775,7 @@ Tam plan, kararlar ve tuzaklar: [`../claude/FAZ-10-PLANI.md`](../claude/FAZ-10-P
 > 🔴 **Satırlar 5–8'deki "frontend borcu" notları kapandı:** frontend yakalama fazı
 > (F1–F7) 13–16 Eylül 2026'da tamamlandı (`davetkart-frontent/docs/FRONTEND-YAKALAMA-PLANI.md`).
 > Açık kalan: F8 uçtan uca doğrulama. Güncel durum ve bulgular:
-> `claude/GOZDEN-GECIRME-RAPORU.md`.
+> `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md`.
 
 ---
 
@@ -816,7 +816,7 @@ Tam plan, kararlar ve tuzaklar: [`../claude/FAZ-10-PLANI.md`](../claude/FAZ-10-P
 ## 7. Şu an neredeyiz?
 
 > **Son güncelleme:** 23 Eylül 2026 — backend kodu **bitti** ilan edildi, tam gözden
-> geçirme yapıldı: `claude/GOZDEN-GECIRME-RAPORU.md`.
+> geçirme yapıldı: `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md`.
 >
 > | Faz | Kod | `composer check` | Elle doğrulama |
 > |---|:---:|:---:|:---:|
@@ -827,10 +827,10 @@ Tam plan, kararlar ve tuzaklar: [`../claude/FAZ-10-PLANI.md`](../claude/FAZ-10-P
 > | Frontend yakalama (F1-F7) | ✅ 13-16 Eylül | `npm run check` | ⬜ F8 (17 senaryo) |
 >
 > 🔴 **Sıradaki iş (25 Eylül 2026): FAZ 10 — Sertleştirme ve lansman eksikleri.**
-> Plan: `claude/FAZ-10-PLANI.md` (85 adım: 10.0–10.84, 9 dilim; kritikten düşüğe). İlk adım 10.0:
+> Plan: `davetkart-docs: phases/faz-10/FAZ-10-PLANI.md` (85 adım: 10.0–10.84, 9 dilim; kritikten düşüğe). İlk adım 10.0:
 > denetim sonrası ilk düzeltmelerin (`ef7c692`: `RejectMalformedInput`, `Retry-After`,
 > `integer:strict`) PHP 8.5 ile `composer check` kaydı. Kaynaklar: gözden geçirme raporu +
-> `claude/TEST-DENETIMI-2026-09-24.md`.
+> `davetkart-docs: audits/2026-09-24-test-audit/TEST-DENETIMI-2026-09-24.md`.
 >
 > Aşağıdaki blok **4 Eylül 2026** tarihli tarihsel kayıttır.
 

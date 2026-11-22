@@ -297,7 +297,7 @@ birbirine **bağlamaz**: dosya kopyalanır, bağımlılık oluşmaz.
 
 ## 7. Frontend'e düşen iş
 
-Ayrıntı: `claude/Notlar/03-FRONTEND-YAPILACAKLAR.md`
+Ayrıntı: `davetkart-docs: notes/03-FRONTEND-YAPILACAKLAR.md`
 
 1. `locales/<dil>/errors.json` — kod → metin
 2. `locales/<dil>/validation.json` — kural adı → metin, `fields.*` alan etiketleri

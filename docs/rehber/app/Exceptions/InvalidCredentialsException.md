@@ -104,7 +104,7 @@ form sıfırlanır, yazdıkları uçar.
 
 > ⚠️ **Frontend'e düşen bir iş var:** `api.ts` interceptor'ı şu an **her** 401'de
 > oturumu düşürüyor. `INVALID_CREDENTIALS` geldiğinde bunu yapmamalı — zaten
-> oturum yok, ve form sıfırlanmamalı. `claude/Notlar/03-FRONTEND-YAPILACAKLAR.md`'ye
+> oturum yok, ve form sıfırlanmamalı. `davetkart-docs: notes/03-FRONTEND-YAPILACAKLAR.md`'ye
 > eklenecek.
 
 ---

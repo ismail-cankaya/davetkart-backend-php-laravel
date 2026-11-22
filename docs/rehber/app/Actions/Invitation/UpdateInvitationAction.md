@@ -445,4 +445,4 @@ composer check
 | Aynı kilidin yayın tarafı | [`PublishInvitationAction.md`](PublishInvitationAction.md) |
 | Gereksinim hesabı | [`../../Services/Pricing/TierResolver.md`](../../Services/Pricing/TierResolver.md) |
 | Testler | [`../../../tests/Feature/PaywallTest.md`](../../../tests/Feature/PaywallTest.md) §11 |
-| Kaynak bulgu | `claude/GOZDEN-GECIRME-RAPORU.md` §1.1 · `claude/TEST-DENETIMI-2026-09-24.md` K-1 |
+| Kaynak bulgu | `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md` §1.1 · `davetkart-docs: audits/2026-09-24-test-audit/TEST-DENETIMI-2026-09-24.md` K-1 |

@@ -1,7 +1,7 @@
 # FAZ 13 — Fiyat API'si, indirimler, ödeme yöntemi anahtarı
 
 > **Tarih:** 25 Ekim 2026 · **Dal:** `faz-13-payment-settings` (backend + frontend)
-> **Önkoşul:** Faz 11 (hediye kodu), Faz 12 (Shopier) · **Plan:** `claude/FAZ-13-PLANI.md`
+> **Önkoşul:** Faz 11 (hediye kodu), Faz 12 (Shopier) · **Plan:** `FAZ-13-PLANI.md` (plan dosyası hiçbir depoda yok)
 > **İşletme kılavuzu:** [`../FIYAT-VE-INDIRIM-YONETIMI.md`](../FIYAT-VE-INDIRIM-YONETIMI.md)
 > **Elle doğrulama:** [FAZ-13-ELLE-DOGRULAMA.md](FAZ-13-ELLE-DOGRULAMA.md)
 

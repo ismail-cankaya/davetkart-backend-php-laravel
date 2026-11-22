@@ -72,7 +72,7 @@ kipi ve test ortamı; hatayı müşteriden önce sana gösteren mekanizmalardır
 | `app/Providers/AppServiceProvider.php` | Çalışma anı sıkılaştırma | [`AppServiceProvider.md`](../app/Providers/AppServiceProvider.md) |
 | `composer.json` | `lint` / `analyse` / `check` scriptleri | — |
 | `docs/08-HATA-SOZLESMESI.md` | API hata sözleşmesi | — |
-| `claude/Notlar/03-FRONTEND-YAPILACAKLAR.md` | Frontend'e düşen iş | — |
+| `davetkart-docs: notes/03-FRONTEND-YAPILACAKLAR.md` | Frontend'e düşen iş | — |
 
 ---
 
@@ -263,5 +263,5 @@ Bilinmeyen rotada HTML değil `{ "error": { "code": "RESOURCE_NOT_FOUND" } }`.
 | Yol haritası | `docs/07-GELISTIRME-YOL-HARITASI.md` |
 | Hata sözleşmesi | `docs/08-HATA-SOZLESMESI.md` |
 | Kod standartları | `CLAUDE.md` |
-| Proje devir dosyası | `claude/PHP-LARAVEL-SETUP.md` |
-| Frontend'e düşen iş | `claude/Notlar/03-FRONTEND-YAPILACAKLAR.md` |
+| Proje devir dosyası | `davetkart-docs: context/PHP-LARAVEL-SETUP.md` |
+| Frontend'e düşen iş | `davetkart-docs: notes/03-FRONTEND-YAPILACAKLAR.md` |

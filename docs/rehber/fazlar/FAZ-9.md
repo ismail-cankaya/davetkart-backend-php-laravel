@@ -1,7 +1,7 @@
 # FAZ 9 — Üretim Hazırlığı
 
 > **Tarih:** 11 Eylül 2026
-> **Durum:** ✅ **`composer check` YEŞİL (238 test)** — `claude/FAZ-9-DEVIR.md` §0/§4'e
+> **Durum:** ✅ **`composer check` YEŞİL (238 test)** — `davetkart-docs: phases/faz-09/FAZ-9-DEVIR.md` §0/§4'e
 > göre 11 Eylül'de sonuna kadar koştu. (Bu satır eskiden *"henüz koşmadı"* diyordu:
 > 9.8'den 9.14'e kadar yedi adım tek oturumda, kapı koşmadan yazılmıştı.)
 >
@@ -11,7 +11,7 @@
 > §2'deki *"`routes/web.php` silindi"* (dosya ve `welcome.blade.php` hâlâ depoda,
 > yalnızca yüklenmiyor) ve 9.11'in *"token tablosu küçülüyor"* beklentisi
 > (`sanctum.expiration = null` olduğu için `sanctum:prune-expired` hiçbir satır
-> silmiyor). Ayrıntı: `claude/GOZDEN-GECIRME-RAPORU.md`.
+> silmiyor). Ayrıntı: `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md`.
 > ⬜ **Elle doğrulama açık** ([`FAZ-9-ELLE-DOGRULAMA.md`](FAZ-9-ELLE-DOGRULAMA.md))
 > **Önceki:** [`FAZ-8.md`](FAZ-8.md) · **Sonraki:** frontend yakalama fazı
 > **Bu dosya:** fazın kaydı, alınan kararlar, kurulan kurallar ve devir

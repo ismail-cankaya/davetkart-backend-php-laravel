@@ -5,7 +5,7 @@
 > 🔴 **23 Eylül 2026 notu:** §8'deki 12 adımlık inşa sırası **geçersiz** (K17 → 9 faz,
 > `07`). §0'daki PHP satırı da eskidi: proje artık **PHP ^8.5** istiyor (`composer.json`).
 > Veri modeli ve uç listesinin güncel hâli için `09` ve `11` (Ek A) esas alınır.
-> Tam gözden geçirme: `claude/GOZDEN-GECIRME-RAPORU.md`.
+> Tam gözden geçirme: `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md`.
 > **Girdi:** `01-FRONTEND-ANALIZI.md` + `02-FRONTEND-BACKEND-TEMAS-NOKTALARI.md`
 >
 > Bu doküman, kod yazmadan önce **neyi neden yapacağımızın** sözleşmesidir.
@@ -311,7 +311,7 @@ Genel kural: **birleştirmek kolay, birleşmiş veriyi ayırmak imkânsızdır.*
 Şüphede kaldığında ayrık gönder.
 
 Bedeli: frontend `types.ts`, `Header`, `DashboardPage`, `LoginPage` ve
-`RegisterPage` güncellenecek — `claude/Notlar/03-FRONTEND-YAPILACAKLAR.md`.
+`RegisterPage` güncellenecek — `davetkart-docs: notes/03-FRONTEND-YAPILACAKLAR.md`.
 
 **`public_slug` neden UUID/ULID?**
 Frontend `id: string` bekliyor. Ardışık integer kullanırsak misafir `/invite/1`,

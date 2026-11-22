@@ -166,7 +166,7 @@ Backend tarafından frontend'e düşenlerin listesi (hepsi karşılandı):
 
 1. [`FAZ-11-ELLE-DOGRULAMA.md`](FAZ-11-ELLE-DOGRULAMA.md) Adım 0: `composer check` **kendi makinende**
 2. Aynı dosyanın 1–14. adımları; frontend'de `npm run check` ve `/odeme?tier=gold` üzerinden hediye kodu
-3. `claude/PHP-LARAVEL-SETUP-EK-FAZ-11.md` (11.17) ana dosyaya işlenir
+3. `davetkart-docs: decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-11.md` (11.17) ana dosyaya işlenir
 
 ## 12. Bir cümlelik özet
 
