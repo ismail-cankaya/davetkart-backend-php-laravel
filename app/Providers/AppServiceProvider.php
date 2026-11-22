@@ -20,6 +20,7 @@ use App\Support\EmailNormalizer;
 use App\Support\Iban;
 use App\Support\IpBucket;
 use App\Support\MediaDiskGuard;
+use App\Support\ProductionMailCheck;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
@@ -27,9 +28,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Foundation\Console\ServeCommand;
 use Illuminate\Http\Request;
+use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\ServiceProvider;
@@ -137,14 +140,24 @@ class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
         $this->configureValidationRules();
         $this->configureAboutCommand();
+        $this->configureMailCheck();
     }
 
-    /** K183: `php artisan about` medya diskini ve üretimde yüklemenin kapalı olup olmadığını gösterir. */
+    /** K183/K185: `php artisan about` medya diskini ve posta sürücüsünü üretim uyarısıyla gösterir. */
     private function configureAboutCommand(): void
     {
         AboutCommand::add('DavetKart', fn (): array => [
             'Media disk' => $this->app->make(MediaDiskGuard::class)->aboutLine(),
+            'Mail mailer' => $this->app->make(ProductionMailCheck::class)->aboutLine(),
         ]);
+    }
+
+    /** K185: alarm açılışta değil gönderim anında; açılış her istekte olur ve her isteği alarma çevirirdi. */
+    private function configureMailCheck(): void
+    {
+        Event::listen(MessageSending::class, function (): void {
+            $this->app->make(ProductionMailCheck::class)->reportIfSilent();
+        });
     }
 
     /**
