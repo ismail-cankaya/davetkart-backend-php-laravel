@@ -48,6 +48,9 @@ enum ErrorCode: string
     case InvitationAlreadyPublished = 'INVITATION_ALREADY_PUBLISHED';
     case SlugTaken = 'SLUG_TAKEN';
 
+    /** Faz 19 (K192, FE-50): kullanıcı başına yayınlanmamış davetiye tavanı doldu. */
+    case DraftLimitReached = 'DRAFT_LIMIT_REACHED';
+
     /**
      * Bu hak iptal edilip iade istenemez (Faz 14, K139).
      *
@@ -151,6 +154,7 @@ enum ErrorCode: string
             self::RsvpQuotaExceeded,
             self::MediaQuotaExceeded,
             self::EmailNotVerified,
+            self::DraftLimitReached,
             self::PaymentMethodDisabled => 403,
 
             self::ResourceNotFound => 404,
@@ -202,6 +206,9 @@ enum ErrorCode: string
             // misafirin LCV yuklemesi de ayni kodu doneriyor (H9).
             self::MediaQuotaExceeded => ['limit'],
             self::FileTooLarge => ['max'],
+
+            // K192: kullanıcının KENDİ taslak tavanı (ürün sabiti); arayüz "en çok N taslak" der.
+            self::DraftLimitReached => ['limit'],
             self::RateLimited, self::ProviderUnavailable => ['retryAfter'],
 
             // 🔴 'limit' SIZINTI DEGIL: kullanicinin KENDI gunluk hakki, tipki

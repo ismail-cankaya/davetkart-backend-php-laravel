@@ -380,3 +380,13 @@ composer check
 
 [`UpdateInvitationAction.md`](UpdateInvitationAction.md) — güncelleme yolu ve
 `updated_at`'in bayat kalmasını önleyen `wasChanged()` inceliği.
+
+
+## 🆕 Faz 19 (19.26 · K192, FE-50) — taslak tavanı
+
+Transaction'ın başında kullanıcı satırı `lockForUpdate` ile kilitlenir, yayınlanmamış davetiyeler (`status != published`) sayılır;
+`davetkart.invitations.max_drafts_per_user` (50) doluysa `DraftLimitReachedException` → **403 `DRAFT_LIMIT_REACHED`**, `params.limit`.
+Kilit: iki eşzamanlı oluşturma aynı "yer var" cevabını okuyup tavanı aşardı (E9, TST-02 deseni). Yayındakiler sayılmaz: tavan
+sunucuda biriken boş taslağa karşı, ürünü kullanana karşı değil. Mevcut boş taslaklara dokunulmadı (§A-2); otomatik temizlik ayrı karar.
+Testler: `InvitationTest::a_user_cannot_keep_more_than_the_draft_limit` · `the_draft_limit_is_counted_under_the_user_lock` ·
+`a_user_cannot_open_someone_elses_draft_by_url`. Mutant: tavan koşulu kaldırıldı → kırmızı.

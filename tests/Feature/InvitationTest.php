@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -117,6 +118,56 @@ final class InvitationTest extends TestCase
     }
 
     // --------------------------------------------------------- OLUSTURMA
+
+    /** K192 (FE-50): yayınlanmamış davetiye tavanı; yayındakiler sayılmaz. */
+    #[Test]
+    public function a_user_cannot_keep_more_than_the_draft_limit(): void
+    {
+        Config::set('davetkart.invitations.max_drafts_per_user', 2);
+        $user = User::factory()->create();
+        Invitation::factory()->count(2)->for($user)->create();
+        Invitation::factory()->published()->for($user)->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('invitations.store'), $this->payload())
+            ->assertForbidden()
+            ->assertJsonPath('error.code', ErrorCode::DraftLimitReached->value)
+            ->assertJsonPath('error.params.limit', 2);
+
+        $this->assertSame(3, Invitation::query()->where('user_id', $user->id)->count());
+    }
+
+    /** K192: tavan kullanıcı satırı kilitliyken sayılır (E9). */
+    #[Test]
+    public function the_draft_limit_is_counted_under_the_user_lock(): void
+    {
+        $user = User::factory()->create();
+        $sql = [];
+        DB::listen(function ($query) use (&$sql): void {
+            $sql[] = strtolower($query->sql);
+        });
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('invitations.store'), $this->payload())
+            ->assertCreated();
+
+        $lock = array_key_first(array_filter($sql, fn (string $q): bool => str_contains($q, 'from "users"') && str_contains($q, 'for update')));
+        $count = array_key_first(array_filter($sql, fn (string $q): bool => str_contains($q, 'count(*)') && str_contains($q, 'from "invitations"')));
+        $this->assertNotNull($lock, 'Kullanıcı satırı kilitlenmedi.');
+        $this->assertNotNull($count, 'Taslaklar sayılmadı.');
+        $this->assertGreaterThan($lock, $count);
+    }
+
+    /** FE-50 (D2) regresyon: `/create/<id>` başkasının taslağını açamaz; 404 (H7). */
+    #[Test]
+    public function a_user_cannot_open_someone_elses_draft_by_url(): void
+    {
+        $draft = Invitation::factory()->create();
+
+        $this->withToken($this->tokenFor(User::factory()->create()))
+            ->getJson(route('invitations.show', $draft))
+            ->assertNotFound();
+    }
 
     /** K191 (SEC-09): doğrulama yalnızca ödeme ve yayını bekletir; taslak serbest. */
     #[Test]
