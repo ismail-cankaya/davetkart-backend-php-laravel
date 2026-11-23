@@ -1,6 +1,6 @@
 # `app/Console/Commands/PurgeExpiredData.php`
 
-> **Faz:** 10 — Dilim D, adım 10.43 · **Karar:** **K98** (S-1: saklama süreleri)
+> **Faz:** 10 — Dilim D, adım 10.43 · **Karar:** **K98** (S-1: saklama süreleri) · **K257** (19.16 `SEC-13`: tarihsiz davetiye)
 > **Zamanlayıcı:** her gece 03:45 ([`routes/console.md`](../../../routes/console.md))
 > **Önce oku:** [`PruneOrphanMedia.md`](PruneOrphanMedia.md) (*"önce dosya, sonra satır"*)
 > **Test:** [`MaintenanceTest.md`](../../../tests/Feature/MaintenanceTest.md) §6e
@@ -18,7 +18,7 @@ misafirlerin adları ve fotoğrafları, iletişim formuna yazılan e-postalar s�
 | Ne | Ne zaman | Silinen | Kalan |
 |---|---|---|---|
 | Çöp kutusundaki davetiye | `deleted_at` + **30 gün** | Davetiye, program, LCV'ler, medya **satırları ve dosyaları** | Siparişi (`invitation_id = NULL`) |
-| Misafir verisi | `event_at` + **6 ay** | LCV satırları (ad, mesaj, menü), misafirin foto/videosu (**dosyalarıyla**) | Davetiye ve sahibinin **galerisi** |
+| Misafir verisi | `event_at` + **6 ay**; tarihsizse `published_at` (yoksa `created_at`) + **12 ay** | LCV satırları (ad, mesaj, menü), misafirin foto/videosu (**dosyalarıyla**) | Davetiye ve sahibinin **galerisi** |
 | İletişim mesajı | `created_at` + **12 ay** | Satır (ad, e-posta, mesaj) | — |
 
 Sayılar `config/davetkart.php` → `retention`'da. `env()` yok: ortam farkı değil,
@@ -35,9 +35,15 @@ süzgeciyle dışarıda kalıyor (mutasyon M3: süzgeç kalkınca galeri de sili
 
 ### 3.2 Tarihsiz davetiye (`event_at = NULL`)
 
-Dokunulmaz. *"Etkinlik ne zaman bitti?"* sorusunun cevabı yok; `NULL` *"bitmedi"*
-anlamına gelmez, *"bilinmiyor"* anlamına gelir (N4). Silmek yerine beklemek, yanlış
-tarafa düşmenin ucuz olan yolu.
+Faz 10'da dokunulmuyordu (N4: `NULL` *"bilinmiyor"* demek). Sonuç: tarihi girilmemiş
+davetiyenin misafir verisi **süresiz** kalıyordu (19.16 `SEC-13`). `NULL < tarih` SQL'de
+hiçbir zaman doğru olmadığı için sorgu onları sessizce atlıyordu.
+
+**K257 (19.16):** yedek kural `COALESCE(event_at + 6 ay, published_at + 12 ay, created_at + 12 ay) < şimdi`.
+Kod bunu iki açık dalla yazar (`undatedPastFallback()`): okunurluk için, ve `COALESCE` içinde
+tarih aritmetiği SQLite ile PostgreSQL'de farklı yazıldığı için. Yedek süre (12 ay) komutta
+sabit: `config/davetkart.php` Faz 19'da Hat A'nındı. `--dry-run` ve gerçek koşu tarihsiz
+davetiye sayısını ayrı satırda yazar. Silmeden önce sahibe bildirim **yok** (K98'de de yok).
 
 ### 3.3 Önce dosya, sonra satır
 

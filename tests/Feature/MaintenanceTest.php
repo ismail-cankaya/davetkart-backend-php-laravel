@@ -501,9 +501,104 @@ final class MaintenanceTest extends TestCase
         $this->assertModelExists($gallery);
         $disk->assertExists($gallery->path);
 
-        // Sinirin oteki yani ve tarihsiz davetiye (N4)
+        // Sinirin oteki yani; tarihsiz davetiye bugun olusturuldu, yedek surenin icinde (K257)
         $this->assertModelExists($recentRsvp);
         $this->assertModelExists($undatedRsvp);
+    }
+
+    /**
+     * SEC-13 / K257: tarihsiz davetiyede yedek kural published_at + 12 ay. Sinir 2025-10-01;
+     * yalnizca misafir verisi gider, davetiye ve galeri kalir.
+     */
+    #[Test]
+    public function guest_data_of_an_undated_invitation_is_purged_after_the_fallback_period(): void
+    {
+        $this->travelTo(CarbonImmutable::parse(self::PURGE_NOW, 'UTC'));
+        $disk = Storage::disk(Config::string('davetkart.media.disk'));
+
+        $undated = Invitation::factory()->published()->create([
+            'event_at' => null,
+            'published_at' => '2025-09-30 12:00:00', // 12 ay + 1 gun
+        ]);
+        $guestPhoto = $this->mediaWithFile(Media::factory()->rsvpPhoto()->for($undated)->createOne());
+        $gallery = $this->mediaWithFile(Media::factory()->for($undated)->createOne());
+        $rsvp = Rsvp::factory()->for($undated)->create(['photo_media_id' => $guestPhoto->id]);
+
+        $this->runCommand('data:purge');
+
+        $this->assertModelMissing($rsvp);
+        $this->assertModelMissing($guestPhoto);
+        $disk->assertMissing($guestPhoto->path);
+        $this->assertModelExists($undated);
+        $this->assertModelExists($gallery);
+        $disk->assertExists($gallery->path);
+    }
+
+    /** Yedek surenin icinde kalan tarihsiz davetiye; eski created_at'i olsa da published_at kazanir. */
+    #[Test]
+    public function an_undated_invitation_inside_the_fallback_period_is_kept(): void
+    {
+        $this->travelTo(CarbonImmutable::parse(self::PURGE_NOW, 'UTC'));
+
+        $undated = Invitation::factory()->published()->create([
+            'event_at' => null,
+            'published_at' => '2025-10-02 12:00:00', // 12 ay - 1 gun
+            'created_at' => '2024-01-01 12:00:00',
+        ]);
+        $rsvp = Rsvp::factory()->for($undated)->create();
+
+        $this->runCommand('data:purge');
+
+        $this->assertModelExists($rsvp);
+    }
+
+    /** Yayinlanmamis tarihsiz davetiyede yedek kural created_at + 12 ay. */
+    #[Test]
+    public function an_unpublished_undated_invitation_uses_created_at(): void
+    {
+        $this->travelTo(CarbonImmutable::parse(self::PURGE_NOW, 'UTC'));
+
+        $old = Invitation::factory()->create(['event_at' => null, 'created_at' => '2025-09-30 12:00:00']);
+        $recent = Invitation::factory()->create(['event_at' => null, 'created_at' => '2025-10-02 12:00:00']);
+        $oldRsvp = Rsvp::factory()->for($old)->create();
+        $recentRsvp = Rsvp::factory()->for($recent)->create();
+
+        $this->runCommand('data:purge');
+
+        $this->assertModelMissing($oldRsvp);
+        $this->assertModelExists($recentRsvp);
+    }
+
+    /** Regresyon: tarihi olan davetiyede yedek kural devreye girmez, yalnizca K98 (event_at + 6 ay). */
+    #[Test]
+    public function dated_invitations_still_follow_k98(): void
+    {
+        $this->travelTo(CarbonImmutable::parse(self::PURGE_NOW, 'UTC'));
+
+        $dated = Invitation::factory()->published()->create([
+            'event_at' => '2026-04-02 19:00:00',     // 6 ay - 1 gun
+            'published_at' => '2024-01-01 12:00:00', // yedek kurala gore coktan dolmus
+        ]);
+        $rsvp = Rsvp::factory()->for($dated)->create();
+
+        $this->runCommand('data:purge');
+
+        $this->assertModelExists($rsvp);
+    }
+
+    /** --dry-run tarihsiz davetiyeleri ayri satirda sayar (SEC-13 D2). */
+    #[Test]
+    public function the_purge_dry_run_counts_undated_invitations_separately(): void
+    {
+        $this->travelTo(CarbonImmutable::parse(self::PURGE_NOW, 'UTC'));
+
+        $undated = Invitation::factory()->create(['event_at' => null, 'created_at' => '2025-01-01 12:00:00']);
+        $rsvp = Rsvp::factory()->for($undated)->create();
+
+        $this->runCommand('data:purge', ['--dry-run' => true]);
+
+        $this->assertModelExists($rsvp);
+        $this->assertStringContainsString('1 tarihsiz davetiye yedek kurala girdi', Artisan::output());
     }
 
     /** Iletisim mesaji: 12 ay. */
