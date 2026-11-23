@@ -121,6 +121,8 @@ final class PublicInvitationResource extends JsonResource
             $design += [
                 'rsvpDeadline' => $this->rsvp_deadline?->format('Y-m-d') ?? '',
                 'askMenuPreference' => $this->ask_menu_preference,
+                // K189 (FE-51): arayüz yükleme alanını bu bayrağa göre çizer.
+                'guestUploads' => Config::boolean('davetkart.guest_uploads.enabled'),
             ];
         }
 

@@ -15,6 +15,7 @@ use App\Models\User;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Testing\TestResponse;
@@ -200,6 +201,25 @@ final class PublicInvitationTest extends TestCase
             ->assertJsonPath('data.invitation.showRSVP', false);
 
         $this->assertStringNotContainsString('2026-08-01', $this->body($response));
+    }
+
+    /** K189 (FE-51, D3): arayüz misafir yüklemesini sabit kodlamaz, bayrağı yanıttan okur. */
+    #[Test]
+    #[DataProvider('guestUploadFlags')]
+    public function the_public_invitation_reports_the_guest_upload_flag(bool $enabled): void
+    {
+        Config::set('davetkart.guest_uploads.enabled', $enabled);
+        $inv = $this->published(['show_rsvp' => true]);
+
+        $this->getJson($this->url($inv))
+            ->assertOk()
+            ->assertJsonPath('data.invitation.guestUploads', $enabled);
+    }
+
+    /** @return array<string, array{bool}> */
+    public static function guestUploadFlags(): array
+    {
+        return ['kapalı' => [false], 'açık' => [true]];
     }
 
     /**

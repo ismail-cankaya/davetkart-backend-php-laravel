@@ -396,3 +396,20 @@ Ayrıntı: [`PublicGalleryImageResource.md`](PublicGalleryImageResource.md).
 Bayraklarla birlikte **her zaman** gelen bir alan: `true` = *"DavetKart ile hazırlandı"* imzası
 çizilir. Kararı kaynak vermiyor; `withBranding()` ile `ResolveBrandingAction`'dan alıyor (iş kuralı
 kaynakta durmaz). Varsayılan `true`: çağıran unutursa vaat edilmeyen bir şey verilmez, imza görünür.
+
+---
+
+## 🆕 Faz 19 (19.12 · K189, FE-51) — `guestUploads`
+
+LCV modülü açıkken (`show_rsvp`) gövdeye `guestUploads: bool` girer:
+`config('davetkart.guest_uploads.enabled')`. Arayüz misafirin dosya yükleyip yükleyemeyeceğini
+sabit kodlamaz, bu alandan okur (D3). LCV kapalıyken alan hiç yoktur (C6: kapalı modülün ayarı
+gövdeye girmez).
+
+**Önbellek notu.** Bu yanıt `Cache::remember` ile en çok `public_invitation_ttl` (6 saat) saklanır.
+Bayrak değişince **uç hemen** uyar (Action her istekte config'e bakar), ama önbellekteki gövdeler
+eski değeri TTL dolana kadar taşıyabilir. Bayrağı değiştirdikten sonra `php artisan cache:clear`
+(ya da `config:cache` ile birlikte dağıtımın önbellek temizliği) çalıştır. Ters yöndeki uyumsuzluk
+zararsızdır: arayüz alanı çizer, uç 404 döner.
+
+Test: `PublicInvitationTest::the_public_invitation_reports_the_guest_upload_flag` (kapalı/açık).

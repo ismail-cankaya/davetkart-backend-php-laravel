@@ -29,6 +29,7 @@ final class MediaDiskGuardTest extends TestCase
     #[Test]
     public function production_refuses_the_public_media_disk_for_uploads(): void
     {
+        Config::set('davetkart.guest_uploads.enabled', true);
         $this->app->detectEnvironment(fn (): string => 'production');
         Config::set('davetkart.media.disk', 'public');
         Storage::fake('public');

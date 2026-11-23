@@ -123,6 +123,9 @@ SESSION_DRIVER=file
 # 🔴 K183 (ARC-04): uretimde 's3' DISINDAKI her deger yuklemeyi 503 ile durdurur
 # (okuma calisir). Kontrol: `php artisan about --only=davetkart` -> Media disk.
 DAVETKART_MEDIA_DISK=s3
+# K189 (FE-51): misafirin LCV'ye foto/video yuklemesi. Arayuzde alan yok; acmak urun
+# karari (kota: SEC-08). Kapaliyken uc 404.
+DAVETKART_GUEST_UPLOADS=false
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 AWS_DEFAULT_REGION=eu-central-1
