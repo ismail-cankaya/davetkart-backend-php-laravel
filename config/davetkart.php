@@ -145,12 +145,19 @@ return [
         // bekleyebilecegi sure (saat). Suresi dolan yuklemeler
         // `media:prune-orphans` tarafindan silinir.
         //
-        // Neden 24? Misafir dosyayi yukler, sonra formu doldurur — arada
-        // dakikalar gecer, saatler degil. 24 saat comert bir tampon: bir
-        // sekmeyi acik unutan kullaniciyi bile korur. Kisaltmak disk kazandirir
-        // ama bir misafirin fotografini elinden alma riskini buyutur; bu
-        // takasta yanlis tarafa dusmek UCUZ olan taraftir.
-        'orphan_grace_hours' => 24,
+        // Faz 19 (19.13 · K190, SEC-08): 24 -> 1. Yetim, kotayı tutan bir
+        // DoS aracıydı; misafir yükleyip formu dakikalar içinde gönderir.
+        // Temizlik saatlik koşar (routes/console.php), yani yetim en çok ~2 saat yaşar.
+        'orphan_grace_hours' => 1,
+
+        // Faz 19 (19.13 · K190, SEC-08): kimliksiz misafir için BAYT ve BEKLEYEN
+        // sınırı. Bütçe yalnızca LCV'ye iliştirilmiş dosyaları sayar; iliştirilmemiş
+        // (yetim) dosyalar kendi küçük kotasına girer. Ayrıntı: StoreUploadedMediaAction kılavuzu.
+        'guest_budget' => [
+            'attached_bytes_per_invitation' => 1024 * 1024 * 1024, // 1 GB
+            'pending_files_per_invitation' => 50,
+            'pending_bytes_per_invitation' => 200 * 1024 * 1024, // 200 MB
+        ],
 
         // Kuyruktaki OptimizeUploadedImage isinin ayarlari.
         'optimize' => [

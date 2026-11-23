@@ -123,6 +123,26 @@ final class LockInventoryTest extends TestCase
             ->handle($invitation, MediaKind::Gallery, UploadedFile::fake()->image('foto.jpg')));
     }
 
+    /** K190 (SEC-08): misafir bayt bütçesi davetiye satırı kilitlendikten SONRA okunur. */
+    #[Test]
+    public function the_guest_byte_budget_is_read_under_the_invitation_lock(): void
+    {
+        Storage::fake(Config::string('davetkart.media.disk'));
+        $invitation = Invitation::factory()->create();
+        $sql = [];
+        DB::listen(function ($query) use (&$sql): void {
+            $sql[] = strtolower($query->sql);
+        });
+
+        app(StoreUploadedMediaAction::class)
+            ->handle($invitation, MediaKind::RsvpPhoto, UploadedFile::fake()->image('ani.jpg'));
+
+        $lock = array_key_first(array_filter($sql, fn (string $q): bool => str_contains($q, 'from "invitations"') && str_contains($q, 'for update')));
+        $this->assertNotNull($lock, 'Davetiye satırı kilitlenmedi.');
+        $sumsAfterLock = array_filter($sql, fn (string $q, int $i): bool => $i > $lock && str_contains($q, 'sum("size_bytes")'), ARRAY_FILTER_USE_BOTH);
+        $this->assertCount(2, $sumsAfterLock, 'İliştirilmiş ve bekleyen bayt toplamları kilit altında okunmalı.');
+    }
+
     #[Test]
     public function swapping_an_optimized_image_locks_the_invitation_row(): void
     {

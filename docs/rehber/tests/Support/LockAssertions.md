@@ -33,7 +33,7 @@ bağlantı göremez. `LockRaceTest` `DatabaseTruncation` kullanır ve test sonun
 | `Invitation/UpdateInvitationAction` | modül/plan kontrolü taze satırda | `updating_an_invitation_locks_the_invitation_row` |
 | `Invitation/WithdrawUncoveredInvitationAction` | hakkı biten yayın tek karar | `withdrawing_an_uncovered_invitation_locks_the_invitation_row` |
 | `Media/DeleteGalleryMediaAction` | galeri dizisi ezilmez | `deleting_a_gallery_photo_locks_the_invitation_row` |
-| `Media/StoreUploadedMediaAction` | kota + galeri sırası (E9) | `storing_an_upload_locks_the_invitation_row` |
+| `Media/StoreUploadedMediaAction` | kota + galeri sırası (E9); misafir bayt bütçesi (K190) | `storing_an_upload_locks_the_invitation_row` · `the_guest_byte_budget_is_read_under_the_invitation_lock` |
 | `Jobs/OptimizeUploadedImage` (`swapFile`) | dosya değişimi silmeyle yarışmaz | `swapping_an_optimized_image_locks_the_invitation_row` |
 | `Payment/ClaimReleasedOrderAction` (M49) | serbest hak tek davetiyeye | `claiming_a_released_order_locks_the_order_rows` + `a_refund_requested_during_a_claim_keeps_the_right_frozen` |
 | `Payment/HandlePaymentCallbackAction` (M47) | bildirim iki kez ilerlemez | `a_payment_notification_locks_the_order_row` |

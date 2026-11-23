@@ -731,3 +731,40 @@ telafi diske yazılan dosyayı siler.
 `$locked->save()` bir `updated` olayı üretir → `ClearInvitationCache` commit'ten
 sonra misafir cache'ini düşürür. Yeni fotoğraf beklemeden görünür
 (`MediaTest::gallery_changes_refresh_the_public_invitation`).
+
+---
+
+## 🆕 Faz 19 (19.13 · K190, SEC-08) — misafirin bayt bütçesi ve bekleyen kotası
+
+**Sorun.** Kota yalnızca **adet** sayıyordu (foto 200 × 15 MB, video 100 × 20 MB ≈ 5 GB) ve iliştirilmemiş (yetim)
+dosyaları da sayıyordu. Yetimler 24 saat yaşadığı için kimliksiz biri kotayı yetimlerle doldurup gerçek misafirleri
+bir gün boyunca engelleyebiliyordu (OWASP API4: kaynak tüketimi).
+
+**Çözüm.** `assertQuotaAvailable()` misafir türlerinde `assertGuestBudgetAvailable()`'a gider. Dört sınır var, hepsi
+`config('davetkart.media.guest_budget')` + tür başına `max_per_invitation`:
+
+| Sınır | Sayılan | Varsayılan |
+|---|---|---|
+| Tür başına adet | yalnızca **iliştirilmiş** dosyalar | foto 200 · video 100 (değişmedi) |
+| Bayt bütçesi | iliştirilmiş baytlar + gelen dosya | 1 GB |
+| Bekleyen adet | iliştirilmemiş dosyalar | 50 |
+| Bekleyen bayt | iliştirilmemiş baytlar + gelen dosya | 200 MB |
+
+"İliştirilmiş" = bir `rsvps` satırının `photo_media_id`/`video_media_id`'si bu dosyayı gösteriyor. Tanım
+`Media::scopeAttachedToRsvp`/`scopeAwaitingRsvp`'ta tek yerde durur; `media:prune-orphans` de aynısını kullanır.
+
+**Kilit.** Kesin kontrol, davetiye satırı `lockForUpdate` ile kilitliyken koşar (E9, TST-02 deseni). Dosya boyutu
+diske yazıldıktan sonra diskten okunur ve hem kontrolde hem satırda aynı değer kullanılır. Ön kontrol (kilitsiz)
+`$file->getSize()` ile yapılır; yalnızca boşa yazma-silmeyi önler.
+
+**Bilinen sınır.** Bütçe iliştirilmiş baytları sayıyor. Bekleyen bir dosya LCV'ye sonradan iliştirildiğinde
+bütçe en çok bekleyen kota kadar (200 MB) aşılabilir. Bu aşım üst sınırlı ve kasıtlı: yetimleri bütçeye katmak
+DoS'u geri getirirdi.
+
+**Hata.** Her aşım `MediaQuotaExceededException::forGuest()` → 403 `MEDIA_QUOTA_EXCEEDED`, `params` boş (H9).
+Yeni hata kodu gerekmedi (D4).
+
+**Testler.** `MediaTest::orphaned_guest_uploads_do_not_consume_the_attached_media_quota` ·
+`guest_uploads_stop_at_the_byte_budget` · `the_pending_upload_quota_is_enforced` ·
+`LockInventoryTest::the_guest_byte_budget_is_read_under_the_invitation_lock`.
+Mutantlar: adet sorgusuna yetimleri geri katmak → kırmızı; bekleyen adet kontrolünü kaldırmak → kırmızı.

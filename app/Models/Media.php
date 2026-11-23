@@ -7,10 +7,13 @@ namespace App\Models;
 use App\Enums\MediaKind;
 use Database\Factories\MediaFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -81,5 +84,35 @@ class Media extends Model
     public function invitation(): BelongsTo
     {
         return $this->belongsTo(Invitation::class);
+    }
+
+    /**
+     * Bir LCV yanıtına iliştirilmiş dosyalar (K190). Kota ve temizlik aynı tanımı kullanır.
+     *
+     * @param  Builder<Media>  $query
+     */
+    public function scopeAttachedToRsvp(Builder $query): void
+    {
+        $query->whereExists(fn (QueryBuilder $rsvps) => self::rsvpReferencing($rsvps));
+    }
+
+    /**
+     * Hiçbir LCV yanıtına iliştirilmemiş (yetim / bekleyen) dosyalar (K190).
+     *
+     * @param  Builder<Media>  $query
+     */
+    public function scopeAwaitingRsvp(Builder $query): void
+    {
+        $query->whereNotExists(fn (QueryBuilder $rsvps) => self::rsvpReferencing($rsvps));
+    }
+
+    private static function rsvpReferencing(QueryBuilder $query): void
+    {
+        $query->select(DB::raw('1'))
+            ->from('rsvps')
+            ->where(function (QueryBuilder $inner): void {
+                $inner->whereColumn('rsvps.photo_media_id', 'media.id')
+                    ->orWhereColumn('rsvps.video_media_id', 'media.id');
+            });
     }
 }

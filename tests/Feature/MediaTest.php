@@ -11,6 +11,7 @@ use App\Enums\RsvpStatus;
 use App\Jobs\OptimizeUploadedImage;
 use App\Models\Invitation;
 use App\Models\Media;
+use App\Models\Rsvp;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,10 +20,12 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use LogicException;
 use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
 /**
@@ -741,6 +744,64 @@ final class MediaTest extends TestCase
         $this->assertDatabaseCount('media', 1);
     }
 
+    // ------------------------------------------------- SEC-08 · K190: misafir bütçesi
+
+    /** K190: yetim dosya iliştirilmiş adet kotasını tüketmez; LCV'ye iliştirilen tüketir. */
+    #[Test]
+    public function orphaned_guest_uploads_do_not_consume_the_attached_media_quota(): void
+    {
+        Config::set('davetkart.media.rsvp_photo.max_per_invitation', 1);
+        $inv = $this->openInvitation();
+        Media::factory()->rsvpPhoto()->create(['invitation_id' => $inv->id]);
+
+        $this->uploadGuestPhoto($inv)->assertCreated();
+
+        $this->attachedGuestPhoto($inv, 2048);
+
+        $this->uploadGuestPhoto($inv)
+            ->assertForbidden()
+            ->assertJsonPath('error.code', ErrorCode::MediaQuotaExceeded->value);
+    }
+
+    /** K190: iliştirilmiş baytların toplamı bütçeyi aşacaksa dosya diske hiç yazılmaz. */
+    #[Test]
+    public function guest_uploads_stop_at_the_byte_budget(): void
+    {
+        Config::set('davetkart.media.guest_budget.attached_bytes_per_invitation', 10_000);
+        $inv = $this->openInvitation();
+        $this->attachedGuestPhoto($inv, 9_999);
+
+        $this->uploadGuestPhoto($inv)
+            ->assertForbidden()
+            ->assertJsonPath('error.code', ErrorCode::MediaQuotaExceeded->value)
+            ->assertJsonMissingPath('error.params.limit');
+        $this->assertDatabaseCount('media', 1);
+        $this->assertSame([], Storage::disk(Config::string('davetkart.media.disk'))->allFiles());
+
+        Config::set('davetkart.media.guest_budget.attached_bytes_per_invitation', 10_000_000);
+        $this->uploadGuestPhoto($inv)->assertCreated();
+    }
+
+    /** K190: bekleyen (iliştirilmemiş) yüklemelerin dosya ve bayt kotası. */
+    #[Test]
+    public function the_pending_upload_quota_is_enforced(): void
+    {
+        Config::set('davetkart.media.guest_budget.pending_files_per_invitation', 2);
+        $inv = $this->openInvitation();
+
+        $this->uploadGuestPhoto($inv)->assertCreated();
+        $this->uploadGuestPhoto($inv)->assertCreated();
+        $this->uploadGuestPhoto($inv)
+            ->assertForbidden()
+            ->assertJsonPath('error.code', ErrorCode::MediaQuotaExceeded->value);
+
+        Config::set('davetkart.media.guest_budget.pending_files_per_invitation', 50);
+        Config::set('davetkart.media.guest_budget.pending_bytes_per_invitation', 1);
+        $this->uploadGuestPhoto($inv)->assertForbidden();
+
+        $this->assertDatabaseCount('media', 2);
+    }
+
     /** 🔴 Misafir GALERIYE yukleyemez — FormRequest katmani. */
     #[Test]
     public function guest_cannot_upload_to_the_gallery(): void
@@ -1177,6 +1238,24 @@ final class MediaTest extends TestCase
         $this->assertIsString($id);
 
         return $id;
+    }
+
+    /** @return TestResponse<Response> */
+    private function uploadGuestPhoto(Invitation $invitation): TestResponse
+    {
+        return $this->postJson($this->guestUrl($invitation), [
+            'kind' => MediaKind::RsvpPhoto->value,
+            'file' => UploadedFile::fake()->image('ani.jpg', 400, 400),
+        ]);
+    }
+
+    /** LCV yanıtına iliştirilmiş bir misafir fotoğrafı (K190 sayımına girer). */
+    private function attachedGuestPhoto(Invitation $invitation, int $bytes): Media
+    {
+        $media = Media::factory()->rsvpPhoto()->sized($bytes)->create(['invitation_id' => $invitation->id]);
+        Rsvp::factory()->create(['invitation_id' => $invitation->id, 'photo_media_id' => $media->id]);
+
+        return $media;
     }
 
     private function guestUrl(Invitation $invitation): string

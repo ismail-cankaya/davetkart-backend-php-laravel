@@ -711,7 +711,7 @@ final class MaintenanceTest extends TestCase
         }
 
         $this->assertSame('0 * * * *', $this->expressionFor($expressions, 'orders:expire'));
-        $this->assertSame('15 3 * * *', $this->expressionFor($expressions, 'media:prune-orphans'));
+        $this->assertSame('15 * * * *', $this->expressionFor($expressions, 'media:prune-orphans'));
         $this->assertSame('0 0 * * *', $this->expressionFor($expressions, 'sanctum:prune-expired'));
         $this->assertSame('45 3 * * *', $this->expressionFor($expressions, 'data:purge'));
     }

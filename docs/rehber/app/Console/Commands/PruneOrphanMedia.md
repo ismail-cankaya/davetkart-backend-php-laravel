@@ -188,3 +188,11 @@ görmez (Faz 6'nın `storage:link` dersi). Elle doğrulamaya bu yüzden giriyor.
 | **`whereNotExists`** | Bağlı bir alt sorgunun hiç satır döndürmediği koşul |
 | **`chunkById`** | Son görülen id'den devam ederek sayfalama |
 | **Fail-safe** | Hata durumunda güvenli tarafa düşmek — burada: silmemek |
+
+## 🆕 Faz 19 (19.13 · K190, SEC-08)
+
+- Bekleme süresi 24 → **1 saat** (`davetkart.media.orphan_grace_hours`); iş günlük 03:15 yerine **saatlik :15**'te koşar.
+  Günlük kalsaydı 1 saatlik süre anlamsızdı: yetim yine 25 saate kadar yaşar ve bekleyen kotayı tutardı.
+- "Yetim" tanımı `Media::scopeAwaitingRsvp`'a taşındı (kota ile ortak). Davranış aynı; testler değişmedi.
+- Bir misafir dosyayı yükleyip formu 1 saatten uzun süre göndermezse dosyası silinir ve LCV fotoğrafsız kaydedilir
+  (6.15: bilinmeyen kimlik sessizce atılır). Bu takas bilerek seçildi (§A-2 varsayılanı).

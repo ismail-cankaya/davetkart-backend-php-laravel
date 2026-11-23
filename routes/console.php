@@ -59,8 +59,10 @@ Schedule::command('orders:expire')
 // Saat dilimi BILEREK ayarlanmadi: sunucu UTC'de kosar ve bu is icin "saat
 // kacta" sorusunun is tarafinda bir cevabi yok (kimseyi rahatsiz etmiyor).
 // K71'in tersi: orada saat dilimi ANLAMLIYDI, burada degil.
+// Faz 19 (19.13 · K190, SEC-08): günlük -> saatlik. Bekleme süresi 1 saat;
+// günlük koşsaydı yetim 25 saat yaşar ve bekleyen kotayı tutardı.
 Schedule::command('media:prune-orphans')
-    ->dailyAt('03:15')
+    ->hourlyAt(15)
     ->withoutOverlapping()
     ->onOneServer()
     ->sentryMonitor('media-prune-orphans');
