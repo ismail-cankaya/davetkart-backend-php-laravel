@@ -292,3 +292,28 @@ yollarını içerdiği için `nginx -t` hata verir. Tavuk-yumurta sorununu şöy
 - **Same-origin:** Sayfa ve API aynı alan adından gelir, CORS gerekmez.
 - **Immutable:** "Bu dosya asla değişmeyecek, tekrar sormana gerek yok."
 - **Snippet:** Başka yapılandırma dosyalarının `include` ile içine aldığı küçük, tekrar kullanılan parça.
+
+### `/invite/` — paylaşım önizlemesi (FE-04, Faz 19.23, K230)
+
+WhatsApp/Telegram gibi uygulamalar bağlantıyı açmadan HTML'deki `og:*` etiketlerini okur; SPA'nın `index.html`'i
+boş `<div id="root">` olduğu için davetiye adı görünmüyordu. `map $http_user_agent $davetkart_preview_bot`
+(http bağlamı, dosyanın başı) bilinen önizleme botlarını tanır; `location ^~ /invite/` bot ise `return 418` →
+`error_page 418 = @share_preview` (iç yönlendirme) → Laravel `GET /invite/{id}` (`SharePreviewController`), değilse SPA.
+Güvenlik başlıkları snippet'i `/invite/`'te de `include` (K173); bot yanıtında başlıklar Laravel'den (+ `Vary: User-Agent`).
+
+🔴 UA sahtelenebilir. Eşleme yalnızca **kim hangi biçimi alır** kararıdır; adların yalnızca yayındaki davetiyeden
+gelmesi Laravel'de (`BuildSharePreviewAction` → `ResolvePublicInvitationAction` kapsamı).
+
+| Desen | Platform | Kaynak |
+|---|---|---|
+| `facebookexternalhit`, `facebot` | Facebook, Instagram, Messenger (Meta) | https://developers.facebook.com/docs/sharing/webmasters/web-crawlers |
+| `whatsapp` | WhatsApp (UA `WhatsApp/2.x`) | Meta belgesi yukarıda (WhatsApp ayrı UA ile gelir) |
+| `telegrambot` | Telegram | https://core.telegram.org/bots/webhooks (UA `TelegramBot (like TwitterBot)`) |
+| `twitterbot` | X / Twitter | https://developer.x.com/en/docs/x-for-websites/cards/guides/getting-started |
+| `slackbot` | Slack (`Slackbot-LinkExpanding`) | https://api.slack.com/robots |
+| `linkedinbot` | LinkedIn | https://www.linkedin.com/help/linkedin/answer/a521928 |
+| `discordbot`, `pinterest`, `redditbot`, `skypeuripreview`, `vkshare`, `viber`, `embedly`, `iframely` | Diğer önizleyiciler | Gözlenen UA'lar; resmî belge her biri için yok |
+
+⚠ Bağlantılar bu fazda açılıp doğrulanmadı (çağrı bütçesi); `Googlebot` **bilerek yok**: sayfa `noindex` ve SEO kapsam dışı.
+
+Duman testi: `deploy/smoke/check-share-preview.sh`.
