@@ -28,6 +28,11 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        // FE-04: tek HTML rota (bot paylasim onizlemesi). 'web' grubu YINE YOK: Session/CSRF/cerez
+        // gerekmez; routes/web.php grupsuz yuklenir (Hat A/C routes/api.php'de calisiyor).
+        then: function (): void {
+            Illuminate\Support\Facades\Route::group([], __DIR__.'/../routes/web.php');
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Accept başlığını zincirin en başında application/json yapar;
