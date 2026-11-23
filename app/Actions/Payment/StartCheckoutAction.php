@@ -28,6 +28,7 @@ use App\Services\Payment\PaymentMethods;
 use App\Services\Payment\RedirectAction;
 use App\Services\Pricing\TierResolver;
 use App\Support\GiftCodes\GiftCodeFormat;
+use App\Support\VerifiedEmailGuard;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Config;
@@ -72,6 +73,7 @@ final class StartCheckoutAction
         private readonly ReserveGiftCodeAction $reserveGiftCode,
         private readonly QuotePriceAction $quotePrice,
         private readonly PaymentMethods $methods,
+        private readonly VerifiedEmailGuard $emailGuard,
     ) {}
 
     /**
@@ -91,6 +93,9 @@ final class StartCheckoutAction
         SubscriptionTier $tier,
         ?string $giftCode = null,
     ): CheckoutResult {
+        // K191 (SEC-09): doğrulanmamış adres bir iddiadır; ödeme kanıt ister.
+        $this->emailGuard->assertVerified($user);
+
         // 3. KATMAN — yeterlilik. Kullanicinin daha UCUZ bir plan secip
         // galerili bir davetiye yayinlamasini burada engelliyoruz; yayin
         // aninda da tekrar bakilacak (7.12), cunku modul davetiyeye ODEME

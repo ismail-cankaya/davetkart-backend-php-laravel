@@ -118,6 +118,19 @@ final class InvitationTest extends TestCase
 
     // --------------------------------------------------------- OLUSTURMA
 
+    /** K191 (SEC-09): doğrulama yalnızca ödeme ve yayını bekletir; taslak serbest. */
+    #[Test]
+    public function an_unverified_account_can_still_create_a_draft(): void
+    {
+        $user = User::factory()->unverified()->create();
+
+        $this->withToken($this->tokenFor($user))
+            ->postJson(route('invitations.store'), $this->payload())
+            ->assertCreated();
+
+        $this->assertDatabaseHas('invitations', ['user_id' => $user->id]);
+    }
+
     #[Test]
     public function store_creates_an_invitation_for_the_authenticated_user(): void
     {

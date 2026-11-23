@@ -304,3 +304,10 @@ yayınladı". Damga serbest bırakmada (K82) silinmez ve iadeyi kapatır.
 
 Test: `tests/Feature/OrderFirstPublishStampTest.php`. Mutant: `$this->stamps->handle($fresh);`
 satırını sil → beş test kırmızı.
+
+
+## 🆕 Faz 19 (19.14 · K191, SEC-09)
+
+`handle()` davetiyenin sahibini okur ve `VerifiedEmailGuard`'dan geçirir (kilit ve paywall'dan önce). Doğrulanmamış hesap
+403 `EMAIL_NOT_VERIFIED`; taslak oluşturma ve düzenleme serbest. Testler: `an_unverified_account_cannot_publish`,
+`InvitationTest::an_unverified_account_can_still_create_a_draft`.
