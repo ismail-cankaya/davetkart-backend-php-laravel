@@ -7,8 +7,6 @@ namespace App\Console\Commands;
 use App\Enums\MediaKind;
 use App\Models\Media;
 use Illuminate\Console\Command;
-use Illuminate\Database\Query\Builder as QueryBuilder;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -104,18 +102,7 @@ final class PruneOrphanMedia extends Command
         return Media::query()
             ->whereIn('kind', MediaKind::guestUploadableValues())
             ->where('created_at', '<', now()->subHours($graceHours))
-            ->whereNotExists(function (QueryBuilder $query): void {
-                // 🔴 HAM tablo sorgusu, Rsvp modeli DEGIL — ve bu bilincli:
-                // model sorgusu soft delete suzgecini uygular, yani SILINMIS
-                // bir LCV'nin fotografi "yetim" gorunurdu. Ham sorgu silinmis
-                // satirlari da sayar ve yanlis yonde hata yapmaz: fazla dosya
-                // saklamak, birinin fotografini yanlislikla silmekten iyidir.
-                $query->select(DB::raw('1'))
-                    ->from('rsvps')
-                    ->where(function (QueryBuilder $inner): void {
-                        $inner->whereColumn('rsvps.photo_media_id', 'media.id')
-                            ->orWhereColumn('rsvps.video_media_id', 'media.id');
-                    });
-            });
+            // K190: "iliştirilmemiş" tanımı kota ile ortak (Media::scopeAwaitingRsvp).
+            ->awaitingRsvp();
     }
 }

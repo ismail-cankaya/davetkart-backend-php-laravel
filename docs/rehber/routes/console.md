@@ -323,3 +323,11 @@ yalnızca DSN doluyken gider. Geliştirmede ve testlerde hiçbir şey değişmez
 **Test:** `MaintenanceTest::every_scheduled_command_reports_to_a_sentry_monitor`. Her işin
 *"başladım"* geri çağrısını ve izleyici adını doğruluyor. Mutasyon: bir işten
 `sentryMonitor()` silinince ya da ad verilmeyince kırılıyor.
+
+## 🆕 Faz 19 (19.13 · K190, SEC-08) — `media:prune-orphans` saatlik
+
+`->dailyAt('03:15')` → `->hourlyAt(15)` (cron `15 * * * *`). Gerekçe: yetim bekleme süresi 1 saate indi (K190).
+İş hafif (yalnızca süresi dolmuş, iliştirilmemiş misafir dosyaları); `:15` dakikası yine "thundering herd"den uzak
+durur. `data:purge` (03:45) ile ilişki değişmedi: 03:15 koşusu hâlâ var. Yukarıdaki "03:15, gece yarısı değil"
+bölümü ve doğrulama komutundaki "(03:15)" ifadesi artık "saatlik, :15" olarak okunmalı.
+Test: `MaintenanceTest::each_maintenance_command_runs_at_its_intended_cadence`.
