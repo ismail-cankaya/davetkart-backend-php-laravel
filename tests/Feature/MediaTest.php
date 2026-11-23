@@ -48,6 +48,8 @@ final class MediaTest extends TestCase
         parent::setUp();
 
         Storage::fake(Config::string('davetkart.media.disk'));
+        // K189: misafir yüklemesi varsayılan kapalı; bu dosya açık hâlini sınar.
+        Config::set('davetkart.guest_uploads.enabled', true);
     }
 
     // ------------------------------------------------- SAHIBIN GALERISI
@@ -706,6 +708,37 @@ final class MediaTest extends TestCase
             'invitation_id' => $inv->id,
             'kind' => MediaKind::RsvpPhoto->value,
         ]);
+    }
+
+    /** K189 (FE-51): bayrak kapalıyken uç yokmuş gibi davranır; dosya da satır da yazılmaz. */
+    #[Test]
+    public function guest_upload_is_refused_when_disabled(): void
+    {
+        Config::set('davetkart.guest_uploads.enabled', false);
+        $inv = $this->openInvitation();
+
+        $this->postJson($this->guestUrl($inv), [
+            'kind' => MediaKind::RsvpPhoto->value,
+            'file' => UploadedFile::fake()->image('ani.jpg', 400, 400),
+        ])->assertNotFound();
+
+        $this->assertDatabaseCount('media', 0);
+        $this->assertSame([], Storage::disk(Config::string('davetkart.media.disk'))->allFiles());
+    }
+
+    /** K189: aynı istek bayrak açıkken kabul edilir (bayrak tek fark). */
+    #[Test]
+    public function guest_upload_works_when_enabled(): void
+    {
+        Config::set('davetkart.guest_uploads.enabled', true);
+        $inv = $this->openInvitation();
+
+        $this->postJson($this->guestUrl($inv), [
+            'kind' => MediaKind::RsvpPhoto->value,
+            'file' => UploadedFile::fake()->image('ani.jpg', 400, 400),
+        ])->assertCreated();
+
+        $this->assertDatabaseCount('media', 1);
     }
 
     /** 🔴 Misafir GALERIYE yukleyemez — FormRequest katmani. */

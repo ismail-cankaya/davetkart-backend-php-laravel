@@ -117,6 +117,13 @@ return [
         'poll_interval_seconds' => 15,
     ],
 
+    // Faz 19 (19.12 · K189, FE-51): misafirin LCV'ye foto/video yüklemesi.
+    // Kapalıyken POST /api/public/invitations/{id}/media 404 döner ve arayüzde
+    // yükleme alanı yok. Açmak bir ürün kararıdır (kota ve bayt bütçesi: SEC-08).
+    'guest_uploads' => [
+        'enabled' => (bool) env('DAVETKART_GUEST_UPLOADS', false),
+    ],
+
     // Yükleme limitleri. mimes, uzantıya değil dosya içeriğine bakan kuralda kullanılır.
     'media' => [
         'disk' => env('DAVETKART_MEDIA_DISK', 'public'),

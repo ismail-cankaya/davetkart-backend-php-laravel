@@ -81,6 +81,7 @@ final class RateLimitTest extends TestCase
     {
         Storage::fake(Config::string('davetkart.media.disk'));
         Config::set('davetkart.media.rate_limit.guest_per_ip_per_minute', 1);
+        Config::set('davetkart.guest_uploads.enabled', true);
         $davetiye = $this->davetiye();
 
         $yukle = fn (string $ip): TestResponse => $this->withServerVariables(['REMOTE_ADDR' => $ip])

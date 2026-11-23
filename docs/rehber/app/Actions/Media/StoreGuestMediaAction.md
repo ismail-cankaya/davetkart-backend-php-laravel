@@ -374,3 +374,36 @@ Action'ı doğrudan çağırması gerekir (**T15**: zinciri halkalara ayır).
 | İstek | [`../../Http/Requests/Media/StorePublicMediaRequest.md`](../../Http/Requests/Media/StorePublicMediaRequest.md) |
 | Kota exception'ı | [`../../Exceptions/MediaQuotaExceededException.md`](../../Exceptions/MediaQuotaExceededException.md) |
 | Faz özeti | [`../../../fazlar/FAZ-6.md`](../../../fazlar/FAZ-6.md) |
+
+---
+
+## 🆕 Faz 19 (19.12 · K189, FE-51) — özellik bayrağı
+
+**Sorun.** Arayüzde misafirin dosya yükleyeceği bir yer kalmamıştı (`RsvpModal`'ı açan şablon yoktu),
+ama bu uç açık ve kimliksizdi. Kullanılmayan bir uç da saldırı yüzeyidir: "nasılsa kimse çağırmıyor"
+yalnızca dürüst kullanıcılar için doğrudur.
+
+**Çözüm.** `handle()`'ın ilk satırı `config('davetkart.guest_uploads.enabled')`'a bakar
+(`DAVETKART_GUEST_UPLOADS`, varsayılan `false`). Kapalıyken `ModelNotFoundException` → **404**.
+
+**Neden 404, 403 değil?** Aynı uç LCV modülü kapalıyken de 404 dönüyor (C6): "bu davetiyeye misafir
+dosyası yazılamaz" sorusunun cevabı her iki durumda da "böyle bir uç yok". 403 + ayrı bir kod,
+tarayıcı botlarına "uç var, yalnızca kapalı" bilgisini verirdi. Dürüst arayüz bayrağı zaten
+`GET /public/invitations/{id}` yanıtındaki `guestUploads` alanından öğreniyor (D3), yani 404'ün
+saklayacağı bir şey dürüst kullanıcıdan saklanmış olmuyor.
+
+**Neden Action'da, rota/middleware'de değil?** Bayrak bir iş kuralı ve Action'ın diğer kuralları
+(tür izni, açık davetiye, kota) gibi FormRequest'siz çağrılarda da (konsol, kuyruk) geçerli olmalı.
+Bedeli: geçersiz gövdeli bir istek kapalıyken de 422 alır (doğrulama önce koşar). Bu, uç hakkında
+bilgi sızdırmaz; 422 gövdesi davetiyeye değil isteğe aittir.
+
+**Neyi kapatmaz.** `media:prune-orphans` çalışmaya devam eder (bayrak öncesi yüklenmiş yetimleri
+siler). LCV gövdesindeki `photoMediaId`/`videoMediaId` dokunulmadı: yeni misafir medyası
+oluşamadığı için bu alanlar boş kimliklere düşer ve sessizce atılır (6.15 davranışı).
+
+**Testler.** `MediaTest::guest_upload_is_refused_when_disabled` · `guest_upload_works_when_enabled`
+(aynı istek, tek fark bayrak). Diğer misafir yükleme testleri `setUp`'ta bayrağı açar.
+Mutant: kontrol kaldırıldı → `refused` testi kırmızı.
+
+**Açmak.** Ürün kararı (§A-1). Açılırsa arayüz satır içi forma alan ekler (D2) ve kota/bayt bütçesi
+`SEC-08`'de bağlanır.

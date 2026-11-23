@@ -752,3 +752,14 @@ E-posta değişikliği onay bağlantısı 60 dakika geçerli (parola sıfırlama
 
 Gerekçe ve kova anahtarları: [`../app/Providers/AppServiceProvider.md`](../app/Providers/AppServiceProvider.md) (K186).
 Sayılar `RateLimitTest::weddingLimits`'te sabitlenmiştir; değişirse test bilerek kırılır.
+
+## 🆕 Faz 19 eklemesi — `guest_uploads.enabled` (K189, FE-51)
+
+`DAVETKART_GUEST_UPLOADS`, varsayılan **`false`**. Misafirin LCV'ye foto/video yüklediği
+`POST /api/public/invitations/{id}/media` ucunu açar. Kapalıyken uç 404 döner
+(`StoreGuestMediaAction`), `PublicInvitationResource` `guestUploads: false` yayınlar.
+
+Neden varsayılan kapalı? Arayüzde bu özellik yoktu; arkasındaki uç, depolama ve kota ise çalışıyordu
+(risk var, fayda yok). Açmak bir ürün kararı; açılınca kota ve bayt bütçesi `SEC-08`'dedir.
+Neden `media` bölümünün içinde değil? Bu bir yükleme *sınırı* değil, bir özelliğin *varlığı*;
+prompt'un adlandırması (`davetkart.guest_uploads.enabled`) korundu. Şablon: `docs/10` (§ medya).

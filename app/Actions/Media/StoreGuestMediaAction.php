@@ -7,9 +7,11 @@ namespace App\Actions\Media;
 use App\Actions\Rsvp\ResolveOpenRsvpInvitationAction;
 use App\Enums\MediaKind;
 use App\Exceptions\MediaQuotaExceededException;
+use App\Models\Invitation;
 use App\Models\Media;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Config;
 use LogicException;
 
 /**
@@ -45,13 +47,19 @@ final class StoreGuestMediaAction
     /**
      * @param  string  $invitationId  Paylasilan linkteki ULID (K40)
      *
-     * @throws ModelNotFoundException Yok / yayinda degil / LCV kapali -> 404
+     * @throws ModelNotFoundException Ozellik kapali / yok / yayinda degil / LCV kapali -> 404
      * @throws \App\Exceptions\RsvpDeadlinePassedException Son tarih gecti -> 403
      * @throws MediaQuotaExceededException Kota doldu -> 403 (params BOS, H9)
      * @throws LogicException Misafirin yukleyemeyecegi bir tur geldi -> 500
      */
     public function handle(string $invitationId, MediaKind $kind, UploadedFile $file): Media
     {
+        // OZELLIK BAYRAGI (K189, FE-51): kapaliyken uc yokmus gibi davranir —
+        // LCV modulu kapaliyken oldugu gibi 404 (C6). Gerekce: kilavuz §Faz 19.
+        if (! Config::boolean('davetkart.guest_uploads.enabled')) {
+            throw (new ModelNotFoundException)->setModel(Invitation::class, [$invitationId]);
+        }
+
         // 2. KATMAN — 🔴 TUR IZNI. StorePublicMediaRequest bunu zaten 'in:'
         // kuraliyla eliyor; burada IKINCI KEZ soruluyor ve bu bir tekrar degil
         // bir DEGISMEZ (invariant).
