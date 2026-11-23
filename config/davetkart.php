@@ -284,6 +284,13 @@ return [
         'key_prefix' => 'davetkart',
     ],
 
+    // FE-04 (Faz 19.23): bot paylasim onizlemesi. Gorsel frontend'in public/ klasorunden (mutlak
+    // adres frontend.url ile kurulur); davetiyede galeri varsa ilk gorsel. max_age: botlarin HTTP onbellegi.
+    'share_preview' => [
+        'image_path' => '/videos/hero-bg-poster.jpg',
+        'max_age' => 300, // saniye
+    ],
+
     'auth' => [
         'login_rate_limit_per_minute' => 5, // brute-force savunması
         'token_name' => 'davetkart-spa',

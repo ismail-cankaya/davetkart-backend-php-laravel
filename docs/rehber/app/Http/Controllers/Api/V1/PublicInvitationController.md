@@ -372,3 +372,7 @@ olmaktan çıkarıp **açıkça işaretlenmiş bir istisna** hâline getirir.
 (`ResolvePublicInvitationAction`), imzayı sor (`ResolveBrandingAction`). Karar yanıtla birlikte
 önbelleğe yazılıyor; plan değiştiğinde (ödeme, iade) `HandlePaymentCallbackAction` bağlı davetiye
 için `InvitationChanged` yayınlıyor ve önbellek commit'ten sonra düşüyor.
+
+## FE-04 (Faz 19.23)
+
+Önbellekli yük `PublicInvitationPayloadAction`'a taşındı (davranış aynı; `PublicInvitationTest` 39/39). Bot önizlemesi aynı anahtarı paylaşır.
