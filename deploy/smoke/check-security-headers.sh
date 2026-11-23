@@ -81,6 +81,7 @@ check_spa() {
     expect_once "$h" x-frame-options
     expect_once "$h" permissions-policy
     expect_once "$h" content-security-policy "frame-ancestors"
+    ! printf '%s\n' "$h" | grep -qiE 'fonts\.(googleapis|gstatic)\.com' || problems+=("CSP: Google Fonts alan adi (SEC-12)")
     # Tam politika ya rapor kipinde (gozlem donemi) ya da zorlaniyor (K175).
     if [ "$(count_header "$h" content-security-policy-report-only)" -eq 0 ]; then
         [ "$(count_header "$h" content-security-policy)" -ne 1 ] || expect_once "$h" content-security-policy "default-src"
@@ -113,6 +114,8 @@ check_spa /                          # = /index.html
 check_spa /__duman-testi/spa-yolu    # try_files -> /index.html
 check_spa "$ASSET"                   # ^~ /assets/
 check_spa /favicon.svg               # location / (kok dizindeki dosya)
+check_spa /fonts/templates.css       # = /fonts/templates.css (SEC-12)
+check_spa /fonts/inter/inter-latin-opsz-normal.woff2  # ^~ /fonts/
 check_spa /.env                      # nokta ile baslayan yol (404)
 [ "$SKIP_API" -eq 1 ] || check_api /api/ping
 

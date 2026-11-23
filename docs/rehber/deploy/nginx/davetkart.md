@@ -171,8 +171,8 @@ konumlarımız `Cache-Control` için zaten `add_header` kullanıyor. Başlıklar
 olsaydı tam da en önemli iki yanıtta (`index.html` ve JS) kaybolurlardı.
 
 Bu yüzden başlıklar tek dosyada (`snippets/davetkart-security-headers.conf`) durur ve API dışındaki
-**dört** `location`'ın her biri onu `include` eder: nokta yolları (404), `/assets/`,
-`= /index.html`, `/`. `server` seviyesinde **değil**: oraya konsaydı `/api/` ve `/index.php`
+**altı** `location`'ın her biri onu `include` eder: nokta yolları (404), `/assets/`, `/fonts/`,
+`= /fonts/templates.css`, `= /index.html`, `/`. `server` seviyesinde **değil**: oraya konsaydı `/api/` ve `/index.php`
 konumları onu miras alırdı (kendi `add_header`'ları yok) ve API yanıtı her başlığı Laravel'inkiyle
 birlikte **iki kez** taşırdı. Yerel denemede ikisi de ölçüldü (`FAZ-18.md` §18.6, N1–N5).
 Ayrıntı ve her başlığın gerekçesi: [`snippets/davetkart-security-headers.md`](snippets/davetkart-security-headers.md).
@@ -189,6 +189,11 @@ yeni bir deploy'dan sonra kullanıcı yeni hash'leri hemen görür.
 Not: `location` içinde `add_header` kullanmak, üst seviyedeki `add_header`'ları
 **iptal eder**. Güvenlik başlıkları bu yüzden bu iki konumda ayrıca `include` edilir (yukarıdaki
 "Güvenlik başlıkları" bölümü).
+
+### `/fonts/` önbelleği (SEC-12, Faz 19.17)
+Yazı tipleri kendi sunucumuzda (`frontend/dist/fonts/`). Dosya adlarında hash yok, bu yüzden
+`immutable` değil, 30 gün. `templates.css` şablonların `@font-face` listesi; yeni şablonla
+değişir, `no-cache` ile her seferinde doğrulanır (çoğu zaman 304).
 
 ### `location /` → `try_files $uri /index.html`
 React tek sayfalık uygulama (SPA). `/giris`, `/davetiyelerim` gibi yollar diskte

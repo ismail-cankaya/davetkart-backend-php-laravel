@@ -63,8 +63,8 @@ Tam politikanın yönergeleri ve dayandığı envanter (Faz 18.6'da `src/` ve `i
 |---|---|---|
 | `default-src` | `'self'` | Aşağıda ayrıca yazılmayan her tür (betik çalışanları, manifest…) yalnızca kendi kökenimizden |
 | `script-src` | `'self'` | Derleme çıktısında **satır içi betik yok** (`dist/index.html` yalnızca `<script src="/assets/…">`), paketlerde `eval` / `new Function` yok. Bu, CSP'nin en değerli satırı: bir XSS kendi betik dosyasını yükleyemez |
-| `style-src` | `'self' 'unsafe-inline' https://fonts.googleapis.com` | `index.css`'in ilk satırı Google Fonts'u `@import` ediyor (`SEC-12`), beş şablon ailesinin `fontlar.ts`'i çalışma anında `<link>` ekliyor. `'unsafe-inline'`: 11 şablon JSX içinde `<style>` öğesi çiziyor (ör. `DogumGunuMumlar`); onsuz bu şablonların stili düşüyor (yerelde ölçüldü, `style-src-elem inline`) |
-| `font-src` | `'self' https://fonts.gstatic.com` | Google Fonts'un yazı tipi dosyaları |
+| `style-src` | `'self' 'unsafe-inline'` | Yazı tipi CSS'i kendi alan adımızdan (`SEC-12`, Faz 19.17: `src/styles/fonts.css` ana CSS'te, şablon aileleri `/fonts/templates.css`). `'unsafe-inline'`: 11 şablon JSX içinde `<style>` öğesi çiziyor (ör. `DogumGunuMumlar`); onsuz bu şablonların stili düşüyor (yerelde ölçüldü, `style-src-elem inline`) |
+| `font-src` | `'self'` | Yazı tipi dosyaları `/fonts/<aile>/` altında (`SEC-12`); Google alan adları kaldırıldı, duman testi geri gelirse düşer |
 | `img-src` | `'self' data: blob: https://media.davetkart.com` | `data:image/svg+xml` dokular (9 dosya, `index.css`), `blob:` yükleme önizlemeleri (`compressImage.ts`, `useRsvpStore.ts`), galeri ve LCV fotoğrafları CloudFront'tan |
 | `media-src` | `'self' blob: https://media.davetkart.com` | `/videos/*` (ana sayfa, şablon arka planları), LCV videoları (`rsvp_video`) |
 | `connect-src` | `'self'` | Bütün API çağrıları aynı kökende (`/api`); başka bir yere `fetch` yok |

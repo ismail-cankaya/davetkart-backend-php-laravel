@@ -44,10 +44,12 @@ unutulması ancak o konumdan bir yanıtla görülür.
 | `/__duman-testi/spa-yolu` | `location /` → `try_files` → `= /index.html` | SPA başlıkları (React yönlendiricisinin yolları) |
 | `/assets/<ana sayfadan okunan>.js` | `^~ /assets/` | SPA başlıkları |
 | `/favicon.svg` | `location /` (diskte var olan dosya) | SPA başlıkları |
+| `/fonts/templates.css` | `= /fonts/templates.css` | SPA başlıkları (SEC-12) |
+| `/fonts/inter/inter-latin-opsz-normal.woff2` | `^~ /fonts/` | SPA başlıkları (SEC-12) |
 | `/.env` | `~ /\.` (404) | SPA başlıkları (`always` sayesinde hata yanıtında da) |
 | `/api/ping` | `^~ /api/` → `= /index.php` → Laravel | Laravel'in başlıkları, **her biri tam bir kez**; SPA'ya özgü `Permissions-Policy` ve `-Report-Only` **yok** |
 
-**SPA yanıtında** şunların her biri tam bir kez olmalı: `Strict-Transport-Security` (`max-age=`),
+**SPA yanıtında** CSP'de `fonts.googleapis.com`/`fonts.gstatic.com` geçmemeli (SEC-12). Ayrıca şunların her biri tam bir kez olmalı: `Strict-Transport-Security` (`max-age=`),
 `X-Content-Type-Options` (`nosniff`), `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`,
 `Content-Security-Policy` (`frame-ancestors` içermeli). Tam politika için iki durumdan biri
 kabul edilir: `Content-Security-Policy-Report-Only` var ve `default-src` içeriyor (gözlem dönemi,
