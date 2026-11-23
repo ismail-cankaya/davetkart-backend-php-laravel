@@ -573,3 +573,10 @@ panelden başka bir davetiye için ödeme sayfasını aç: fiyat liste fiyatı o
 | `$this->supersede($open);` silinir | `a_different_plan_for_the_same_target_closes_the_old_order_and_takes_the_discount` |
 | `$this->expireStaleOrders($user);` silinir | `an_abandoned_checkout_keeps_the_discount_for_the_next_try` |
 | `if (! $reused)` → `if (true)` | `a_provider_failure_on_a_reused_order_leaves_it_pending` |
+
+
+## 🆕 Faz 19 (19.14 · K191, SEC-09)
+
+`handle()`'ın ilk satırı `VerifiedEmailGuard::assertVerified($user)` → doğrulanmamış hesap 403 `EMAIL_NOT_VERIFIED`.
+Sipariş, hediye kodu rezervasyonu ve kullanıcı kilidi hiç alınmaz. Mutant: satır silinince
+`EmailVerificationTest::an_unverified_account_cannot_start_a_checkout` kırmızı.

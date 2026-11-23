@@ -770,3 +770,9 @@ prompt'un adlandırması (`davetkart.guest_uploads.enabled`) korundu. Şablon: `
 `pending_bytes_per_invitation` (200 MB). `orphan_grace_hours` 24 → 1. Sınırlar plan bazlı değil (§A-1 varsayılanı:
 tek değer), bu yüzden `contracts/plan-rules.json`'a girmedi (D3 seçilmedi). Env değişkeni yok: bunlar ürün kararı,
 ortam ayarı değil. Ayrıntı: `StoreUploadedMediaAction` kılavuzu §Faz 19.
+
+
+## 🆕 Faz 19 (19.14 · K191, SEC-09) — doğrulama ayarları
+
+`auth.email_verification_expire_minutes` = 1440 (24 saat), `auth.email_verification_resend_per_hour` = 3,
+`frontend.email_verification_path` = `/eposta-dogrula`. Env değişkeni yok: ürün kararı.

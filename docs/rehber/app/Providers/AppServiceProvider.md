@@ -924,3 +924,9 @@ açar ve T13'teki guard önbelleğini erken doldurur. Varsayılan `user()` yeter
 
 **Nasıl denenir.** `php artisan test --compact --filter=ApiRateLimitTest` · mutantlar: kimlik dalını
 kapat → ilk iki test kırmızı; `withoutMiddleware` satırını sil → `the_public_invitation_read_has_its_own_bucket` kırmızı.
+
+
+## 🆕 Faz 19 (19.14 · K191, SEC-09) — `email-verification` kovası
+
+`Limit::perHour(auth.email_verification_resend_per_hour = 3)`, anahtar `email-verification|user|<id>`. Uç `auth:sanctum`
+arkasında, kullanıcı çözülmüş gelir (K186 notu); IP kolu savunma amaçlı yedek. Kova posta bombalamasını ve SES itibarını korur.

@@ -360,3 +360,9 @@ $r->response()->getContent();    // {"data":{"id":...}}       ← zarflı
 | Katman sorumlulukları | [`CLAUDE.md`](../../../../../CLAUDE.md) §1 |
 | Sihirli metotlar | [`kavramlar/php-dili.md`](../../../kavramlar/php-dili.md) §15.3 |
 | Sıradaki dosya | `app/Http/Requests/Auth/RegisterRequest.php` (2.4) |
+
+
+## 🆕 Faz 19 (19.14 · K191, SEC-09) — `emailVerified`
+
+`emailVerified: bool` (`email_verified_at !== null`). Arayüz "adresini doğrula" bandını buna göre gösterir. Tarih değil
+bool: arayüzün ihtiyacı yalnızca durum (en az veri).

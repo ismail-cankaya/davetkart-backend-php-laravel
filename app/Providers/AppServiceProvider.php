@@ -196,6 +196,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('gift-code', $this->giftCodeLimits(...));
         RateLimiter::for('api', $this->apiLimits(...));
         RateLimiter::for('public-read', $this->publicReadLimits(...));
+        RateLimiter::for('email-verification', $this->emailVerificationLimits(...));
     }
 
     /**
@@ -298,6 +299,23 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(
                 Config::integer('davetkart.assistant.rate_limit.per_user_per_minute'),
             )->by('assistant|'.$identity),
+        ];
+    }
+
+    /**
+     * K191 (SEC-09): doğrulama postasını yeniden gönderme — kullanıcı başına saatte 3.
+     * Dışarıya posta gönderen bir uç: kova posta bombalamasını ve SES itibarını korur.
+     *
+     * @return list<Limit>
+     */
+    private function emailVerificationLimits(Request $request): array
+    {
+        $user = $request->user();
+        $identity = $user instanceof User ? 'user|'.$user->id : 'ip|'.IpBucket::of($request->ip());
+
+        return [
+            Limit::perHour(Config::integer('davetkart.auth.email_verification_resend_per_hour'))
+                ->by('email-verification|'.$identity),
         ];
     }
 

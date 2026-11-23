@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Auth;
 
+use App\Actions\Account\SendEmailVerificationAction;
 use App\Exceptions\RegistrationFailedException;
 use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -18,7 +19,10 @@ use Illuminate\Support\Facades\DB;
  */
 final class RegisterUserAction
 {
-    public function __construct(private readonly IssueApiTokenAction $issueToken) {}
+    public function __construct(
+        private readonly IssueApiTokenAction $issueToken,
+        private readonly SendEmailVerificationAction $sendVerification,
+    ) {}
 
     /**
      * @param  array{first_name: string, last_name: string, email: string, password: string}  $attributes
@@ -31,7 +35,7 @@ final class RegisterUserAction
     public function handle(array $attributes, ?string $userAgent): array
     {
         try {
-            return DB::transaction(function () use ($attributes, $userAgent): array {
+            $registered = DB::transaction(function () use ($attributes, $userAgent): array {
                 $user = User::create($attributes);
 
                 return [
@@ -39,6 +43,12 @@ final class RegisterUserAction
                     'token' => $this->issueToken->handle($user, $userAgent),
                 ];
             });
+
+            // K191 (SEC-09): doğrulama postası commit'ten SONRA kuyruğa girer; oturum yine
+            // hemen açılır, ödeme ve yayın doğrulamayı bekler (VerifiedEmailGuard).
+            $this->sendVerification->handle($registered['user']);
+
+            return $registered;
         } catch (UniqueConstraintViolationException) {
             // H6: hangi alanin catistigi ISTEMCIYE soylenmez.
             throw RegistrationFailedException::emailTaken();

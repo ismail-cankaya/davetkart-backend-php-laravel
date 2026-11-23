@@ -12,6 +12,7 @@ use App\Exceptions\InvitationAlreadyPublishedException;
 use App\Exceptions\PaywallViolationException;
 use App\Models\Invitation;
 use App\Services\Pricing\TierResolver;
+use App\Support\VerifiedEmailGuard;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 
@@ -43,6 +44,7 @@ final class PublishInvitationAction
         private readonly PublishEntitlementResolver $entitlements,
         private readonly ClaimReleasedOrderAction $claims,
         private readonly StampFirstPublishAction $stamps,
+        private readonly VerifiedEmailGuard $emailGuard,
     ) {}
 
     /**
@@ -52,6 +54,9 @@ final class PublishInvitationAction
      */
     public function handle(Invitation $invitation): Invitation
     {
+        // K191 (SEC-09): yayın da ödeme gibi doğrulanmış adres ister (taslak serbest).
+        $this->emailGuard->assertVerified($invitation->user()->firstOrFail());
+
         return DB::transaction(function () use ($invitation): Invitation {
             // 🔴 Satir kilitlenip YENIDEN OKUNUYOR. Elimizdeki nesne rota
             // baglamasindan geldi ve o okumadan bu ana kadar baska bir istek

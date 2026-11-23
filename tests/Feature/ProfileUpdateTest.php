@@ -36,6 +36,7 @@ final class ProfileUpdateTest extends TestCase
                 'firstName' => 'İsmail',
                 'lastName' => 'Cankaya',
                 'email' => $user->email,
+                'emailVerified' => true,
             ]]);
 
         $user->refresh();

@@ -363,3 +363,10 @@ php artisan migrate:fresh
 Token artık bu sınıfta değil, `IssueApiTokenAction`'da üretiliyor: hangi cihazdan açıldığı
 (`user_agent`) da yazılıyor. İmzaya `?string $userAgent` eklendi; controller
 `$request->userAgent()` veriyor. Ayrıntı: [`IssueApiTokenAction.md`](IssueApiTokenAction.md).
+
+
+## 🆕 Faz 19 (19.14 · K191, SEC-09) — kayıtta doğrulama postası
+
+Transaction commit edildikten **sonra** `SendEmailVerificationAction` çağrılır, `VerifyEmailNotification` kuyruğa girer.
+İçeride gönderilseydi rollback'te var olmayan bir hesaba posta giderdi. Oturum (token) yine hemen açılır; doğrulanmamış
+hesap taslak hazırlayabilir, ödeme ve yayın `VerifiedEmailGuard`'da bekler. Yanıtta `user.emailVerified: false`.

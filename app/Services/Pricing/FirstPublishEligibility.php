@@ -29,6 +29,11 @@ final class FirstPublishEligibility
      */
     public function isEligible(User $user, ?string $invitationId): bool
     {
+        // K191 (SEC-09): indirim hesaba bağlı; hesap ancak doğrulanmış adresle kanıtlanır.
+        if (! $user->hasVerifiedEmail()) {
+            return false;
+        }
+
         return ! Order::query()
             ->where('user_id', $user->id)
             ->where(static function (Builder $closing) use ($invitationId): void {
