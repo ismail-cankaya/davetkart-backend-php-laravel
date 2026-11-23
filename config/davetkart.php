@@ -117,6 +117,12 @@ return [
         'poll_interval_seconds' => 15,
     ],
 
+    // Faz 19 (19.26 · K192, FE-50): kullanıcı başına yayınlanmamış (taslak) davetiye
+    // tavanı. Yayındakiler sayılmaz. Sihirbaz her ziyarette boş taslak açabiliyordu.
+    'invitations' => [
+        'max_drafts_per_user' => 50,
+    ],
+
     // Faz 19 (19.12 · K189, FE-51): misafirin LCV'ye foto/video yüklemesi.
     // Kapalıyken POST /api/public/invitations/{id}/media 404 döner ve arayüzde
     // yükleme alanı yok. Açmak bir ürün kararıdır (kota ve bayt bütçesi: SEC-08).

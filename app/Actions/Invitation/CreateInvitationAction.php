@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Actions\Invitation;
 
 use App\Enums\InvitationStatus;
+use App\Exceptions\DraftLimitReachedException;
 use App\Models\Invitation;
 use App\Models\User;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,6 +31,11 @@ final class CreateInvitationAction
     {
         // E4: iki tabloya yaziliyor. Yarim kalan davetiye programsiz kalirdi.
         return DB::transaction(function () use ($user, $attributes, $timelineEvents): Invitation {
+            // K192 (FE-50): taslak tavanı kullanıcı satırı KİLİTLİYKEN sayılır; kilitsiz iki
+            // eşzamanlı istek aynı "yer var" cevabını okurdu (E9, TST-02 deseni).
+            User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $this->assertDraftLimitNotReached($user);
+
             $invitation = $user->invitations()->make($attributes);
 
             // 🔴 E7: sunucunun sahip oldugu alanin degerini sunucu KODU soyler.
@@ -49,5 +56,16 @@ final class CreateInvitationAction
             // bostur ama iliski yine yuklenir: sozlesme anahtari zorunlu.
             return $invitation->load(['timelineEvents', 'galleryMedia']);
         });
+    }
+
+    /** @throws DraftLimitReachedException -> 403 DRAFT_LIMIT_REACHED (K192) */
+    private function assertDraftLimitNotReached(User $user): void
+    {
+        $limit = Config::integer('davetkart.invitations.max_drafts_per_user');
+        $drafts = $user->invitations()->where('status', '!=', InvitationStatus::Published)->count();
+
+        if ($drafts >= $limit) {
+            throw new DraftLimitReachedException($limit);
+        }
     }
 }

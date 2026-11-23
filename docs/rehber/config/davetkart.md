@@ -776,3 +776,8 @@ ortam ayarı değil. Ayrıntı: `StoreUploadedMediaAction` kılavuzu §Faz 19.
 
 `auth.email_verification_expire_minutes` = 1440 (24 saat), `auth.email_verification_resend_per_hour` = 3,
 `frontend.email_verification_path` = `/eposta-dogrula`. Env değişkeni yok: ürün kararı.
+
+
+## 🆕 Faz 19 (19.26 · K192, FE-50) — `invitations.max_drafts_per_user`
+
+50. Yalnızca yayınlanmamış davetiyeler sayılır. Env değişkeni yok (ürün kararı). Ayrıntı: `CreateInvitationAction` kılavuzu.
