@@ -250,3 +250,10 @@ docblock'u ona referans veriyor ve var olmayan bir sınıfa referans bırakmıyo
 | Tablo | [`../../database/migrations/2026_08_28_130000_create_media_table.md`](../../database/migrations/2026_08_28_130000_create_media_table.md) |
 | Tür enum'u | [`../Enums/MediaKind.md`](../Enums/MediaKind.md) |
 | Kardeş model | [`Rsvp.md`](Rsvp.md) |
+
+## 🆕 Faz 19 (19.13 · K190, SEC-08) — `attachedToRsvp` / `awaitingRsvp` kapsamları
+
+Bir misafir dosyası bir LCV yanıtına (`rsvps.photo_media_id` ya da `video_media_id`) bağlıysa **iliştirilmiş**,
+değilse **bekleyen (yetim)** sayılır. Bu tanım eskiden yalnızca `PruneOrphanMedia`'daydı. Kota da aynı soruyu
+sorduğu için model kapsamına taşındı; iki kopya bir gün ayrışır ve temizlik ile kota farklı dosyaları "yetim" sayardı.
+`whereExists`/`whereNotExists` alt sorgusu kullanılır, JOIN değil: bir dosya iki yanıta bağlıysa satır iki kez sayılmaz.

@@ -763,3 +763,10 @@ Neden varsayılan kapalı? Arayüzde bu özellik yoktu; arkasındaki uç, depola
 (risk var, fayda yok). Açmak bir ürün kararı; açılınca kota ve bayt bütçesi `SEC-08`'dedir.
 Neden `media` bölümünün içinde değil? Bu bir yükleme *sınırı* değil, bir özelliğin *varlığı*;
 prompt'un adlandırması (`davetkart.guest_uploads.enabled`) korundu. Şablon: `docs/10` (§ medya).
+
+## 🆕 Faz 19 eklemesi — `media.guest_budget` ve `orphan_grace_hours = 1` (K190, SEC-08)
+
+`guest_budget.attached_bytes_per_invitation` (1 GB), `pending_files_per_invitation` (50),
+`pending_bytes_per_invitation` (200 MB). `orphan_grace_hours` 24 → 1. Sınırlar plan bazlı değil (§A-1 varsayılanı:
+tek değer), bu yüzden `contracts/plan-rules.json`'a girmedi (D3 seçilmedi). Env değişkeni yok: bunlar ürün kararı,
+ortam ayarı değil. Ayrıntı: `StoreUploadedMediaAction` kılavuzu §Faz 19.

@@ -69,7 +69,7 @@ final class StoreUploadedMediaAction
         // 2. KATMAN — ucuz on kontrol. Kota zaten doluysa diske hic dokunmayiz.
         // Kesin kontrol asagida, kilit altinda; bu yalnizca bosa yazma-silme
         // dongusunu onler.
-        $this->assertQuotaAvailable($invitation, $kind);
+        $this->assertQuotaAvailable($invitation, $kind, (int) $file->getSize());
 
         $disk = Config::string('davetkart.media.disk');
 
@@ -84,13 +84,17 @@ final class StoreUploadedMediaAction
         }
 
         try {
-            $media = DB::transaction(function () use ($invitation, $kind, $disk, $path, $mimeType): Media {
+            // Diskteki GERCEK boyut. $file->getSize() tasima oncesi degeri
+            // verirdi; ikisi normalde ayni ama tek dogru kaynak disktir.
+            $sizeBytes = Storage::disk($disk)->size($path);
+
+            $media = DB::transaction(function () use ($invitation, $kind, $disk, $path, $mimeType, $sizeBytes): Media {
                 // 3. KATMAN — kesin kota. Es zamanli iki yukleme ayni sayiyi
                 // okuyup ikisi de "yer var" diyebilirdi (check-then-act, E9).
                 // Kilitli satir YENIDEN OKUNUR: galeri dizisine eklerken
                 // elimizdeki (istek basinda okunan) ornegin dizisi bayat olabilir.
                 $locked = $this->lockInvitation($invitation);
-                $this->assertQuotaAvailable($locked, $kind);
+                $this->assertQuotaAvailable($locked, $kind, $sizeBytes);
 
                 $media = $locked->media()->make();
 
@@ -103,9 +107,7 @@ final class StoreUploadedMediaAction
                 // ICERIGINDEN okunan tip saklanir.
                 $media->mime_type = $mimeType;
 
-                // Diskteki GERCEK boyut. $file->getSize() tasima oncesi degeri
-                // verirdi; ikisi normalde ayni ama tek dogru kaynak disktir.
-                $media->size_bytes = Storage::disk($disk)->size($path);
+                $media->size_bytes = $sizeBytes;
 
                 $media->save();
 
@@ -144,8 +146,14 @@ final class StoreUploadedMediaAction
      * LCV kotasi bunun tersiydi — orada sinir misafir SAYISIYDI ve SUM
      * gerekiyordu. Metrigi sinirin tanimi belirler, aliskanlik degil.)
      */
-    private function assertQuotaAvailable(Invitation $invitation, MediaKind $kind): void
+    private function assertQuotaAvailable(Invitation $invitation, MediaKind $kind, int $incomingBytes): void
     {
+        if ($kind->isGuestUploadable()) {
+            $this->assertGuestBudgetAvailable($invitation, $kind, $incomingBytes);
+
+            return;
+        }
+
         $limit = $kind->maxPerInvitation();
         $used = $invitation->media()->where('kind', $kind)->count();
 
@@ -153,12 +161,32 @@ final class StoreUploadedMediaAction
             return;
         }
 
-        // H9: sinir yalnizca SAHIBE soylenir. Misafirin yukledigi turlerde
-        // ic sayac disari cikmaz — ve kurucu private oldugu icin bu
-        // yanlislikla degistirilemez (6.5).
-        throw $kind->isGuestUploadable()
-            ? MediaQuotaExceededException::forGuest()
-            : MediaQuotaExceededException::forOwner($limit);
+        // H9: sinir yalnizca SAHIBE soylenir; misafir kolu forGuest() ile asagida.
+        throw MediaQuotaExceededException::forOwner($limit);
+    }
+
+    /**
+     * K190 (SEC-08): misafirin üç sınırı. Adet ve bayt yalnızca LCV'ye İLİŞTİRİLMİŞ
+     * dosyaları sayar; iliştirilmemişler kendi küçük kotasına girer (yetim DoS'u).
+     * Ayrıntı: kılavuz §Faz 19. Sınır misafire söylenmez (H9).
+     */
+    private function assertGuestBudgetAvailable(Invitation $invitation, MediaKind $kind, int $incomingBytes): void
+    {
+        $guestMedia = fn () => $invitation->media()->whereIn('kind', MediaKind::guestUploadableValues());
+
+        $attachedOfKind = $guestMedia()->where('kind', $kind)->attachedToRsvp()->count();
+        $attachedBytes = (int) $guestMedia()->attachedToRsvp()->sum('size_bytes');
+        $pendingFiles = $guestMedia()->awaitingRsvp()->count();
+        $pendingBytes = (int) $guestMedia()->awaitingRsvp()->sum('size_bytes');
+
+        $exceeded = $attachedOfKind >= $kind->maxPerInvitation()
+            || $attachedBytes + $incomingBytes > Config::integer('davetkart.media.guest_budget.attached_bytes_per_invitation')
+            || $pendingFiles >= Config::integer('davetkart.media.guest_budget.pending_files_per_invitation')
+            || $pendingBytes + $incomingBytes > Config::integer('davetkart.media.guest_budget.pending_bytes_per_invitation');
+
+        if ($exceeded) {
+            throw MediaQuotaExceededException::forGuest();
+        }
     }
 
     /**
