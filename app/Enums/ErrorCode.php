@@ -85,6 +85,15 @@ enum ErrorCode: string
      */
     case EmailChangeInvalid = 'EMAIL_CHANGE_INVALID';
 
+    /** Faz 19 (K191, SEC-09): adres doğrulanmadan ödeme başlatılamaz ve yayınlanamaz. */
+    case EmailNotVerified = 'EMAIL_NOT_VERIFIED';
+
+    /**
+     * Faz 19 (K191): doğrulama bağlantısı geçersiz. Tek kod, çok sebep (imza, süre,
+     * kullanılmış, adres değişmiş, hesap yok); EMAIL_CHANGE_INVALID ile aynı gerekçe (H6).
+     */
+    case EmailVerificationInvalid = 'EMAIL_VERIFICATION_INVALID';
+
     /**
      * Hediye kodu kullanılamaz (Faz 11, D7).
      *
@@ -141,6 +150,7 @@ enum ErrorCode: string
             self::RsvpDeadlinePassed,
             self::RsvpQuotaExceeded,
             self::MediaQuotaExceeded,
+            self::EmailNotVerified,
             self::PaymentMethodDisabled => 403,
 
             self::ResourceNotFound => 404,
@@ -155,6 +165,7 @@ enum ErrorCode: string
             self::RegistrationFailed,
             self::PasswordResetInvalid,
             self::EmailChangeInvalid,
+            self::EmailVerificationInvalid,
             self::GiftCodeInvalid,
             self::GiftCodeAlreadyUsed,
             self::GiftCodeNotApplicable => 422,

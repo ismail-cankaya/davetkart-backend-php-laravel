@@ -1,6 +1,6 @@
 {
-    "generatedAt": "2026-10-25T13:48:45+00:00",
-    "count": 28,
+    "generatedAt": "2026-11-23T16:17:46+00:00",
+    "count": 30,
     "codes": {
         "ASSISTANT_QUOTA_EXCEEDED": {
             "status": 429,
@@ -11,6 +11,16 @@
             "retryable": true
         },
         "EMAIL_CHANGE_INVALID": {
+            "status": 422,
+            "params": [],
+            "retryable": false
+        },
+        "EMAIL_NOT_VERIFIED": {
+            "status": 403,
+            "params": [],
+            "retryable": false
+        },
+        "EMAIL_VERIFICATION_INVALID": {
             "status": 422,
             "params": [],
             "retryable": false

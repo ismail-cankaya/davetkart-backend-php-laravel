@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AssistantController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\EmailChangeController;
+use App\Http\Controllers\Api\V1\EmailVerificationController;
 use App\Http\Controllers\Api\V1\GiftCodeController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
@@ -103,6 +104,12 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
         Route::post('/email-change', [EmailChangeController::class, 'store'])
             ->middleware('throttle:auth')
             ->name('email-change.store');
+
+        // Faz 19 (19.14 · K191, SEC-09): doğrulama postasını yeniden gönder. Kullanıcı
+        // başına saatte 3; hesap zaten doğrulanmışsa posta gitmez (yine 204).
+        Route::post('/email-verification', [EmailVerificationController::class, 'resend'])
+            ->middleware('throttle:email-verification')
+            ->name('email-verification.store');
     });
 });
 
@@ -442,4 +449,10 @@ Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(func
     Route::post('/email-change/confirm', PublicEmailChangeController::class)
         ->middleware('throttle:auth')
         ->name('email-change.confirm');
+
+    // Faz 19 (19.14 · K191, SEC-09): kayıt sonrası doğrulama bağlantısı. Yetkinin kanıtı
+    // imza (EmailVerificationLink); throttle:auth ucuz bir tavan.
+    Route::post('/email-verification/confirm', [EmailVerificationController::class, 'confirm'])
+        ->middleware('throttle:auth')
+        ->name('email-verification.confirm');
 });

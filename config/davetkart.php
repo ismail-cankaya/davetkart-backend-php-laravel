@@ -285,6 +285,11 @@ return [
         // Faz 14 (K144): e-posta değişikliği onay bağlantısının ömrü (dakika).
         // Parola sıfırlamayla aynı: 60.
         'email_change_expire_minutes' => 60,
+
+        // Faz 19 (19.14 · K191, SEC-09): kayıt sonrası doğrulama bağlantısının ömrü
+        // (dakika) ve "yeniden gönder" ucunun kullanıcı başına saatlik sınırı.
+        'email_verification_expire_minutes' => 60 * 24,
+        'email_verification_resend_per_hour' => 3,
     ],
 
     // AI çağrısı ücretli; kotasız bırakmak finansal risktir.
@@ -324,6 +329,7 @@ return [
         'password_reset_path' => '/sifre-sifirla',
         // Faz 14 (K144): yeni adrese giden onay bağlantısının hedefi.
         'email_change_path' => '/eposta-onay',
+        'email_verification_path' => '/eposta-dogrula', // K191
     ],
 
     // Kullaniciya giden mail (K96): TEK dil, Turkce. K21'in (API tek dil,

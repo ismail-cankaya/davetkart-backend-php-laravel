@@ -33,6 +33,9 @@ final class UserResource extends JsonResource
             'lastName' => trim($this->last_name),
 
             'email' => $this->email,
+
+            // K191 (SEC-09): arayüz "adresini doğrula" bandını buna göre gösterir.
+            'emailVerified' => $this->email_verified_at !== null,
         ];
     }
 }

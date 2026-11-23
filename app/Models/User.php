@@ -98,4 +98,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(Invitation::class);
     }
+
+    /** K191 (SEC-09): kayıt sonrası bağlantıyla ya da e-posta değişikliğiyle kanıtlanmış adres. */
+    public function hasVerifiedEmail(): bool
+    {
+        return $this->email_verified_at !== null;
+    }
 }
