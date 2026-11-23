@@ -356,6 +356,10 @@ kural nesnesini geri getirmek yerine ya açık string kurallar yazılır ya da
 `ApiExceptionRenderer`'a sınıf → sabit kod eşlemesi eklenir. Sözleşmeye
 framework iç adı **hiçbir durumda** girmez.
 
+**19.9 (`SEC-05`, K258):** ilk yol seçildi. Parola kuralı artık `...PasswordPolicy::rules()`
+(`min:8`, `max:255`, `uncommon_password`); dize adlı kural `Validator::extend` ile kayıtlı.
+Ayrıntı: [`app/Rules/PasswordPolicy.md`](../../../Rules/PasswordPolicy.md).
+
 **`max:255` neden var?** Girdiyi sınırsız bırakmak, saldırganın 10 MB'lık bir
 parola gönderip Argon2id'ye onu hash'lettirmesine izin verir — ucuz bir DoS
 yüzeyi. Sınır bunu kapatır.

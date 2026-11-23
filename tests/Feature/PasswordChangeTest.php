@@ -95,10 +95,12 @@ final class PasswordChangeTest extends TestCase
     #[Test]
     public function the_same_password_is_refused(): void
     {
-        $user = User::factory()->create();
+        // Fabrika parolasi ('password') K258 listesinde; once `uncommon_password` duserdi.
+        $current = 'mor-bisiklet-kahve-2027';
+        $user = User::factory()->create(['password' => $current]);
 
         $this->withToken($user->createToken('t')->plainTextToken)
-            ->putJson(route('auth.password.update'), ['currentPassword' => UserFactory::PASSWORD, 'password' => UserFactory::PASSWORD])
+            ->putJson(route('auth.password.update'), ['currentPassword' => $current, 'password' => $current])
             ->assertUnprocessable()
             ->assertJsonPath('error.fields.password.0.rule', 'different');
     }
