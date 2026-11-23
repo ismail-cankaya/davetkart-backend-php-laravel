@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\PublicInvitationController;
 use App\Http\Controllers\Api\V1\PublicMediaController;
 use App\Http\Controllers\Api\V1\PublicPaymentWebhookController;
 use App\Http\Controllers\Api\V1\PublicRsvpController;
+use App\Http\Controllers\Api\V1\ReadinessController;
 use App\Http\Controllers\Api\V1\RefundRequestController;
 use App\Http\Controllers\Api\V1\RsvpController;
 use App\Http\Controllers\Api\V1\SessionController;
@@ -42,6 +43,10 @@ use Illuminate\Support\Facades\Route;
 // Sozlesme sagligi: API katmani ayakta ve JSON konusuyor mu?
 // Closure DEGIL sinif referansi — route:cache closure'lari serilestiremez.
 Route::get('/ping', HealthController::class)->name('health.ping');
+
+// Faz 19.7 (OPS-03): hazir olma (readiness) -- veritabani, kuyruk, zamanlayici, disk.
+// Dis izleyici dakikada bir vurur; /ping dagitim betigi icin aynen kalir (D1).
+Route::get('/health', ReadinessController::class)->middleware('throttle:60,1')->name('health.ready');
 
 /*
 | Kimlik (Faz 2)
