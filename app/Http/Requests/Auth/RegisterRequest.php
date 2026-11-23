@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Auth;
 
+use App\Rules\PasswordPolicy;
 use App\Support\EmailNormalizer;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -32,9 +33,8 @@ final class RegisterRequest extends FormRequest
             'firstName' => ['required', 'string', 'max:60'],
             'lastName' => ['required', 'string', 'max:60'],
             'email' => ['required', 'string', 'email:rfc', 'max:255'],
-            // D6: kural ADI sozlesmeye giriyor. Kural NESNESI kullanilirsa
-            // Laravel onu sinif adiyla raporlar ve framework ici API'ye sizar.
-            'password' => ['required', 'string', 'min:8', 'max:255'],
+            // D6: kural ADI sozlesmeye giriyor; ortak kural dize adli (K258, PasswordPolicy).
+            'password' => ['required', 'string', ...PasswordPolicy::rules()],
         ];
     }
 

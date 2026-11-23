@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Auth;
 
+use App\Rules\PasswordPolicy;
 use App\Support\EmailNormalizer;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -11,7 +12,7 @@ use Illuminate\Foundation\Http\FormRequest;
  * POST /api/auth/reset-password girdisini dogrular (Faz 10, 10.33).
  *
  * Govde maildeki baglantidan gelir: `token` ve `email` sorgu dizesinden,
- * `password` kullanicinin yazdigindan. Parola kurali KAYITLA AYNI (min:8):
+ * `password` kullanicinin yazdigindan. Parola kurali KAYITLA AYNI (PasswordPolicy, K258):
  * sifirlama, kayitta reddedilecek bir parolaya kapi acmamali.
  * Ayrintili aciklama: docs/rehber/app/Http/Requests/Auth/ResetPasswordRequest.md
  */
@@ -32,7 +33,7 @@ final class ResetPasswordRequest extends FormRequest
             // bicimi DOGRULAMAZ (o aracin isi); yalnizca sacma uzunlugu keser.
             'token' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email:rfc', 'max:255'],
-            'password' => ['required', 'string', 'min:8', 'max:255'],
+            'password' => ['required', 'string', ...PasswordPolicy::rules()],
         ];
     }
 

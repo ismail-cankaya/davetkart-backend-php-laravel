@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Account;
 
+use App\Rules\PasswordPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -32,7 +33,7 @@ final class ChangePasswordRequest extends FormRequest
     {
         return [
             'currentPassword' => ['required', 'string', 'current_password:sanctum'],
-            'password' => ['required', 'string', 'min:8', 'max:255', 'different:currentPassword'],
+            'password' => ['required', 'string', ...PasswordPolicy::rules(), 'different:currentPassword'],
         ];
     }
 
