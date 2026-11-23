@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Support\Health\RecordSchedulerHeartbeat;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -96,3 +97,14 @@ Schedule::command('data:purge')
     ->withoutOverlapping()
     ->onOneServer()
     ->sentryMonitor('data-purge');
+
+// Zamanlayicinin kalp atisi (Faz 19.7, OPS-03): GET /api/health damga 5 dakikadan
+// eskiyse 503 verir (`scheduler`). Kuyruga GITMEZ (Schedule::call): kuyruk takilinca
+// kalp atisi da dursaydi iki ariza tek belirtiye karisirdi.
+// Ayrintili aciklama: docs/rehber/app/Providers/MonitoringServiceProvider.md
+Schedule::call(new RecordSchedulerHeartbeat)
+    ->everyMinute()
+    ->name('health-heartbeat')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->sentryMonitor('health-heartbeat');

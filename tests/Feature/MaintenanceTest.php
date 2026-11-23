@@ -697,6 +697,7 @@ final class MaintenanceTest extends TestCase
             'media:prune-orphans' => 'media-prune-orphans',
             'sanctum:prune-expired' => 'sanctum-prune-expired',
             'data:purge' => 'data-purge',
+            '' => 'health-heartbeat', // Faz 19.7: callback isi, komutu yok (routes/console.php)
         ], $monitors);
     }
 
