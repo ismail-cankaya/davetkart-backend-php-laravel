@@ -41,6 +41,9 @@ jobs:
     steps:
       - name: Kodu çek
         uses: actions/checkout@v4
+        with:
+          # k18:check (K259) cırcır tabanına kadar geçmiş ister; sığ klonda taban yok, kapı kırmızı.
+          fetch-depth: 0
 
       - name: PHP 8.5 kur
         # shivammathur/setup-php: composer.json'daki "php": "^8.3" ile

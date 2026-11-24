@@ -1058,3 +1058,228 @@ uçtan okur. Ayrıntı: `app/Http/Controllers/Api/V1/PricingController.md`.
 | `DELETE /api/auth/sessions/{session}` | `auth.sessions.destroy` | `auth:sanctum` | 14.9 |
 | `POST /api/auth/email-change` | `auth.email-change.store` | `auth:sanctum` + `throttle:auth` | 14.10 |
 | `POST /api/public/email-change/confirm` | `public.email-change.confirm` | public + `throttle:auth` | 14.10 |
+
+## Koddan taşınan notlar (Faz 19.28, `ARC-03`, K259)
+
+K18 cırcırı (`php artisan k18:check`) için `routes/api.php` içindeki 3 satırdan uzun
+yorum blokları buraya **aynen** taşındı; kodda bir cümlelik özet ve buradaki numara kaldı. Davranış değişmedi.
+
+### T1 — satır 34: `Route::get('/ping', HealthController::class)->name('health.ping');`
+
+API Rotalari
+'/api' oneki bootstrap/app.php icindeki withRouting() tarafindan eklenir.
+K10: surum URL'de DEGIL, controller namespace'inde (Api\V1\).
+K12: auth gerektirmeyen rotalar '/api/public/' altinda gruplanir (Faz 4).
+Ayrintili aciklama: docs/rehber/routes/api.md
+
+### T2 — satır 52: `Route::prefix('auth')->name('auth.')->group(function (): void {`
+
+Kimlik (Faz 2)
+Yanit ZARFSIZ: {user, token} — {data: ...} YOK (K11).
+Not: group() closure'i R1'i ihlal etmez; R1 rota EYLEMI icin gecerlidir.
+Grup closure'i kayit aninda calisir, Route nesnesinde saklanmaz.
+
+### T3 — satır 116: `Route::middleware('auth:sanctum')->group(function (): void {`
+
+Davetiyeler (Faz 3) — K37: tam REST koleksiyonu.
+⚠️ Sabit segmentli rotalar (ornek: /invitations/count) buraya, apiResource'un
+USTUNE yazilmali; aksi halde {invitation} onlari yutar. whereUlid kisiti bu
+riski ayrica azaltir: {invitation} yalnizca ULID bicimine eslesir.
+🔴 R6: kisit ELLE YAZILMAZ. HasUlids::newUniqueId() strtolower() uyguluyor;
+elle yazilan buyuk-harf regex hicbir istegi eslestirmedi ve Policy hic
+calismadi. Gerekce: docs/rehber/routes/api.md §5.
+
+### T4 — satır 131: `Route::get('/invitations/{invitation}/rsvps', [RsvpController::class, 'index'])`
+
+LCV paneli (Faz 5).
+Liste ucu 15 saniyede bir cagrilir (config: poll_interval_seconds), yani
+sistemin en sik istenen auth'lu ucudur. SetEtag burada K46'nin karsiligini
+aliyor: Faz 4'te ETag'i ayri bir middleware yapmamizin gerekcesi
+"Faz 5'in polling ucu ayni katmani yeniden kullanacak" idi (C3).
+⚠️ throttle:rsvp BURAYA KONMAZ — o kova YAZMA icindir (dakikada 10).
+Okuma polling'i 15 sn'de bir gelir ve o kovada bogulurdu.
+
+### T5 — satır 153: `Route::post('/invitations/{invitation}/media', [MediaController::class, 'store'])`
+
+Galeri yuklemesi (Faz 6) — davetiye SAHIBI.
+Ic ice kaynak: bir dosya her zaman bir davetiyeye aittir ve bu aidiyet
+URL'nin YAPISINDA durur. Duz bir /media/upload ucu olsaydi davetiye
+kimligi govdeden gelirdi — yani istemcinin sozune kalirdi (N1).
+⚠️ docs/09 "frontend kazanir, POST /media/upload" diyordu; o not misafir
+yuklemesini hesaba katmadan yazilmisti. Frontend uyarlanacak (Faz 6 §8).
+Ayri bir throttle YOK: uc auth arkasinda ve grubun throttle:api tavani
+zaten gecerli. Tehdit modeli misafir ucundakiyle ayni degil.
+
+### T6 — satır 170: `Route::delete('/invitations/{invitation}/media/{media}', [MediaController::class, …`
+
+Galeriden fotograf silme — davetiye SAHIBI.
+Ayni ic ice yapi: dosya kimligi davetiyenin ALTINDA. `{media}` model
+baglamasi degil, metin — dosya DeleteGalleryMediaAction'da davetiyenin
+galeri iliskisi uzerinden aranir (P3). Baska davetiyenin dosyasi ve LCV
+medyasi ayni 404'u alir (H7).
+
+### T7 — satır 182: `Route::post('/invitations/{invitation}/publish', [InvitationController::class, 'publish'])`
+
+Yayinlama (Faz 7) — PAYWALL KAPISI.
+🔴 Bu rota Faz 3'te acilmadi ve gerekcesi K47 olarak kaydedildi:
+"simdi yazilirsa paywall'siz bir bedava yayin yolu acilir". Kapiyi
+kilitleyecek anahtarlar (TierResolver, PublishEntitlementResolver) ancak
+bugun var — rota da bugun aciliyor.
+POST, PUT degil: yayin bir DURUM GECISIDIR, bir alan guncellemesi degil.
+PUT idempotan olmali (ayni istek ayni sonucu vermeli) ama ikinci yayin
+istegi bilerek 409 doner (7.12 §4).
+
+### T8 — satır 198: `Route::post('/invitations/{invitation}/checkout', [PaymentController::class, …`
+
+Odeme baslatma (Faz 7) — K42'nin iki kolu, iki rota.
+🔴 Ic ice kaynak: TEKIL alimda davetiye kimligi URL'nin YAPISINDA durur.
+docs/09 duz bir POST /api/payments/checkout ongormustu ve govdede
+invitationId tasiyacakti; Faz 6 ayni karari medya uclarinda zaten
+degistirmisti (N1) — kimlik govdeden gelseydi aidiyet ISTEMCININ SOZUNE
+kalirdi. whereUlid ayrica bicimsiz kimligi veritabanina hic ulastirmaz (O6).
+⚠️ Sabit segmentli /payments/checkout, apiResource'un {invitation}
+parametresiyle CAKISMAZ: farkli onek altinda.
+
+### T9 — satır 229: `Route::post('/gift-codes/preview', [GiftCodeController::class, 'preview'])`
+
+Hediye kodu onizleme (Faz 11). Salt okunur: hicbir sey ayirmaz.
+🔴 throttle:gift-code kod TAHMININI yavaslatir ve iki checkout ucuyla
+AYNI kovayi paylasir; onizleme kapaninca checkout'a kacilamaz. Kodsuz
+checkout bu kovaya hic yazilmaz (limiter Limit::none() doner).
+
+### T10 — satır 240: `Route::apiResource('orders', OrderController::class)`
+
+Siparisler (Faz 10, 10.23) — YALNIZCA okuma.
+Odeme donus sayfasi `show`'u birkac saniye yoklar; `index` ileride bir
+"siparislerim" ekrani icin. Yazma ucu YOK: siparisi checkout acar,
+durumunu imzali webhook degistirir. Baskasinin siparisi 404 (H7).
+
+### T11 — satır 251: `Route::get('/account/entitlements', [AccountController::class, 'entitlements'])`
+
+Hesap ayarları — "Planlarım" (Faz 14, 14.4 · K140).
+Satın alınan, kullanılan, yanan ve iade edilen haklar plan plan. Parametre
+YOK: yalnızca istek sahibinin kendi siparişleri (sahiplik sorguda, P3).
+SetEtag: ekran sekme değiştikçe yeniden ister, değişmediyse 304.
+
+### T12 — satır 262: `Route::post('/orders/{order}/refund-request', [RefundRequestController::class, 'store'])`
+
+Hakkı iptal et / vazgeç (Faz 14, 14.5 · K138).
+Tekil kaynak: bir siparişte en fazla BİR açık talep var (kısmi UNIQUE),
+bu yüzden talebin kendi kimliği URL'de yok. POST açar, DELETE geri çeker.
+Para burada gitmez: yönetici `refunds:approve` ile kapatır (14.6).
+
+### T13 — satır 277: `Route::post('/assistant/chat', AssistantController::class)`
+
+AI asistan (Faz 8) — sistemin PARA HARCAYAN tek ucu.
+🔴 Neden auth'lu? Frontend'de AssistantWidget her sayfada goruntuleniyor
+(AppLayout), yani giris yapmamis ziyaretcide de. Bu bir SOZLESME
+CELISKISIDIR ve bilincli olarak backend lehine cozuldu: her cagri
+paradir ve maliyet kontrolu harcamanin bir KIMLIGE yazilabilmesini
+gerektirir. Kimliksiz cagrida tek anahtar IP olurdu; IP hem cok genis
+(CGNAT: on binlerce abone tek IP) hem cok dardir (degistirmesi
+saldirgana saatlik birkac kurus). Duzeltme frontend'e dusuyor.
+🔴 Ayri bir throttle kovasi VAR (grubun throttle:api tavani yetmez):
+60/dk genel tavan, gunluk 30 mesajlik butceyi tek dakikada yakardi.
+Kova KULLANICI anahtarli — bu limiter rota seviyesinde ve
+auth:sanctum'dan SONRA calisir (Laravel'in middleware oncelik
+listesinde AuthenticatesRequests, ThrottleRequests'ten oncedir).
+Kota bu limitin YERINE GECMEZ (L3): limit cache'te "ne siklikta"ya,
+kota veritabaninda "bugun kac mesaj"a bakar.
+
+### T14 — satır 302: `Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(function (): …`
+
+Public davetiye (Faz 4) — 🔴 K12: auth GEREKTIRMEYEN rotalarin TEK yeri.
+Bu oneki ayirmanin sebebi kolaylik degil, fail-safe tasarim: 'auth:sanctum'
+unutulursa bir davetiye herkese acilir. Onek, "acik olmak"i bir UNUTMANIN
+sonucu olmaktan cikarip ACIKCA ISARETLENMIS bir istisna yapar.
+⚠️ Buraya bir rota eklemek, onu internete acmaktir. Once "bu veriyi kimligi
+bilinmeyen biri gorebilir mi?" sorusu cevaplanir.
+Ayrintili aciklama: docs/rehber/routes/api.md §0.3
+
+### T15 — satır 314: `Route::get('/plans', [PricingController::class, 'publicCatalog'])`
+
+Fiyat katalogu (Faz 13, K128): liste fiyati, gecerli kampanya, acik
+odeme yontemleri. Kimligi bilinmeyen biri gorebilir mi? EVET: fiyat
+sayfasi zaten herkese acik. Kisiye ozel ilk yayin indirimi BURADA YOK
+(yalnizca yuzdesi, "ilk yayinina %60" yazisi icin); o /api/pricing'de.
+
+### T16 — satır 330: `Route::post('/invitations/{invitation}/rsvps', [PublicRsvpController::class, 'store'])`
+
+🔴 Sistemin TEK auth'suz YAZMA yolu (Faz 5).
+Ic ice kaynak: bir LCV yaniti her zaman bir davetiyeye aittir ve bu
+aidiyet URL'nin YAPISINDA durur. Duz bir /api/public/rsvps ucu olsaydi
+davetiye kimligi govdeden gelirdi — yani istemcinin sozune kalirdi.
+throttle:rsvp iki kova birden uygular (5.11): IP basina dakikada 10,
+davetiye basina saatte 60. Ikisi iki farkli saldiriyi kapatir.
+
+### T17 — satır 352: `Route::post('/invitations/{invitation}/media', [PublicMediaController::class, 'store'])`
+
+🔴 Sistemin IKINCI auth'suz yazma yolu (Faz 6) — ve daha pahalisi.
+LCV metni birkac yuz bayt yazar; bu uc onlarca MEGABAYT dosya yazar.
+Ustelik Faz 5'in en ucuz katmani olan HONEYPOT burada YOK: gorunmez bir
+dosya alani diye bir sey yok. Bu yuzden throttle:media, throttle:rsvp'den
+DAHA DAR (dakikada 5 / saatte 40).
+SetEtag bu ucta anlamsiz ama zararsiz: grup middleware'i olarak geliyor,
+POST yanitlarinda ETag uretimi 304 dongusune girmez.
+
+### T18 — satır 368: `Route::post('/payments/webhook', PublicPaymentWebhookController::class)`
+
+🔴 Sistemin UCUNCU auth'suz yazma yolu (Faz 7) — ve tehdit modeli
+oncekilerden farkli: yazan anonim bir MISAFIR degil, bilinen bir MAKINE.
+Savunma TEK KATMAN: imza dogrulamasi (FakeGateway::parseNotification).
+Honeypot YOK (gorunmez alan diye bir sey yok), kota YOK (mesru bildirim
+sayisi onceden bilinemez). Bu bir eksiklik degil: imza, gonderenin kim
+oldugunu kriptografik olarak kanitlar — digerlerinde boyle bir kanit
+hic yoktu.
+🔴 docs/09 bu ucu /api/payments/webhook diye planlamisti; K12 onu buraya
+tasidi. Auth'suz her rota TEK yerde toplanir ki 'auth:sanctum unutuldu mu'
+sorusu bir hatirlama meselesi olmasin (fail-safe).
+🔴 CSRF muafiyeti icin YAZILACAK BIR SATIR YOK: Laravel 11+ iskeletinde
+VerifyCsrfToken yalnizca 'web' grubunda. Muafiyet yapisal.
+Ozel bir throttle kovasi YOK: mesru bildirim hacmi ongorulemez ve dar bir
+limit GERCEK odemeleri dusururdu. Grubun throttle:api tavani (60/dk, IP)
+gecerli — saglayici tek IP'den yogun gonderirse 429 alir ve retry eder
+(Faz 9: saglayici IP'leri muaf tutulacak).
+SetEtag bu ucta anlamsiz ama zararsiz: POST yanitlarinda 304 dongusune
+girmez; 204 yanitinin govdesi zaten yok.
+
+### T19 — satır 396: `Route::post('/payments/shopier/callback', ShopierCallbackController::class)`
+
+Faz 12: Shopier'in iki dönüş kanalı (K117, K122). Fake'in /payments/webhook
+ucu yerinde kalıyor; Shopier'in uçları ayrı, çünkü yanıt biçimleri farklı.
+  callback -> kullanıcının TARAYICISI gönderir; yanıt 303 yönlendirme.
+              'osb' modunda hiçbir siparişi değiştirmez.
+  osb      -> Shopier'in SUNUCUSU gönderir; yanıt düz metin 'success'.
+              'paid' kararını veren kanal.
+🔴 Yol ShopierGateway::CALLBACK_PATH ile aynı olmalı (forma yazılan adres);
+ShopierCallbackTest ikisini kilitler.
+CSRF muafiyeti yine YAPISAL ('api' grubu) — tarayıcıdan gelen form POST'u
+olmasına rağmen yazılacak bir istisna yok.
+
+### T20 — satır 416: `Route::post('/contact', PublicContactController::class)`
+
+🔴 Sistemin DORDUNCU auth'suz yazma yolu (Faz 8) — ve tehdit modeli
+LCV'ninkine en yakin olani: yazan, tarayicidaki bir insan (ya da onu
+taklit eden bir bot).
+Savunma UC katman, en ucuzdan pahaliya (L1):
+  1. throttle:contact  IP basina 3/dk ve 10/saat — LCV'den DAR, cunku
+                       mesru bir kullanici bu formu gunde bir kez doldurur
+  2. honeypot          gorunmez alan; bot SESSIZCE yutulur (L2)
+  3. bicim dogrulama   ContactRequest
+Webhook'ta honeypot MUMKUN DEGILDI (gonderen bir makineydi); burada
+mumkun ve kullaniliyor.
+🔴 YOL FRONTEND'DEN FARKLI. `services/contact.ts` bugun `/api/contact`
+cagiriyor; uc `/api/public/contact` altinda acildi ve FRONTEND
+UYARLANACAK. Gerekce K12: auth gerektirmeyen rotalarin TAMAMI tek
+onekte toplanir ki "auth:sanctum unutuldu mu?" bir HATIRLAMA meselesi
+olmasin. Bu ucu disarida birakmak, o oneki bir kurala degil bir
+ALISKANLIGA cevirirdi — ve ilk istisna, ikincisinin gerekcesi olur.
+Faz 7'de webhook icin birebir ayni karar verilmisti (K65).
+
+### T21 — satır 441: `Route::post('/email-change/confirm', PublicEmailChangeController::class)`
+
+E-posta değişikliği onayı (Faz 14, 14.10 · K144).
+Kimliği bilinmeyen biri görebilir mi? Yalnızca İMZALI bağlantıyı taşıyan:
+yetkinin kanıtı oturum değil imza (kullanıcı maili telefonda açmış olabilir).
+Değerler sorguda, imza onları kapsıyor (EmailChangeLink, göreli imza).
+throttle:auth: imza tahmini anlamsız ama kova ucuz bir tavan.

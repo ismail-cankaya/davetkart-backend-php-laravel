@@ -41,14 +41,8 @@ use Illuminate\Support\ServiceProvider;
 class AppServiceProvider extends ServiceProvider
 {
     /**
-     * Register any application services.
-     *
-     * Konteyner baglamalari burada yapilir: "bu arayuz istendiginde su sinifi
-     * ver".
-     *
-     * 🔴 Faz 5'in sozu tutuldu: kota artik gercek siparis kayitlarindan
-     * okunuyor (K42/K51) ve degisen TEK sey asagidaki satir oldu —
-     * SubmitRsvpAction'a, testlerine ve hata sozlesmesine dokunulmadi.
+     * Konteyner baglamalari: "bu arayuz istenince su sinifi ver" (kota K42/K51, odeme K8, AI K70).
+     * Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P1.
      */
     public function register(): void
     {
@@ -64,18 +58,8 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Aktif odeme surucusunu config'ten secer — Strategy Pattern'in
-     * "hangi strateji?" karari (K8).
-     *
-     * 🔴 Bu closure KAYIT aninda degil COZUM aninda calisir. Aksi halde
-     * config henuz yuklenmemis olabilirdi ve bir yapilandirma hatasi
-     * uygulamanin ACILISINI kirardi — oysa yalnizca ODEME uclarini kirmasi
-     * gerekir (saglik sondasi, davetiye okuma, LCV calismaya devam etmeli).
-     *
-     * 🔴 Bilinmeyen surucu SESSIZCE null donmez, PROVIDER_UNAVAILABLE (503)
-     * firlatir. Sessiz bir varsayilan ("bulamazsan fake kullan") uretimde
-     * SHOPIER_API_SECRET eksik oldugu gun her odemeyi sahte olarak BASARILI
-     * sayardi — bir yapilandirma hatasinin sessizce bedava yayina donusmesi.
+     * Aktif odeme surucusunu config'ten secer — Strategy Pattern'in "hangi strateji?" karari (K8).
+     * Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P2.
      */
     private function resolvePaymentGateway(Application $app): PaymentGateway
     {
@@ -97,22 +81,8 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Aktif AI surucusunu config'ten secer — resolvePaymentGateway()'in
-     * BIREBIR ikizi (K70).
-     *
-     * 🔴 Ayni gerekce, ayni sonuc: closure COZUM aninda calisir, boylece
-     * hatali bir AI_PROVIDER degeri yalnizca asistan ucunu kirar; giris,
-     * davetiye okuma, LCV ve odeme calismaya devam eder (blast radius).
-     *
-     * 🔴 Bilinmeyen surucu SESSIZCE NullProvider'a DUSMEZ. Cazip olan
-     * alternatif buydu ve tam olarak K70'in yasakladigi sey: uretimde
-     * AI_PROVIDER yanlis yazildigi gun asistan sahte cevaplar dondurur,
-     * kullanici bunu "kotu model" sanir ve hata aylarca gorunmez. Bir
-     * yapilandirma hatasi GURULTULU olmalidir.
-     *
-     * "Anahtar var mi?" sorusunu burada SORMUYORUZ: o, GeminiProvider'in
-     * kendi degismezidir (A8). Burasi yalnizca "HANGI surucu?" sorusunu
-     * cevaplar. Iki ayri soru, iki ayri yer.
+     * Aktif AI surucusunu config'ten secer — resolvePaymentGateway()'in BIREBIR ikizi (K70).
+     * Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P3.
      */
     private function resolveAiProvider(Application $app): AiProvider
     {
@@ -177,14 +147,7 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * Auth uc noktalari icin hiz siniri (K36).
-     *
-     * IKI limit birlikte calisir, cunku iki farkli saldiri sekli var:
-     *   1) Ayni hesaba tekrarli deneme (brute-force)  -> e-posta + IP anahtari
-     *   2) Ayni IP'den cok hesaba yayilma (spraying)  -> yalnizca IP anahtari
-     *
-     * Ayrica K32 (Argon2id) her denemeyi 64 MB + ~200 ms yaptigi icin sinirsiz
-     * cagri bir BELLEK TUKETIMI saldirisidir; limit onu da kapatir.
-     * Ayrintili aciklama: docs/rehber/app/Providers/AppServiceProvider.md §4
+     * Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P4.
      */
     private function configureRateLimiting(): void
     {
@@ -201,17 +164,7 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * 🔴 LCV gonderimi — sistemin tek auth'suz YAZMA yolu (Faz 5).
-     *
-     * IKI kova birlikte calisir, cunku iki farkli saldiri sekli var:
-     *   1) Tek kaynaktan seri gonderim        -> IP anahtari (dakikada 10)
-     *   2) Botnet'ten tek davetiyeye yagmur   -> davetiye anahtari (saatte 60)
-     *
-     * Ikincisi olmasaydi 500 farkli IP'den gelen istek hicbir limite takilmaz
-     * ve bir davetiyenin LCV listesi coplenirdi; birincisi olmasaydi tek bir
-     * makine tum davetiyeleri sirayla doldurabilirdi.
-     *
-     * Kota bu limitin YERINE GECMEZ (5.7): hiz siniri ne kadar cok/hizli
-     * gonderildigine bakar, kota kac MISAFIR yazildigina.
+     * Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P5.
      *
      * @return list<Limit>
      */
@@ -233,18 +186,7 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * 🔴 Misafirin MEDYA yuklemesi — sistemin IKINCI auth'suz yazma yolu (Faz 6).
-     *
-     * Kalip rsvpLimits() ile ayni (IP kovasi + davetiye kovasi) ama sayilar
-     * DAHA DAR, iki sebeple:
-     *
-     *   1. Honeypot YOK. Faz 5'te bot, tek sorgu bile actirmadan eleniyordu;
-     *      dosya yuklemede gorunmez alan diye bir sey yok. Bu limiter, orada
-     *      honeypot'un yaptigi isi de ustlenmek zorunda.
-     *   2. Istek basina maliyet on kat. Bir LCV satiri birkac yuz bayt; bir
-     *      video 20 MB + MIME analizi + kuyrukta yeniden kodlama.
-     *
-     * Kota bu limitin YERINE GECMEZ (L3): limit "ne siklikta"ya, kota "kac
-     * dosya"ya bakar. Suresiz bir saldirgan yavaslar ama kotayi yine doldurur.
+     * Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P6.
      *
      * @return list<Limit>
      */
@@ -264,31 +206,15 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * 🔴 Asistan — sistemin PARA HARCAYAN tek ucu (Faz 8).
-     *
-     * Anahtar KULLANICI, IP degil. Gerekce Faz 8'in en onemli kararidir:
-     * her cagri paradir ve bir maliyet kontrolu, harcamanin bir KIMLIGE
-     * yazilabilmesini gerektirir. IP anahtari iki yonde birden basarisiz
-     * olurdu: CGNAT arkasindaki on binlerce abone tek IP'dir (mesru
-     * kullanici kapida kalir), ve IP degistirmek saldirgan icin saatlik
-     * birkac kurustur (kacan hic engellenmez). Uc bu yuzden auth'ludur.
-     *
-     * 🔴 Kova TEK: dakikada N. Ikinci bir kova (davetiye/saat) yok cunku bu
-     * ucun bir UST KAYNAGI yok — sohbet bir davetiyeye ait degil.
-     *
-     * Kota bu limitin YERINE GECMEZ (L3): limit "ne siklikta"ya bakar ve
-     * cache'te durur; kota "bugun kac mesaj"a bakar ve VERITABANINDA durur.
-     * Cache silinirse limit sifirlanir — kota sifirlanmaz. Bir para
-     * kontrolu cache'e emanet edilmez.
+     * Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P7.
      *
      * @return list<Limit>
      */
     private function assistantLimits(Request $request): array
     {
-        // 🔴 Bu limiter ROTA seviyesindedir ve auth:sanctum'DAN SONRA calisir
-        // (Laravel'in middleware oncelik listesinde AuthenticatesRequests,
-        // ThrottleRequests'ten oncedir), dolayisiyla user() burada COZULMUS
-        // gelir. apiLimits() ise GRUP seviyesinde ve orada null doner.
-        /** @var User|null $user */
+        // 🔴 Bu limiter ROTA seviyesindedir ve auth:sanctum'DAN SONRA calisir (Laravel'in middleware oncelik
+        // listesinde AuthenticatesRequests, ThrottleRequests'ten oncedir), dolayisiyla user() burada …
+        // Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P8.
         $user = $request->user();
 
         $identity = $user !== null
@@ -321,17 +247,7 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * 🔴 Iletisim formu — sistemin DORDUNCU auth'suz yazma yolu (Faz 8).
-     *
-     * Oncekiler: LCV (5), misafir medyasi (6), odeme webhook'u (7).
-     *
-     * LCV'den DAHA DAR (dakikada 3 · saatte 10): mesru bir kullanici
-     * iletisim formunu gunde bir kez doldurur, oysa tek bir davetiyenin LCV
-     * ucuna onlarca farkli misafir yazar. Ikinci kova (saatlik) olmasaydi
-     * dakikada 3'u asmayan sabit bir akis gunde 4320 mesaj birakirdi.
-     *
-     * Webhook'tan farki: orada kova YOKTU cunku mesru bildirim hacmi
-     * onceden bilinemez ve dar bir limit GERCEK odemeleri dusururdu.
-     * Burada mesru hacim gayet ongorulebilir.
+     * Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P9.
      *
      * @return list<Limit>
      */
@@ -351,15 +267,8 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * 🔴 Hediye kodu denemesi (Faz 11): kod tahmininin hiz siniri.
-     *
-     * Kod para degerinde. Elle girilen kodlar kisa ve tahmin edilebilir
-     * (DUGUN2026); sinirsiz deneme bir sozluk saldirisina donerdi. Anahtar
-     * KULLANICI (asistan ile ayni gerekce: uc auth'lu, IP hem genis hem ucuz).
-     *
-     * Onizleme ve kodlu checkout AYNI kovayi doldurur. Kodsuz checkout bu
-     * kovaya hic yazilmaz: hediye kodu kullanmayan odemeyi yavaslatmak icin
-     * bir sebep yok.
+     * 🔴 Hediye kodu denemesi (Faz 11): kod para degerinde, anahtar KULLANICI; onizleme ve kodlu checkout ayni kova.
+     * Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P10.
      *
      * @return list<Limit>
      */
@@ -390,13 +299,8 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Genel API tavani (FAZ-4 §9.2) — K186 (SEC-06): anahtar KIMLIK.
-     *
-     * Kimligi bilinen istek kullanici kovasinda: ayni salon Wi-Fi'indaki yuz
-     * misafir sahibin panelini kilitlemez. Kimligi bilinmeyen istek IP kovasinda.
-     * Laravel'in oncelik listesi Authenticate'i ThrottleRequests'ten ONCE siralar;
-     * auth:sanctum uclarinda $request->user() burada DOLU (testle kanitli).
-     * Ayrintili aciklama: docs/rehber/app/Providers/AppServiceProvider.md (K186)
+     * Genel API tavani (K186, SEC-06): kimligi bilinen istek kullanici kovasinda, bilinmeyen IP kovasinda.
+     * Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P11.
      *
      * @return list<Limit>
      */
@@ -432,12 +336,8 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Anahtar dogrulamadan ONCE hesaplanir; `email` dizi de gelebilir.
-     *
-     * 🔴 Faz 10 (10.13): kayit/girisle AYNI normalizasyon. Farkli olsaydi
-     * `İsmail@` ile `ismail@` IKI AYRI KOVA olurdu: ayni hesaba dakikada
-     * 5 degil 10 deneme. Hicbir test kirilmaz, hicbir kullanici sikayet
-     * etmez — sessiz bir guvenlik acigi.
+     * Auth kovasi: anahtar dogrulamadan once, kayit/girisle AYNI e-posta normalizasyonuyla (Faz 10.13).
+     * Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P12.
      *
      * @return list<Limit>
      */
@@ -481,22 +381,7 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * 🔴 `php artisan serve` altinda HER dosya yuklemesi dusuyordu (Windows).
-     *
-     * serve komutu, .env varken PHP'nin dahili sunucusunu (php -S) yalnizca
-     * izin listesindeki ortam degiskenleriyle baslatir; digerlerini SILER.
-     * TEMP ve TMP listede yok. Herd'in php.ini'sinde upload_tmp_dir bos, yani
-     * PHP gecici klasoru bu degiskenlerden bulur; bulamayinca Windows
-     * klasorune duser, oraya yazamaz ve dosyayi istek BASLARKEN atar:
-     *
-     *   PHP Warning: File upload error - unable to create a temporary file
-     *
-     * Dosya Laravel'e hic ulasmaz (`file` alani `uploaded` kuralina takilir)
-     * ve uyari JSON yanitin ONUNE basildigi icin frontend yaniti cozemez.
-     * Kod hatasi gibi gorunur, oysa sorun sunucunun ortamindadir.
-     *
-     * Yalnizca yerel gelistirme sunucusunu etkiler: uretim (nginx/php-fpm)
-     * bu komutu kullanmaz. TMPDIR, macOS/Linux'taki karsiligidir.
-     * Ayrintili aciklama: docs/rehber/app/Providers/AppServiceProvider.md
+     * Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P13.
      */
     private function configureLocalServer(): void
     {

@@ -68,6 +68,7 @@
             "@php artisan errors:export --check",
             "@php artisan plans:export --check",
             "@php artisan env:template --check",
+            "@php artisan k18:check",
             "@php artisan test"
         ],
         "post-autoload-dump": [

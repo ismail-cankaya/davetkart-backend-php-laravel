@@ -267,7 +267,8 @@ Ayrıntı: [`ExportPlanRules.md`](app/Console/Commands/ExportPlanRules.md).
 ### 5.2 `composer` betikleri (artisan değil ama her gün kullanılanlar)
 
 ```powershell
-composer check     # pint --test + phpstan + errors:export --check + plans:export --check + testler (commit öncesi)
+composer check     # pint --test + phpstan + errors:export / plans:export / env:template --check + k18:check + testler (commit öncesi)
+php artisan k18:check   # K259: daldaki değişen dosyalarda K18 (kısa yorum + kılavuz); docs/rehber/app/Console/Commands/CheckK18.md
 composer analyse   # yalnızca phpstan
 composer lint      # pint: kod biçimini DÜZELTİR
 composer test      # yalnızca testler
