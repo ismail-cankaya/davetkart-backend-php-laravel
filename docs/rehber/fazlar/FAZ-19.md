@@ -1,10 +1,49 @@
 # Faz 19 — denetimin orta öncelikli bulguları (`AUD-2026-11-12`)
 
 > **Başlangıç:** 20 Kasım 2026 · **Entegrasyon dalı:** `faz-19-audit-fixes` (`faz-18-audit-fixes`'in ucundan: backend `a968a67`, frontend `fefa647`)
-> **Durum:** 27/28 birleşti (19.0 hazırlık + 19.1–19.27, 24 Kasım 2026; 19.90 kayıtları işledi) · 19.28 `ARC-03` bekliyor · ⚠️ `composer check`'te PHPStan (Larastan) iç hatası açık: docs `phases/faz-19/HAT-C-ACIK-HATALAR.md` #11. Her bulgu ayrı bir `fix/…` (ya da `docs/…`) dalında kapandı, `faz-19-audit-fixes`'e birleşti.
+> **Durum:** 28/28 kod ✅ ve birleşti (19.0 hazırlık + 19.1–19.28; 25 Kasım 2026) · ⚠️ `composer check` PHPStan iç hatasıyla kırmızı (docs `phases/faz-19/HAT-C-ACIK-HATALAR.md` #11) → `v1.2.0` etiketi bekliyor. Kapanış özeti aşağıda.
 > **Kaynak:** docs deposu `audits/2026-11-12-full-system-audit/REPORT.md` §5.1 · takip tablosu `phases/faz-19/README.md`
 > **Kararlar:** docs deposu `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-19.md`
 > **Önceki:** [`FAZ-18.md`](FAZ-18.md). Faz 16–17'nin kaydı 19.3'te (`ARC-02`) yazıldı: [`FAZ-16.md`](FAZ-16.md), [`FAZ-17.md`](FAZ-17.md).
+
+## Faz 19 kapanış özeti (25 Kasım 2026)
+
+- **Bulgular:** 28/28 kapandı ve `faz-19-audit-fixes`'e birleşti; `SEC-10` yalnızca hazırlık (kod değişmedi, Shopier cevabı bekliyor), `OPS-05` yalnızca docs.
+- **Kararlar:** K179–K192, K220–K232, K250–K259 (K193–K219 ve K233–K249 ayrılmıştı, kullanılmadı). Sıradaki K260.
+- **19.90 eksiksizliği:** 19.0 ve 19.2–19.27'nin 27 bölümü bu dosyada, numara sırasıyla (19.90 betiği her kayıt dosyasının "Faz bölümü"nü taşıdı; sayı 27).
+
+| Kapı (bu dalda, 25 Kasım) | Sonuç |
+|---|---|
+| Backend `composer check` | ❌ PHPStan (Larastan) iç hatası (`Class mixed was not found`, `TemplateCatalogueTest`) zinciri durdurdu: docs `HAT-C-ACIK-HATALAR.md` #11 |
+| … zincirin geri kalanı tek tek | ✅ Pint · `errors:export` / `plans:export` / `env:template --check` · `k18:check` (4 dosya, 0 ihlal) · `php artisan test` 1271/1271 (4613 assertion) |
+| Backend `composer audit` | ✅ açık yok |
+| Frontend `npm ci` + `npm run check` | ✅ (entegrasyon ucu `fe70b62`) |
+| Frontend `npm run e2e` | ✅ 4/4 (gerçek backend: bu dal) |
+| Frontend `npm run perf` | ✅ bütçe içinde; LCP ana 3824 · misafir 2896 · giriş 3848 · fiyat 4616 ms; CLS 0–0,014 |
+
+**Kalan elle işler (İsmail):**
+
+1. PHPStan iç hatası (#11) çözülmeden `composer check` yeşil olmaz → `v1.2.0` etiketi bekliyor (§11.5).
+2. Shopier'in alıcı alanları cevabı (`SEC-10`, docs `notes/04-SHOPIER-ALICI-ALANLARI-SORUSU.md`; K125).
+3. Süre takvimi: `operations/deployment/SURE-TAKVIMI.md` tarihlerinin doldurulması ve `.ics` içe aktarımı (`OPS-05`).
+4. İzleme hesabı ve kalp atışı adresleri (`OPS-03`, `IZLEME.md` §4; K156).
+5. Gizlilik metninin hukukçu gözden geçirmesi (`SEC-11`, K231).
+6. Sunucuda `APP_URL` (K180), CSP zorlama kararı (K175), Gold onayı kaydı (K252), Guzzle 8 geçişi (K179).
+
+**Faz 19'dan sonra sıradaki işler (öneri; karar İsmail'in).** 22 🟢 + 5 💡 bulgudan yayından sonra ilk ele alınacaklar:
+
+| Bulgu | Konu | Neden önce |
+|---|---|---|
+| `OPS-08` | Günlüklerde istek kimliği yok | Yayından sonraki ilk olayda hangi isteğin neyi bozduğu bulunamaz; ucuz ve hemen yarar. |
+| `SEC-16` | Hesap bazlı kaba kuvvet freni yok | IP değiştiren saldırgana karşı tek fren e-posta+IP kovası; giriş açık bir uç. |
+| `ARC-09` | Checkout idempotent değil | Çift tıklama ikinci `pending` sipariş açar; ödeme yolunda karışıklık ve destek yükü. |
+| `OPS-06` | Dağıtım yerinde, bakım kipi yok | Her dağıtım kısa bir kırık pencere açar; trafik geldikçe görünür olur. |
+| `SEC-15` | Kayıt ucu e-postanın kayıtlı olduğunu söylüyor | Hesap tarama; `SEC-09` sonrası düzeltmesi küçük. |
+| `FE-58` | Ödeme dönüşünde onaysız yayın (K67 sorusu) | Ürün kararı gerekiyor; kullanıcı beklentisiyle çelişebilir. |
+| `TST-03` | Satır kapsamı ölçülmüyor | `k18:check` gibi bir cırcırla kapsam düşüşü de yakalanabilir. |
+| `SEC-18` 💡 | Token httpOnly çerezde | K177 açık kararı; CSP zorlamasından (K175) sonra. |
+
+Frontend için aynı K18 cırcırı (`verify:k18`) önerilir (D4); bu fazda frontend'e dokunulmadı.
 
 Denetim 29 orta (🟡) bulgu çıkardı. `TST-01` Faz 18.1'de kapandı (K150); kalan 28'i burada, sırası
 docs `phases/faz-19/README.md`'deki gerekçeyle: önce yayın engeli, sonra kayıt ve işletim, güvenlik,
@@ -40,7 +79,7 @@ frontend, en son çok dosyaya dokunan `ARC-03`.
 | 19.25 | `FE-53` | Kısıtlı mobil koşulda LCP 3,9–5,7 sn; giriş ve fiyat sayfalarında CLS 0,33–0,63 | frontend `fix/2026-11-23-fe-53-mobile-vitals`<br>docs `docs/2026-11-23-fe-53-mobile-vitals` | K228 | birleşti |
 | 19.26 | `FE-50` | Sihirbaz her ziyarette sunucuda boş taslak açıyor; yenilemede editör kayboluyor | backend ve frontend `fix/2026-11-23-fe-50-draft-lifecycle`<br>docs `docs/2026-11-23-fe-50-draft-lifecycle` | K192 | birleşti |
 | 19.27 | `FE-54` | Hata ve başarı mesajları ekran okuyucuya duyurulmuyor; kontrast yetersiz | frontend `fix/2026-11-23-fe-54-accessibility`<br>docs `docs/2026-11-23-fe-54-accessibility` | K229 | birleşti |
-| 19.28 | `ARC-03` | K18 dosyaların %92'sinde çiğneniyor; 79 dosyanın kılavuzu yok | — | — | bekliyor |
+| 19.28 | `ARC-03` | K18 dosyaların %92'sinde çiğneniyor; 79 dosyanın kılavuzu yok | `fix/2026-11-24-arc-03-k18-ratchet`<br>docs `docs/2026-11-24-arc-03-k18-ratchet` | K259 | kod ✅ · birleşti (25 Kas) |
 
 19.0 ve 19.2–19.27'nin bölümleri paralel hatların kayıt dosyalarından (`davetkart-docs: phases/faz-19/kayit/`)
 19.90'da (24 Kasım) taşındı; numara sırasıyla aşağıda. Kararların gerekçesi docs `EK-FAZ-19.md`'de.
@@ -1432,3 +1471,45 @@ Mutant 2 (frontend): `shouldAutoSave` her zaman `true` → "yalnızca kategori v
 **Gördüm, dokunmadım.** `heading-order` 12 sayfada (best-practice); `Features.tsx`/`AboutPage.tsx`'te aynı `text-gold` küçük numara deseni (taranan sayfalarda ihlal vermedi). Form hata mesajlarının `aria-describedby` bağı taranmadı.
 
 **İsmail'e kalan.** Narrator ile giriş sayfasında yanlış parola: hata duyuruluyor mu. Klavye gezinmesi denetimi (öneri).
+
+---
+
+## 19.28 — `ARC-03`: K18 dosyaların %92'sinde çiğneniyor; 79 dosyanın kılavuzu yok
+
+> **Dallar:** backend `fix/2026-11-24-arc-03-k18-ratchet` · docs `docs/2026-11-24-arc-03-k18-ratchet` · **K:** K259 · **Hat:** C
+
+**Sorun.** K18 (kısa yorum, ayrıntı `docs/rehber/<aynı-yol>.md`) ölçülmüyordu: denetimde 287 üretim dosyasının 265'inde uzun
+blok, 362 kod dosyasının 79'unun kılavuzu yoktu. `routes/api.php`'de rotalar 300 satır açıklamanın arasındaydı.
+
+**Kararlar.** §A boş → üçü de **varsayılan (İsmail cevaplamadı)**: cırcır, iki dosya taşınsın, Faz 13–14 kılavuzları yazılsın.
+K259: `php artisan k18:check` (`app/Support/K18Inspector.php` ölçer) tabandan (`0743874`) sonra değişen `app/`, `routes/`,
+`config/`, `database/` PHP dosyalarında 3 içerik satırından uzun blok ya da eksik kılavuz → çıkış 1. Belirteç tabanlı
+(`token_get_all`); `/**`, `*/` ve tip etiketleri (`@param`, `@return`, `@template`, `@phpstan-*` …) sayılmaz. `composer
+check`'e girdi; CI `fetch-depth: 0` (sığ klonda taban yok → kapalı başarısızlık). D2: `routes/api.php` 21 blok,
+`AppServiceProvider.php` 13 blok kılavuzlarına **aynen** taşındı (`T1…T21`, `P1…P13`); kodda tek cümle + numara.
+D3: 28 kılavuz (`Actions/Pricing` 5, `Actions/Account` 6, `Requests/Account` 5, `Notifications` 5, `Services/Payment` 7) +
+`ValidationServiceProvider` (19.9'da atlanmıştı). D4: frontend için öneri.
+
+**Plandan sapma.** (1) Komut adı `k18:check`, taban sabit commit (`CheckK18::BASELINE`), `faz-19-audit-fixes` adı değil:
+dal ilerledikçe taban kaymasın diye. (2) "3 satır" içerik satırı sayılır (denetim betiği `/**` ve `*/`'yi de sayıyordu);
+bu yüzden denetimin `awk` ölçüsü taşınan dosyalarda düşmedi (aşağıda). (3) `.github/workflows/ci.yml` değişti
+(`fetch-depth: 0`); prompt CI dosyasını saymıyordu. (4) Taşıma bir betikle yapıldı; özetler kesik kalan 10 blokta elle yazıldı.
+
+**Testler + mutant.**
+
+| # | Koşu | Sonuç |
+|---|---|---|
+| 1 | `K18CheckTest` (uzun blok + kılavuzsuz, 3 satır sınırı, tip etiketleri, blok bölme, kökler, komut, bilinmeyen taban) | ✅ 7/7 |
+| M1 | `close()`'da `>` → `>=` | 🔴 1 |
+| M2 | kılavuz denetimi kaldırıldı | 🔴 2 |
+| 2 | `route:list --json` önce/sonra (api.php ve provider taşımasından sonra) | ✅ birebir aynı |
+| 3 | `k18:check routes/api.php` / `AppServiceProvider.php` | 21 + 14 ihlal → 0 + 0 |
+| 4 | Denetim ölçüsü (betiğin mantığı, taban → dal) | kod dosyası 418 → 421 · kılavuzsuz 110 → 81 · uzun bloklu 296/325 → 298/327 (ölçü `/**` `*/`'yi saydığı için) |
+| 5 | Kapanış kapıları | yukarıdaki özet tablosu |
+
+**B7.** Komut, mutantlar, rota listesi, tam takım, audit, frontend kapıları görüldü. PHPStan yeni dosyaları analiz **edemedi**
+(tek dosya kipinde mevcut dosyalar da aynı "tip yok" hatalarını veriyor; tam koşu #11'de çöküyor). Denetimin 79/265 sayıları
+denetim anlık görüntüsüne (`d810410`) ait; buradaki taban `0743874`.
+
+**İsmail'e kalan.** `main`'e birleştirme ve `v1.2.0` (PHPStan yeşil olmadan etiket yok): docs `phases/faz-19/FAZ-19-ARC-03-COMMIT-KOMUTLARI.md`.
+Kalan 81 kılavuzsuz dosya ve uzun bloklar cırcırla, dokunuldukça.
