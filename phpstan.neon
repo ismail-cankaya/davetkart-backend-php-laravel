@@ -45,6 +45,11 @@ parameters:
     # 8.5.x serisini kapsar.
     phpVersion: 80500
 
+    # Sonuc onbellegi worktree'ye ozel. Varsayilan %TEMP%\phpstan butun
+    # worktree'lerde ortakti: hatlar birbirinin onbellegini okuyup sahte
+    # hata (501/512) ve "Class mixed was not found" ic hatasi aliyordu.
+    tmpDir: storage/phpstan
+
     ignoreErrors:
         # Laravel'in Facade ve Model cephelerinde statik cozumleme sinirli kalir;
         # Larastan cogunu cozer, kalan istisnalar buraya EK GEREKCEYLE yazilir.
