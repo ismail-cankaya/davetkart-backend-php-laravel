@@ -11,3 +11,6 @@
 | `the_preview_shares_the_guest_cache_entry` | D4: misafir okumasıyla aynı önbellek anahtarı |
 
 **Mutant (23 Kasım 2026):** `ResolvePublicInvitationAction`'dan yayın koşulu silindi → `an_unpublished…` kırmızı (taslak adı sızdı).
+
+- `an_invitation_without_a_gallery_shows_its_template_cover` (B-E4, K235): galerisiz davetiyede kapak dizinindeki yol;
+  dizinde olmayan preset ve beklenmeyen (başka alan adı) değer → genel poster.
