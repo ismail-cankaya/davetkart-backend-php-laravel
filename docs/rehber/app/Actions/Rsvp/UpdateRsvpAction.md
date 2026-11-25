@@ -79,3 +79,20 @@ alırdı. Kod tek bir yanıtın anahtarı. Davetiye sahibi yanıtı silerse kod 
 - **Ad üzerinden birleştirme yok.** *"Aynı ad = aynı misafir"* varsayılmadı: iki ayrı *"Ayşe
   Yılmaz"* olabilir.
 - **IP güncellenmiyor.** `ip_hash` ilk gönderiminki olarak kalıyor.
+
+## K18 ile koddan taşınan açıklama (Faz 19 ortak düzeltme, A-E4) — `UpdateRsvpAction.php` satır 15
+
+```text
+Misafirin kendi LCV'sini düzenleme koduyla günceller (Faz 10, 10.59 · K101).
+
+Aynı misafir formu ikinci kez gönderdiğinde yeni satır açılmaz, eskisi
+değişir; kişi sayısı kotadan iki kez düşmez.
+
+Katmanlar SubmitRsvpAction'la aynı, honeypot hariç (kodu bilmeyen buraya
+gelemez):
+  1. Hedef açık mı    -> ResolveOpenRsvpInvitationAction (yayın + modül + son tarih)
+  2. Kod doğru mu     -> yanlışsa 404; "yanıt yok" ile ayırt edilemez
+  3. Medya aidiyeti   -> ResolveGuestMediaAction
+  4. Kota             -> eski kişi sayısı hariç, kilitli transaction içinde
+Ayrıntılı açıklama: docs/rehber/app/Actions/Rsvp/UpdateRsvpAction.md
+```

@@ -540,3 +540,49 @@ yanıtını her güncellediğinde kendi fotoğrafını kaybederdi.
 | Yalnızca fotoğraf kolonuna bakılsın | aynı testin **video** vakası (ilk sürümde hayatta kaldı; test veri sağlayıcıya çevrildi) |
 | Kendi yanıtı hariç tutulmasın | `RsvpEditTest::the_update_keeps_the_guests_own_photo` |
 | Güncelleme `owner` geçmesin | aynı test |
+
+## K18 ile koddan taşınan açıklama (Faz 19 ortak düzeltme, A-E4) — `SubmitRsvpAction.php` satır 108
+
+```text
+Bot yanitini yutar ama KAYDETMEZ.
+
+Donen nesne gercek bir ULID ve zaman damgasi tasir, yani yanit gecerli
+bir kayittan AYIRT EDILEMEZ — ama hicbir yere yazilmadi. HasUlids
+kimligi veritabanina gitmeden uretebildigi icin bu mumkun. Faz 10:
+duzenleme kodu da gercek bicimde uretiliyor; kodsuz bir yanit bota
+"yakalandin" derdi.
+
+🔴 Buradaki tek "kaydedilmedi" kaniti testtir (T14: yaniti degil ETKIYI
+dogrula). Yanit 201 oldugu icin baska hicbir sey sana soylemez.
+
+@param  array<string, mixed>  $attributes
+```
+
+## K18 ile koddan taşınan açıklama (Faz 19 ortak düzeltme, A-E4) — `SubmitRsvpAction.php` satır 16
+
+```text
+Misafirin LCV yanitini kabul eder — sistemin TEK auth'suz yazma yolu.
+
+🔴 Katmanli savunma (defense in depth) burada uygulanir. Her katman tek
+basina yeterli DEGILDIR; birlikte anlam kazanirlar:
+
+  0. Hiz siniri      -> rota katmani (5.8), bu Action'a hic gelmez
+  1. Honeypot        -> bot sessizce yutulur, VERITABANINA HIC GIDILMEZ
+  2. Hedef acik mi   -> ResolveOpenRsvpInvitationAction (yayin + modul + son tarih)
+  3. Medya aidiyeti  -> baskasinin/yanlis turdeki medya SESSIZCE dusurulur
+  4. Kota            -> dolduysa 403 (kilitli transaction icinde)
+  5. KVKK            -> ham IP yerine hash
+
+Sira tesadufi degil: en ucuz kontrol en basta. Bot trafigi tek bir sorgu
+bile actirmadan elenir.
+
+🔴 6.13 (Faz 6): 2. katman BU DOSYADAN CIKARILDI. Gorunurluk + modul + son
+tarih ucusu artik ResolveOpenRsvpInvitationAction'da; cunku misafirin MEDYA
+yukleme ucu de tam olarak ayni uc kosulu istiyor ve kural iki yerde
+duramaz (C3). Davranis birebir ayni kaldi — kaniti RsvpTest'in 29 testi.
+
+Faz 10 (10.59 · K101): 3. ve 4. katman ResolveGuestMediaAction ve
+EnsureRsvpQuotaAction'a tasindi (guncelleme de kullaniyor). Yanit artik
+misafirin duzenleme kodunu da tasiyor (RsvpSubmission).
+Ayrintili aciklama: docs/rehber/app/Actions/Rsvp/SubmitRsvpAction.md
+```

@@ -7,23 +7,14 @@ namespace App\Actions\Rsvp;
 use App\Enums\MediaKind;
 use App\Exceptions\RsvpDeadlinePassedException;
 use App\Exceptions\RsvpQuotaExceededException;
+use App\Models\Invitation;
 use App\Models\Rsvp;
 use App\Support\RsvpEditCode;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Misafirin kendi LCV'sini düzenleme koduyla günceller (Faz 10, 10.59 · K101).
- *
- * Aynı misafir formu ikinci kez gönderdiğinde yeni satır açılmaz, eskisi
- * değişir; kişi sayısı kotadan iki kez düşmez.
- *
- * Katmanlar SubmitRsvpAction'la aynı, honeypot hariç (kodu bilmeyen buraya
- * gelemez):
- *   1. Hedef açık mı    -> ResolveOpenRsvpInvitationAction (yayın + modül + son tarih)
- *   2. Kod doğru mu     -> yanlışsa 404; "yanıt yok" ile ayırt edilemez
- *   3. Medya aidiyeti   -> ResolveGuestMediaAction
- *   4. Kota             -> eski kişi sayısı hariç, kilitli transaction içinde
+ * Misafirin kendi LCV'sini düzenleme koduyla günceller (Faz 10, 10.59 · K101); katmanlar SubmitRsvpAction'la aynı, honeypot hariç.
  * Ayrıntılı açıklama: docs/rehber/app/Actions/Rsvp/UpdateRsvpAction.md
  */
 final class UpdateRsvpAction
@@ -61,15 +52,13 @@ final class UpdateRsvpAction
 
         $rsvp->fill($attributes);
 
-        $rsvp->photo_media_id = $this->guestMedia->handle(
-            $invitation, $mediaIds['photo'], MediaKind::RsvpPhoto, owner: $rsvp,
-        );
+        DB::transaction(function () use ($invitation, $rsvp, $mediaIds): void {
+            // A-E4: iliştirme bütçeyi tüketir; davetiye kilidi altında (SubmitRsvpAction ile aynı).
+            Invitation::query()->whereKey($invitation->getKey())->lockForUpdate()->first();
 
-        $rsvp->video_media_id = $this->guestMedia->handle(
-            $invitation, $mediaIds['video'], MediaKind::RsvpVideo, owner: $rsvp,
-        );
+            $rsvp->photo_media_id = $this->guestMedia->handle($invitation, $mediaIds['photo'], MediaKind::RsvpPhoto, owner: $rsvp);
+            $rsvp->video_media_id = $this->guestMedia->handle($invitation, $mediaIds['video'], MediaKind::RsvpVideo, owner: $rsvp);
 
-        DB::transaction(function () use ($invitation, $rsvp): void {
             $this->quota->handle($invitation, $rsvp->guest_count, replacing: $rsvp);
 
             $rsvp->save();
