@@ -1096,6 +1096,7 @@ Liste ucu 15 saniyede bir cagrilir (config: poll_interval_seconds), yani
 sistemin en sik istenen auth'lu ucudur. SetEtag burada K46'nin karsiligini
 aliyor: Faz 4'te ETag'i ayri bir middleware yapmamizin gerekcesi
 "Faz 5'in polling ucu ayni katmani yeniden kullanacak" idi (C3).
+
 ⚠️ throttle:rsvp BURAYA KONMAZ — o kova YAZMA icindir (dakikada 10).
 Okuma polling'i 15 sn'de bir gelir ve o kovada bogulurdu.
 
@@ -1246,14 +1247,15 @@ girmez; 204 yanitinin govdesi zaten yok.
 ### T19 — satır 396: `Route::post('/payments/shopier/callback', ShopierCallbackController::class)`
 
 Faz 12: Shopier'in iki dönüş kanalı (K117, K122). Fake'in /payments/webhook
-ucu yerinde kalıyor; Shopier'in uçları ayrı, çünkü yanıt biçimleri farklı.
-  callback -> kullanıcının TARAYICISI gönderir; yanıt 303 yönlendirme.
-              'osb' modunda hiçbir siparişi değiştirmez.
-  osb      -> Shopier'in SUNUCUSU gönderir; yanıt düz metin 'success'.
-              'paid' kararını veren kanal.
-🔴 Yol ShopierGateway::CALLBACK_PATH ile aynı olmalı (forma yazılan adres);
-ShopierCallbackTest ikisini kilitler.
-CSRF muafiyeti yine YAPISAL ('api' grubu) — tarayıcıdan gelen form POST'u
+ucu yerinde kalıyor; Shopier'in uçları ayrı, çünkü yanıt biçimleri farklı:
+
+- `callback`: kullanıcının **tarayıcısı** gönderir; yanıt 303 yönlendirme. `'osb'` modunda hiçbir siparişi değiştirmez.
+- `osb`: Shopier'in **sunucusu** gönderir; yanıt düz metin `'success'`. `'paid'` kararını veren kanal.
+
+🔴 Yol `ShopierGateway::CALLBACK_PATH` ile aynı olmalı (forma yazılan adres);
+`ShopierCallbackTest` ikisini kilitler.
+
+CSRF muafiyeti yine YAPISAL (`'api'` grubu) — tarayıcıdan gelen form POST'u
 olmasına rağmen yazılacak bir istisna yok.
 
 ### T20 — satır 416: `Route::post('/contact', PublicContactController::class)`
@@ -1261,13 +1263,16 @@ olmasına rağmen yazılacak bir istisna yok.
 🔴 Sistemin DORDUNCU auth'suz yazma yolu (Faz 8) — ve tehdit modeli
 LCV'ninkine en yakin olani: yazan, tarayicidaki bir insan (ya da onu
 taklit eden bir bot).
+
 Savunma UC katman, en ucuzdan pahaliya (L1):
-  1. throttle:contact  IP basina 3/dk ve 10/saat — LCV'den DAR, cunku
-                       mesru bir kullanici bu formu gunde bir kez doldurur
-  2. honeypot          gorunmez alan; bot SESSIZCE yutulur (L2)
-  3. bicim dogrulama   ContactRequest
+
+1. `throttle:contact`: IP basina 3/dk ve 10/saat — LCV'den DAR, cunku mesru bir kullanici bu formu gunde bir kez doldurur.
+2. Honeypot: gorunmez alan; bot SESSIZCE yutulur (L2).
+3. Bicim dogrulama: `ContactRequest`.
+
 Webhook'ta honeypot MUMKUN DEGILDI (gonderen bir makineydi); burada
 mumkun ve kullaniliyor.
+
 🔴 YOL FRONTEND'DEN FARKLI. `services/contact.ts` bugun `/api/contact`
 cagiriyor; uc `/api/public/contact` altinda acildi ve FRONTEND
 UYARLANACAK. Gerekce K12: auth gerektirmeyen rotalarin TAMAMI tek

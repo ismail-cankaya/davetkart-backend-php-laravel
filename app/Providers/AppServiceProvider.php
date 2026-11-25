@@ -212,8 +212,7 @@ class AppServiceProvider extends ServiceProvider
      */
     private function assistantLimits(Request $request): array
     {
-        // 🔴 Bu limiter ROTA seviyesindedir ve auth:sanctum'DAN SONRA calisir (Laravel'in middleware oncelik
-        // listesinde AuthenticatesRequests, ThrottleRequests'ten oncedir), dolayisiyla user() burada …
+        // 🔴 Rota seviyesinde, auth:sanctum'dan SONRA calisir: user() burada cozulmus gelir (apiLimits'te null).
         // Ayrinti: docs/rehber/app/Providers/AppServiceProvider.md P8.
         $user = $request->user();
 

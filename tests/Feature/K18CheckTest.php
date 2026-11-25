@@ -21,6 +21,7 @@ final class K18CheckTest extends TestCase
         $this->root = sys_get_temp_dir().'/k18-'.bin2hex(random_bytes(4));
         File::ensureDirectoryExists($this->root.'/app/Demo');
         File::ensureDirectoryExists($this->root.'/docs/rehber/app/Demo');
+        File::ensureDirectoryExists($this->root.'/database');
     }
 
     protected function tearDown(): void
@@ -70,6 +71,24 @@ final class K18CheckTest extends TestCase
     }
 
     #[Test]
+    public function a_trailing_comment_does_not_start_a_block(): void
+    {
+        $inspector = new K18Inspector($this->root);
+
+        $this->assertSame([], $inspector->longBlocks("<?php\n\$x = 1; // a\n// b\n// c\n// d\n\$y = 2;\n"));
+        $this->assertSame([[3, 4]], $inspector->longBlocks("<?php\n\$x = 1; // a\n// b\n// c\n// d\n// e\n"));
+    }
+
+    #[Test]
+    public function a_line_comment_block_under_a_docblock_is_counted_separately(): void
+    {
+        $source = "<?php\n/**\n * a\n * b\n */\n// c\n// d\n// e\nfunction f() {}\n";
+
+        $this->assertSame([], (new K18Inspector($this->root))->longBlocks($source));
+        $this->assertSame([[6, 4]], (new K18Inspector($this->root))->longBlocks(str_replace("// e\n", "// e\n// f\n", $source)));
+    }
+
+    #[Test]
     public function only_code_roots_are_checked(): void
     {
         $this->assertTrue(K18Inspector::applies('app/Actions/X.php'));
@@ -83,14 +102,17 @@ final class K18CheckTest extends TestCase
     {
         $this->k18(['paths' => ['app/Rules/PasswordPolicy.php', 'tests/Feature/K18CheckTest.php']])
             ->expectsOutput('k18: 1 dosya, 0 ihlal')
-            ->assertExitCode(0);
+            ->assertExitCode(0)
+            ->run();
 
-        $file = 'database/k18-'.bin2hex(random_bytes(4)).'.php';
-        File::put(base_path($file), "<?php\n// a\n// b\n// c\n// d\n");
+        // Kirli dosya depoya degil gecici koke: surec olurse depoda kalip k18:check'i kirmizi yapmasin.
+        $this->source('database/Long.php', "// a\n// b\n// c\n// d\n");
+        $original = $this->app->basePath();
+        $this->app->setBasePath($this->root);
         try {
-            $this->k18(['paths' => [$file]])->expectsOutput('k18: 1 dosya, 2 ihlal')->assertExitCode(1);
+            $this->k18(['paths' => ['database/Long.php']])->expectsOutput('k18: 1 dosya, 2 ihlal')->assertExitCode(1)->run();
         } finally {
-            File::delete(base_path($file));
+            $this->app->setBasePath($original);
         }
     }
 
@@ -100,7 +122,7 @@ final class K18CheckTest extends TestCase
         $this->k18(['--base' => 'no-such-ref-k18'])->assertExitCode(1);
     }
 
-    /** @param array<string, mixed> $parameters */
+    /** @param  array<string, mixed>  $parameters */
     private function k18(array $parameters): PendingCommand
     {
         $command = $this->artisan('k18:check', $parameters);

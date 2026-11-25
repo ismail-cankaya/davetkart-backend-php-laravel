@@ -18,7 +18,7 @@
 
 ## Blok nasıl sayılır
 
-PHP'nin kendi tokenizer'ı (`token_get_all`) kullanılır; düzenli ifadeyle satır taramak `'// bu bir dize'` gibi
+PHP'nin kendi tokenizer'ı (`PhpToken::tokenize`) kullanılır; düzenli ifadeyle satır taramak `'// bu bir dize'` gibi
 dizeleri yorum sanırdı.
 
 - `T_COMMENT` (`//`, `#`, `/* */`) ve `T_DOC_COMMENT` (`/** */`) belirteçleri, **arada boş satır ya da kod yoksa**
@@ -28,13 +28,17 @@ dizeleri yorum sanırdı.
 - Tip etiketi satırları sayılmaz. Etiket çok satırlı bir tipe açılırsa (`@return array{` … `}`) parantezler
   kapanana kadar devam satırları da etiketin parçası sayılır.
 - `#[Attribute]` yorum değildir (`T_ATTRIBUTE`); sayılmaz.
+- **Kod satırının sonundaki yorum** (`$x = 1; // …`) blok başlatmaz ve bloğa girmez; altındaki yorum satırları kendi
+  bloklarını açar. Eskiden alttaki satırlarla birleşip yanlış pozitif veriyordu (Faz 19 ortak düzeltme).
+- **Docblock ile `//` bloğu ayrıdır:** `/** … */`'un hemen altındaki `//` satırları docblock'a eklenmez; tür değişince
+  yeni blok başlar. `//`, `#`, `/* */` (hepsi `T_COMMENT`) birbirine eklenir.
 
 ## Sık hata
 
 | Hata | Neden yanlış |
 |---|---|
 | Açıklamayı `@see` / `@note` gibi uydurma etiketlere yazmak | Yalnızca tip etiketleri muaf; başka etiket metin sayılır |
-| Uzun yorumu kod satırlarının sonuna (`$x = 1; // ...`) dağıtmak | Ardışık satırlar yine tek blok olur |
+| Uzun yorumu kod satırlarının sonuna (`$x = 1; // ...`) dağıtmak | Ölçülmez ama K18'in amacına aykırı; ayrıntı kılavuza |
 | Eşiği "3'ten çok" yerine "3 ve üstü" yazmak | 3 satır kurala uygun; mutant testi bunu yakalar |
 
 ## Terimler
