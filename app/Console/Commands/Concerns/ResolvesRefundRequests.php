@@ -9,8 +9,8 @@ use App\Enums\RefundRequestStatus;
 use RuntimeException;
 
 /**
- * refunds:approve ve refunds:reject'in ortak gövdesi (Faz 14, 14.6); kalıtım değil trait.
- * Ayrıntılı açıklama: docs/rehber/app/Console/Commands/Concerns/ResolvesRefundRequests.md
+ * refunds:approve ve refunds:reject'in ortak gövdesi (Faz 14.6).
+ * Neden trait: docs/rehber/app/Console/Commands/Concerns/ResolvesRefundRequests.md
  *
  * @mixin \Illuminate\Console\Command
  */
@@ -19,7 +19,11 @@ trait ResolvesRefundRequests
     private function resolve(ResolveRefundRequestAction $action, RefundRequestStatus $decision): int
     {
         $id = $this->argument('id');
-        $id = is_string($id) ? $id : '';
+        if (! is_string($id)) {
+            $this->error('Talep kimligi gerekli.');
+
+            return self::FAILURE;
+        }
         $note = $this->option('note');
         $note = is_string($note) && trim($note) !== '' ? mb_substr(trim($note), 0, 500) : null;
 

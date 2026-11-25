@@ -17,4 +17,4 @@
 Geçici kök: `sys_get_temp_dir()/k18-<rastgele>`; `tearDown` siler. Komut `base_path()` kullandığı için test,
 çağrı süresince uygulamanın kökünü geçici köke çevirir (`$this->app->setBasePath()`), `finally` ile geri alır.
 Eskiden kirli dosya depodaki `database/`'e yazılıyordu: süreç öldürülürse kalıp `k18:check`'i kırmızı yapıyordu
-(Faz 19 ortak düzeltme). Komut çağrıları `command()` yardımcısıyla `PendingCommand` olarak alınır (PHPStan `method.nonObject`).
+(Faz 19 ortak düzeltme). Komut çağrıları `k18()` yardımcısıyla `PendingCommand` olarak alınır (PHPStan `method.nonObject`).

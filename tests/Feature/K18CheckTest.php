@@ -100,7 +100,7 @@ final class K18CheckTest extends TestCase
     #[Test]
     public function the_command_passes_for_a_clean_file_and_fails_for_a_long_block(): void
     {
-        $this->command(['paths' => ['app/Rules/PasswordPolicy.php', 'tests/Feature/K18CheckTest.php']])
+        $this->k18(['paths' => ['app/Rules/PasswordPolicy.php', 'tests/Feature/K18CheckTest.php']])
             ->expectsOutput('k18: 1 dosya, 0 ihlal')
             ->assertExitCode(0)
             ->run();
@@ -110,7 +110,7 @@ final class K18CheckTest extends TestCase
         $original = $this->app->basePath();
         $this->app->setBasePath($this->root);
         try {
-            $this->command(['paths' => ['database/Long.php']])->expectsOutput('k18: 1 dosya, 2 ihlal')->assertExitCode(1)->run();
+            $this->k18(['paths' => ['database/Long.php']])->expectsOutput('k18: 1 dosya, 2 ihlal')->assertExitCode(1)->run();
         } finally {
             $this->app->setBasePath($original);
         }
@@ -119,11 +119,11 @@ final class K18CheckTest extends TestCase
     #[Test]
     public function an_unknown_base_fails_closed(): void
     {
-        $this->command(['--base' => 'no-such-ref-k18'])->assertExitCode(1);
+        $this->k18(['--base' => 'no-such-ref-k18'])->assertExitCode(1);
     }
 
     /** @param  array<string, mixed>  $parameters */
-    private function command(array $parameters): PendingCommand
+    private function k18(array $parameters): PendingCommand
     {
         $command = $this->artisan('k18:check', $parameters);
         $this->assertInstanceOf(PendingCommand::class, $command);

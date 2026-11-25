@@ -516,3 +516,18 @@ Remove-Item -Recurse -Force "$env:TEMP\phpstan"
 
 İleride PHPStan güncellendiğinde Windows eklentisi düzelmiş olabilir. O zaman satırı
 kaldırıp bir kez dene; 0 hata çıkarsa satır silinebilir.
+
+## 🆕 Faz 19 (25 Kasım 2026) — Sonuç önbelleği worktree'ye özgü (`tmpDir`)
+
+**Belirti:** Üç hat (worktree) aynı makinede analiz koşarken paralel koşu yüzlerce sahte hata
+verdi (Hat A 501, Hat B 512: `missingType.iterableValue`, `TRelatedModel given`…); aynı kod
+ayrı bir klasörde 3–9 gerçek hata. Hat C'nin `Class mixed was not found` iç hatası da aynı kökten.
+
+**Sebep:** `tmpDir` yoktu; PHPStan önbelleği `%TEMP%\phpstan`'a yazıyordu ve bu klasör **bütün
+worktree'lerde ortaktı**. Bir hat ötekinin önbelleğini (başka dosya yolları, başka kod) okuyordu.
+
+**Çözüm:** `phpstan.neon` → `tmpDir: storage/phpstan` (yol yapılandırma dosyasına göre çözülür;
+her worktree kendi klasörünü kullanır). Klasör `.gitignore`'da (`/storage/phpstan`).
+
+**Deneme:** iki worktree'de art arda `composer analyse` → ikisi de aynı sayıyı verir.
+Önbelleği silmek: `vendor\bin\phpstan clear-result-cache` (artık `%TEMP%` değil, `storage\phpstan`).

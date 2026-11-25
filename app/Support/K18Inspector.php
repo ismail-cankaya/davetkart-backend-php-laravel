@@ -91,7 +91,11 @@ final class K18Inspector
         return $blocks;
     }
 
-    /** @param list<array{int, int}> $blocks */
+    /**
+     * @param  list<array{int, int}>  $blocks
+     *
+     * @param-out list<array{int, int}> $blocks
+     */
     private function close(array &$blocks, int $start, int $count): void
     {
         if ($count > self::MAX_LINES) {

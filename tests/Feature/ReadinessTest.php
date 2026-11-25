@@ -8,14 +8,13 @@ use App\Contracts\DiskUsage;
 use App\Support\Health\RecordSchedulerHeartbeat;
 use Illuminate\Console\Scheduling\CallbackEvent;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Queue\Job;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Queue\Events\JobFailed;
-use Illuminate\Queue\Jobs\FakeJob;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Tests\TestCase;
@@ -166,18 +165,10 @@ final class ReadinessTest extends TestCase
     public function a_failed_job_is_reported(): void
     {
         $logger = Log::spy();
-        // Gercek Job sinifi: Mockery'nin MockInterface'i JobFailed'in tipine uymaz (PHPStan argument.type).
-        $job = new class extends FakeJob
-        {
-            public $attempts = 3;
-
-            protected $queue = 'default';
-
-            public function getRawBody(): string
-            {
-                return (string) json_encode(['displayName' => 'App\Jobs\SendSomething', 'job' => 'Illuminate\Queue\CallQueuedHandler@call']);
-            }
-        };
+        $job = $this->createStub(Job::class);
+        $job->method('resolveName')->willReturn('App\Jobs\SendSomething');
+        $job->method('getQueue')->willReturn('default');
+        $job->method('attempts')->willReturn(3);
 
         event(new JobFailed('database', $job, new RuntimeException('ayse@example.com icin gonderilemedi')));
 
