@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use PhpToken;
+
 /**
  * K18 kuralini tek dosyada olcer (Faz 19.28, ARC-03 · K259): 3 satirdan uzun yorum blogu ve eksik kilavuz.
  * Ayrintili aciklama: docs/rehber/app/Support/K18Inspector.md
@@ -55,28 +57,34 @@ final class K18Inspector
     public function longBlocks(string $source): array
     {
         $blocks = [];
-        $start = $end = 0;
+        $start = $end = $codeLine = $kind = 0;
         $count = 0;
 
-        foreach (token_get_all($source) as $token) {
-            if (! is_array($token) || ! in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                if (is_array($token) && $token[0] === T_WHITESPACE && substr_count($token[1], "\n") <= 1) {
-                    continue;
+        foreach (PhpToken::tokenize($source) as $token) {
+            if (! $token->is([T_COMMENT, T_DOC_COMMENT])) {
+                $isSpace = $token->is(T_WHITESPACE);
+                if (! $isSpace || substr_count($token->text, "\n") > 1) {
+                    $this->close($blocks, $start, $count);
+                    $count = 0;
                 }
-                $this->close($blocks, $start, $count);
-                $count = 0;
+                $codeLine = $isSpace ? $codeLine : $token->line + substr_count(rtrim($token->text, "\r\n"), "\n");
 
                 continue;
             }
+            // Kodla ayni satirdaki yorum blok baslatmaz; docblock ile `//` ayri bloktur.
+            if ($token->line === $codeLine) {
+                continue;
+            }
 
-            $lines = explode("\n", rtrim($token[1], "\n"));
-            if ($count === 0 || $token[2] > $end + 1) {
+            $lines = explode("\n", rtrim($token->text, "\r\n"));
+            if ($count === 0 || $token->line > $end + 1 || $token->id !== $kind) {
                 $this->close($blocks, $start, $count);
-                $start = $token[2];
+                $start = $token->line;
                 $count = 0;
             }
+            $kind = $token->id;
             $count += $this->contentLines($lines);
-            $end = $token[2] + count($lines) - 1;
+            $end = $token->line + count($lines) - 1;
         }
         $this->close($blocks, $start, $count);
 
