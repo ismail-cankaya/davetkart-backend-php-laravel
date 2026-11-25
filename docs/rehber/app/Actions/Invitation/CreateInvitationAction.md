@@ -388,6 +388,7 @@ Transaction'ın başında kullanıcı satırı `lockForUpdate` ile kilitlenir, y
 `davetkart.invitations.max_drafts_per_user` (50) doluysa `DraftLimitReachedException` → **403 `DRAFT_LIMIT_REACHED`**, `params.limit`.
 Kilit: iki eşzamanlı oluşturma aynı "yer var" cevabını okuyup tavanı aşardı (E9, TST-02 deseni). Yayındakiler sayılmaz: tavan
 sunucuda biriken boş taslağa karşı, ürünü kullanana karşı değil. Mevcut boş taslaklara dokunulmadı (§A-2); otomatik temizlik ayrı karar.
+Ortak düzeltmede (A-E2, K261) tek seferlik `invitations:prune-empty-drafts` eklendi: `app/Console/Commands/PruneEmptyDrafts.md`.
 Testler: `InvitationTest::a_user_cannot_keep_more_than_the_draft_limit` · `the_draft_limit_is_counted_under_the_user_lock` ·
 `owner_cannot_read_another_users_invitation` (fabrika taslak üretir; aynı içerikli `a_user_cannot_open_someone_elses_draft_by_url`
 ortak düzeltmede silindi, A-E9). Mutant: tavan koşulu kaldırıldı → kırmızı.
