@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Support\K18Inspector;
 use Illuminate\Support\Facades\File;
+use Illuminate\Testing\PendingCommand;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -80,14 +81,14 @@ final class K18CheckTest extends TestCase
     #[Test]
     public function the_command_passes_for_a_clean_file_and_fails_for_a_long_block(): void
     {
-        $this->artisan('k18:check', ['paths' => ['app/Rules/PasswordPolicy.php', 'tests/Feature/K18CheckTest.php']])
+        $this->k18(['paths' => ['app/Rules/PasswordPolicy.php', 'tests/Feature/K18CheckTest.php']])
             ->expectsOutput('k18: 1 dosya, 0 ihlal')
             ->assertExitCode(0);
 
         $file = 'database/k18-'.bin2hex(random_bytes(4)).'.php';
         File::put(base_path($file), "<?php\n// a\n// b\n// c\n// d\n");
         try {
-            $this->artisan('k18:check', ['paths' => [$file]])->expectsOutput('k18: 1 dosya, 2 ihlal')->assertExitCode(1);
+            $this->k18(['paths' => [$file]])->expectsOutput('k18: 1 dosya, 2 ihlal')->assertExitCode(1);
         } finally {
             File::delete(base_path($file));
         }
@@ -96,7 +97,16 @@ final class K18CheckTest extends TestCase
     #[Test]
     public function an_unknown_base_fails_closed(): void
     {
-        $this->artisan('k18:check', ['--base' => 'no-such-ref-k18'])->assertExitCode(1);
+        $this->k18(['--base' => 'no-such-ref-k18'])->assertExitCode(1);
+    }
+
+    /** @param array<string, mixed> $parameters */
+    private function k18(array $parameters): PendingCommand
+    {
+        $command = $this->artisan('k18:check', $parameters);
+        $this->assertInstanceOf(PendingCommand::class, $command);
+
+        return $command;
     }
 
     private function source(string $path, string $body): void
