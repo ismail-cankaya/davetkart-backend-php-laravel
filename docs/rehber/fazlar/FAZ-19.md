@@ -753,6 +753,9 @@ Ayrıca Faz 18.4'ün "gördüm, dokunmadım" yarışı (donmuş hak eşzamanlı 
 | M49 `ClaimReleasedOrderAction` | ÖLDÜ | SQL + D3 yarışı (bekleme testi yeşil kaldı, M47 ile aynı neden) |
 | Diğer 13 (e-posta, davetiye ×4, galeri ×2, görsel işi, checkout, iade ×4) | 13/13 ÖLDÜ | her biri kendi SQL testi |
 
+✅ Ortak düzeltme (A-E8): M47 ve M49'a gerçek araya girme testi eklendi (`LockRaceTest`); iki mutant da artık SQL testinden
+bağımsız olarak davranışla ölüyor. Ayrıntı: `docs/rehber/tests/Support/LockAssertions.md` "Sık hata".
+
 İlk mutant turu **geçersizdi** (`php.exe` yolu bulunamadı, testler koşmadı); sonuçlar atılıp yeniden koşuldu.
 
 **B7 tablosu**
@@ -1418,6 +1421,7 @@ Backend'de taslak sınırı da yoktu.
   ("panelinizden kullanmadığınız taslakları silin") eklendi.
 - **E2E:** yolculuk 1'e `draftSurvivesReload` (adres `/create/<ULID>`, yenile, isim ekranda) eklendi. **Koşulmadı** (Hat B'nin portu ve veritabanı).
 - **Plandan sapma:** `a_user_cannot_open_someone_elses_draft_by_url` mevcut `owner_cannot_read_another_users_invitation`'ın taslak versiyonu; ikisi de duruyor.
+  ✅ Ortak düzeltmede kopya silindi (A-E9); `owner_cannot_read_another_users_invitation` taslakla kuruluyor, aynı şeyi korur.
 
 **Testler / mutant.** Backend: `InvitationTest::a_user_cannot_keep_more_than_the_draft_limit` · `the_draft_limit_is_counted_under_the_user_lock` ·
 `a_user_cannot_open_someone_elses_draft_by_url`. Frontend `verify:state` → `autosaveWaitsForRealContent` (3 kontrol).
