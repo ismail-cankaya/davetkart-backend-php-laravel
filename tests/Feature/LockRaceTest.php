@@ -92,6 +92,66 @@ final class LockRaceTest extends TestCase
     }
 
     /**
+     * A-E8 (M47): ilk bildirim siparişi ödenmiş yapıp commit ederken ikincisi gelir. Kilitli okuma
+     * bekler ve `paid → paid`'e takılır; kilitsiz okuma bayat `pending` görüp `paid_at`'i ezerdi.
+     */
+    #[Test]
+    public function a_repeated_payment_notification_does_not_rewrite_a_concurrently_paid_order(): void
+    {
+        $order = Order::factory()->create(['provider_ref' => 'race-ref-2']);
+        $firstPaidAt = '2026-01-02 03:04:05';
+
+        $process = $this->holdRowLockInAnotherProcess([
+            "select id from orders where id = '{$order->id}' for update",
+            sprintf(
+                "update orders set status = '%s', paid_at = '%s' where id = '%s'",
+                OrderStatus::Paid->value,
+                $firstPaidAt,
+                $order->id,
+            ),
+        ], holdMs: 800);
+
+        $started = microtime(true);
+        app(HandlePaymentCallbackAction::class)->handle(new PaymentNotification('race-ref-2', OrderStatus::Paid));
+        $waited = microtime(true) - $started;
+
+        $result = $process->wait();
+
+        $this->assertTrue($result->successful(), $result->errorOutput());
+        $this->assertGreaterThan(0.3, $waited, 'Bildirim kilidi beklemedi: araya girme üretilemedi.');
+        $this->assertSame($firstPaidAt, $order->fresh()?->paid_at?->format('Y-m-d H:i:s'), 'İkinci bildirim ödenmiş siparişi yeniden işledi.');
+    }
+
+    /**
+     * A-E8 (M49): başka bir yayın serbest hakkı bağlayıp commit ederken ikinci sahiplenme gelir.
+     * Kilitli okuma bekler ve hakkı artık serbest görmez; kilitsiz okuma ilk bağlamanın üzerine yazardı.
+     */
+    #[Test]
+    public function a_released_order_claimed_concurrently_is_not_claimed_twice(): void
+    {
+        $invitation = Invitation::factory()->create();
+        $first = Invitation::factory()->create(['user_id' => $invitation->user_id]);
+        $order = Order::factory()->paid()->released()->create(['user_id' => $invitation->user_id]);
+
+        $process = $this->holdRowLockInAnotherProcess([
+            "select id from orders where id = '{$order->id}' for update",
+            "update orders set invitation_id = '{$first->id}' where id = '{$order->id}'",
+        ], holdMs: 800);
+
+        $started = microtime(true);
+        $claimed = DB::transaction(fn (): bool => app(ClaimReleasedOrderAction::class)
+            ->handle($invitation, SubscriptionTier::Standart));
+        $waited = microtime(true) - $started;
+
+        $result = $process->wait();
+
+        $this->assertTrue($result->successful(), $result->errorOutput());
+        $this->assertGreaterThan(0.3, $waited, 'Sahiplenme kilidi beklemedi: araya girme üretilemedi.');
+        $this->assertFalse($claimed, 'Aynı serbest hak ikinci davetiyeye de bağlandı.');
+        $this->assertSame($first->id, $order->fresh()?->invitation_id);
+    }
+
+    /**
      * Faz 18.4 yarışı: iade talebi siparişi kilitler ama GÜNCELLEMEZ; bekleyen sahiplenme
      * sorgusu kilit kalkınca eski anlık görüntüyle "açık iade yok" der ve donmuş hakkı bağlardı.
      */
