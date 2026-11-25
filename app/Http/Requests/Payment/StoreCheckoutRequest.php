@@ -9,19 +9,7 @@ use Illuminate\Foundation\Http\FormRequest;
 
 /**
  * Odeme baslatma govdesinin dogrulanmasi — `tier` ve istege bagli `giftCode` (Faz 11).
- *
- * 🔴 Govdede DAVETIYE KIMLIGI YOK. Aidiyet URL'nin YAPISINDA duruyor:
- *   POST /api/invitations/{invitation}/checkout  -> tekil alim
- *   POST /api/payments/checkout                  -> paket alim (K42)
- *
- * Gerekce N1 (Faz 3) ve Faz 6'nin medya uclarindaki ayni karar: kimlik
- * govdeden gelseydi ISTEMCININ SOZUNE kalirdi ve aidiyet kontrolu bir rota
- * baglamasi yerine elle yazilmis bir sorguya bagli olurdu.
- *
- * 🔴 Govdede FIYAT ALANI da yok ve olamaz. Istemcinin gonderdigi bir fiyat
- * "dogrulanabilir" bir sey degildir — bicimsel olarak her zaman gecerlidir.
- * Fiyat sunucudaki config'ten okunur (StartCheckoutAction §4. katman).
- * Ayrintili aciklama: docs/rehber/app/Http/Requests/Payment/StoreCheckoutRequest.md
+ * Ayrintili aciklama: docs/rehber/app/Http/Requests/Payment/StoreCheckoutRequest.md §A-E5-10
  */
 final class StoreCheckoutRequest extends FormRequest
 {
@@ -37,24 +25,38 @@ final class StoreCheckoutRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Gecerli plan listesi ENUM'DAN turetilir (K39 ailesi): elle
-            // yazilsaydi enum'a yeni bir plan eklendiginde kural sessizce
-            // eskirdi.
-            //
-            // 🔴 D6: Rule::enum(SubscriptionTier::class) DEGIL, duz 'in:' kurali.
-            // Kural NESNESI kullanildiginda $validator->failed() anahtari
-            // SINIF ADI olur ve hata zarfina
-            //   {"rule":"illuminate\\validation\\rules\\enum"}
-            // diye sizar — Faz 3'te Password::min(8) tam olarak bu yuzden
-            // 'min:8' string'ine cevrilmisti. Kural ADI sozlesmenin parcasidir.
+            // Gecerli plan listesi ENUM'DAN turetilir (K39 ailesi): elle yazilsaydi enum'a yeni bir plan eklendiginde kural sessizce eskirdi.
+            // Ayrintili aciklama: docs/rehber/app/Http/Requests/Payment/StoreCheckoutRequest.md §A-E5-40
             'tier' => ['required', 'string', 'in:'.implode(',', SubscriptionTier::values())],
 
-            // Faz 11. Bicim burada yalnizca kaba: uzunluk sinirinin ustu
-            // dogrulama degil savunma (hash'e 1 MB'lik metin gitmesin). Kodun
-            // gecerli olup olmadigini veritabani soyler; ayri bir regex
-            // "bicim hatasi" ile "kod yok" arasinda fark yaratirdi (D7).
+            // Faz 11: hediye kodu; yalnizca kaba uzunluk siniri, gecerliligini veritabani soyler (D7).
+            // Ayrintili aciklama: docs/rehber/app/Http/Requests/Payment/StoreCheckoutRequest.md §A-E5-52
             'giftCode' => ['nullable', 'string', 'max:64'],
+
+            // K262 (A-E5): TR cep telefonu, normalleştirilmiş `05XXXXXXXXX`. Zorunluluğu sürücü belirler (StartCheckoutAction).
+            'phone' => ['nullable', 'string', 'regex:/\A05\d{9}\z/'],
         ];
+    }
+
+    /** Boşluk, tire, parantez atılır; `+90` / `90` öneki `0`'a çevrilir. */
+    protected function prepareForValidation(): void
+    {
+        $phone = $this->input('phone');
+
+        if (is_string($phone)) {
+            $digits = preg_replace('/[\s\-().]/', '', $phone) ?? $phone;
+            $this->merge(['phone' => preg_replace('/\A(?:\+?90)(?=5\d{9}\z)/', '0', $digits) ?? $digits]);
+        }
+    }
+
+    /** Doğrulanmış telefon; yoksa ya da boşsa null. */
+    public function phone(): ?string
+    {
+        /** @var array{phone?: string|null} $validated */
+        $validated = $this->validated();
+        $phone = $validated['phone'] ?? null;
+
+        return $phone === null || $phone === '' ? null : $phone;
     }
 
     /** Dogrulanmis plan — Action enum bekler, sihirli string degil. */

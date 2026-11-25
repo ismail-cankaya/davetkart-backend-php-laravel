@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Tests\TestCase;
 
@@ -73,6 +74,8 @@ final class ShopierGatewayTest extends TestCase
         $this->assertSame('Yılmaz', $f['buyer_surname']);
         $this->assertSame('ayse@example.com', $f['buyer_email']);
         $this->assertSame('11111111110', $f['buyer_id_nr']);
+        // K262 (A-E5): telefon siparişten; herkese aynı yer tutucu (05000000000) artık gitmiyor.
+        $this->assertSame('05321234567', $f['buyer_phone']);
         // SEC-07 (K180): APP_URL'den. Host'u değiştirilmiş istek: PaymentDriverResolutionTest.
         $this->assertSame(rtrim(Config::string('app.url'), '/').ShopierGateway::CALLBACK_PATH, $f['callback']);
         $this->assertMatchesRegularExpression('/^\d{6}$/', $f['random_nr']);
@@ -291,6 +294,18 @@ final class ShopierGatewayTest extends TestCase
         $this->gateway()->parseOsb($this->osbRequest(['orderid' => '01JB2Z8Q4M7X3K9V5N6P0R1T2W', 'price' => '1.00']));
     }
 
+    /** K262 (A-E5): telefonsuz sipariş için form üretilmez (yer tutucuya geri düşülmez). */
+    #[Test]
+    public function a_shopier_form_is_never_built_without_the_buyer_phone(): void
+    {
+        $order = $this->order(User::factory()->create(), 24900);
+        $order->buyer_phone = null;
+
+        $this->expectException(RuntimeException::class);
+
+        $this->gateway()->startCheckout($order);
+    }
+
     // ------------------------------------------------------------ yardımcılar
 
     private function gateway(): ShopierGateway
@@ -304,6 +319,7 @@ final class ShopierGatewayTest extends TestCase
             'user_id' => $user->id,
             'provider' => ShopierGateway::NAME,
             'amount_minor' => $amountMinor,
+            'buyer_phone' => '05321234567',
         ]);
 
         return $order->load('user');

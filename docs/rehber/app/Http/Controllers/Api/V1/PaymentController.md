@@ -178,3 +178,32 @@ kaynağı oluştu. Farkı `status: "paid"` alanında.
 `respond()` artık `->withCheckout($result->action)` çağırıyor (eskiden
 `->withRedirectUrl($result->redirectUrl)`). Controller hâlâ sağlayıcıyı tanımıyor:
 adres mi form mu, `OrderResource` karar veriyor. → [`../../../Resources/OrderResource.md`](../../../Resources/OrderResource.md)
+
+## K18 ile koddan taşınan açıklamalar (Faz 19 ortak düzeltme, A-E5)
+
+Koddaki uzun yorum blokları buraya taşındı; kodda ilk cümle ve bu bölüme işaretçi kaldı. Satır numaraları taşımadan önceki hâlin.
+
+### §A-E5-17 (satır 17)
+
+```text
+Odeme baslatma uclari — yalnizca YONLENDIRIR; is kurali Action'da (K3).
+
+Iki metot, K42'nin iki kolu:
+  forInvitation() -> POST /api/invitations/{invitation}/checkout  (tekil)
+  forAccount()    -> POST /api/payments/checkout                  (paket)
+
+Ayni Action'i cagiriyorlar; tek fark davetiyenin varligi. Iki AYRI Action
+yazmak, aralarindaki ortak dort katmani (yeterlilik, fiyat, siparis,
+telafi) kopyalamak olurdu (C3).
+Ayrintili aciklama: docs/rehber/app/Http/Controllers/Api/V1/PaymentController.md
+```
+
+### §A-E5-31 (satır 31)
+
+```text
+TEKIL alim: bu davetiye icin plan satin al.
+
+Aidiyet URL'nin yapisinda (N1) ve rota baglamasi kaydi cozemezse zaten
+404 doner. Gate ise "senin mi" sorusunu soruyor; reddi de 404'e
+cevriliyor (H7) — iki farkli sebep, AYNI yanit.
+```

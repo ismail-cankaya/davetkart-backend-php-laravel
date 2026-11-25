@@ -26,6 +26,7 @@ use App\Services\Payment\PaymentGateway;
 use App\Services\Payment\PaymentGatewayResolver;
 use App\Services\Payment\PaymentMethods;
 use App\Services\Payment\RedirectAction;
+use App\Services\Payment\RequiresBuyerPhone;
 use App\Services\Pricing\TierResolver;
 use App\Support\GiftCodes\GiftCodeFormat;
 use App\Support\VerifiedEmailGuard;
@@ -34,36 +35,13 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Throwable;
 
 /**
  * Bir plan icin odeme baslatir: siparis satirini yazar, saglayicida oturum acar.
- *
- * 🔴 Katmanli savunma — ama buradaki tehdit "bot" degil, ISTEMCIYE GUVENMEK:
- *
- *   1. Yetki       -> rota + Gate::authorize('publish') (controller)
- *   2. Bicim       -> StoreCheckoutRequest ('in:' plan degerleri)
- *   3. Yeterlilik  -> secilen plan davetiyenin modullerini KAPSIYOR mu
- *   4. FIYAT       -> govdeden DEGIL, sunucudaki config'ten
- *   5. Telafi      -> saglayici patlarsa siparis 'failed' isaretlenir (F3)
- *
- * Faz 11: istege bagli hediye kodu. Kod rezervasyonu + siparis + kullanim
- * satiri TEK transaction'da; tutar 0 ise saglayiciya hic gidilmez (D1).
- *
- * Faz 13: tutar QuotePriceAction'dan (kampanya / ilk yayin, K129); hediye
- * kodu KALAN fiyata (K133). Yontem kapisi (K134): kod kapaliysa kod, kart
- * kapaliysa odenecek tutari olan siparis reddedilir (403). Saglayici yalnizca
- * gerektiginde kurulur (K136).
- *
- * Faz 18.3 (SEC-01): ilk yayın indirimi TEK açık siparişe. Kullanıcı satırı
- * kilitlenir (K158); aynı niyet var olan siparişi döndürür (K160), farklı niyet
- * hedefin eski siparişini `expired` kapatır (K161). Uygunluk kuralı burada
- * değil FirstPublishEligibility'de (K159).
- *
- * 4. katman bu fazin en kisa ve en pahali satiridir: fiyat istekten okunsaydi
- * `{"tier":"elit","price":1}` govdesi Elit plani 1 kurusa satardi.
- * Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md
+ * Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md §A-E5-42
  */
 final class StartCheckoutAction
 {
@@ -81,6 +59,7 @@ final class StartCheckoutAction
      * @param  Invitation|null  $invitation  null = PAKET alimi (K42)
      * @param  SubscriptionTier  $tier  Istemcinin sectigi plan — DOGRULANIR
      * @param  string|null  $giftCode  Kullanicinin yazdigi hediye kodu (Faz 11)
+     * @param  string|null  $phone  Normallestirilmis TR cep telefonu (K262); surucu isterse zorunlu
      *
      * @throws PaywallViolationException Secilen plan davetiyeyi kapsamiyor -> 402
      * @throws GiftCodeException Kod kullanilamiyor -> 422
@@ -92,18 +71,13 @@ final class StartCheckoutAction
         ?Invitation $invitation,
         SubscriptionTier $tier,
         ?string $giftCode = null,
+        ?string $phone = null,
     ): CheckoutResult {
         // K191 (SEC-09): doğrulanmamış adres bir iddiadır; ödeme kanıt ister.
         $this->emailGuard->assertVerified($user);
 
-        // 3. KATMAN — yeterlilik. Kullanicinin daha UCUZ bir plan secip
-        // galerili bir davetiye yayinlamasini burada engelliyoruz; yayin
-        // aninda da tekrar bakilacak (7.12), cunku modul davetiyeye ODEME
-        // SONRASINDA da eklenebilir.
-        //
-        // Paket aliminda ($invitation === null) kontrol edilecek bir davetiye
-        // yok: paket, hesaptaki HERHANGI bir davetiye icin alinabilir ve
-        // yeterlilik yayin aninda sinanir.
+        // 3. KATMAN — yeterlilik: secilen plan davetiyenin modullerini kapsamali (paket aliminda yayin aninda sinanir).
+        // Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md §A-E5-103
         if ($invitation !== null) {
             $required = $this->tiers->requiredFor($invitation);
 
@@ -119,10 +93,8 @@ final class StartCheckoutAction
         }
 
         // Faz 11: rezervasyon + siparis + kullanim satiri TEK transaction.
-        // Kod satirinin kilidi kullanim satiri yazilana kadar tutulur (E9).
-        // Saglayici (gerekirse) transaction icinde kurulur: kurulamazsa (503)
-        // rezervasyon da siparis de geri alinir.
-        [$order, $gateway, $reused] = DB::transaction(function () use ($user, $invitation, $tier, $giftCode): array {
+        // Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md §A-E5-125
+        [$order, $gateway, $reused] = DB::transaction(function () use ($user, $invitation, $tier, $giftCode, $phone): array {
             // 🔴 Faz 18.3 (K158, 1. katman): aynı kullanıcının checkout'ları SIRAYA
             // girer. Aşağıdaki her karar (uygunluk, yeniden kullanma) bu kilidin
             // altında verilir; kilitsiz iki istek aynı "indirim boşta" cevabını okurdu (E9).
@@ -146,6 +118,10 @@ final class StartCheckoutAction
 
                 // Sağlayıcı arada değiştiyse eski siparişin oturumu yeniden açılamaz.
                 if ($existing->provider === $gateway->name()) {
+                    // K262: telefon sonradan düzeltilmiş olabilir; yeniden açılan oturum yenisini taşır.
+                    $existing->buyer_phone = $this->buyerPhoneFor($gateway, $phone);
+                    $existing->save();
+
                     // Sürücü alıcıyı ilişkiden okur; elimizdeki kullanıcı o.
                     $existing->setRelation('user', $user);
 
@@ -176,7 +152,7 @@ final class StartCheckoutAction
                 $this->methods->ensureEnabled(PaymentMethod::Card);
 
                 $gateway = $this->gateways->resolve();
-                $order = $this->createPendingOrder($user, $invitation, $price, $gateway);
+                $order = $this->createPendingOrder($user, $invitation, $price, $gateway, $this->buyerPhoneFor($gateway, $phone));
             }
 
             if ($giftQuote !== null) {
@@ -192,19 +168,12 @@ final class StartCheckoutAction
         }
 
         // 🔴 F3'un dis servis hali: SAGLAYICI DA TRANSACTION'A DAHIL DEGILDIR.
-        // Satir once yaziliyor, oturum sonra aciliyor. Ters sirada saglayici
-        // oturumu acildiktan sonra veritabani yazimi patlarsa ODENMIS AMA
-        // KAYDI OLMAYAN bir odeme kalirdi — geri alinamayan is EN SONA.
+        // Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md §A-E5-202
         try {
             $session = $gateway->startCheckout($order);
         } catch (Throwable $e) {
-            // TELAFI (compensating transaction). Siparis silinmiyor,
-            // 'failed' isaretleniyor: silmek denemenin izini de silerdi ve
-            // "neden odeyemiyorum" sorusu cevapsiz kalirdi.
-            //
-            // Faz 18.3 (K160): yalnızca BU isteğin açtığı satır. Yeniden kullanılan
-            // siparişin ilk oturumu hâlâ ödenebilir; `failed` final olduğu için
-            // o ödeme reddedilirdi.
+            // TELAFI: siparis silinmez, 'failed' isaretlenir; yalnizca BU istegin actigi satir (K160).
+            // Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md §A-E5-209
             if (! $reused) {
                 $order->status = OrderStatus::Failed;
                 $order->save();
@@ -223,12 +192,7 @@ final class StartCheckoutAction
         }
 
         // Saglayicinin verdigi kimlik ve pencere satira isleniyor.
-        // provider_ref UNIQUE: ayni referansi tasiyan ikinci bir siparis
-        // veritabani seviyesinde imkansiz (idempotansin yarisi, 7.2).
-        //
-        // Faz 18.3 (K160): kimliği olan sipariş (yeniden kullanılan) olduğu gibi
-        // kalır. Kimlik değişseydi ilk oturumun bildirimi siparişi bulamazdı;
-        // pencere uzasaydı sayfayı yenilemek rezervasyonu süresiz tutardı.
+        // Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md §A-E5-233
         if ($order->provider_ref === null) {
             $order->provider_ref = $session->providerRef;
 
@@ -301,10 +265,7 @@ final class StartCheckoutAction
 
     /**
      * Hedefin önceki açık siparişlerini kapatır (K161).
-     *
-     * 🔴 `failed` DEĞİL `expired`: kullanıcının eski sekmesindeki ödeme sayfası
-     * hâlâ açık olabilir. `expired -> paid` meşru (K89), `failed` finaldir; geç
-     * gelen ödeme reddedilseydi para alınmış, hak açılmamış olurdu.
+     * Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md §A-E5-310
      *
      * @param  Collection<int, Order>  $open
      */
@@ -357,6 +318,7 @@ final class StartCheckoutAction
         ?Invitation $invitation,
         PriceQuote $price,
         PaymentGateway $gateway,
+        ?string $buyerPhone,
     ): Order {
         $order = new Order;
 
@@ -364,34 +326,19 @@ final class StartCheckoutAction
         $order->invitation_id = $invitation?->getKey();
 
         // 🔴 KAPSAM SATIN ALMA ANINDA YAZILIR, okuma aninda turetilmez.
-        // Faz 7'de bu bilgi hic saklanmadi; `invitation_id IS NULL` sorusuyla
-        // her okumada yeniden turetiliyordu. O turetme, davetiye silinip
-        // nullOnDelete atesledigi gun SESSIZCE yanlislaniyordu (N4).
-        //
-        // Buradaki turetme farklidir ve mesrudur: cagri YOLU hangi kapsamin
-        // alindigini kesin olarak biliyor (K64'un iki ucu) ve sonuc kolona
-        // YAZILIYOR. Sinirda bir kez turet, sakla; her okumada yeniden
-        // turetme (ders 30'un veri katmanindaki hali).
-        //
-        // Faz 10 (10.58 · K99): paket de tek davetiyelik. Davetiyesiz alınan
-        // sipariş bağlanmamış bir tekil sipariştir; ilk yayında o davetiyeye
-        // bağlanır (ClaimReleasedOrderAction). 'account' kapsamı artık yazılmıyor.
+        // Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md §A-E5-375
         $order->scope = OrderScope::Invitation;
 
         $order->tier = $price->tier;
         $order->status = OrderStatus::default();
 
-        // 🔴 4. KATMAN. Fiyat SUNUCUDAN okunur. `$request` govdesinden
-        // gelseydi kullanici kendi fiyatini yazardi — paywall'in en ucuz
-        // atlatilma yolu budur ve hicbir dogrulama kurali onu yakalamaz,
-        // cunku gonderilen deger BICIMSEL olarak gecerlidir.
-        //
-        // Faz 11: indirim de SUNUCUDA hesaplanir (GiftCode::discountFor, D2).
-        // Faz 13: dokum QuotePriceAction'dan; siparise DONDURULUR (K129).
+        // 🔴 4. KATMAN: fiyat SUNUCUDAN okunur (QuotePriceAction, K129), istek govdesinden asla.
+        // Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md §A-E5-393
         $this->applyPrice($order, $price);
 
         // F4: surucu KENDI adini soyler; config ile kolon asla ayrisamaz.
         $order->provider = $gateway->name();
+        $order->buyer_phone = $buyerPhone;
 
         $order->expires_at = now()->addMinutes(
             Config::integer('payment.order_expires_after_minutes'),
@@ -445,14 +392,8 @@ final class StartCheckoutAction
     }
 
     /**
-     * Fiyat dokumunu siparise yazar (Faz 13, K133). Iki yol da (odenecek ve
-     * hediye) buradan gecer: kolonlarin kurali tek yerde.
-     *
-     *   amount_minor             = odenecek
-     *   discount_minor           = toplam indirim (otomatik + kod)
-     *   promotion(_discount_minor), price_campaign_id = otomatik indirim
-     *
-     * Liste fiyati = amount + discount; ayrica saklanmaz (E1).
+     * Fiyat dokumunu siparise yazar (Faz 13, K133).
+     * Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md §A-E5-457
      */
     private function applyPrice(Order $order, PriceQuote $price): void
     {
@@ -483,6 +424,18 @@ final class StartCheckoutAction
             'order_id' => $order->id,
             'gift_order' => $order->isGift(),
         ]);
+    }
+
+    /** K262 (A-E5): surucu isterse telefon zorunlu (422 `phone` `required`); istemezse saklanmaz (en az veri). */
+    private function buyerPhoneFor(PaymentGateway $gateway, ?string $phone): ?string
+    {
+        if (! $gateway instanceof RequiresBuyerPhone) {
+            return null;
+        }
+
+        Validator::make(['phone' => $phone], ['phone' => ['required']])->validate();
+
+        return $phone;
     }
 
     /** FakeGateway'in basari adresiyle ayni bicim: odeme donus sayfasi siparisi yoklar. */

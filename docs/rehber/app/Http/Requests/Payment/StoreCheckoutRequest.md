@@ -222,3 +222,50 @@ gönderen istek kodsuz checkout sayılır, `GIFT_CODE_INVALID` almaz.
 
 Alan adı camelCase (`giftCode`): istek gövdesindeki diğer alanlar (`guestCount`,
 `guestName`) ile aynı kural.
+
+## K18 ile koddan taşınan açıklamalar (Faz 19 ortak düzeltme, A-E5)
+
+Koddaki uzun yorum blokları buraya taşındı; kodda ilk cümle ve bu bölüme işaretçi kaldı. Satır numaraları taşımadan önceki hâlin.
+
+### §A-E5-10 (satır 10)
+
+```text
+Odeme baslatma govdesinin dogrulanmasi — `tier` ve istege bagli `giftCode` (Faz 11).
+
+🔴 Govdede DAVETIYE KIMLIGI YOK. Aidiyet URL'nin YAPISINDA duruyor:
+  POST /api/invitations/{invitation}/checkout  -> tekil alim
+  POST /api/payments/checkout                  -> paket alim (K42)
+
+Gerekce N1 (Faz 3) ve Faz 6'nin medya uclarindaki ayni karar: kimlik
+govdeden gelseydi ISTEMCININ SOZUNE kalirdi ve aidiyet kontrolu bir rota
+baglamasi yerine elle yazilmis bir sorguya bagli olurdu.
+
+🔴 Govdede FIYAT ALANI da yok ve olamaz. Istemcinin gonderdigi bir fiyat
+"dogrulanabilir" bir sey degildir — bicimsel olarak her zaman gecerlidir.
+Fiyat sunucudaki config'ten okunur (StartCheckoutAction §4. katman).
+Ayrintili aciklama: docs/rehber/app/Http/Requests/Payment/StoreCheckoutRequest.md
+```
+
+### §A-E5-40 (satır 40)
+
+```text
+Gecerli plan listesi ENUM'DAN turetilir (K39 ailesi): elle
+yazilsaydi enum'a yeni bir plan eklendiginde kural sessizce
+eskirdi.
+
+🔴 D6: Rule::enum(SubscriptionTier::class) DEGIL, duz 'in:' kurali.
+Kural NESNESI kullanildiginda $validator->failed() anahtari
+SINIF ADI olur ve hata zarfina
+  {"rule":"illuminate\\validation\\rules\\enum"}
+diye sizar — Faz 3'te Password::min(8) tam olarak bu yuzden
+'min:8' string'ine cevrilmisti. Kural ADI sozlesmenin parcasidir.
+```
+
+### §A-E5-52 (satır 52)
+
+```text
+Faz 11. Bicim burada yalnizca kaba: uzunluk sinirinin ustu
+dogrulama degil savunma (hash'e 1 MB'lik metin gitmesin). Kodun
+gecerli olup olmadigini veritabani soyler; ayri bir regex
+"bicim hatasi" ile "kod yok" arasinda fark yaratirdi (D7).
+```

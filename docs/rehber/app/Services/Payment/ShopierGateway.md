@@ -370,3 +370,37 @@ php artisan tinker
 Mutantı kendin öldür: `startCheckout`'ta `$this->callbackUrl()` yerine `url(self::CALLBACK_PATH)`
 yaz → `php artisan test --filter=the_shopier_callback_url_ignores_the_request_host` kırmızı
 (`evil.example`) → geri al.
+
+## K18 ile koddan taşınan açıklamalar (Faz 19 ortak düzeltme, A-E5)
+
+Koddaki uzun yorum blokları buraya taşındı; kodda ilk cümle ve bu bölüme işaretçi kaldı. Satır numaraları taşımadan önceki hâlin.
+
+### §A-E5-24 (satır 24)
+
+```text
+Shopier "API ile ödeme" sürücüsü — klasik imzalı form akışı (Faz 12).
+
+Üç iş, üç kanal:
+  startCheckout()     -> imzalı form (FormPostAction); kart Shopier'de yazılır
+  parseCallback()     -> tarayıcının dönüşü; YÖNLENDİRME bilgisi (K127)
+  parseNotification() -> Otomatik Sipariş Bildirimi (OSB); 'paid' kararı (K117)
+
+🔴 Kurucu sırları sınar (K123): boş sırla hesaplanan HMAC'i herkes üretebilir.
+Eksikse sürücü KURULMAZ -> 503, sessizce çalışmaz. Üretimde `callback` kipi de (K170).
+
+Paket değil kendi kodumuz (K120): topluluk SDK'sı HTML basıp `die` ediyor;
+bizde formu frontend gönderiyor. Formüller ShopierSignature'da.
+Ayrıntılı açıklama: docs/rehber/app/Services/Payment/ShopierGateway.md
+```
+
+### §A-E5-285 (satır 285)
+
+```text
+🔴 OSB -> bizim siparişimiz. TEK yerde, çünkü TAHMİN (§A-c cevapsız).
+
+OSB'nin API ile başlatılan ödemelerde bizim `platform_order_id`'mizi taşıyıp
+taşımadığı resmi kaynakla doğrulanmadı. Bugünkü kural: `platform_order_id`
+alanı varsa o, yoksa `orderid` — ikisi de yalnızca ULID ise. Shopier'in kendi
+sayısal sipariş numarası ULID olamayacağı için yanlış siparişle eşleşmez;
+eşleşmezse null (critical log). Elle doğrulama adım 7 bu metodu kesinleştirir.
+```

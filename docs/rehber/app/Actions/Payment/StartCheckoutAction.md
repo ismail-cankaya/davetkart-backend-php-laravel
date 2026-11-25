@@ -580,3 +580,146 @@ panelden başka bir davetiye için ödeme sayfasını aç: fiyat liste fiyatı o
 `handle()`'ın ilk satırı `VerifiedEmailGuard::assertVerified($user)` → doğrulanmamış hesap 403 `EMAIL_NOT_VERIFIED`.
 Sipariş, hediye kodu rezervasyonu ve kullanıcı kilidi hiç alınmaz. Mutant: satır silinince
 `EmailVerificationTest::an_unverified_account_cannot_start_a_checkout` kırmızı.
+
+## K18 ile koddan taşınan açıklamalar (Faz 19 ortak düzeltme, A-E5)
+
+Koddaki uzun yorum blokları buraya taşındı; kodda ilk cümle ve bu bölüme işaretçi kaldı. Satır numaraları taşımadan önceki hâlin.
+
+### §A-E5-42 (satır 42)
+
+```text
+Bir plan icin odeme baslatir: siparis satirini yazar, saglayicida oturum acar.
+
+🔴 Katmanli savunma — ama buradaki tehdit "bot" degil, ISTEMCIYE GUVENMEK:
+
+  1. Yetki       -> rota + Gate::authorize('publish') (controller)
+  2. Bicim       -> StoreCheckoutRequest ('in:' plan degerleri)
+  3. Yeterlilik  -> secilen plan davetiyenin modullerini KAPSIYOR mu
+  4. FIYAT       -> govdeden DEGIL, sunucudaki config'ten
+  5. Telafi      -> saglayici patlarsa siparis 'failed' isaretlenir (F3)
+
+Faz 11: istege bagli hediye kodu. Kod rezervasyonu + siparis + kullanim
+satiri TEK transaction'da; tutar 0 ise saglayiciya hic gidilmez (D1).
+
+Faz 13: tutar QuotePriceAction'dan (kampanya / ilk yayin, K129); hediye
+kodu KALAN fiyata (K133). Yontem kapisi (K134): kod kapaliysa kod, kart
+kapaliysa odenecek tutari olan siparis reddedilir (403). Saglayici yalnizca
+gerektiginde kurulur (K136).
+
+Faz 18.3 (SEC-01): ilk yayın indirimi TEK açık siparişe. Kullanıcı satırı
+kilitlenir (K158); aynı niyet var olan siparişi döndürür (K160), farklı niyet
+hedefin eski siparişini `expired` kapatır (K161). Uygunluk kuralı burada
+değil FirstPublishEligibility'de (K159).
+
+4. katman bu fazin en kisa ve en pahali satiridir: fiyat istekten okunsaydi
+`{"tier":"elit","price":1}` govdesi Elit plani 1 kurusa satardi.
+Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md
+```
+
+### §A-E5-103 (satır 103)
+
+```text
+3. KATMAN — yeterlilik. Kullanicinin daha UCUZ bir plan secip
+galerili bir davetiye yayinlamasini burada engelliyoruz; yayin
+aninda da tekrar bakilacak (7.12), cunku modul davetiyeye ODEME
+SONRASINDA da eklenebilir.
+
+Paket aliminda ($invitation === null) kontrol edilecek bir davetiye
+yok: paket, hesaptaki HERHANGI bir davetiye icin alinabilir ve
+yeterlilik yayin aninda sinanir.
+```
+
+### §A-E5-125 (satır 125)
+
+```text
+Faz 11: rezervasyon + siparis + kullanim satiri TEK transaction.
+Kod satirinin kilidi kullanim satiri yazilana kadar tutulur (E9).
+Saglayici (gerekirse) transaction icinde kurulur: kurulamazsa (503)
+rezervasyon da siparis de geri alinir.
+```
+
+### §A-E5-202 (satır 202)
+
+```text
+🔴 F3'un dis servis hali: SAGLAYICI DA TRANSACTION'A DAHIL DEGILDIR.
+Satir once yaziliyor, oturum sonra aciliyor. Ters sirada saglayici
+oturumu acildiktan sonra veritabani yazimi patlarsa ODENMIS AMA
+KAYDI OLMAYAN bir odeme kalirdi — geri alinamayan is EN SONA.
+```
+
+### §A-E5-209 (satır 209)
+
+```text
+TELAFI (compensating transaction). Siparis silinmiyor,
+'failed' isaretleniyor: silmek denemenin izini de silerdi ve
+"neden odeyemiyorum" sorusu cevapsiz kalirdi.
+
+Faz 18.3 (K160): yalnızca BU isteğin açtığı satır. Yeniden kullanılan
+siparişin ilk oturumu hâlâ ödenebilir; `failed` final olduğu için
+o ödeme reddedilirdi.
+```
+
+### §A-E5-233 (satır 233)
+
+```text
+Saglayicinin verdigi kimlik ve pencere satira isleniyor.
+provider_ref UNIQUE: ayni referansi tasiyan ikinci bir siparis
+veritabani seviyesinde imkansiz (idempotansin yarisi, 7.2).
+
+Faz 18.3 (K160): kimliği olan sipariş (yeniden kullanılan) olduğu gibi
+kalır. Kimlik değişseydi ilk oturumun bildirimi siparişi bulamazdı;
+pencere uzasaydı sayfayı yenilemek rezervasyonu süresiz tutardı.
+```
+
+### §A-E5-310 (satır 310)
+
+```text
+Hedefin önceki açık siparişlerini kapatır (K161).
+
+🔴 `failed` DEĞİL `expired`: kullanıcının eski sekmesindeki ödeme sayfası
+hâlâ açık olabilir. `expired -> paid` meşru (K89), `failed` finaldir; geç
+gelen ödeme reddedilseydi para alınmış, hak açılmamış olurdu.
+```
+
+### §A-E5-375 (satır 375)
+
+```text
+🔴 KAPSAM SATIN ALMA ANINDA YAZILIR, okuma aninda turetilmez.
+Faz 7'de bu bilgi hic saklanmadi; `invitation_id IS NULL` sorusuyla
+her okumada yeniden turetiliyordu. O turetme, davetiye silinip
+nullOnDelete atesledigi gun SESSIZCE yanlislaniyordu (N4).
+
+Buradaki turetme farklidir ve mesrudur: cagri YOLU hangi kapsamin
+alindigini kesin olarak biliyor (K64'un iki ucu) ve sonuc kolona
+YAZILIYOR. Sinirda bir kez turet, sakla; her okumada yeniden
+turetme (ders 30'un veri katmanindaki hali).
+
+Faz 10 (10.58 · K99): paket de tek davetiyelik. Davetiyesiz alınan
+sipariş bağlanmamış bir tekil sipariştir; ilk yayında o davetiyeye
+bağlanır (ClaimReleasedOrderAction). 'account' kapsamı artık yazılmıyor.
+```
+
+### §A-E5-393 (satır 393)
+
+```text
+🔴 4. KATMAN. Fiyat SUNUCUDAN okunur. `$request` govdesinden
+gelseydi kullanici kendi fiyatini yazardi — paywall'in en ucuz
+atlatilma yolu budur ve hicbir dogrulama kurali onu yakalamaz,
+cunku gonderilen deger BICIMSEL olarak gecerlidir.
+
+Faz 11: indirim de SUNUCUDA hesaplanir (GiftCode::discountFor, D2).
+Faz 13: dokum QuotePriceAction'dan; siparise DONDURULUR (K129).
+```
+
+### §A-E5-457 (satır 457)
+
+```text
+Fiyat dokumunu siparise yazar (Faz 13, K133). Iki yol da (odenecek ve
+hediye) buradan gecer: kolonlarin kurali tek yerde.
+
+  amount_minor             = odenecek
+  discount_minor           = toplam indirim (otomatik + kod)
+  promotion(_discount_minor), price_campaign_id = otomatik indirim
+
+Liste fiyati = amount + discount; ayrica saklanmaz (E1).
+```

@@ -60,7 +60,7 @@ final class PaymentDriverResolutionTest extends TestCase
         $user = User::factory()->create();
 
         $response = $this->withToken($user->createToken('test')->plainTextToken)
-            ->postJson(route('payments.checkout'), ['tier' => 'gold'])
+            ->postJson(route('payments.checkout'), ['tier' => 'gold', 'phone' => '05321234567'])
             ->assertCreated()
             ->assertJsonPath('data.status', OrderStatus::Pending->value)
             ->assertJsonPath('data.checkout.type', 'form')
@@ -101,7 +101,7 @@ final class PaymentDriverResolutionTest extends TestCase
 
         $callback = $this->withToken($user->createToken('test')->plainTextToken)
             ->withHeaders($headers)
-            ->postJson($root.route('payments.checkout', absolute: false), ['tier' => 'gold'])
+            ->postJson($root.route('payments.checkout', absolute: false), ['tier' => 'gold', 'phone' => '05321234567'])
             ->assertCreated()
             ->json('data.checkout.fields.callback');
 
@@ -130,7 +130,7 @@ final class PaymentDriverResolutionTest extends TestCase
         $user = User::factory()->create();
 
         $this->withToken($user->createToken('test')->plainTextToken)
-            ->postJson(route('payments.checkout'), ['tier' => 'gold'])
+            ->postJson(route('payments.checkout'), ['tier' => 'gold', 'phone' => '05321234567'])
             ->assertStatus(503)
             ->assertJsonPath('error.code', ErrorCode::ProviderUnavailable->value);
 
@@ -196,6 +196,6 @@ final class PaymentDriverResolutionTest extends TestCase
         $user = User::factory()->create();
 
         return $this->withToken($user->createToken('test')->plainTextToken)
-            ->postJson(route('payments.checkout'), ['tier' => 'gold']);
+            ->postJson(route('payments.checkout'), ['tier' => 'gold', 'phone' => '05321234567']);
     }
 }
