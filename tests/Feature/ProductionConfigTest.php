@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Testing\PendingCommand;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\Mime\Email;
@@ -44,6 +45,25 @@ final class ProductionConfigTest extends TestCase
         $this->command(['--check' => true, '--template' => $template])
             ->expectsOutputToContain('not read by config: BROADCAST_CONNECTION')
             ->assertFailed();
+    }
+
+    /** A-E7: sunucu `.env`'i ↔ şablon, yalnızca anahtarlar; değer çıktıya hiç girmez. */
+    #[Test]
+    public function a_real_env_file_is_compared_by_keys_only(): void
+    {
+        $block = str_replace("\r\n", "\n", Str::between((string) file_get_contents(base_path('docs/10-URETIM-ENV-SABLONU.md')), '```dotenv', '```'));
+        $env = $this->templateCopy(fn (): string => str_replace("AWS_URL=https://media.davetkart.com\n", '', $block)."LEGACY_TOKEN=cok-gizli-deger\n");
+
+        $this->command(['--check' => true, '--env' => $env])
+            ->expectsOutputToContain('in .env, not in template: LEGACY_TOKEN')
+            ->expectsOutputToContain('in template, missing in .env: AWS_URL')
+            ->doesntExpectOutputToContain('cok-gizli-deger')
+            ->assertFailed();
+
+        $matching = $this->templateCopy(fn (): string => $block);
+        $this->command(['--check' => true, '--env' => $matching])
+            ->expectsOutputToContain('match the template')
+            ->assertSuccessful();
     }
 
     #[Test]
