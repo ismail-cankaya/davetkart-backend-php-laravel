@@ -12,9 +12,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 
 /**
- * Misafirin okudugu davetiye yuku, onbellekli (4.2b, K7). API (`PublicInvitationController`)
- * ve bot onizlemesi (`SharePreviewController`, FE-04) AYNI anahtari paylasir: yayin/guncelleme
- * olayi (`ClearInvitationCache`) ikisini birden tazeler.
+ * Misafirin okudugu davetiye yuku, onbellekli (4.2b, K7); API ve bot onizlemesi ayni anahtari paylasir.
  * Kilavuz: docs/rehber/app/Actions/Invitation/PublicInvitationPayloadAction.md
  */
 final class PublicInvitationPayloadAction
@@ -34,7 +32,7 @@ final class PublicInvitationPayloadAction
         // Cache'te DUZ DIZI durur, Eloquent modeli degil (4.2b'deki ->resolve()).
         // Tazelik TTL ile degil, yayin olayiyla saglanir (4.6); TTL yalnizca
         // olayin kacirildigi durumlar icin ust sinirdir.
-        return Cache::remember(
+        $payload = Cache::remember(
             Invitation::publicCacheKey($id),
             Config::integer('davetkart.cache.public_invitation_ttl'),
             function () use ($request, $id): array {
@@ -47,5 +45,27 @@ final class PublicInvitationPayloadAction
                     ->resolve($request);
             },
         );
+
+        return $this->withLiveGuestUploadFlag($payload);
+    }
+
+    /**
+     * A-E3: bayrak ortam ayarı, davetiye verisi değil; önbellekten değil her istekte okunur
+     * (bayrak değişince `cache:clear` gerekmez). Alan yalnızca LCV açıkken vardır.
+     *
+     * @param  array<string, mixed>  $payload
+     *
+     * @return array<string, mixed>
+     */
+    private function withLiveGuestUploadFlag(array $payload): array
+    {
+        $design = $payload['invitation'] ?? null;
+
+        if (is_array($design) && array_key_exists('guestUploads', $design)) {
+            $design['guestUploads'] = Config::boolean('davetkart.guest_uploads.enabled');
+            $payload['invitation'] = $design;
+        }
+
+        return $payload;
     }
 }
