@@ -1,7 +1,7 @@
 # `app/Console/Commands/ReapplyDeletions.php` — `data:reapply-deletions`
 
 > **Faz:** 19 ortak düzeltme (B-E1, 25 Kasım 2026) · **Karar:** K233
-> **Kitap:** davetkart-docs `operations/deployment/YEDEK-VE-GERI-YUKLEME.md` §7.3
+> **Kitap:** davetkart-docs `operations/deployment/YEDEK-VE-GERI-YUKLEME.md` §7.2 ve §9
 
 ## Ne zaman
 

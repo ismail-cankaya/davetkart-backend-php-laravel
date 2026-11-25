@@ -10,4 +10,4 @@
 Neden `config/davetkart.php` değil: o dosyaya dokunmak K18 cırcırını bütün dosyanın eski uzun yorumlarına açar.
 
 Ayrıntı: [`app/Support/DeletionLog.md`](../app/Support/DeletionLog.md) · kitap: davetkart-docs
-`operations/deployment/YEDEK-VE-GERI-YUKLEME.md` §7.3.
+`operations/deployment/YEDEK-VE-GERI-YUKLEME.md` §7.2 ve §9.

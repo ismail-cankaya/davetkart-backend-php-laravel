@@ -22,5 +22,5 @@ sahibin LCV silmesi (`RsvpController::destroy`).
   Gerek de yok: bunlar **kural tabanlı**dır; geri yüklemeden sonra `data:purge` aynı kuralla yeniden siler
   (`data:reapply-deletions` sonunda onu çağırır).
 - Kural tabanlı model silmeleri (`data:purge`'ün davetiye ve misafir medyası silmesi) de günlüğe girer; zararsız.
-- Günlük yazılamazsa silme geri alınmaz; `Log::critical('Deletion log write failed', …)` yazılır. Kitap §7.3
+- Günlük yazılamazsa silme geri alınmaz; `Log::critical('Deletion log write failed', …)` yazılır. Kitap §7.2 ve §9
   geri yüklemeden sonra bu satırların da aranmasını söyler.
