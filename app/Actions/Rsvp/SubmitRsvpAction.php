@@ -7,6 +7,7 @@ namespace App\Actions\Rsvp;
 use App\Enums\MediaKind;
 use App\Exceptions\RsvpDeadlinePassedException;
 use App\Exceptions\RsvpQuotaExceededException;
+use App\Models\Invitation;
 use App\Models\Rsvp;
 use App\Support\IpHasher;
 use App\Support\RsvpEditCode;
@@ -14,29 +15,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Misafirin LCV yanitini kabul eder — sistemin TEK auth'suz yazma yolu.
- *
- * 🔴 Katmanli savunma (defense in depth) burada uygulanir. Her katman tek
- * basina yeterli DEGILDIR; birlikte anlam kazanirlar:
- *
- *   0. Hiz siniri      -> rota katmani (5.8), bu Action'a hic gelmez
- *   1. Honeypot        -> bot sessizce yutulur, VERITABANINA HIC GIDILMEZ
- *   2. Hedef acik mi   -> ResolveOpenRsvpInvitationAction (yayin + modul + son tarih)
- *   3. Medya aidiyeti  -> baskasinin/yanlis turdeki medya SESSIZCE dusurulur
- *   4. Kota            -> dolduysa 403 (kilitli transaction icinde)
- *   5. KVKK            -> ham IP yerine hash
- *
- * Sira tesadufi degil: en ucuz kontrol en basta. Bot trafigi tek bir sorgu
- * bile actirmadan elenir.
- *
- * 🔴 6.13 (Faz 6): 2. katman BU DOSYADAN CIKARILDI. Gorunurluk + modul + son
- * tarih ucusu artik ResolveOpenRsvpInvitationAction'da; cunku misafirin MEDYA
- * yukleme ucu de tam olarak ayni uc kosulu istiyor ve kural iki yerde
- * duramaz (C3). Davranis birebir ayni kaldi — kaniti RsvpTest'in 29 testi.
- *
- * Faz 10 (10.59 · K101): 3. ve 4. katman ResolveGuestMediaAction ve
- * EnsureRsvpQuotaAction'a tasindi (guncelleme de kullaniyor). Yanit artik
- * misafirin duzenleme kodunu da tasiyor (RsvpSubmission).
+ * Misafirin LCV yanitini kabul eder (tek auth'suz yazma yolu); katmanlar ucuzdan pahaliya: honeypot, hedef, medya, kota, KVKK.
  * Ayrintili aciklama: docs/rehber/app/Actions/Rsvp/SubmitRsvpAction.md
  */
 final class SubmitRsvpAction
@@ -87,21 +66,16 @@ final class SubmitRsvpAction
         $editCode = RsvpEditCode::generate();
         $rsvp->edit_code_hash = RsvpEditCode::hash($editCode);
 
-        // 🔴 MEDYA BAGLAMA (Faz 6). Kimlik istemciden geldi ve BICIMSEL olarak
-        // dogrulandi ('ulid'), ama MESRU oldugu bilinmiyor. Sahiplik burada
-        // soruluyor — yabanci anahtar kisiti "boyle bir medya var mi"
-        // sorusunu cevaplar, "BU DAVETIYEYE ait mi" sorusunu cevaplayamaz.
-        $rsvp->photo_media_id = $this->guestMedia->handle(
-            $invitation, $mediaIds['photo'], MediaKind::RsvpPhoto,
-        );
-
-        $rsvp->video_media_id = $this->guestMedia->handle(
-            $invitation, $mediaIds['video'], MediaKind::RsvpVideo,
-        );
-
         // 4. KATMAN — kota. Kontrol ve yazma AYNI transaction icinde:
         // aralarinda baska bir istek araya girerse ikisi birden kotayi asardi.
-        DB::transaction(function () use ($invitation, $rsvp): void {
+        DB::transaction(function () use ($invitation, $rsvp, $mediaIds): void {
+            // 🔴 MEDYA BAGLAMA (Faz 6): sahiplik ResolveGuestMediaAction'da. A-E4: davetiye kilidi
+            // altinda, cunku iliştirme misafir bütçesini tüketir (yükleme ucuyla aynı sıra).
+            Invitation::query()->whereKey($invitation->getKey())->lockForUpdate()->first();
+
+            $rsvp->photo_media_id = $this->guestMedia->handle($invitation, $mediaIds['photo'], MediaKind::RsvpPhoto);
+            $rsvp->video_media_id = $this->guestMedia->handle($invitation, $mediaIds['video'], MediaKind::RsvpVideo);
+
             $this->quota->handle($invitation, $rsvp->guest_count);
 
             $rsvp->save();
@@ -111,16 +85,7 @@ final class SubmitRsvpAction
     }
 
     /**
-     * Bot yanitini yutar ama KAYDETMEZ.
-     *
-     * Donen nesne gercek bir ULID ve zaman damgasi tasir, yani yanit gecerli
-     * bir kayittan AYIRT EDILEMEZ — ama hicbir yere yazilmadi. HasUlids
-     * kimligi veritabanina gitmeden uretebildigi icin bu mumkun. Faz 10:
-     * duzenleme kodu da gercek bicimde uretiliyor; kodsuz bir yanit bota
-     * "yakalandin" derdi.
-     *
-     * 🔴 Buradaki tek "kaydedilmedi" kaniti testtir (T14: yaniti degil ETKIYI
-     * dogrula). Yanit 201 oldugu icin baska hicbir sey sana soylemez.
+     * Bot yanitini yutar ama KAYDETMEZ: gercek ULID ve kod tasir, kayittan ayirt edilemez (kanit testtir, T14).
      *
      * @param  array<string, mixed>  $attributes
      */

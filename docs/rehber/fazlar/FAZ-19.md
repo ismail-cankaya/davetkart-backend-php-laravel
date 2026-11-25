@@ -837,6 +837,7 @@ Yetimler 24 saat yaşadığı için kimliksiz biri kotayı yetimlerle doldurup g
 - **D3:** seçilmedi (tek değer) → `contracts/plan-rules.json` değişmedi, `plans:export --check` yeşil.
 - **D4:** mevcut `MEDIA_QUOTA_EXCEEDED` (403, `forGuest()`, params boş, H9). Yeni kod yok.
 - **Bilinen sınır:** bekleyen bir dosya sonradan iliştirilirse bütçe en çok 200 MB aşılabilir.
+  ✅ Ortak düzeltmede kapandı (A-E4): iliştirme anında bütçe davetiye kilidi altında yeniden sınanıyor; aşan dosya iliştirilmiyor (`ResolveGuestMediaAction.md`).
   Aşımın üst sınırı var ve kasıtlı: yetimleri bütçeye katmak DoS'u geri getirirdi.
 - **Plandan sapma:** 19.13.1 (göç) gerekmedi. Prompt'un "kilit testi" maddesi, toplamların kilitten sonra okunduğunu SQL sırasıyla
   doğrulayan bir test olarak yazıldı (`LockInventoryTest`).

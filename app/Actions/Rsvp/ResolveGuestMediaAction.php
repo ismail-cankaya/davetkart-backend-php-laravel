@@ -8,32 +8,11 @@ use App\Enums\MediaKind;
 use App\Models\Invitation;
 use App\Models\Rsvp;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\Config;
 
 /**
- * Misafirin LCV'sine iliştirdiği medya kimliğini doğrular; geçersizse null döner.
- *
- * Faz 10 (10.59): SubmitRsvpAction'ın içinden çıkarıldı; güncelleme
- * (UpdateRsvpAction) aynı kuralı kullanıyor ve kural iki yerde duramaz (C3).
- *
- * Uc kosul birden aranir ve ucu de sorgunun KAPSAMINDA (P3 ailesi):
- *   1. Medya BU davetiyeye ait mi   -> $invitation->media() iliskisi
- *   2. Beklenen TURDE mi            -> where('kind', ...)
- *   3. Baska bir yanita bagli DEGIL mi (Faz 10, 10.64) -> whereNotExists(rsvps)
- *
- * 🔴 Ikincisi olmasaydi misafir kendi yukledigi rsvp_video kimligini
- * photoMediaId olarak gonderebilir, ya da (davetiyeye ait oldugu icin)
- * SAHIBIN GALERI fotografini kendi yanitina ilistirebilirdi.
- *
- * 🔴 Gecersiz kimlik EXCEPTION FIRLATMAZ, sessizce null olur. Gerekce
- * bir kolaylik degil bir savunma: 403/422 donmek, saldirgana "bu kimlik
- * gecerliydi ama senin degil" ile "bu kimlik hic yok" arasindaki farki
- * ogretirdi — yani media tablosu ULID uzayindan taranabilir hale gelirdi
- * (docs/08 §3.2'nin ayni gerekcesi). Misafir kendi gonderdigi kimligi
- * zaten biliyor; yanitta fotografin gorunmemesi ona yeterli sinyal.
- *
- * Dogrulama kurali olarak yazilamazdi: FormRequest davetiyeyi henuz
- * cozmemistir, dolayisiyla "hangi davetiye" sorusunun cevabi orada YOK.
- * Ayrintili aciklama: docs/rehber/app/Actions/Rsvp/SubmitRsvpAction.md
+ * Misafirin LCV'sine iliştirdiği medya kimliğini doğrular (bu davetiye, bu tür, başka yanıta bağlı değil, bütçe); geçersizse null.
+ * Ayrintili aciklama: docs/rehber/app/Actions/Rsvp/ResolveGuestMediaAction.md
  */
 final class ResolveGuestMediaAction
 {
@@ -63,6 +42,27 @@ final class ResolveGuestMediaAction
             })
             ->exists();
 
-        return $belongs ? $mediaId : null;
+        return $belongs && $this->fitsAttachedBudget($invitation, $mediaId, $kind, $owner) ? $mediaId : null;
+    }
+
+    /**
+     * A-E4 (K190): bekleyen dosya iliştirilirken iliştirilmiş bütçe yeniden sınanır; aşarsa iliştirilmez.
+     * Çağıran davetiye satırını kilitlemiş olmalı (yükleme ucuyla aynı sıra).
+     */
+    private function fitsAttachedBudget(Invitation $invitation, string $mediaId, MediaKind $kind, ?Rsvp $owner): bool
+    {
+        // Güncellemede bu yanıtın aynı türdeki eski dosyası yerini bırakıyor: sayımdan çıkar.
+        $replaced = $owner?->getOriginal($kind === MediaKind::RsvpPhoto ? 'photo_media_id' : 'video_media_id');
+
+        $attached = fn () => $invitation->media()
+            ->whereIn('kind', MediaKind::guestUploadableValues())
+            ->attachedToRsvp()
+            ->when(is_string($replaced), fn ($query) => $query->whereKeyNot($replaced));
+
+        $incomingBytes = (int) $invitation->media()->whereKey($mediaId)->value('size_bytes');
+
+        return $attached()->where('kind', $kind)->count() < $kind->maxPerInvitation()
+            && (int) $attached()->sum('size_bytes') + $incomingBytes
+                <= Config::integer('davetkart.media.guest_budget.attached_bytes_per_invitation');
     }
 }
