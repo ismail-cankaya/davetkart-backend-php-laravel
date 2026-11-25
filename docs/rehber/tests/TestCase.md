@@ -261,3 +261,8 @@ Bu testleri tek tek düzeltmek yerine dünyayı Faz 12'deki gibi başlatıyoruz.
 testler onu **açıkça** açıyor (`QuotePriceActionTest`, `FirstPublishCheckoutTest`, `PricingTest`).
 
 `Http::preventStrayRequests()` ile aynı fikir: güvenli varsayılan temel sınıfta, istisna testte.
+
+## Silme günlüğü sahte diskte (B-E1, K233)
+
+`setUp()` `deletion_log.disk`'i `deletion-log-test`'e çevirir ve `Storage::fake()` kurar. `RecordDeletion` her model
+silmesinde günlüğe yazar; bu olmasaydı silme yapan her test gerçek `local` diske dosya bırakırdı.

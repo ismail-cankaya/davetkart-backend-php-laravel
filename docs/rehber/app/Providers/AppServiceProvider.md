@@ -1086,3 +1086,9 @@ Kod hatasi gibi gorunur, oysa sorun sunucunun ortamindadir.
 Yalnizca yerel gelistirme sunucusunu etkiler: uretim (nginx/php-fpm)
 bu komutu kullanmaz. TMPDIR, macOS/Linux'taki karsiligidir.
 Ayrintili aciklama: docs/rehber/app/Providers/AppServiceProvider.md
+
+## Faz 19 ortak düzeltme (B-E1, K233) — `configureDeletionLog()`
+
+`User`, `Invitation`, `Rsvp`, `Media` modellerine [`RecordDeletion`](../Observers/RecordDeletion.md) observer'ı bağlanır:
+kullanıcının başlattığı her silme commit'ten sonra veritabanı dışındaki silme günlüğüne yazılır; yedekten
+geri yüklemeden sonra `data:reapply-deletions` onları yeniden uygular.

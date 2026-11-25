@@ -7,6 +7,7 @@ namespace Tests;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -35,6 +36,10 @@ abstract class TestCase extends BaseTestCase
         // onu kendisi açar (QuotePriceActionTest, FirstPublishCheckoutTest).
         // Ayrıntılı açıklama: docs/rehber/tests/TestCase.md §9
         Config::set('davetkart.pricing.first_publish_percent', 0);
+
+        // K233 (B-E1): silmeler RecordDeletion ile günlüğe yazılır; testte ayrı, sahte bir disk.
+        Config::set('deletion_log.disk', 'deletion-log-test');
+        Storage::fake('deletion-log-test');
     }
 
     /**
