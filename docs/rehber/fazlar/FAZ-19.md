@@ -1506,10 +1506,12 @@ bu yüzden denetimin `awk` ölçüsü taşınan dosyalarda düşmedi (aşağıda
 | 3 | `k18:check routes/api.php` / `AppServiceProvider.php` | 21 + 14 ihlal → 0 + 0 |
 | 4 | Denetim ölçüsü (betiğin mantığı, taban → dal) | kod dosyası 418 → 421 · kılavuzsuz 110 → 81 · uzun bloklu 296/325 → 298/327 (ölçü `/**` `*/`'yi saydığı için) |
 | 5 | Kapanış kapıları | yukarıdaki özet tablosu |
+| 6 | **Gerçek envanter, `K18Inspector` ile** (Faz 19 ortak düzeltme, 25 Kas; `fix/2026-11-25-hat-c-open-issues` @ `64f43a3`, OPS-03'ün 9 kılavuzu dahil) | `app/` 272 · `config/` 19 · `database/` 44 · `routes/` 3 = **338** dosya · kılavuzsuz **45** (`app/` 38, `database/` 6, `routes/` 1) · uzun bloklu **271** dosya, **568** blok · iki kurala da uyan **44** |
 
 **B7.** Komut, mutantlar, rota listesi, tam takım, audit, frontend kapıları görüldü. PHPStan yeni dosyaları analiz **edemedi**
 (tek dosya kipinde mevcut dosyalar da aynı "tip yok" hatalarını veriyor; tam koşu #11'de çöküyor). Denetimin 79/265 sayıları
 denetim anlık görüntüsüne (`d810410`) ait; buradaki taban `0743874`.
 
 **İsmail'e kalan.** `main`'e birleştirme ve `v1.2.0` (PHPStan yeşil olmadan etiket yok): docs `phases/faz-19/FAZ-19-ARC-03-COMMIT-KOMUTLARI.md`.
-Kalan 81 kılavuzsuz dosya ve uzun bloklar cırcırla, dokunuldukça.
+Kalan 81 kılavuzsuz dosya ve uzun bloklar cırcırla, dokunuldukça. (Satır 6: aynı kurala göre gerçek sayı 45 kılavuzsuz
+dosya; `awk` ölçüsü `tests/` ve `bootstrap/`'ı da sayıyordu, `K18Inspector` yalnızca dört kökü.)
