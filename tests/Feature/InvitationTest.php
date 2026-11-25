@@ -158,17 +158,6 @@ final class InvitationTest extends TestCase
         $this->assertGreaterThan($lock, $count);
     }
 
-    /** FE-50 (D2) regresyon: `/create/<id>` başkasının taslağını açamaz; 404 (H7). */
-    #[Test]
-    public function a_user_cannot_open_someone_elses_draft_by_url(): void
-    {
-        $draft = Invitation::factory()->create();
-
-        $this->withToken($this->tokenFor(User::factory()->create()))
-            ->getJson(route('invitations.show', $draft))
-            ->assertNotFound();
-    }
-
     /** K191 (SEC-09): doğrulama yalnızca ödeme ve yayını bekletir; taslak serbest. */
     #[Test]
     public function an_unverified_account_can_still_create_a_draft(): void
@@ -352,7 +341,7 @@ final class InvitationTest extends TestCase
             ->assertJsonPath('data.id', $ayseninki->id);
     }
 
-    /** 🔴 IDOR: gecerli token + baskasinin kimligi = 404, 403 DEGIL (H7). */
+    /** 🔴 IDOR: gecerli token + baskasinin kimligi = 404, 403 DEGIL (H7). Fabrika taslak uretir: FE-50 D2 (`/create/<id>`) de bu. */
     #[Test]
     public function owner_cannot_read_another_users_invitation(): void
     {
