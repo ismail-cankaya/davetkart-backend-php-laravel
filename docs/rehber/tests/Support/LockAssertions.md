@@ -35,8 +35,8 @@ bağlantı göremez. `LockRaceTest` `DatabaseTruncation` kullanır ve test sonun
 | `Media/DeleteGalleryMediaAction` | galeri dizisi ezilmez | `deleting_a_gallery_photo_locks_the_invitation_row` |
 | `Media/StoreUploadedMediaAction` | kota + galeri sırası (E9); misafir bayt bütçesi (K190) | `storing_an_upload_locks_the_invitation_row` · `the_guest_byte_budget_is_read_under_the_invitation_lock` |
 | `Jobs/OptimizeUploadedImage` (`swapFile`) | dosya değişimi silmeyle yarışmaz | `swapping_an_optimized_image_locks_the_invitation_row` |
-| `Payment/ClaimReleasedOrderAction` (M49) | serbest hak tek davetiyeye | `claiming_a_released_order_locks_the_order_rows` + `a_refund_requested_during_a_claim_keeps_the_right_frozen` |
-| `Payment/HandlePaymentCallbackAction` (M47) | bildirim iki kez ilerlemez | `a_payment_notification_locks_the_order_row` |
+| `Payment/ClaimReleasedOrderAction` (M49) | serbest hak tek davetiyeye | `claiming_a_released_order_locks_the_order_rows` + `a_refund_requested_during_a_claim_keeps_the_right_frozen` + `a_released_order_claimed_concurrently_is_not_claimed_twice` (A-E8) |
+| `Payment/HandlePaymentCallbackAction` (M47) | bildirim iki kez ilerlemez | `a_payment_notification_locks_the_order_row` + `a_repeated_payment_notification_does_not_rewrite_a_concurrently_paid_order` (A-E8) |
 | `Payment/StartCheckoutAction` | ilk yayın indirimi tek sipariş (18.3) | `FirstPublishCheckoutTest::the_user_row_is_locked_before_the_checkout_looks_at_orders` |
 | `Refund/RequestRefundAction` | iptal ile yayın sıraya girer | `requesting_a_refund_locks_the_order_row` |
 | `Refund/ResolveRefundRequestAction` ×2 | talep tek karar; sipariş taze | `resolving_a_refund_request_locks_the_request_and_the_order` |
@@ -47,6 +47,9 @@ bağlantı göremez. `LockRaceTest` `DatabaseTruncation` kullanır ve test sonun
 
 - Bekleme testinin her mutantı öldüreceğini sanmak: kilit silinince Action'ın sonraki `UPDATE`'i de aynı
   satırı bekler (M47, M49'da böyle). Kilidin **okuma anını** sıralayan tek kanıt SQL testi ya da gerçek araya girmedir.
+  Faz 19 ortak düzeltme (A-E8): M47 ve M49'a araya girme testi eklendi. Alt süreç satırı kilitleyip **ilerletir**
+  (ödendi / başka davetiyeye bağlandı) ve commit eder; kilitli Action bekleyip taze satırı görür, kilitsiz Action
+  bayat görüntüyle üzerine yazar. İki mutant da (`lockForUpdate` silindi) bu testlerle kırmızı.
 - Yeni `lockForUpdate()` ekleyip envantere satır ve test eklememek.
 
 ## Nasıl denenir
