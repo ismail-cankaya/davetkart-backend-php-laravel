@@ -4,22 +4,24 @@ declare(strict_types=1);
 
 namespace App\Actions\Invitation;
 
+use App\Support\TemplateCovers;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
 
 /**
- * FE-04: paylasim onizlemesinin (OG) degerleri. Nginx yalnizca bot User-Agent'ini buraya yollar;
- * UA sahtelenebilir, bu yuzden TEK savunma: ad/tarih/mekan yalnizca YAYINDAKI davetiyeden
- * (yuk `ResolvePublicInvitationAction` kapsamindan gecer). Yayinda degilse ya da yoksa genel onizleme.
+ * FE-04: paylasim onizlemesi (OG). UA sahtelenebilir: ad/tarih/mekan YALNIZCA yayindaki davetiyeden, yoksa genel.
  * Kilavuz: docs/rehber/app/Actions/Invitation/BuildSharePreviewAction.md
  */
 final class BuildSharePreviewAction
 {
     private const string GENERIC_DESCRIPTION = 'Size özel bir davetiye var. Açmak için dokunun.';
 
-    public function __construct(private readonly PublicInvitationPayloadAction $payload) {}
+    public function __construct(
+        private readonly PublicInvitationPayloadAction $payload,
+        private readonly TemplateCovers $covers,
+    ) {}
 
     /**
      * @return array<string, string> url, image, title, description, siteName (Blade degiskenleri)
@@ -75,8 +77,12 @@ final class BuildSharePreviewAction
 
         $gallery = is_array($inv['galleryImages'] ?? null) ? $inv['galleryImages'] : [];
         $first = is_array($gallery[0] ?? null) ? $gallery[0] : [];
+        $cover = $this->covers->pathFor($this->text($inv, 'imageTheme'));
         if (is_string($first['url'] ?? null) && $first['url'] !== '') {
             $preview['image'] = $first['url'];
+        } elseif ($cover !== null) {
+            // K235 (B-E4): galeri yoksa sablonun kapagi; o da yoksa genel poster kalir.
+            $preview['image'] = rtrim(Config::string('davetkart.frontend.url'), '/').$cover;
         }
 
         return $preview;

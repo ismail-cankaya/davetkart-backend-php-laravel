@@ -9,6 +9,7 @@ use App\Models\Invitation;
 use App\Models\Order;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -81,6 +82,30 @@ final class SharePreviewTest extends TestCase
             ->assertOk()
             ->assertSee('Elif &amp; Can', false)
             ->assertDontSee('og:site_name', false);
+    }
+
+    /** K235 (B-E4): galeri yoksa sablon kapagi; dizinde yoksa ya da yol beklenmedikse genel poster. */
+    #[Test]
+    public function an_invitation_without_a_gallery_shows_its_template_cover(): void
+    {
+        $index = tempnam(sys_get_temp_dir(), 'covers');
+        file_put_contents($index, (string) json_encode(['moda-gece' => '/covers/moda-gece.webp', 'kotu' => 'https://baska.example/x.jpg']));
+        Config::set('covers.index', $index);
+        $frontend = config('davetkart.frontend.url');
+
+        try {
+            $withCover = Invitation::factory()->published()->create(['preset_id' => 'moda-gece']);
+            $this->get(route('share-preview', $withCover->id))
+                ->assertSee('<meta property="og:image" content="'.$frontend.'/covers/moda-gece.webp">', false);
+
+            foreach (['yok-boyle-sablon', 'kotu'] as $preset) {
+                $other = Invitation::factory()->published()->create(['preset_id' => $preset]);
+                $this->get(route('share-preview', $other->id))
+                    ->assertSee('<meta property="og:image" content="'.$frontend.config('davetkart.share_preview.image_path').'">', false);
+            }
+        } finally {
+            unlink($index);
+        }
     }
 
     /** D4: misafir okumasiyla AYNI onbellek anahtari; yayin olayi ikisini birden tazeler. */
