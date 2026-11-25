@@ -802,6 +802,52 @@ final class MediaTest extends TestCase
         $this->assertDatabaseCount('media', 2);
     }
 
+    /** A-E4 (K190): bekleyen dosya iliştirilirken bütçe yeniden sınanır; aşarsa iliştirilmez, yanıt yine kaydedilir. */
+    #[Test]
+    public function a_pending_upload_is_not_attached_past_the_attached_budget(): void
+    {
+        Config::set('davetkart.media.guest_budget.attached_bytes_per_invitation', 10_000);
+        $inv = $this->openInvitation();
+        $this->attachedGuestPhoto($inv, 8_000);
+        $tooBig = Media::factory()->rsvpPhoto()->sized(3_000)->create(['invitation_id' => $inv->id]);
+        $fits = Media::factory()->rsvpPhoto()->sized(2_000)->create(['invitation_id' => $inv->id]);
+
+        $rejected = $this->postJson($this->rsvpUrl($inv), $this->rsvpPayload(['photoMediaId' => $tooBig->id]))
+            ->assertCreated()
+            ->json('data.id');
+        $this->assertDatabaseHas('rsvps', ['id' => $rejected, 'photo_media_id' => null]);
+
+        $accepted = $this->postJson($this->rsvpUrl($inv), $this->rsvpPayload([
+            'guestName' => 'Selin Aksoy',
+            'photoMediaId' => $fits->id,
+        ]))->assertCreated()->json('data.id');
+        $this->assertDatabaseHas('rsvps', ['id' => $accepted, 'photo_media_id' => $fits->id]);
+    }
+
+    /** A-E4: güncellemede yanıtın eski fotoğrafı yerini bırakır; aynı dosya yeniden gönderilince iki kez sayılmaz. */
+    #[Test]
+    public function replacing_an_attached_photo_does_not_count_it_twice(): void
+    {
+        Config::set('davetkart.media.guest_budget.attached_bytes_per_invitation', 10_000);
+        $inv = $this->openInvitation();
+        $old = Media::factory()->rsvpPhoto()->sized(6_000)->create(['invitation_id' => $inv->id]);
+        $created = $this->postJson($this->rsvpUrl($inv), $this->rsvpPayload(['photoMediaId' => $old->id]))
+            ->assertCreated()->json('data');
+        $this->assertIsArray($created);
+        $id = $created['id'] ?? null;
+        $editCode = $created['editCode'] ?? null;
+        $this->assertIsString($id);
+        $this->assertIsString($editCode);
+        $new = Media::factory()->rsvpPhoto()->sized(6_000)->create(['invitation_id' => $inv->id]);
+        $update = route('public.invitations.rsvps.update', [$inv, $id]);
+
+        $this->putJson($update, $this->rsvpPayload(['editCode' => $editCode, 'photoMediaId' => $old->id]))->assertOk();
+        $this->assertDatabaseHas('rsvps', ['id' => $id, 'photo_media_id' => $old->id]);
+
+        $this->putJson($update, $this->rsvpPayload(['editCode' => $editCode, 'photoMediaId' => $new->id]))->assertOk();
+        $this->assertDatabaseHas('rsvps', ['id' => $id, 'photo_media_id' => $new->id]);
+    }
+
     /** 🔴 Misafir GALERIYE yukleyemez — FormRequest katmani. */
     #[Test]
     public function guest_cannot_upload_to_the_gallery(): void
