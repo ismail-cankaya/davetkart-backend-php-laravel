@@ -85,8 +85,9 @@ hiçbir şey silinmediği için ilk gerçek koşu birikmiş verinin hepsini bir 
 
 ## 5. Bilinen sınırlar (B6)
 
-- **Yedekler:** silinen veri veritabanı yedeklerinde yaşamaya devam eder. Yedek
-  saklama süresi deploy fazının konusu (`docs/10`).
+- **Yedekler:** silinen veri yedeklerde en çok ~37 gün yaşar (K231). Yedek geri yüklenirse yedekten sonraki
+  kullanıcı silmeleri `data:reapply-deletions` ile yeniden uygulanır (K233); bu komut 40 günden eski silme
+  günlüğü klasörlerini de siler ([`ReapplyDeletions.md`](ReapplyDeletions.md)).
 - **Optimize edilmiş görselin eski hâli:** 24 saatlik bekleme işi (`DeleteReplacedMediaFile`)
   kendisi siliyor.
 - **Saat dilimi:** `event_at` karşılaştırması UTC üzerinden. 6 aylık bir sürede birkaç

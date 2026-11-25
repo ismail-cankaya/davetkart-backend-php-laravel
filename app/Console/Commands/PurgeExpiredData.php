@@ -12,6 +12,7 @@ use App\Models\Media;
 use App\Models\Order;
 use App\Models\RefundRequest;
 use App\Models\Rsvp;
+use App\Support\DeletionLog;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,7 +37,7 @@ final class PurgeExpiredData extends Command
 
     protected $description = 'Saklama suresi dolan veriyi siler (davetiye, misafir verisi, iletisim mesaji, eski siparis)';
 
-    public function handle(): int
+    public function handle(DeletionLog $log): int
     {
         $dryRun = $this->option('dry-run') === true;
         $suffix = $dryRun ? ' (yazilmadi)' : '';
@@ -45,12 +46,14 @@ final class PurgeExpiredData extends Command
         [$rsvps, $guestMedia, $undated] = $this->purgeGuestData($dryRun);
         $messages = $this->purgeContactMessages($dryRun);
         $orders = $this->purgeOldOrders($dryRun);
+        $logDays = $dryRun ? 0 : $log->prune(now()->subDays(Config::integer('deletion_log.days')));
 
         $this->components->info("{$invitations} davetiye kalici silindi{$suffix}.");
         $this->components->info("{$rsvps} LCV yaniti ve {$guestMedia} misafir dosyasi silindi{$suffix}.");
         $this->components->info("{$undated} tarihsiz davetiye yedek kurala girdi (yayin/olusturma + 12 ay).");
         $this->components->info("{$messages} iletisim mesaji silindi{$suffix}.");
         $this->components->info("{$orders} siparis (saklama suresi dolmus) silindi{$suffix}.");
+        $this->components->info("{$logDays} gunluk silme gunlugu klasoru silindi (K233){$suffix}.");
 
         return self::SUCCESS;
     }
