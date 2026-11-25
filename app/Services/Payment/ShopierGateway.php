@@ -23,20 +23,9 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 /**
  * Shopier "API ile ödeme" sürücüsü — klasik imzalı form akışı (Faz 12).
- *
- * Üç iş, üç kanal:
- *   startCheckout()     -> imzalı form (FormPostAction); kart Shopier'de yazılır
- *   parseCallback()     -> tarayıcının dönüşü; YÖNLENDİRME bilgisi (K127)
- *   parseNotification() -> Otomatik Sipariş Bildirimi (OSB); 'paid' kararı (K117)
- *
- * 🔴 Kurucu sırları sınar (K123): boş sırla hesaplanan HMAC'i herkes üretebilir.
- * Eksikse sürücü KURULMAZ -> 503, sessizce çalışmaz. Üretimde `callback` kipi de (K170).
- *
- * Paket değil kendi kodumuz (K120): topluluk SDK'sı HTML basıp `die` ediyor;
- * bizde formu frontend gönderiyor. Formüller ShopierSignature'da.
- * Ayrıntılı açıklama: docs/rehber/app/Services/Payment/ShopierGateway.md
+ * Ayrintili aciklama: docs/rehber/app/Services/Payment/ShopierGateway.md §A-E5-24
  */
-final class ShopierGateway implements PaymentGateway
+final class ShopierGateway implements PaymentGateway, RequiresBuyerPhone
 {
     public const NAME = 'shopier';
 
@@ -135,7 +124,7 @@ final class ShopierGateway implements PaymentGateway
             'platform_order_id' => $orderId,
             'product_name' => 'DavetKart '.$order->tier->label(),
             'product_type' => self::PRODUCT_TYPE_DIGITAL,
-            ...$this->buyerFields($user),
+            ...$this->buyerFields($user, $order),
             'total_order_value' => $total,
             'currency' => $currency,
             'platform' => self::PLATFORM,
@@ -283,13 +272,8 @@ final class ShopierGateway implements PaymentGateway
     }
 
     /**
-     * 🔴 OSB -> bizim siparişimiz. TEK yerde, çünkü TAHMİN (§A-c cevapsız).
-     *
-     * OSB'nin API ile başlatılan ödemelerde bizim `platform_order_id`'mizi taşıyıp
-     * taşımadığı resmi kaynakla doğrulanmadı. Bugünkü kural: `platform_order_id`
-     * alanı varsa o, yoksa `orderid` — ikisi de yalnızca ULID ise. Shopier'in kendi
-     * sayısal sipariş numarası ULID olamayacağı için yanlış siparişle eşleşmez;
-     * eşleşmezse null (critical log). Elle doğrulama adım 7 bu metodu kesinleştirir.
+     * 🔴 OSB -> bizim siparişimiz.
+     * Ayrintili aciklama: docs/rehber/app/Services/Payment/ShopierGateway.md §A-E5-285
      *
      * @param  array<mixed>  $data
      */
@@ -307,11 +291,11 @@ final class ShopierGateway implements PaymentGateway
     }
 
     /**
-     * E9 (K125): ad, soyad, e-posta kullanıcıdan; gerisi config'teki yer tutucular.
+     * E9 (K125): ad, soyad, e-posta kullanıcıdan; telefon siparişten (K262); TCKN ve adres config'teki yer tutucular.
      *
      * @return array<string, string>
      */
-    private function buyerFields(User $user): array
+    private function buyerFields(User $user, Order $order): array
     {
         $p = 'payment.providers.shopier.buyer_placeholders.';
         $address = Config::string($p.'address');
@@ -326,7 +310,8 @@ final class ShopierGateway implements PaymentGateway
             // Gün cinsinden hesap yaşı (Shopier'in risk değerlendirmesi için).
             'buyer_account_age' => (string) max(0, (int) $user->created_at?->diffInDays(now())),
             'buyer_id_nr' => Config::string($p.'id_nr'),
-            'buyer_phone' => Config::string($p.'phone'),
+            // K262 (A-E5): checkout bu sürücüde telefonu zorunlu kılar; yoksa form üretilmez.
+            'buyer_phone' => $order->buyer_phone ?? throw new RuntimeException('A Shopier checkout needs the buyer phone.'),
             'billing_address' => $address,
             'billing_city' => $city,
             'billing_country' => $country,

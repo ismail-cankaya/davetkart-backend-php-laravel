@@ -123,3 +123,42 @@ tutar `orders.amount_minor`'dan (indirim düşülmüş) **tamsayı aritmetiğiyl
   `PAYMENT_PROVIDER=shopier` ve boş sırlar sorun değil: sürücü hiç kurulmaz (K136, bkz.
   `StartCheckoutAction.md`).
 - Okuyan tek sınıf: [`PaymentMethods`](../app/Services/Payment/PaymentMethods.md).
+
+## K18 ile koddan taşınan açıklamalar (Faz 19 ortak düzeltme, A-E5)
+
+Koddaki uzun yorum blokları buraya taşındı; kodda ilk cümle ve bu bölüme işaretçi kaldı. Satır numaraları taşımadan önceki hâlin.
+
+### §A-E5-39 (satır 39)
+
+```text
+🔴 'osb' (varsayılan, fail-safe) | 'callback' (K117).
+  osb      -> siparişi YALNIZCA imzalı OSB bildirimi 'paid' yapar;
+              tarayıcı callback'i yalnızca yönlendirir
+  callback -> imzası doğrulanmış tarayıcı callback'i de durumu işler.
+              'status' imzasız: YALNIZCA yerel/test. Üretimde sürücü
+              kurulmaz -> ödeme uçları 503 (K170, SEC-03)
+```
+
+### §A-E5-65 (satır 65)
+
+```text
+Faz 13 (K134): AÇIK ödeme yöntemleri — virgüllü tek satır.
+
+  PAYMENT_METHODS=gift_code                     -> yalnızca hediye kodu
+  PAYMENT_METHODS=card,gift_code                -> kart (Shopier) + kod
+  PAYMENT_METHODS=card,bank_transfer,gift_code  -> hepsi
+
+Kelimeler App\Enums\PaymentMethod'dan; tanımsız bir kelime ödeme
+uçlarını 503 yapar, sessizce yok sayılmaz (K70 kalıbı). Varsayılan Faz
+12'nin davranışı (kart + kod): değişken unutulursa hiçbir şey değişmez.
+Okuyan tek sınıf: App\Services\Payment\PaymentMethods.
+```
+
+### §A-E5-79 (satır 79)
+
+```text
+Faz 13 (K135): Havale/EFT hesabı. Üçü de dolu ve IBAN sağlama
+toplamından geçerse 'bank_transfer' açılabilir; yoksa yöntem kapalıdır.
+Eskiden frontend .env'indeydi (VITE_BANK_TRANSFER_*); artık hesap
+değiştirmek frontend'i yeniden derlemeyi gerektirmiyor.
+```

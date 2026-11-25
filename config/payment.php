@@ -37,11 +37,7 @@ return [
             'payment_url' => 'https://www.shopier.com/ShowProduct/api_pay4.php',
 
             // 🔴 'osb' (varsayılan, fail-safe) | 'callback' (K117).
-            //   osb      -> siparişi YALNIZCA imzalı OSB bildirimi 'paid' yapar;
-            //               tarayıcı callback'i yalnızca yönlendirir
-            //   callback -> imzası doğrulanmış tarayıcı callback'i de durumu işler.
-            //               'status' imzasız: YALNIZCA yerel/test. Üretimde sürücü
-            //               kurulmaz -> ödeme uçları 503 (K170, SEC-03)
+            // Ayrintili aciklama: docs/rehber/config/payment.md §A-E5-39
             'confirmation' => env('SHOPIER_CONFIRMATION', 'osb'),
 
             // Otomatik Sipariş Bildirimi kimlikleri. 'osb' modunda zorunlu.
@@ -50,11 +46,10 @@ return [
                 'key' => env('SHOPIER_OSB_KEY'),
             ],
 
-            // Dijital ürün: TCKN, telefon ve adres bizde yok (users tablosu). Shopier
-            // alanları istiyor; yer tutucu gider (K125). §A-e doğrulanınca güncelle.
+            // Dijital ürün: TCKN ve adres bizde yok; Shopier alanları istiyor, yer tutucu gider (K125).
+            // Telefon artık siparişten (K262, A-E5); Shopier'in cevabı gelince bu liste de güncellenir.
             'buyer_placeholders' => [
                 'id_nr' => '11111111110',
-                'phone' => '05000000000',
                 'address' => 'Dijital urun - teslimat adresi yok',
                 'city' => 'Istanbul',
                 'country' => 'Turkey',
@@ -63,24 +58,14 @@ return [
         ],
     ],
 
-    /*
+    /**
      * Faz 13 (K134): AÇIK ödeme yöntemleri — virgüllü tek satır.
-     *
-     *   PAYMENT_METHODS=gift_code                     -> yalnızca hediye kodu
-     *   PAYMENT_METHODS=card,gift_code                -> kart (Shopier) + kod
-     *   PAYMENT_METHODS=card,bank_transfer,gift_code  -> hepsi
-     *
-     * Kelimeler App\Enums\PaymentMethod'dan; tanımsız bir kelime ödeme
-     * uçlarını 503 yapar, sessizce yok sayılmaz (K70 kalıbı). Varsayılan Faz
-     * 12'nin davranışı (kart + kod): değişken unutulursa hiçbir şey değişmez.
-     * Okuyan tek sınıf: App\Services\Payment\PaymentMethods.
+     * Ayrintili aciklama: docs/rehber/config/payment.md §A-E5-65
      */
     'methods' => env('PAYMENT_METHODS', 'card,gift_code'),
 
-    // Faz 13 (K135): Havale/EFT hesabı. Üçü de dolu ve IBAN sağlama
-    // toplamından geçerse 'bank_transfer' açılabilir; yoksa yöntem kapalıdır.
-    // Eskiden frontend .env'indeydi (VITE_BANK_TRANSFER_*); artık hesap
-    // değiştirmek frontend'i yeniden derlemeyi gerektirmiyor.
+    // Faz 13 (K135): Havale/EFT hesabı.
+    // Ayrintili aciklama: docs/rehber/config/payment.md §A-E5-79
     'bank_transfer' => [
         'bank_name' => env('BANK_TRANSFER_BANK_NAME'),
         'account_holder' => env('BANK_TRANSFER_ACCOUNT_HOLDER'),

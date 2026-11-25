@@ -923,6 +923,9 @@ kabul edip etmediği yazılı olarak bilinmiyor (K125 ⚠️).
 
 **Kararlar.** §A-1 (Shopier'in yazılı cevabı) **boş** → prompt'un **D4** kolu: kod değişmedi, backend dalı açılmadı, yeni K yok.
 §A-2 ve §A-3 bu kolda kullanılmadı.
+✅ Ortak düzeltme (A-E5, **K262**, İsmail'in kararı: cevabı beklemeden **D2**): telefon ödeme sayfasında alınır, `orders.buyer_phone`'da
+(yalnızca kart/Shopier siparişinde) durur ve forma o gider; `buyer_placeholders.phone` kalktı. TCKN ve adres Shopier'in cevabına
+kadar yer tutucu. Hesap silinince telefon da silinir. Kılavuz: `app/Services/Payment/RequiresBuyerPhone.md`.
 - Shopier'e gönderilecek soru metni: `notes/04-SHOPIER-ALICI-ALANLARI-SORUSU.md` (+ `notes/README.md` satırı).
 - **Plandan sapma:** "değişecek dosyaların listesi `FAZ-19.md`'ye" yerine aşağıya yazıldı (`FAZ-19.md` paylaşılan dosya;
   `BAGLAM.md` §2 gereği 19.90 bu kayıttan üretir).

@@ -16,24 +16,13 @@ use Illuminate\Support\Facades\Gate;
 
 /**
  * Odeme baslatma uclari — yalnizca YONLENDIRIR; is kurali Action'da (K3).
- *
- * Iki metot, K42'nin iki kolu:
- *   forInvitation() -> POST /api/invitations/{invitation}/checkout  (tekil)
- *   forAccount()    -> POST /api/payments/checkout                  (paket)
- *
- * Ayni Action'i cagiriyorlar; tek fark davetiyenin varligi. Iki AYRI Action
- * yazmak, aralarindaki ortak dort katmani (yeterlilik, fiyat, siparis,
- * telafi) kopyalamak olurdu (C3).
- * Ayrintili aciklama: docs/rehber/app/Http/Controllers/Api/V1/PaymentController.md
+ * Ayrintili aciklama: docs/rehber/app/Http/Controllers/Api/V1/PaymentController.md §A-E5-17
  */
 final class PaymentController extends Controller
 {
     /**
      * TEKIL alim: bu davetiye icin plan satin al.
-     *
-     * Aidiyet URL'nin yapisinda (N1) ve rota baglamasi kaydi cozemezse zaten
-     * 404 doner. Gate ise "senin mi" sorusunu soruyor; reddi de 404'e
-     * cevriliyor (H7) — iki farkli sebep, AYNI yanit.
+     * Ayrintili aciklama: docs/rehber/app/Http/Controllers/Api/V1/PaymentController.md §A-E5-31
      */
     public function forInvitation(
         StoreCheckoutRequest $request,
@@ -45,7 +34,7 @@ final class PaymentController extends Controller
         /** @var User $user auth:sanctum burada null OLAMAYACAGINI garanti eder. */
         $user = $request->user();
 
-        return $this->respond($action->handle($user, $invitation, $request->tier(), $request->giftCode()));
+        return $this->respond($action->handle($user, $invitation, $request->tier(), $request->giftCode(), $request->phone()));
     }
 
     /** PAKET alim: hesabin tamami icin plan satin al (K42). */
@@ -54,7 +43,7 @@ final class PaymentController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        return $this->respond($action->handle($user, null, $request->tier(), $request->giftCode()));
+        return $this->respond($action->handle($user, null, $request->tier(), $request->giftCode(), $request->phone()));
     }
 
     /** 201: yeni bir siparis KAYNAGI olustu (odeme henuz tamamlanmadi). */
