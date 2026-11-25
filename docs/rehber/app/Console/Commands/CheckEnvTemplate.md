@@ -39,3 +39,17 @@ php artisan test --compact --filter=ProductionConfigTest
 ```
 
 Mutant: şablondan `AWS_URL` satırını sil → komut `missing in template: AWS_URL`, çıkış 1; test kırmızı.
+
+## Faz 19 ortak düzeltme (A-E7) — sunucudaki `.env` ile karşılaştırma
+
+OPS-04 şablonu yalnızca `config/`'e göre eşitledi; sunucudaki gerçek anahtar listesi hiç görülmedi. Şablonda olmayan bir anahtar
+yeniden kurulumda kaybolur. Sunucuda:
+
+```bash
+php artisan env:template --env=.env           # farkları listeler
+php artisan env:template --env=.env --check   # fark varsa çıkış 1
+```
+
+- `in .env, not in template: X` → şablona ekle (ya da sunucudan kaldır). `in template, missing in .env: X` → sunucuda eksik.
+- Yalnızca satır başındaki `ANAHTAR=` (isteğe bağlı `export`) eşlenir; **değer hiçbir çıktıya girmez** (test: değer metni çıktıda aranır).
+- `config/` karşılaştırması (`--env` olmadan) değişmedi.

@@ -41,7 +41,8 @@ final class CheckEnvTemplate extends Command
 
     protected $signature = 'env:template
         {--check : Fark varsa çıkış 1}
-        {--template= : Şablon dosyası (varsayılan docs/10-URETIM-ENV-SABLONU.md)}';
+        {--template= : Şablon dosyası (varsayılan docs/10-URETIM-ENV-SABLONU.md)}
+        {--env= : Gerçek .env dosyası: yalnızca ANAHTARLARI şablonla karşılaştırır, değer okunmaz (A-E7)}';
 
     protected $description = 'Compare env keys read by config/ with the production .env template';
 
@@ -55,8 +56,15 @@ final class CheckEnvTemplate extends Command
             return self::FAILURE;
         }
 
-        $read = $this->keysReadByConfig();
         $listed = $this->keysInTemplate((string) file_get_contents($templatePath));
+
+        $envPath = $this->option('env');
+
+        if (is_string($envPath) && $envPath !== '') {
+            return $this->compareEnvFile($envPath, $listed);
+        }
+
+        $read = $this->keysReadByConfig();
 
         $missing = array_values(array_filter(
             array_diff($read, $listed),
@@ -74,6 +82,43 @@ final class CheckEnvTemplate extends Command
 
         if ($missing === [] && $extra === []) {
             $this->info('Env template is in sync with config/.');
+
+            return self::SUCCESS;
+        }
+
+        return $this->option('check') ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * A-E7: sunucudaki `.env` ↔ şablon. Şablonda olmayan anahtar yeniden kurulumda kaybolur; tersi sunucuda eksiktir.
+     *
+     * @param  list<string>  $listed
+     */
+    private function compareEnvFile(string $envPath, array $listed): int
+    {
+        if (! is_file($envPath)) {
+            $this->error("Env file not found: {$envPath}");
+
+            return self::FAILURE;
+        }
+
+        // Yalnızca `ANAHTAR=` öneki eşlenir; değer hiçbir çıktıya girmez.
+        preg_match_all('/^\s*(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=/m', (string) file_get_contents($envPath), $matches);
+        $present = $this->unique($matches[1]);
+
+        $notInTemplate = array_values(array_diff($present, $listed));
+        $missingOnServer = array_values(array_diff($listed, $present));
+
+        foreach ($notInTemplate as $key) {
+            $this->line("in .env, not in template: {$key}");
+        }
+
+        foreach ($missingOnServer as $key) {
+            $this->line("in template, missing in .env: {$key}");
+        }
+
+        if ($notInTemplate === [] && $missingOnServer === []) {
+            $this->info('The .env keys match the template.');
 
             return self::SUCCESS;
         }
