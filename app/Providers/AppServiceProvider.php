@@ -8,7 +8,11 @@ use App\Contracts\PublishEntitlementResolver;
 use App\Contracts\RsvpQuotaResolver;
 use App\Exceptions\AiProviderException;
 use App\Exceptions\PaymentProviderException;
+use App\Models\Invitation;
+use App\Models\Media;
+use App\Models\Rsvp;
 use App\Models\User;
+use App\Observers\RecordDeletion;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\GeminiProvider;
 use App\Services\Ai\NullProvider;
@@ -112,6 +116,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureValidationRules();
         $this->configureAboutCommand();
         $this->configureMailCheck();
+        $this->configureDeletionLog();
     }
 
     /** K183/K185: `php artisan about` medya diskini ve posta sürücüsünü üretim uyarısıyla gösterir. */
@@ -121,6 +126,14 @@ class AppServiceProvider extends ServiceProvider
             'Media disk' => $this->app->make(MediaDiskGuard::class)->aboutLine(),
             'Mail mailer' => $this->app->make(ProductionMailCheck::class)->aboutLine(),
         ]);
+    }
+
+    /** K233 (B-E1): kullanıcının başlattığı silmeler veritabanı dışındaki günlüğe (geri yüklemede yeniden uygulanır). */
+    private function configureDeletionLog(): void
+    {
+        foreach ([User::class, Invitation::class, Rsvp::class, Media::class] as $model) {
+            $model::observe(RecordDeletion::class);
+        }
     }
 
     /** K185: alarm açılışta değil gönderim anında; açılış her istekte olur ve her isteği alarma çevirirdi. */
