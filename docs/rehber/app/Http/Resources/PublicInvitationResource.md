@@ -413,3 +413,8 @@ eski değeri TTL dolana kadar taşıyabilir. Bayrağı değiştirdikten sonra `p
 zararsızdır: arayüz alanı çizer, uç 404 döner.
 
 Test: `PublicInvitationTest::the_public_invitation_reports_the_guest_upload_flag` (kapalı/açık).
+
+> ✅ **Faz 19 ortak düzeltme (A-E3):** yukarıdaki önbellek notu artık geçerli değil. `PublicInvitationPayloadAction`
+> önbellekten gelen yükte `guestUploads`'ı her istekte config'ten yeniden yazar; bayrak değişince `cache:clear`
+> gerekmez. Resource alanı yine üretir (alanın varlığı = LCV açık). Test:
+> `the_guest_upload_flag_is_not_frozen_in_the_cached_payload`.

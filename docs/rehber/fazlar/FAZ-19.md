@@ -794,6 +794,7 @@ Yani risk vardı, fayda yoktu.
 - **Plandan sapma:** "paket grafiğinde yok" kontrolü `src/` metin taramasıyla yapıldı, Vite'ın grafiğiyle değil (verify-render rehberi).
 - **Bilinen gecikme:** davetiye yanıtı önbellekte en çok 6 saat kalıyor. Bayrak değişince uç hemen uyar, ama `guestUploads` alanı
   TTL dolana kadar eski kalabilir. Bayrağı değiştirdikten sonra `php artisan cache:clear` (rehber).
+  ✅ Ortak düzeltmede kapandı (A-E3): alan önbellekten sonra her istekte config'ten yazılıyor; `cache:clear` gerekmez.
 
 **Testler / mutant.** Backend: `MediaTest::guest_upload_is_refused_when_disabled` + `guest_upload_works_when_enabled`,
 `PublicInvitationTest::the_public_invitation_reports_the_guest_upload_flag` (kapalı/açık). Mevcut misafir yükleme testleri bayrağı açar.

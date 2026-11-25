@@ -216,6 +216,28 @@ final class PublicInvitationTest extends TestCase
             ->assertJsonPath('data.invitation.guestUploads', $enabled);
     }
 
+    /** A-E3: bayrak önbellekteki yükte donmaz; değişince `cache:clear` olmadan bir sonraki istekte görünür. */
+    #[Test]
+    public function the_guest_upload_flag_is_not_frozen_in_the_cached_payload(): void
+    {
+        Config::set('davetkart.guest_uploads.enabled', false);
+        $inv = $this->published(['show_rsvp' => true]);
+
+        $this->getJson($this->url($inv))->assertJsonPath('data.invitation.guestUploads', false);
+        $this->assertTrue(Cache::has(Invitation::publicCacheKey($inv->id)));
+
+        Config::set('davetkart.guest_uploads.enabled', true);
+
+        $this->getJson($this->url($inv))
+            ->assertOk()
+            ->assertJsonPath('data.invitation.guestUploads', true);
+
+        $inv->update(['show_rsvp' => false]);
+        Cache::forget(Invitation::publicCacheKey($inv->id));
+
+        $this->getJson($this->url($inv))->assertJsonMissingPath('data.invitation.guestUploads');
+    }
+
     /** @return array<string, array{bool}> */
     public static function guestUploadFlags(): array
     {
