@@ -103,7 +103,7 @@ final class AccountDeletionTest extends TestCase
         $trashedPhoto = $this->withFile(Media::factory()->for($trashed)->createOne());
 
         $single = Order::factory()->forInvitation($live)->paid()->create();
-        $package = Order::factory()->for($user)->package()->paid()->create();
+        $package = Order::factory()->for($user)->package()->paid()->create(['buyer_phone' => '05321234567']);
         AssistantUsage::factory()->for($user)->create();
         Password::broker()->createToken($user);
 
@@ -129,6 +129,8 @@ final class AccountDeletionTest extends TestCase
             $order->refresh();
             $this->assertNull($order->user_id);
             $this->assertNull($order->invitation_id);
+            // K262 (A-E5): telefon kalsaydı kayıt anonim olmazdı.
+            $this->assertNull($order->buyer_phone);
         }
         $this->assertSame(2, Order::query()->count());
 

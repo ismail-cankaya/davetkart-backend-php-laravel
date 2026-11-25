@@ -64,3 +64,41 @@ geri dönüşü olmayan bir hesap silmesi var.
 - **Optimize edilmiş görselin eski hâli:** `DeleteReplacedMediaFile` işi onu 24 saat
   sonra kendisi siliyor (`replaced_file_grace_hours`); bu eylem ona dokunmuyor.
 - **Sağlayıcıdaki kayıt:** ödeme sağlayıcısının kendi müşteri kaydı bizim kontrolümüzde değil.
+
+## K18 ile koddan taşınan açıklamalar (Faz 19 ortak düzeltme, A-E5)
+
+Koddaki uzun yorum blokları buraya taşındı; kodda ilk cümle ve bu bölüme işaretçi kaldı. Satır numaraları taşımadan önceki hâlin.
+
+### §A-E5-16 (satır 16)
+
+```text
+Hesabi siler: kisisel veri gider, odeme kaydi anonim kalir (Faz 10, 10.39 · K97).
+
+🔴 Silme YALNIZCA buradan, VERITABANININ cascade'ine birakilmadan yapilir
+(plan tuzak #8). `users` satiri silinince FK'ler davetiyeleri, LCV'leri ve
+medya SATIRLARINI kendiliginden siler, ama:
+  - dosyalar diskte KALIR (bir veritabani kisiti diski bilmez),
+  - model olaylari ATESLENMEZ: InvitationChanged -> ClearInvitationCache
+    hic calismaz ve silinmis bir davetiye cache TTL'i dolana kadar
+    (6 saat) misafire acik kalir.
+
+Sira:
+  1. Transaction: dosya yollarini topla -> davetiyeleri MODEL uzerinden
+     kalici sil (olaylar ateslenir) -> sifirlama token'larini, oturumlari
+     ve kullaniciyi sil. Siparisler FK ile `user_id = NULL` olur (10.38).
+  2. Commit'ten SONRA dosyalari sil.
+
+Neden dosyalar sonra? Ters sirada transaction basarisiz olursa, hesabi HALA
+VAR olan bir kullanicinin fotograflari silinmis olurdu. Bu sirada en kotu
+durum diskte sahipsiz bir dosyadir: veri kaybi degil, yer kaybi (loglanir).
+Ayrintili aciklama: docs/rehber/app/Actions/Auth/DeleteAccountAction.md
+```
+
+### §A-E5-57 (satır 57)
+
+```text
+MODEL uzerinden: `deleted` olayi -> public cache temizligi (K48).
+forceDelete: SoftDeletes'in cop kutusu hesapla birlikte bosalir.
+Satirin FK'leri LCV'leri, program adimlarini ve medya satirlarini
+siler; siparislerin invitation_id'si NULL olur.
+```
