@@ -45,6 +45,10 @@ parameters:
     # 8.5.x serisini kapsar.
     phpVersion: 80500
 
+    # Sonuc onbellegi worktree'ye ozgu: ortak %TEMP%\phpstan hatlar arasinda
+    # karisip sahte hata veriyordu (B-H7). Ayrinti: docs/rehber/phpstan.md.
+    tmpDir: storage/phpstan
+
     ignoreErrors:
         # Laravel'in Facade ve Model cephelerinde statik cozumleme sinirli kalir;
         # Larastan cogunu cozer, kalan istisnalar buraya EK GEREKCEYLE yazilir.
