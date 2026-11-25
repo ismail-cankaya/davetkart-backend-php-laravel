@@ -126,6 +126,9 @@ DAVETKART_MEDIA_DISK=s3
 # K189 (FE-51): misafirin LCV'ye foto/video yuklemesi. Arayuzde alan yok; acmak urun
 # karari (kota: SEC-08). Kapaliyken uc 404.
 DAVETKART_GUEST_UPLOADS=false
+# K233 (B-E1): silme gunlugu VERITABANI DISINDA (geri yuklemeden sonra data:reapply-deletions).
+# s3: Lightsail goruntusune donulse de kalir. Bkz. docs/rehber/config/deletion_log.md
+DAVETKART_DELETION_LOG_DISK=s3
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 AWS_DEFAULT_REGION=eu-central-1
