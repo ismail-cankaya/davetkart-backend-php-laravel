@@ -480,7 +480,7 @@ koyuyor ve kararı geçersiz kılan bir K yoktu. `DAVETKART_MEDIA_DISK` varsayı
 | Frontend / e2e | koşulmadı (frontend'e dokunulmadı) |
 
 **İsmail'e kalan elle işler.** (1) PHPStan kırmızısı (`ResolvesRefundRequests.php`) için karar: entegrasyon dalında da kırmızıysa ayrı bulgu.
-(2) Canlı sunucuda `php artisan about --only=davetkart` → `Media disk: s3` görülmeli. (3) Yerelde biriken `public` dosyaların S3'e taşınması kapsam dışı.
+(2) Canlı sunucuda `php artisan about --only=davetkart` → `Media disk: s3` görülmeli. (3) Yerelde biriken `public` dosyaların S3'e taşınması kapsam dışı. ✅ Ortak düzeltme (A-E6): `php artisan media:move-disk` (`MoveMediaDisk.md`).
 
 ---
 
