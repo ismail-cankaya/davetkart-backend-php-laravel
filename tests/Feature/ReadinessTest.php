@@ -15,7 +15,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Tests\TestCase;
@@ -166,11 +165,10 @@ final class ReadinessTest extends TestCase
     public function a_failed_job_is_reported(): void
     {
         $logger = Log::spy();
-        $job = Mockery::mock(Job::class, [
-            'resolveName' => 'App\Jobs\SendSomething',
-            'getQueue' => 'default',
-            'attempts' => 3,
-        ]);
+        $job = $this->createStub(Job::class);
+        $job->method('resolveName')->willReturn('App\Jobs\SendSomething');
+        $job->method('getQueue')->willReturn('default');
+        $job->method('attempts')->willReturn(3);
 
         event(new JobFailed('database', $job, new RuntimeException('ayse@example.com icin gonderilemedi')));
 

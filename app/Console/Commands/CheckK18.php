@@ -26,7 +26,9 @@ final class CheckK18 extends Command
     public function handle(): int
     {
         $paths = $this->argument('paths');
-        $files = $paths === [] ? $this->changedFiles((string) ($this->option('base') ?: self::BASELINE)) : $paths;
+        $paths = is_array($paths) ? array_values(array_filter($paths, 'is_string')) : [];
+        $base = $this->option('base');
+        $files = $paths === [] ? $this->changedFiles(is_string($base) && $base !== '' ? $base : self::BASELINE) : $paths;
 
         if ($files === null) {
             return self::FAILURE;

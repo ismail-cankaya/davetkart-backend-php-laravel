@@ -9,11 +9,8 @@ use App\Enums\RefundRequestStatus;
 use RuntimeException;
 
 /**
- * refunds:approve ve refunds:reject'in ortak gövdesi (Faz 14, 14.6).
- *
- * Trait, kalıtım değil: iki komut birbirinin özel hâli değil, aynı adımı
- * paylaşan iki ayrı komut. Biri diğerinden türeseydi onayın "Shopier'den
- * gönderdiniz mi?" sorusu ret komutuna da miras kalırdı.
+ * refunds:approve ve refunds:reject'in ortak gövdesi (Faz 14.6).
+ * Neden trait: docs/rehber/app/Console/Commands/Concerns/ResolvesRefundRequests.md
  *
  * @mixin \Illuminate\Console\Command
  */
@@ -22,11 +19,16 @@ trait ResolvesRefundRequests
     private function resolve(ResolveRefundRequestAction $action, RefundRequestStatus $decision): int
     {
         $id = $this->argument('id');
+        if (! is_string($id)) {
+            $this->error('Talep kimligi gerekli.');
+
+            return self::FAILURE;
+        }
         $note = $this->option('note');
         $note = is_string($note) && trim($note) !== '' ? mb_substr(trim($note), 0, 500) : null;
 
         try {
-            $request = $action->handle((string) $id, $decision, $note);
+            $request = $action->handle($id, $decision, $note);
         } catch (RuntimeException $e) {
             $this->error($e->getMessage());
 
