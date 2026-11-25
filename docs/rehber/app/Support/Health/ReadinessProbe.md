@@ -4,6 +4,7 @@
 > `DiskSpaceCheck.php` · `LocalDiskUsage.php` · `RecordSchedulerHeartbeat.php` · `app/Contracts/HealthCheck.php` ·
 > `app/Contracts/DiskUsage.php` · `app/Http/Controllers/Api/V1/ReadinessController.php` · rota `health.ready`
 > **Faz:** 19.7 (`OPS-03`) · **Test:** `tests/Feature/ReadinessTest.php` · **Eşikler:** `config/health.php`
+> **Dosya kılavuzları (K18):** her kod dosyasının aynı adlı `.md`'si var; bu sayfa genel bakıştır.
 
 ## Neden
 
