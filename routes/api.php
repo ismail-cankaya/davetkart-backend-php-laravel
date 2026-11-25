@@ -108,8 +108,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('invitations', InvitationController::class)
         ->whereUlid('invitation');
 
-    // LCV paneli (Faz 5). Liste ucu 15 saniyede bir cagrilir (config: poll_interval_seconds), yani
-    // sistemin en sik istenen auth'lu ucudur. SetEtag burada K46'nin karsiligini aliyor: Faz 4'te …
+    // LCV paneli (Faz 5): 15 sn'de bir sorgulanan liste; ETag (K46) burada, yazma kovasi throttle:rsvp degil.
     // Ayrinti: docs/rehber/routes/api.md T4.
     Route::get('/invitations/{invitation}/rsvps', [RsvpController::class, 'index'])
         ->whereUlid('invitation')
@@ -237,8 +236,7 @@ Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(func
     Route::post('/payments/webhook', PublicPaymentWebhookController::class)
         ->name('payments.webhook');
 
-    // Faz 12: Shopier'in iki dönüş kanalı (K117, K122). Fake'in /payments/webhook ucu yerinde kalıyor;
-    // Shopier'in uçları ayrı, çünkü yanıt biçimleri farklı. callback -> kullanıcının TARAYICISI …
+    // Faz 12 (K117, K122): Shopier'in iki dönüş kanalı ayrı uçlarda; callback tarayıcıdan, osb sunucudan gelir.
     // Ayrinti: docs/rehber/routes/api.md T19.
     Route::post('/payments/shopier/callback', ShopierCallbackController::class)
         ->name('payments.shopier.callback');
