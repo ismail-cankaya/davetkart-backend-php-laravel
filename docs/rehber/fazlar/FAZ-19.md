@@ -870,6 +870,8 @@ adresiyle hesap açılabiliyordu.
 
 **Kararlar.** §A boş → varsayılan (İsmail cevaplamadı): giriş/taslak/önizleme serbest, checkout ve yayın `403 EMAIL_NOT_VERIFIED`;
 indirim yalnızca doğrulanmış hesaba; bağlantı 24 saat, yeniden gönderme saatte 3; mevcut hesaplara göç yok (kılavuzda `tinker`).
+✅ Ortak düzeltme (A-E1, **K260**, İsmail'in kararı): "göç yok" geçersiz; `2026_11_25_100000_mark_existing_accounts_as_verified`
+eski hesaplara `email_verified_at = created_at` yazar.
 - **D1:** kayıtta `VerifyEmailNotification` (kuyruk) commit'ten sonra gönderilir. Bağlantı `EmailVerificationLink`:
   `EmailChangeLink` deseni (imzalı, 24 saat, `user` + adresin HMAC parmak izi), `/eposta-dogrula` → `POST /api/public/email-verification/confirm`.
   Tek kullanım: doğrulanmış hesapta reddedilir. Adrese bağlı: adres değişince reddedilir.
