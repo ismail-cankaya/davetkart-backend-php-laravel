@@ -1413,6 +1413,7 @@ Her göz atma panele boş bir "Düğün" bırakıyordu. Adres `/create` kimlik t
 Backend'de taslak sınırı da yoktu.
 
 **Kararlar.** §A boş → varsayılan (İsmail cevaplamadı): taslak tavanı 50 (yayındakiler sayılmaz); mevcut boş taslaklara dokunulmadı.
+✅ Ortak düzeltme (A-E2, **K261**, İsmail'in kararı): tek seferlik `invitations:prune-empty-drafts` (boş, yayınlanmamış, siparişsiz, medyasız, 7 günden eski taslak; soft delete).
 - **D1:** `utils/draftContent.ts` → `shouldAutoSave`: kayıt yokken otomatik kaydetme yalnızca gerçek içerikte (isimler, tarih, mekân).
   Kategori/tema seçimi yerel kalır. "Davetiyeni Oluştur" (`DetailsFormStep`) açık bir `saveInvitation()` çağırır. Kayıt açıldıktan sonra her düzenleme kaydedilir.
 - **D2:** `/create/:id` rotası. Kayıt açılınca `navigate('/create/<id>', { replace: true })`. `/create/:id` store'da o kayıt yoksa
