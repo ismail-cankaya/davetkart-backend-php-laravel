@@ -1,7 +1,7 @@
 # Faz 19 — denetimin orta öncelikli bulguları (`AUD-2026-11-12`)
 
 > **Başlangıç:** 20 Kasım 2026 · **Entegrasyon dalı:** `faz-19-audit-fixes` (`faz-18-audit-fixes`'in ucundan: backend `a968a67`, frontend `fefa647`)
-> **Durum:** 28/28 kod ✅ ve birleşti (19.0 hazırlık + 19.1–19.28; 25 Kasım 2026) · ⚠️ `composer check` PHPStan iç hatasıyla kırmızı (docs `phases/faz-19/HAT-C-ACIK-HATALAR.md` #11) → `v1.2.0` etiketi bekliyor. Kapanış özeti aşağıda.
+> **Durum:** 28/28 kod ✅ ve birleşti (19.0 hazırlık + 19.1–19.28; 25 Kasım 2026) · ✅ `composer check` yeşil (25 Kasım, Faz 19 ortak düzeltme: PHPStan iç hatası = worktree'ler arası ortak sonuç önbelleği; docs `phases/faz-19/HAT-C-ACIK-HATALAR.md` #11, §E) → `v1.2.0` etiketi İsmail'de. Kapanış özeti aşağıda.
 > **Kaynak:** docs deposu `audits/2026-11-12-full-system-audit/REPORT.md` §5.1 · takip tablosu `phases/faz-19/README.md`
 > **Kararlar:** docs deposu `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-19.md`
 > **Önceki:** [`FAZ-18.md`](FAZ-18.md). Faz 16–17'nin kaydı 19.3'te (`ARC-02`) yazıldı: [`FAZ-16.md`](FAZ-16.md), [`FAZ-17.md`](FAZ-17.md).
