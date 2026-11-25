@@ -6,9 +6,11 @@ namespace Tests\Feature;
 
 use App\Enums\OrderStatus;
 use App\Models\ContactMessage;
+use App\Models\GiftCodeRedemption;
 use App\Models\Invitation;
 use App\Models\Media;
 use App\Models\Order;
+use App\Models\RefundRequest;
 use App\Models\Rsvp;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -630,6 +632,29 @@ final class MaintenanceTest extends TestCase
         $this->assertModelExists($order);
         $this->assertNull($order->refresh()->invitation_id);
         $this->assertSame(OrderStatus::Paid, $order->status);
+    }
+
+    /** K234 (B-E2): siparis yilinin sonundan 10 yil sonra, iade talebi ve hediye kodu kullanimiyla birlikte silinir. */
+    #[Test]
+    public function orders_are_purged_ten_years_after_the_end_of_their_year(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2037-01-02 12:00:00', 'UTC'));
+
+        $old = Order::factory()->paid()->create(['created_at' => '2026-12-31 23:00:00']);
+        $refund = RefundRequest::factory()->forOrder($old)->create();
+        $redemption = GiftCodeRedemption::factory()->forOrder($old)->create();
+        $kept = Order::factory()->paid()->create(['created_at' => '2027-01-01 00:30:00']);
+
+        $this->runCommand('data:purge', ['--dry-run' => true]);
+        $this->assertModelExists($old);
+        $this->assertStringContainsString('1 siparis (saklama suresi dolmus) silindi (yazilmadi)', Artisan::output());
+
+        $this->runCommand('data:purge');
+
+        $this->assertModelMissing($old);
+        $this->assertModelMissing($refund);
+        $this->assertModelMissing($redemption);
+        $this->assertModelExists($kept);
     }
 
     #[Test]
