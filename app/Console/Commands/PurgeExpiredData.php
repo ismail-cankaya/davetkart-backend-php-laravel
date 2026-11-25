@@ -6,34 +6,21 @@ namespace App\Console\Commands;
 
 use App\Enums\MediaKind;
 use App\Models\ContactMessage;
+use App\Models\GiftCodeRedemption;
 use App\Models\Invitation;
 use App\Models\Media;
+use App\Models\Order;
+use App\Models\RefundRequest;
 use App\Models\Rsvp;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Saklama suresi dolan kisisel veriyi siler (Faz 10, 10.43 · K98 / S-1).
- *
- * Uc kategori, uc sure (config: davetkart.retention):
- *   1. Cop kutusundaki davetiye  -> 30 gun sonra KALICI (dosyalariyla)
- *   2. Misafir verisi           -> etkinlikten 6 ay sonra: LCV satirlari +
- *                                  misafirin foto/videosu (galeri KALIR);
- *                                  tarihsizse yayin/olusturma + 12 ay (K257)
- *   3. Iletisim mesaji          -> 12 ay sonra
- *
- * 🔴 Once DOSYA, sonra SATIR (PruneOrphanMedia deseni): satir once silinip
- * dosya silme basarisiz olsaydi dosyanin yolu kayitli tek yer de gitmis
- * olurdu. Bu sirada yarim kalan is ertesi gece satiri yeniden bulur.
- *
- * 🔴 Siparislere DOKUNMAZ: kalici silinen davetiyenin siparisi FK ile
- * `invitation_id = NULL` olur ve muhasebe kaydi olarak kalir (K82, K97).
- *
- * Zamanlayicida GECE calisir (03:45). K84: yayina alindiginda ilk kosu
- * elle ve `--dry-run` ile yapilir.
+ * Saklama suresi dolan veriyi her gece siler (K98; siparisler 10 yil, K234). Once dosya, sonra satir.
  * Ayrintili aciklama: docs/rehber/app/Console/Commands/PurgeExpiredData.md
  */
 final class PurgeExpiredData extends Command
@@ -41,10 +28,13 @@ final class PurgeExpiredData extends Command
     /** Tarihsiz davetiyenin yedek suresi (K257, SEC-13). config/davetkart.php Hat A'nin; sabit burada. */
     private const UNDATED_FALLBACK_MONTHS = 12;
 
+    /** K234: islem kaydi saklama suresi (gizlilik metni "10 yil"); config'e degil buraya, K257 ile ayni neden. */
+    private const ORDER_RETENTION_YEARS = 10;
+
     protected $signature = 'data:purge
                             {--dry-run : Silme, yalnizca neyin silinecegini say}';
 
-    protected $description = 'Saklama suresi dolan kisisel veriyi siler (davetiye, misafir verisi, iletisim mesaji)';
+    protected $description = 'Saklama suresi dolan veriyi siler (davetiye, misafir verisi, iletisim mesaji, eski siparis)';
 
     public function handle(): int
     {
@@ -54,20 +44,18 @@ final class PurgeExpiredData extends Command
         $invitations = $this->purgeDeletedInvitations($dryRun);
         [$rsvps, $guestMedia, $undated] = $this->purgeGuestData($dryRun);
         $messages = $this->purgeContactMessages($dryRun);
+        $orders = $this->purgeOldOrders($dryRun);
 
         $this->components->info("{$invitations} davetiye kalici silindi{$suffix}.");
         $this->components->info("{$rsvps} LCV yaniti ve {$guestMedia} misafir dosyasi silindi{$suffix}.");
         $this->components->info("{$undated} tarihsiz davetiye yedek kurala girdi (yayin/olusturma + 12 ay).");
         $this->components->info("{$messages} iletisim mesaji silindi{$suffix}.");
+        $this->components->info("{$orders} siparis (saklama suresi dolmus) silindi{$suffix}.");
 
         return self::SUCCESS;
     }
 
-    /**
-     * Cop kutusunda suresi dolan davetiyeler. Model uzerinden silinir: FK'ler
-     * LCV'leri, program adimlarini ve medya satirlarini goturur; dosyalar
-     * ONCE elle silinir.
-     */
+    /** Cop kutusunda suresi dolan davetiyeler: dosyalar once, sonra model (FK'ler LCV/medya satirlarini goturur). */
     private function purgeDeletedInvitations(bool $dryRun): int
     {
         $cutoff = now()->subDays(Config::integer('davetkart.retention.deleted_invitation_days'));
@@ -79,8 +67,6 @@ final class PurgeExpiredData extends Command
 
         $count = 0;
 
-        // lazyById: binlerce davetiye bellege bir kerede alinmaz. Silerken
-        // dolasmak icin guvenli, cunku siradaki parca kimlige gore istenir.
         foreach ($query->with('media')->lazyById(100) as $invitation) {
             foreach ($invitation->media as $media) {
                 Storage::disk($media->disk)->delete($media->path);
@@ -94,12 +80,7 @@ final class PurgeExpiredData extends Command
     }
 
     /**
-     * Etkinligi uzun zaman once gecmis davetiyelerin MISAFIR verisi.
-     *
-     * Davetiye ve sahibinin galerisi DOKUNULMAZ: o sahibin verisi, sahibi
-     * isterse siler. Silinen yalnizca misafirlerden toplanan: ad, mesaj,
-     * menu tercihi, yukledikleri foto/video. Tarihi olmayan (event_at NULL)
-     * davetiyede yedek kural: published_at, yoksa created_at + 12 ay (K257).
+     * Etkinligi gecmis davetiyelerin yalnizca MISAFIR verisi (LCV + misafir dosyasi); tarihsizde K257 yedek kurali.
      *
      * @return array{0: int, 1: int, 2: int} [LCV satiri, misafir dosyasi, tarihsiz davetiye]
      */
@@ -134,8 +115,7 @@ final class PurgeExpiredData extends Command
             $fileCount++;
         }
 
-        // Medya satirlari once gitti; rsvps.photo_media_id / video_media_id
-        // FK'leri nullOnDelete (K60), yani LCV satirlari bu arada bozulmadi.
+        // Medya satirlari once gitti; rsvps.*_media_id FK'leri nullOnDelete (K60).
         $rsvpCount = $rsvps->delete();
 
         return [$rsvpCount, $fileCount, $undatedCount];
@@ -165,5 +145,29 @@ final class PurgeExpiredData extends Command
         $query = ContactMessage::query()->where('created_at', '<', $cutoff);
 
         return $dryRun ? $query->count() : $query->delete();
+    }
+
+    /** K234: sure siparisin yilinin SONUNDAN sayilir; iade talebi ve hediye kodu kullanimi siparisle gider (FK restrict). */
+    private function purgeOldOrders(bool $dryRun): int
+    {
+        $cutoff = now()->subYears(self::ORDER_RETENTION_YEARS)->startOfYear();
+        $orders = Order::query()->where('created_at', '<', $cutoff);
+
+        if ($dryRun) {
+            return $orders->count();
+        }
+
+        $count = 0;
+
+        foreach ($orders->pluck('id')->chunk(500) as $ids) {
+            $count += DB::transaction(function () use ($ids): int {
+                RefundRequest::query()->whereIn('order_id', $ids)->delete();
+                GiftCodeRedemption::query()->whereIn('order_id', $ids)->delete();
+
+                return Order::query()->whereIn('id', $ids)->delete();
+            });
+        }
+
+        return $count;
     }
 }

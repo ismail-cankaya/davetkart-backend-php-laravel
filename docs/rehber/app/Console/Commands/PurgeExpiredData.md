@@ -54,8 +54,15 @@ ertesi gece satırı yeniden bulur. (Hesap silmede sıra tersti; gerekçesi
 
 ### 3.4 Siparişler
 
-Dokunulmaz. Kalıcı silinen davetiyenin siparişi FK ile `invitation_id = NULL` olur
-ve muhasebe kaydı olarak kalır (K82, K97). Test bunu iddia ediyor (`orders_survive_the_purge`).
+Davetiye silinince dokunulmaz: kalıcı silinen davetiyenin siparişi FK ile `invitation_id = NULL` olur
+ve muhasebe kaydı olarak kalır (K82, K97; test `orders_survive_the_purge`).
+
+**K234 (B-E2, 25 Kasım 2026):** gizlilik metni "işlem ve fatura kayıtları: 10 yıl" diyor; o süre dolunca
+(`ORDER_RETENTION_YEARS = 10`, komutta sabit: `config/davetkart.php`'ye dokunmak K18 cırcırını bütün dosyaya açar; K257 ile aynı yol) sipariş silinir. Süre siparişin **yılının sonundan** sayılır (mevzuattaki saklama
+süreleri takvim yılı sonundan başlar): sınır `now()->subYears(10)->startOfYear()`. 2026'nın her siparişi
+1 Ocak 2037'den sonraki ilk koşuda gider. Siparişe `restrictOnDelete` ile bağlı iki tablo önce silinir:
+`refund_requests` ve `gift_code_redemptions` (500'lük parçalar, her parça tek transaction).
+Test: `orders_are_purged_ten_years_after_the_end_of_their_year` (sınırın iki yanı + dry-run).
 
 ### 3.5 Neden Action değil de komut?
 
@@ -70,6 +77,7 @@ php artisan data:purge --dry-run
 #  INFO  3 davetiye kalıcı silindi (yazılmadı).
 #  INFO  41 LCV yanıtı ve 12 misafir dosyası silindi (yazılmadı).
 #  INFO  0 iletişim mesajı silindi (yazılmadı).
+#  INFO  0 sipariş (saklama süresi dolmuş) silindi (yazılmadı).
 ```
 
 **K84:** yayına alındığı gün ilk koşu elle ve `--dry-run` ile yapılır. Faz 10'dan önce
