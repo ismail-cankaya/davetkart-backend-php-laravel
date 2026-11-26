@@ -628,3 +628,108 @@ Değerlerin kaynağı `RefundBlocker` enum'u.
 Tek kod, beş sebep: imza bozuk, süresi dolmuş, bağlantı kullanılmış, hesap silinmiş, **yeni
 adres başka hesapta**. Sonuncusu ayrılsaydı onay bağlantısı bir hesap tarayıcısı olurdu (H6).
 `PASSWORD_RESET_INVALID`'in kardeşi.
+
+
+---
+
+## 🆕 Faz 21.6 (`ARC-06`, K270): üç kod silindi — `TOKEN_EXPIRED`, `INVITATION_LOCKED`, `SLUG_TAKEN`
+
+Üçü katalogda, çevirilerde ve sözleşme dosyasında duruyordu ama `app/` içinde hiçbir yer onları fırlatmıyordu
+(kanıt: `grep` → yalnızca `ErrorCode.php` ve üç dosyada "ileride gelirse" yorumu). Bir sözleşme, ne **olabileceğinin**
+listesidir; listede olup hiç olmayan şey frontend'i var olmayan bir durumu ele almaya zorlar (B4).
+
+| Kod | Neden yoktu | Silinince |
+|---|---|---|
+| `TOKEN_EXPIRED` (401) | Sanctum süresi dolan token'ı `UNAUTHENTICATED` ile reddeder; ayrı bir dal hiç yazılmadı. Faz 20.7'den beri frontend 401'de "Oturumunuz sona erdi" diyor | Ayrım gerekmez: iki durumda da yeniden giriş |
+| `INVITATION_LOCKED` (403) | "Yayınlanmış davetiye kilitlenir" kuralı hiç gelmedi | Kural gelirse kod o gün, testiyle birlikte geri eklenir |
+| `SLUG_TAKEN` (409) | K66: slug üretilmiyor, kimlik ULID | — |
+
+Katalog 31 → 28 kod (`php artisan errors:export` → `contracts/error-codes.json`; frontend kopyası ve tr/en çevirileri aynı
+maddede). `docs/08` §4 tablosu güncellendi. `InvitationController`, `MediaController` ve `RsvpPolicy`'deki "INVITATION_LOCKED
+kuralı geldiğinde" yorumları bu maddede değişmedi (dosyalar K18 cırcırına 10 uzun blok getirirdi); Faz 21 kaydı §6.
+
+## Koddan taşınan notlar (Faz 21.6, K18 cırcırı)
+
+`ErrorCode.php` değişince `k18:check` dosyanın tamamını ölçtü: 9 uzun blok (en çok 3 satır). Kodda bir satırlık özet ve
+buradaki numara kaldı; metinler **aynen** taşındı. Davranış değişmedi.
+
+### E1 — sınıf başlığı
+
+API hata kodu katalogu — sozlesmenin tek dogruluk kaynagi (K20).
+
+Backend kullaniciya gosterilecek METIN dondurmez; olayi bildiren bir KOD dondurur.
+Metne cevirmek frontend'in isidir (10 dil i18next'te zaten var).
+
+### E2 — `PAYMENT_METHOD_DISABLED`
+
+Ödeme yöntemi `.env`'de kapalı (Faz 13, K134): `PAYMENT_METHODS`.
+
+🔴 403, 402 DEĞİL: 402 "ödeme yap" der, oysa kullanıcı tam da ödemeye
+çalışıyor. Kapalı bir yöntem kullanıcının aşabileceği bir eksik değil,
+işletmenin bir kararıdır (LCV kotası gibi bir sınır). `method` hangi
+yöntem olduğunu söyler; frontend o düğmeyi zaten gizlemiş olmalıydı.
+
+### E3 — `REFUND_NOT_ALLOWED`
+
+Bu hak iptal edilip iade istenemez (Faz 14, K139).
+
+409, 422 DEĞİL: istek biçimsel olarak doğru; engel siparişin ŞU ANKİ
+durumu (davetiyede kullanılıyor, süre geçti, zaten istendi). Durum
+değişirse aynı istek geçer. `reason` = RefundBlocker değeri.
+
+### E4 — `PASSWORD_RESET_INVALID`
+
+Parola sifirlama baglantisi gecersiz (Faz 10, 10.31).
+
+Neden 400 degil 422? Istek BICIMSEL olarak saglam ve dogrulamayi geciyor;
+reddedilen sey icerigin ANLAMI. REGISTRATION_FAILED ile ayni sinif.
+
+🔴 Tek kod, uc sebep: token yanlis, suresi dolmus (60 dk) ya da e-posta
+kayitli degil. Ayrilsaydi sifirlama formu bir hesap tarayicisina donerdi
+(H6, 08 §3.1). Frontend'in tek mesaji: "baglanti gecersiz, yenisini iste".
+
+### E5 — `EMAIL_CHANGE_INVALID`
+
+E-posta değişikliği onay bağlantısı geçersiz (Faz 14, K144).
+
+🔴 Tek kod, beş sebep: imza bozuk, süresi dolmuş, zaten kullanılmış
+(eski adres değişti), hesap silinmiş ya da YENİ ADRES BAŞKA BİR HESAPTA.
+Sonuncusu ayrılsaydı onay bağlantısı bir hesap tarayıcısına dönerdi (H6).
+
+### E6 — `GIFT_CODE_INVALID`
+
+Hediye kodu kullanılamaz (Faz 11, D7).
+
+🔴 Tek kod, dört sebep: yok, kapatılmış, süresi dolmuş ya da tükenmiş.
+Ayrılsaydı kod deneyen biri hangi kodların VAR olduğunu öğrenirdi
+(PASSWORD_RESET_INVALID ile aynı gerekçe, H6).
+
+### E7 — `ASSISTANT_QUOTA_EXCEEDED`
+
+🔴 Asistanin GUNLUK mesaj butcesi doldu (Faz 8).
+
+Neden 403 degil 429? K28 LCV kotasini 403 yapmisti cunku o bir
+KAPASITE sinirdir: misafir bekleyerek asamaz, satin alinan planin
+kotasi neyse odur. Asistan kotasi ise ZAMANA BAGLI bir butcedir —
+gece yarisi yenilenir, yani kullanici bekleyerek GERCEKTEN asar.
+"Belirli bir zaman diliminde cok fazla istek" 429'un tanimidir ve
+Retry-After (RFC 9110 §10.2.3) burada yaniltici degil DOGRU bilgidir.
+
+Neden RATE_LIMITED yeniden kullanilmiyor? "Hizlisin, 30 sn bekle" ile
+"bugunluk hakkin bitti" frontend'de ayni metni gosteremez; kod, ince
+ayrimin tasiyicisidir (08 §4).
+
+### E8 — `allowedParams()`: `requiredTier`
+
+🔴 Faz 7: IKI kod da 'requiredTier' tasir. Ayrim kullanicinin
+onundeki EYLEMDE: PAYMENT_REQUIRED "once bir plan al",
+PAYWALL_TIER_INSUFFICIENT "planin yetmiyor, yukselt". Ikisinde
+de frontend hangi plani gosterecegini bilmek zorunda.
+Sizinti degil: plan fiyat sayfasi zaten herkese acik (08 §3.4).
+
+### E9 — `allowedParams()`: asistan `limit`
+
+🔴 'limit' SIZINTI DEGIL: kullanicinin KENDI gunluk hakki, tipki
+FILE_TOO_LARGE'in 'max'i gibi urun sabiti. 'remaining' YOK —
+kota doldugunda kalan zaten sifirdir, ikinci bir alan bilgi
+tasimaz (H9: beyaz liste, "her ihtimale karsi" degil).

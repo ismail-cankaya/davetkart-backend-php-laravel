@@ -184,17 +184,20 @@ Durum kodu **kaba sınıflandırma**, `code` **ince ayrım**. İkisi birlikte ç
 | Durum | Anlam | Örnek kodlar |
 |---|---|---|
 | **400** | İstek biçimsel olarak bozuk | `MALFORMED_REQUEST` |
-| **401** | Kimlik yok / geçersiz | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `TOKEN_EXPIRED` |
+| **401** | Kimlik yok / geçersiz | `UNAUTHENTICATED`, `INVALID_CREDENTIALS` |
 | **402** | Ödeme gerekli | `PAYWALL_TIER_INSUFFICIENT`, `PAYMENT_REQUIRED` |
-| **403** | Kimlik var, işlem yasak | `INVITATION_LOCKED`, `RSVP_DEADLINE_PASSED`, `PAYMENT_METHOD_DISABLED` (Faz 13, `params.method`) |
+| **403** | Kimlik var, işlem yasak | `RSVP_DEADLINE_PASSED`, `PAYMENT_METHOD_DISABLED` (Faz 13, `params.method`) |
 | **404** | Kaynak yok **veya** senin değil | `RESOURCE_NOT_FOUND` |
-| **409** | Durum çakışması | `INVITATION_ALREADY_PUBLISHED`, `SLUG_TAKEN`, `REFUND_NOT_ALLOWED` (Faz 14, `params.reason`) |
+| **409** | Durum çakışması | `INVITATION_ALREADY_PUBLISHED`, `REFUND_NOT_ALLOWED` (Faz 14, `params.reason`) |
 | **413** | Dosya çok büyük | `FILE_TOO_LARGE` |
 | **422** | Doğrulama başarısız | `VALIDATION_FAILED`, `GIFT_CODE_INVALID`, `GIFT_CODE_ALREADY_USED`, `GIFT_CODE_NOT_APPLICABLE`, `EMAIL_CHANGE_INVALID` (Faz 14) |
 | **429** | Hız sınırı | `RATE_LIMITED` |
 | **500** | Sunucu hatası (bizim kodumuz) | `SERVER_ERROR` |
 | **502** | Yukarı akış **geçersiz yanıt döndü** | `PAYMENT_PROVIDER_ERROR` |
 | **503** | Servis geçici olarak kullanılamıyor | `PROVIDER_UNAVAILABLE` |
+
+> Faz 21.6 (`ARC-06`, K270): `TOKEN_EXPIRED`, `INVITATION_LOCKED`, `SLUG_TAKEN` katalogdan silindi; hiçbiri fırlatılmıyordu.
+> Katalog 28 kod (`contracts/error-codes.json`). Bir kod ancak onu fırlatan kodla birlikte eklenir (`ErrorCodeUsageTest`).
 
 > 🔴 **401 ile 403 ayrımı ihlal edilemez.** Frontend `api.ts` interceptor'ı
 > 401'de oturumu düşürüyor. Yanlış kod kullanıcıyı sistemden atar.
@@ -275,7 +278,7 @@ enum'a koymak, controller'larda `if` zinciri yazmayı gereksizleştirir.
 |---|---|
 | `SCREAMING_SNAKE_CASE` | `RSVP_QUOTA_EXCEEDED` |
 | `<ALAN>_<DURUM>` kalıbı | `INVITATION_ALREADY_PUBLISHED` |
-| Teknik değil **iş** dili | ✅ `SLUG_TAKEN` · ❌ `UNIQUE_CONSTRAINT_23505` |
+| Teknik değil **iş** dili | ✅ `INVITATION_ALREADY_PUBLISHED` · ❌ `UNIQUE_CONSTRAINT_23505` |
 | İç yapıyı ele vermez | ❌ `USER_TABLE_LOCK_TIMEOUT` |
 
 🔴 **Kod adı bir kez yayınlandıktan sonra sözleşmedir.** Yeniden adlandırmak,

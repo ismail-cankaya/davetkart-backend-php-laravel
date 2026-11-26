@@ -268,3 +268,54 @@ Havuz dosyası depoda yoktu (Ubuntu varsayılanı `pm.max_children = 5`); OPcach
 2. `deploy/php/davetkart.ini`'nin yeni hâli bir sonraki deploy'la sunucuya gelir; `phpenmod` bağlantısı olduğu için
    yalnızca `systemctl reload php8.5-fpm` (deploy bunu yapıyor). Sonra `php-fpm8.5 -i | grep opcache.validate_timestamps`.
 3. Bellek payı kararı: takas dosyası mı, havuzda `memory_limit=192M` mi (kılavuz §3).
+
+## 21.6 — `ARC-06`: hiç fırlatılmayan üç hata kodu
+
+### Kanıt (önce)
+
+| Kod | `app/` içinde `ErrorCode::<Case>` (katalog dışı) | Frontend `src/`, `scripts/`, `e2e/` (çeviri ve sözleşme kopyası dışı) |
+|---|---|---|
+| `TOKEN_EXPIRED` | 0 | 0 |
+| `INVITATION_LOCKED` | 0 | 0 |
+| `SLUG_TAKEN` | 0 | 0 |
+
+### Karar (K270, §A boş → varsayılan)
+
+Üçü de silindi. Katalog 31 → 28. Bir kod ancak onu fırlatan kodla birlikte eklenir (mimari test).
+
+### Değişen dosyalar
+
+| Dosya | Ne |
+|---|---|
+| `app/Enums/ErrorCode.php` | 3 case ve `status()` kolları silindi; K18 cırcırı: 9 uzun blok 1 satıra indi, metinler [`ErrorCode.md`](../app/Enums/ErrorCode.md) "Koddan taşınan notlar" E1–E9 |
+| `contracts/error-codes.json` | `php artisan errors:export` → `count: 28` |
+| `tests/Unit/ErrorCodeUsageTest.php` | 2 test ([`ErrorCodeUsageTest.md`](../tests/Unit/ErrorCodeUsageTest.md)) |
+| `docs/08-HATA-SOZLESMESI.md` §4 | tablo satırları; "iş dili" örneği `INVITATION_ALREADY_PUBLISHED` |
+| Frontend (ayrı commit) | `src/contracts/error-codes.json` kopyası (CRLF korundu), `src/locales/{tr,en}/errors.json` üçer anahtar |
+
+### Testler ve mutantlar
+
+Önce kırmızı: `every_error_code_is_used_somewhere_in_app` tam olarak üç kodu listeledi (`TOKEN_EXPIRED`, `INVITATION_LOCKED`,
+`SLUG_TAKEN`); `the_removed_codes_stay_removed` kırmızı. Sonra yeşil (2/2).
+
+| Mutant | Sonuç |
+|---|---|
+| A1 `SLUG_TAKEN` geri eklenir | öldü (iki test) |
+| A2 kullanılmayan yeni kod (`ACCOUNT_LOCKED`) | öldü (iki test) |
+
+### B7 tablosu
+
+| İddia | Kanıt (görülen çıktı) |
+|---|---|
+| Katalog 28 | `INFO 28 hata kodu disari aktarildi: contracts/error-codes.json.` |
+| `ErrorCode.php` K18 temiz | `k18: 1 dosya, 0 ihlal` |
+| Frontend | `npm run check` çıkış 0, `[tr] 28 kod denetleniyor…`, `✓ Hata sözleşmesi eksiksiz: 28 kod`; `npm run e2e` 6/6 |
+| `composer check` | pint passed · phpstan 0 · `errors:export --check` "Katalog guncel" · `k18: 39 dosya, 0 ihlal` · phpunit **1337/1337**, 5245 assertion · çıkış 0 |
+
+### Gördüm, dokunmadım
+
+- `InvitationController.php:107`, `MediaController.php:22`, `RsvpPolicy.php:52` yorumları "INVITATION_LOCKED kuralı
+  geldiğinde" diyor. Silinen bir kodu anıyorlar; ama bu üç dosyaya dokunmak K18 cırcırına 10 uzun blok getirirdi
+  (`k18:check` 4 + 2 + 4). Ayrı bir K18 temizliğinde düzeltilmeli.
+- Eski kılavuzlarda (`FAZ-7.md`, `PublishInvitationAction.md`, `kavramlar/php-dili.md` …) üç kodun adı geçmişin kaydı olarak
+  duruyor; yeniden yazılmadı.

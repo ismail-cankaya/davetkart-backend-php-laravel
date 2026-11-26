@@ -5,11 +5,8 @@ declare(strict_types=1);
 namespace App\Enums;
 
 /**
- * API hata kodu katalogu — sozlesmenin tek dogruluk kaynagi (K20).
- *
- * Backend kullaniciya gosterilecek METIN dondurmez; olayi bildiren bir KOD dondurur.
- * Metne cevirmek frontend'in isidir (10 dil i18next'te zaten var).
- * Ayrintili aciklama: docs/rehber/app/Enums/ErrorCode.md
+ * API hata kodu katalogu — sozlesmenin tek dogruluk kaynagi (K20): backend METIN degil KOD dondurur, metin frontend'in.
+ * Ayrintili aciklama: docs/rehber/app/Enums/ErrorCode.md (E1–E9: koddan tasinan notlar, Faz 21.6)
  */
 enum ErrorCode: string
 {
@@ -19,26 +16,17 @@ enum ErrorCode: string
     // 401 — kimlik yok veya gecersiz. Frontend bu durumda oturumu dusurur.
     case Unauthenticated = 'UNAUTHENTICATED';
     case InvalidCredentials = 'INVALID_CREDENTIALS';
-    case TokenExpired = 'TOKEN_EXPIRED';
 
     // 402 — odeme gerekli
     case PaywallTierInsufficient = 'PAYWALL_TIER_INSUFFICIENT';
     case PaymentRequired = 'PAYMENT_REQUIRED';
 
     // 403 — kimlik var, islem yasak
-    case InvitationLocked = 'INVITATION_LOCKED';
     case RsvpDeadlinePassed = 'RSVP_DEADLINE_PASSED';
     case RsvpQuotaExceeded = 'RSVP_QUOTA_EXCEEDED';
     case MediaQuotaExceeded = 'MEDIA_QUOTA_EXCEEDED';
 
-    /**
-     * Ödeme yöntemi `.env`'de kapalı (Faz 13, K134): `PAYMENT_METHODS`.
-     *
-     * 🔴 403, 402 DEĞİL: 402 "ödeme yap" der, oysa kullanıcı tam da ödemeye
-     * çalışıyor. Kapalı bir yöntem kullanıcının aşabileceği bir eksik değil,
-     * işletmenin bir kararıdır (LCV kotası gibi bir sınır). `method` hangi
-     * yöntem olduğunu söyler; frontend o düğmeyi zaten gizlemiş olmalıydı.
-     */
+    /** Odeme yontemi `.env`'de kapali (Faz 13, K134). 403, 402 degil: isletmenin karari, kullanicinin eksigi degil (E2). */
     case PaymentMethodDisabled = 'PAYMENT_METHOD_DISABLED';
 
     // 404 — kaynak yok VEYA senin degil (H7: sahiplik yoksa 403 degil 404)
@@ -46,18 +34,11 @@ enum ErrorCode: string
 
     // 409 — durum catismasi
     case InvitationAlreadyPublished = 'INVITATION_ALREADY_PUBLISHED';
-    case SlugTaken = 'SLUG_TAKEN';
 
     /** Faz 19 (K192, FE-50): kullanıcı başına yayınlanmamış davetiye tavanı doldu. */
     case DraftLimitReached = 'DRAFT_LIMIT_REACHED';
 
-    /**
-     * Bu hak iptal edilip iade istenemez (Faz 14, K139).
-     *
-     * 409, 422 DEĞİL: istek biçimsel olarak doğru; engel siparişin ŞU ANKİ
-     * durumu (davetiyede kullanılıyor, süre geçti, zaten istendi). Durum
-     * değişirse aynı istek geçer. `reason` = RefundBlocker değeri.
-     */
+    /** Bu hak iptal edilip iade istenemez (Faz 14, K139). 409: engel siparisin SU ANKI durumu; `reason` (E3). */
     case RefundNotAllowed = 'REFUND_NOT_ALLOWED';
 
     // 413 — govde cok buyuk
@@ -67,25 +48,10 @@ enum ErrorCode: string
     case ValidationFailed = 'VALIDATION_FAILED';
     case RegistrationFailed = 'REGISTRATION_FAILED';
 
-    /**
-     * Parola sifirlama baglantisi gecersiz (Faz 10, 10.31).
-     *
-     * Neden 400 degil 422? Istek BICIMSEL olarak saglam ve dogrulamayi geciyor;
-     * reddedilen sey icerigin ANLAMI. REGISTRATION_FAILED ile ayni sinif.
-     *
-     * 🔴 Tek kod, uc sebep: token yanlis, suresi dolmus (60 dk) ya da e-posta
-     * kayitli degil. Ayrilsaydi sifirlama formu bir hesap tarayicisina donerdi
-     * (H6, 08 §3.1). Frontend'in tek mesaji: "baglanti gecersiz, yenisini iste".
-     */
+    /** Parola sifirlama baglantisi gecersiz (Faz 10.31). Tek kod, uc sebep; ayrilsaydi hesap tarayicisi olurdu (H6, E4). */
     case PasswordResetInvalid = 'PASSWORD_RESET_INVALID';
 
-    /**
-     * E-posta değişikliği onay bağlantısı geçersiz (Faz 14, K144).
-     *
-     * 🔴 Tek kod, beş sebep: imza bozuk, süresi dolmuş, zaten kullanılmış
-     * (eski adres değişti), hesap silinmiş ya da YENİ ADRES BAŞKA BİR HESAPTA.
-     * Sonuncusu ayrılsaydı onay bağlantısı bir hesap tarayıcısına dönerdi (H6).
-     */
+    /** E-posta degisikligi onay baglantisi gecersiz (Faz 14, K144). Tek kod, bes sebep (H6, E5). */
     case EmailChangeInvalid = 'EMAIL_CHANGE_INVALID';
 
     /** Faz 19 (K191, SEC-09): adres doğrulanmadan ödeme başlatılamaz ve yayınlanamaz. */
@@ -97,13 +63,7 @@ enum ErrorCode: string
      */
     case EmailVerificationInvalid = 'EMAIL_VERIFICATION_INVALID';
 
-    /**
-     * Hediye kodu kullanılamaz (Faz 11, D7).
-     *
-     * 🔴 Tek kod, dört sebep: yok, kapatılmış, süresi dolmuş ya da tükenmiş.
-     * Ayrılsaydı kod deneyen biri hangi kodların VAR olduğunu öğrenirdi
-     * (PASSWORD_RESET_INVALID ile aynı gerekçe, H6).
-     */
+    /** Hediye kodu kullanilamaz (Faz 11, D7). Tek kod, dort sebep; ayrilsaydi var olan kodlar ogrenilirdi (H6, E6). */
     case GiftCodeInvalid = 'GIFT_CODE_INVALID';
 
     /** Bu kullanıcı bu kodu zaten kullanmış (kişi başı 1, D5). */
@@ -115,20 +75,7 @@ enum ErrorCode: string
     // 429 — hiz siniri VE zamana bagli kota
     case RateLimited = 'RATE_LIMITED';
 
-    /**
-     * 🔴 Asistanin GUNLUK mesaj butcesi doldu (Faz 8).
-     *
-     * Neden 403 degil 429? K28 LCV kotasini 403 yapmisti cunku o bir
-     * KAPASITE sinirdir: misafir bekleyerek asamaz, satin alinan planin
-     * kotasi neyse odur. Asistan kotasi ise ZAMANA BAGLI bir butcedir —
-     * gece yarisi yenilenir, yani kullanici bekleyerek GERCEKTEN asar.
-     * "Belirli bir zaman diliminde cok fazla istek" 429'un tanimidir ve
-     * Retry-After (RFC 9110 §10.2.3) burada yaniltici degil DOGRU bilgidir.
-     *
-     * Neden RATE_LIMITED yeniden kullanilmiyor? "Hizlisin, 30 sn bekle" ile
-     * "bugunluk hakkin bitti" frontend'de ayni metni gosteremez; kod, ince
-     * ayrimin tasiyicisidir (08 §4).
-     */
+    /** 🔴 Asistanin GUNLUK mesaj butcesi doldu (Faz 8). 429: zamana bagli butce; RATE_LIMITED'dan ayri metin (E7). */
     case AssistantQuotaExceeded = 'ASSISTANT_QUOTA_EXCEEDED';
 
     // 5xx — sunucu ve yukari akis (upstream)
@@ -143,13 +90,11 @@ enum ErrorCode: string
             self::MalformedRequest => 400,
 
             self::Unauthenticated,
-            self::InvalidCredentials,
-            self::TokenExpired => 401,
+            self::InvalidCredentials => 401,
 
             self::PaywallTierInsufficient,
             self::PaymentRequired => 402,
 
-            self::InvitationLocked,
             self::RsvpDeadlinePassed,
             self::RsvpQuotaExceeded,
             self::MediaQuotaExceeded,
@@ -160,7 +105,6 @@ enum ErrorCode: string
             self::ResourceNotFound => 404,
 
             self::InvitationAlreadyPublished,
-            self::SlugTaken,
             self::RefundNotAllowed => 409,
 
             self::FileTooLarge => 413,
@@ -192,11 +136,7 @@ enum ErrorCode: string
     public function allowedParams(): array
     {
         return match ($this) {
-            // 🔴 Faz 7: IKI kod da 'requiredTier' tasir. Ayrim kullanicinin
-            // onundeki EYLEMDE: PAYMENT_REQUIRED "once bir plan al",
-            // PAYWALL_TIER_INSUFFICIENT "planin yetmiyor, yukselt". Ikisinde
-            // de frontend hangi plani gosterecegini bilmek zorunda.
-            // Sizinti degil: plan fiyat sayfasi zaten herkese acik (08 §3.4).
+            // Iki kod da 'requiredTier' tasir; ayrim kullanicinin onundeki eylemde (E8).
             self::PaywallTierInsufficient,
             self::PaymentRequired => ['requiredTier'],
             self::RsvpQuotaExceeded => ['remaining', 'limit'],
@@ -211,10 +151,7 @@ enum ErrorCode: string
             self::DraftLimitReached => ['limit'],
             self::RateLimited, self::ProviderUnavailable => ['retryAfter'],
 
-            // 🔴 'limit' SIZINTI DEGIL: kullanicinin KENDI gunluk hakki, tipki
-            // FILE_TOO_LARGE'in 'max'i gibi urun sabiti. 'remaining' YOK —
-            // kota doldugunda kalan zaten sifirdir, ikinci bir alan bilgi
-            // tasimaz (H9: beyaz liste, "her ihtimale karsi" degil).
+            // 'limit' sizinti degil: kullanicinin KENDI gunluk hakki; 'remaining' kota dolunca zaten 0 (H9, E9).
             self::AssistantQuotaExceeded => ['retryAfter', 'limit'],
 
             // Kodun geçtiği plan: kodu elinde tutan kullanıcı bunu zaten
