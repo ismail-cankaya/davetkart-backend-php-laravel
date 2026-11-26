@@ -1,6 +1,6 @@
 # `app/Support/Health/` — hazır olma (readiness) kontrolleri
 
-> **Kod dosyaları:** `ReadinessProbe.php` · `DatabaseCheck.php` · `QueueBacklogCheck.php` · `SchedulerHeartbeatCheck.php` ·
+> **Kod dosyaları:** `ReadinessProbe.php` · `DatabaseCheck.php` · `SchemaCheck.php` (Faz 20.1) · `QueueBacklogCheck.php` · `SchedulerHeartbeatCheck.php` ·
 > `DiskSpaceCheck.php` · `LocalDiskUsage.php` · `RecordSchedulerHeartbeat.php` · `app/Contracts/HealthCheck.php` ·
 > `app/Contracts/DiskUsage.php` · `app/Http/Controllers/Api/V1/ReadinessController.php` · rota `health.ready`
 > **Faz:** 19.7 (`OPS-03`) · **Test:** `tests/Feature/ReadinessTest.php` · **Eşikler:** `config/health.php`
@@ -26,6 +26,7 @@ dağıtım betiği için aynen kalır (veritabanı yokken de cevap vermeli).
 | Ad | Ne ölçer | Eşik |
 |---|---|---|
 | `database` | `select 1` varsayılan bağlantıda | fırlatırsa |
+| `schema` | Göç dosyalarının hepsi `migrations` tablosunda mı (Faz 20.1, K263; [`SchemaCheck.md`](SchemaCheck.md)) | 1 eksik göç |
 | `queue` | `jobs`'ta ayrılmamış, zamanı gelmiş en eski işin yaşı (sürücü `database` değilse geçer) | 10 dk |
 | `scheduler` | `RecordSchedulerHeartbeat`'in cache damgası | 5 dk |
 | `disk` | `storage/` bölümünün doluluğu (`DiskUsage` arayüzü) | %90 |
@@ -33,7 +34,8 @@ dağıtım betiği için aynen kalır (veritabanı yokken de cevap vermeli).
 ## Hangi hataya karşı
 
 Sessiz bozulma: işçi takılır (parola sıfırlama maili gitmez, hata da yok), cron silinir (zamanlanmış
-temizlik ve kalp atışları durur), disk dolar (yükleme ve log yazımı patlar).
+temizlik ve kalp atışları durur), disk dolar (yükleme ve log yazımı patlar), göç yarıda kalır (kod şemanın
+önünde; canlıda katı kip kapalı olduğu için eksik sütun sessizce `null` okunur).
 
 ## Sık hata
 
