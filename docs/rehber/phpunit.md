@@ -234,6 +234,23 @@ Debug bloğunu test etmek isteyen senaryo, kendisi
 
 Backend tek dil konuşur. Testte de öyle.
 
+### 🆕 Faz 21.1: `<ini name="memory_limit" value="256M"/>`
+
+Herd'in `php.ini`'si CLI'a 128 MB veriyor. Tam takımda bir sürecin kalıcı belleği (yüklenen sınıflar, toplanmamış
+döngüsel çöp) `OptimizeUploadedImageTest`'e gelindiğinde ~93–98 MB'tı; o testin 3000×2000'lik GD tuvali (~24 MB) ve
+`ob_start()` tamponu sınırı aştı (`Allowed memory size of 134217728 bytes exhausted`). Tek başına koşunca geçiyordu:
+sorun bir testte değil, **paydaydı**. 21.1'in 12 testi (~5 MB sınıf yükü) payı bitirdi.
+
+| Seçenek | Neden seçilmedi / seçildi |
+|---|---|
+| Her testten sonra `gc_collect_cycles()` | Çöpü temizler ama kalıcı bellek yine ~93 MB; pay 4 MB'a iner, sonraki test dosyası yine kırar |
+| Görsel testinde fikstürü küçültmek | Test "uzun kenar 2000'e iner" davranışını büyük bir görselle sınıyor; küçültmek testi zayıflatır |
+| `512M` | İşin kendi bütçesiyle (`davetkart.media.optimize.memory_limit`) eşit olur; `withMemoryLimit()` testte hiç yükseltmez, o yol koşmaz |
+| **`256M`** ✅ | Pay ~160 MB; iş testte de 256 → 512 yükseltme yolundan geçer |
+
+`<ini>` PHPUnit'in kendi sürecinde `ini_set` ile uygulanır; `php artisan test`'in açtığı alt süreç de bu dosyayı okur.
+`php -d memory_limit=…  artisan test` ise alt sürece **geçmez** (ölçerken görüldü).
+
 ---
 
 ## 6. Katılık bayrakları

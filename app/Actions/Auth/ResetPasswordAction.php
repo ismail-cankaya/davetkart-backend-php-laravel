@@ -6,25 +6,20 @@ namespace App\Actions\Auth;
 
 use App\Exceptions\PasswordResetFailedException;
 use App\Models\User;
+use App\Support\AccountLoginThrottle;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Password;
 
 /**
- * Maildeki baglantiyla parolayi degistirir (Faz 10, 10.33).
- *
- * 🔴 Basarida kullanicinin TUM token'lari iptal edilir. Parolasini
- * sifirlayan kullanici cogu zaman bir seyden supheleniyordur: calinmis bir
- * oturum, unutulmus bir cihaz. Eski parolayla alinmis token'lar acik
- * kalsaydi sifirlama koruma saglamazdi. Kullanici yeniden giris yapar;
- * sifirlama yeni bir oturum ACMAZ (frontend giris sayfasina yonlendirir).
- *
- * Token'in tek kullanimlik olmasini, 60 dk omrunu ve e-postayla eslesmesini
- * Laravel'in parola araci denetler; basarida token satirini kendisi siler.
+ * Maildeki baglantiyla parolayi degistirir (Faz 10, 10.33): TUM token'lar iptal, yeni oturum ACILMAZ.
+ * Basarida hesabin basarisiz giris kovasi bosalir (SEC-16, K265).
  * Ayrintili aciklama: docs/rehber/app/Actions/Auth/ResetPasswordAction.md
  */
 final class ResetPasswordAction
 {
+    public function __construct(private readonly AccountLoginThrottle $throttle) {}
+
     /**
      * @throws PasswordResetFailedException Token yanlis/suresi dolmus ya da e-posta kayitli degil -> 422
      */
@@ -49,5 +44,7 @@ final class ResetPasswordAction
         if ($status !== Password::PASSWORD_RESET) {
             throw PasswordResetFailedException::rejected($status);
         }
+
+        $this->throttle->clear($email);
     }
 }

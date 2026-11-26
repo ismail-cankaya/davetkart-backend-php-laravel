@@ -32,6 +32,10 @@
              DB_DATABASE icin bu, RefreshDatabase'in YANLIS veritabaninin
              tablolarini silmesi demekti. <server> $_SERVER'a yazar ve kazanir.
              Ayrintisi: docs/rehber/phpunit.md §4. -->
+        <!-- Faz 21.1: takimin kalici bellegi ~95 MB; gorsel fiksturleri (3000x2000 GD tuvali) 128 MB'ta
+             tukeniyordu. 256M: OptimizeUploadedImage'in 512M yukseltme yolu testte calismaya devam eder.
+             Ayrintisi: docs/rehber/phpunit.md §5. -->
+        <ini name="memory_limit" value="256M"/>
         <server name="APP_ENV" value="testing"/>
         <server name="APP_MAINTENANCE_DRIVER" value="file"/>
 

@@ -212,6 +212,10 @@ döndüğünde sorun bizde değil, aracılık ettiğimiz serviste — bu 502'nin
 **`Retry-After` başlığı** 429 ve 503 ile birlikte gönderilir (RFC 9110 §10.2.3).
 Bu yüzden `PROVIDER_UNAVAILABLE` da `retryAfter` parametresi taşır.
 
+> Faz 21.1 (`SEC-16`, K265): girişte `RATE_LIMITED` üç kovadan gelebilir: e-posta + IP (5/dk), IP (20/dk) ve hesap
+> başına saatte 30 **başarısız** deneme (IP'den bağımsız). Üçü de aynı yanıtı verir (`retryAfter` + `Retry-After`);
+> istemci hangi kovaya takıldığını bilmez ve bilmesi gerekmez. Ayrıntı: `docs/rehber/app/Support/AccountLoginThrottle.md`.
+
 ### 4.2 Neden RFC 9457 (Problem Details) kullanılmıyor?
 
 HTTP hata gövdeleri için bir RFC standardı var:

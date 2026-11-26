@@ -435,3 +435,28 @@ Bu tek deneme, dosyanın varlık sebebini kalıcı olarak anlatır.
 Token artık bu sınıfta değil, `IssueApiTokenAction`'da üretiliyor: hangi cihazdan açıldığı
 (`user_agent`) da yazılıyor. İmzaya `?string $userAgent` eklendi; controller
 `$request->userAgent()` veriyor. Ayrıntı: [`IssueApiTokenAction.md`](IssueApiTokenAction.md).
+
+---
+
+## 🆕 Faz 21 (21.1 · `SEC-16` · K265): hesap başına başarısız giriş kovası
+
+`handle()` artık iki adım daha atıyor:
+
+1. **En başta** `AccountLoginThrottle::ensureOpen($email)`: hesabın son bir saatteki başarısız denemesi 30'a ulaştıysa
+   `AccountLoginThrottledException` (429 `RATE_LIMITED`, `retryAfter`). Kullanıcı sorgusu ve parola karşılaştırması
+   **hiç yapılmaz**. Dolu kovada doğru parola da 429 alır: yoksa saldırgan doğru tahmini 200'den anlardı.
+2. **Başarısızlıkta** `recordFailure()`: sayaç artar; kayıtsız adres de sayılır (429 kaydı ele vermesin). Kovayı bu
+   deneme doldurduysa ve hesap varsa, saatte en çok bir kez `SuspiciousLoginAttemptsNotification` kuyruğa girer.
+
+Başarılı giriş sayılmaz (§A-4). Sıra kuralı (§2.1) değişmedi: `Hash::check` yine `$user === null` kontrolünden önce.
+Ayrıntı ve "hesap kilitlenmez"in karşılığı: [`../../Support/AccountLoginThrottle.md`](../../Support/AccountLoginThrottle.md).
+
+### Koddan taşınan not (K18 cırcırı, 21.1)
+
+Sınıfın 5 satırlık başlık yorumu iki satıra indi. Taşınan metin (aynen):
+
+> Kimlik dogrular ve yeni bir API token'i uretir.
+>
+> 🔴 ZAMANLAMA SALDIRISI SAVUNMASI: kullanici bulunamasa bile sahte bir hash'e
+> karsi dogrulama yapilir. Aksi halde yanit ~200 ms hizli doner ve saldirgan
+> bunu OLCEREK e-postanin kayitli oldugunu anlar (08 §3.1).

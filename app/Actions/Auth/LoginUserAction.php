@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Actions\Auth;
 
+use App\Exceptions\AccountLoginThrottledException;
 use App\Exceptions\InvalidCredentialsException;
 use App\Models\User;
+use App\Notifications\SuspiciousLoginAttemptsNotification;
+use App\Support\AccountLoginThrottle;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * Kimlik dogrular ve yeni bir API token'i uretir.
- *
- * 🔴 ZAMANLAMA SALDIRISI SAVUNMASI: kullanici bulunamasa bile sahte bir hash'e
- * karsi dogrulama yapilir. Aksi halde yanit ~200 ms hizli doner ve saldirgan
- * bunu OLCEREK e-postanin kayitli oldugunu anlar (08 §3.1).
+ * Kimlik dogrular ve token uretir; kullanici yoksa da sahte hash'le dogrular (zamanlama, 08 §3.1).
+ * Hesap kovasi (SEC-16, K265): dolu kovada parola hic denenmez, dogru parola da 429 alir.
  * Ayrintili aciklama: docs/rehber/app/Actions/Auth/LoginUserAction.md
  */
 final class LoginUserAction
@@ -24,7 +24,10 @@ final class LoginUserAction
     /** Surec basina bir kez uretilir; her istekte yeniden hesaplanmaz. */
     private static ?string $dummyHash = null;
 
-    public function __construct(private readonly IssueApiTokenAction $issueToken) {}
+    public function __construct(
+        private readonly IssueApiTokenAction $issueToken,
+        private readonly AccountLoginThrottle $throttle,
+    ) {}
 
     /**
      * @param  array{email: string, password: string}  $credentials
@@ -33,9 +36,12 @@ final class LoginUserAction
      * @return array{user: User, token: string}
      *
      * @throws InvalidCredentialsException Kullanici yoksa VEYA parola yanlissa.
+     * @throws AccountLoginThrottledException Hesabin basarisiz giris kovasi doluysa (429).
      */
     public function handle(array $credentials, ?string $userAgent): array
     {
+        $this->throttle->ensureOpen($credentials['email']);
+
         $user = User::where('email', $credentials['email'])->first();
 
         // Kullanici yoksa sahte hash kullanilir — is yuku her iki yolda da AYNI.
@@ -46,6 +52,8 @@ final class LoginUserAction
         $passwordMatches = Hash::check($credentials['password'], $hash);
 
         if ($user === null || ! $passwordMatches) {
+            $this->recordFailure($credentials['email'], $user);
+
             throw new InvalidCredentialsException;
         }
 
@@ -55,6 +63,14 @@ final class LoginUserAction
             'user' => $user,
             'token' => $this->issueToken->handle($user, $userAgent),
         ];
+    }
+
+    /** Kayitsiz adres de sayilir (429 kaydi ele vermez); uyari postasi yalnizca var olan hesaba. */
+    private function recordFailure(string $email, ?User $user): void
+    {
+        if ($this->throttle->recordFailure($email) && $user !== null && $this->throttle->claimWarning($email)) {
+            $user->notify(new SuspiciousLoginAttemptsNotification);
+        }
     }
 
     /**

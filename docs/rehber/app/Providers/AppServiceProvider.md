@@ -1092,3 +1092,10 @@ Ayrintili aciklama: docs/rehber/app/Providers/AppServiceProvider.md
 `User`, `Invitation`, `Rsvp`, `Media` modellerine [`RecordDeletion`](../Observers/RecordDeletion.md) observer'ı bağlanır:
 kullanıcının başlattığı her silme commit'ten sonra veritabanı dışındaki silme günlüğüne yazılır; yedekten
 geri yüklemeden sonra `data:reapply-deletions` onları yeniden uygular.
+
+## 🆕 Faz 21 (21.1 · `SEC-16` · K265) — üçüncü giriş kovası burada değil
+
+`authLimits()` **değişmedi**: iki kova (e-posta + IP 5/dk, IP 20/dk) ve sırası aynı. Hesap başına, IP'den bağımsız üçüncü
+kova (saatte 30 **başarısız** deneme) `LoginUserAction` içinden `AccountLoginThrottle` ile sayılır, çünkü `Limit::by()`
+başarılı girişi de sayardı ve doğru parolayla giren sahip kendi kovasını doldururdu. Ayrıntı:
+[`../Support/AccountLoginThrottle.md`](../Support/AccountLoginThrottle.md).
