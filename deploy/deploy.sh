@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # DavetKart backend deploy. Ayrinti: docs/rehber/deploy/deploy.md
 # Calistirma (sunucuda, 'deploy' kullanicisiyla): bash deploy/deploy.sh
-set -euo pipefail
+set -Eeuo pipefail   # -E: ERR tuzagi artisan() gibi fonksiyonlarin icinde de calissin
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WEB_USER="www-data"
@@ -34,7 +34,20 @@ fi
 
 # Yeniden baslatildiysak (asagida) asil "onceki surum" ilk calistirmadan gelir.
 PREV="${DAVETKART_DEPLOY_PREV:-$(git rev-parse --short HEAD)}"
-trap 'echo "HATA: deploy yarida kesildi. Onceki surum: $PREV (geri alma: docs/rehber/deploy/deploy.md)" >&2' ERR
+
+# Faz 20.4 (K264): kod `git pull` ile goclerden ONCE yerine gelir; yarim semayla cevap verilmesin.
+# Ikinci calistirmada (yeniden baslatma, ya da onceki deploy bakimda kaldiysa) yalnizca secenekleri yeniler.
+step "Bakim kipi aciliyor (API 503 + Retry-After)"
+artisan down --retry=60
+IN_MAINTENANCE=1
+
+on_error() {
+    echo "HATA: deploy yarida kesildi. Onceki surum: $PREV (geri alma: docs/rehber/deploy/deploy.md §4)" >&2
+    if [ "$IN_MAINTENANCE" = 1 ]; then
+        echo "Site BAKIM KIPINDE kaliyor (503). Sebebi duzeltip deploy.sh'i yeniden calistir; 'artisan up' ile yarim semayi acma." >&2
+    fi
+}
+trap on_error ERR
 
 step "Kod cekiliyor (onceki surum: $PREV)"
 git pull --ff-only
@@ -72,6 +85,11 @@ sudo -n /usr/bin/systemctl reload "$PHP_FPM_SERVICE"
 
 step "Kuyruk iscisine yeniden dogma sinyali"
 artisan queue:restart
+
+# Goc bitti, FPM yeni kodda: artik tutarli cevap verilebilir.
+step "Bakim kipi kapaniyor"
+artisan up
+IN_MAINTENANCE=0
 
 step "Saglik kontrolu"
 curl -fsS --max-time 10 --resolve "$HEALTH_HOST:443:127.0.0.1" "https://$HEALTH_HOST/api/ping"

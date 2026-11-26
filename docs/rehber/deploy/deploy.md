@@ -22,18 +22,21 @@ geliştirdiğimiz için Git dosyaya "çalıştırılabilir" işaretini koymaz, `
 | `set -e` | Herhangi bir komut hata verirse betik **durur** (yarım deploy olmasın) |
 | `set -u` | Tanımsız değişken kullanılırsa hata ver (yazım hatası sessiz geçmesin) |
 | `set -o pipefail` | `a \| b` zincirinde `a` bozulduysa zincir de bozuk sayılsın |
+| `set -E` | `trap … ERR` **fonksiyonların içinde de** çalışsın (Faz 20.4). Olmadan `artisan()` içindeki bir hata (ör. `migrate`) betiği durduruyor ama hata mesajı hiç basılmıyordu |
 | `"$(...)"` | Komutun çıktısını değer olarak kullan |
 | `trap '...' ERR` | Bir hata olursa bu mesajı da yaz |
 
-`set -euo pipefail` tek satırda "ilk hatada dur" güvencesidir. Deploy betiğinde bu
-şarttır: `migrate` hata verip betik devam etse, yeni kod eski veritabanıyla
-canlıya çıkardı.
+`set -Eeuo pipefail` tek satırda "ilk hatada dur ve söyle" güvencesidir. Ama tek başına
+yeni kodun eski veritabanıyla çalışmasını **önlemez**: kod 1. adımda (`git pull`) zaten yerindedir
+ve OPcache varsayılanı yeni dosyayı en geç 2 saniyede okur. Bunu bakım kipi önler (adım 0b, K264).
+(Faz 20'ye kadar burada aksi yazıyordu; `AUD-2026-11-26` `OPS-06`.)
 
 ## 2. Sıra ve gerekçesi
 
 | # | Adım | Neden bu sırada |
 |---|---|---|
 | 0 | Güvenlik kontrolleri | root değil, `.env` var, çalışma ağacı temiz |
+| 0b | `artisan down --retry=60` | **Bakım kipi** (Faz 20.4, K264): koddan göçe kadar API 503 döner, yarım şemayla cevap vermez |
 | 1 | `git pull --ff-only` | Yeni kod |
 | 1c | `git describe --tags --exact-match` | Yayınlanan commit'in **etiketi** günlüğe yazılır; etiketsizse uyarı (Faz 18, K149) |
 | 2 | `composer install --no-dev -o --no-scripts` + `package:discover` | Bağımlılıklar, üretimde test araçları yok |
@@ -41,6 +44,7 @@ canlıya çıkardı.
 | 4 | `migrate --force` | Veritabanı şeması |
 | 5 | `systemctl reload php8.5-fpm` | OPcache'i temizle, yeni kod yüklensin |
 | 6 | `queue:restart` | Kuyruk işçisi yeni kodu alsın |
+| 6b | `artisan up` | Göç bitti, FPM yeni kodda: bakım kipi kalkar |
 | 7 | `curl /api/ping` | Uygulama gerçekten ayakta mı? |
 
 ### Adım 0: Güvenlik kontrolleri
@@ -55,6 +59,27 @@ canlıya çıkardı.
   mesajla durur. Tüm `sudo` çağrıları `-n` ile: eksik yetki parola isteminde
   asılı kalmaz, hemen hata verir. (İlk sürümdeki `sudo -v` 26 Ekim'de kaldırıldı:
   parolasız kullanıcıda hiç çalışmazdı.)
+
+### Adım 0b: Bakım kipi (`artisan down --retry=60`)
+Kod `git pull` ile göçlerden **önce** gelir. Göç bitene kadar yeni kod eski şemayla çalışırsa yerelde katı kip 500 verir;
+canlıda katı kip kapalı olduğu için eksik sütun **sessizce `null`** okunur (ör. `Order::hasPublished()` → `false`,
+yayın yapmış hak iade edilebilir görünür). Bakım kipi bu aralıkta her isteği 503'le reddeder.
+
+- `artisan down` dosya sürücüsüyle `storage/framework/down` yazar; `public/index.php` her istekte buna bakar. Kipi
+  **eski kod** açar (pull'dan önce), **yeni kod** kapatır (adım 6b). İkisi aynı dosyayı tanır.
+- `--render` **yok**: şablon verilirse API'ye de HTML gider. Şablonsuz istek Laravel'e ulaşır ve
+  `ApiExceptionRenderer` frontend'in anladığı zarfı döner: `503 {"error":{"code":"PROVIDER_UNAVAILABLE"}}`
+  (`tests/Feature/MaintenanceModeTest.php`). Frontend bunu "Hizmet şu anda yanıt veremiyor" diye gösterir.
+- `--retry=60`: şablonsuz yanıtta `Retry-After` başlığı yalnızca HTML yoluna gider; API zarfı başlıksız döner (bilinçli: başlık beyaz listeden üretilir).
+- **Kuyruk işçisi** bakımda iş almaz (`queue:work`'te `--force` yok), `up`'tan sonra kaldığı yerden devam eder.
+  **Zamanlayıcı** bakımda yalnızca `evenInMaintenanceMode()` işleri koşar; kalp atışı en çok bir dakika gecikir.
+- Kesinti: `composer install` + önbellek + göç + FPM; genelde 30–60 sn. Statik site (Nginx'teki `dist/`) açık kalır,
+  yalnızca API cevap vermez.
+- Hata olursa `up` **çalışmaz**: site bakımda kalır ve betik bunu söyler (§4). Elle `artisan up` yarım şemayı açmak demektir.
+- Betik ikinci kez koşarsa (adım 1b yeniden başlatma, ya da önceki deploy bakımda kaldıysa) `down` yalnızca
+  seçenekleri yeniler ("Maintenance mode options updated").
+- ⚠️ Bu değişikliği getiren **ilk** deploy eski betikle başlar: eski betik `pull`'u bakımsız yapar, 1b ile yeni betiğe
+  geçer ve `down` ancak o noktada açılır. Sonraki deploy'lardan itibaren `down` pull'dan öncedir.
 
 ### Adım 1: `git pull --ff-only`
 `--ff-only` "yalnızca ileri sar" demek: sunucudaki dal ile depo arasında ayrışma
@@ -170,7 +195,11 @@ kırmızı bir hata görürsün.
 
 ## 4. Hata olursa: geri alma
 
-Betik hata verirse son satırda `Onceki surum: abc1234` yazar.
+Betik hata verirse `HATA: deploy yarida kesildi. Onceki surum: abc1234` yazar. Hata bakım kipi açıkken olduysa
+(adım 0b ile 6b arası) ikinci satır **"Site BAKIM KIPINDE kaliyor (503)"** der: site, sen düzeltene kadar 503 döner.
+
+Önce sebebi düzelt ve `bash deploy/deploy.sh`'ı yeniden çalıştır; başarılı biterse `up` kendisi yapılır. Kodu geri
+alman gerekiyorsa:
 
 ```bash
 git reset --hard abc1234                       # kodu eski sürüme döndür
@@ -190,8 +219,11 @@ patladıysa veritabanı yeni şemada kalır. Eski kod yeni şemayla genelde çal
 
 ## 5. Bilerek eklenmeyenler
 
-- **`artisan down` (bakım modu):** Tek sunucuda göçler saniyeler sürer. Uzun bir
-  göç olursa o gün elle açılır.
+- ~~**`artisan down` (bakım modu):** Tek sunucuda göçler saniyeler sürer. Uzun bir
+  göç olursa o gün elle açılır.~~ → Faz 20.4'ten beri **her deploy bakım kipinde** (adım 0b, K264). Sebep süre değil,
+  aradaki tutarsızlık: `AUD-2026-11-26` `OPS-06`.
+- **Sürüm klasörü + sembolik bağ** (kesintisiz): K264'te değerlendirildi, seçilmedi; FPM kökü, Nginx ve paylaşılan
+  `storage/` değişikliği ister. Trafik kesintiyi görünür kılarsa yeniden açılır.
 - **Frontend ayrı betikte:** `deploy.sh` backend'i bitirince `deploy/deploy-frontend.sh`'ı
   çağırır (Y10.3). Sıra bilinçli: önce backend (göçler), sonra frontend; yeni
   frontend yeni API'ye güvenebilsin. Yalnızca frontend değiştiyse betik tek
