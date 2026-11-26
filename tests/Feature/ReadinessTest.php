@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Tests\TestCase;
@@ -27,7 +28,7 @@ final class ReadinessTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const ALLOWED_NAMES = ['database', 'queue', 'scheduler', 'disk'];
+    private const ALLOWED_NAMES = ['database', 'schema', 'queue', 'scheduler', 'disk'];
 
     private string $originalConnection = '';
 
@@ -59,8 +60,42 @@ final class ReadinessTest extends TestCase
         $response = $this->getJson(route('health.ready'));
         $this->restoreDatabaseName();
 
+        // Şemaya da ulaşılamıyor: fail-closed, iki ad birden; kök neden 'database'.
         $response->assertStatus(503)
-            ->assertExactJson(['status' => 'fail', 'failed' => ['database']]);
+            ->assertExactJson(['status' => 'fail', 'failed' => ['database', 'schema']]);
+    }
+
+    #[Test]
+    public function readiness_fails_when_a_migration_has_not_run(): void
+    {
+        // Faz 20.1 (OPS-10): kod şemanın önünde. Silme RefreshDatabase'in transaction'ında geri alınır.
+        $latest = DB::table('migrations')->orderByDesc('id')->value('migration');
+        $this->assertIsString($latest);
+        DB::table('migrations')->where('migration', $latest)->delete();
+
+        $this->getJson(route('health.ready'))
+            ->assertStatus(503)
+            ->assertExactJson(['status' => 'fail', 'failed' => ['schema']]);
+    }
+
+    #[Test]
+    public function readiness_fails_when_the_migrations_table_is_missing(): void
+    {
+        // PostgreSQL'de DDL transaction'a dahil: tablo test sonunda geri gelir.
+        Schema::drop('migrations');
+
+        $this->getJson(route('health.ready'))
+            ->assertStatus(503)
+            ->assertExactJson(['status' => 'fail', 'failed' => ['schema']]);
+    }
+
+    #[Test]
+    public function a_recorded_migration_without_a_file_does_not_fail_readiness(): void
+    {
+        // Başka dalın göçü ya da silinmiş dosya kodu bozmaz; tehlike yalnızca eksik göç.
+        DB::table('migrations')->insert(['migration' => '2000_01_01_000000_removed_on_another_branch', 'batch' => 999]);
+
+        $this->getJson(route('health.ready'))->assertOk();
     }
 
     #[Test]

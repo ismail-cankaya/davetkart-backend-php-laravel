@@ -9,8 +9,9 @@ izleme kendi başına bir konu.
 
 ## Desen
 
-- `register()`: `DiskUsage` → `LocalDiskUsage`; `ReadinessProbe` dört kontrolle kurulur (`bind`, singleton
-  değil: test `DiskUsage`'ı `instance()` ile değiştirir ve sonraki istek yenisini görür).
+- `register()`: `DiskUsage` → `LocalDiskUsage`; `ReadinessProbe` beş kontrolle kurulur (`bind`, singleton
+  değil: test `DiskUsage`'ı `instance()` ile değiştirir ve sonraki istek yenisini görür). Sıra yanıttaki sıradır:
+  `database`, `schema` (Faz 20.1, K263), `queue`, `scheduler`, `disk`.
 - Kalp atışı burada **değil**, `routes/console.php`'de (öteki dört işin yanında): `RecordSchedulerHeartbeat`
   her dakika, adı `health-heartbeat`, `withoutOverlapping()` + `onOneServer()` + `sentryMonitor()` (`MaintenanceTest`
   her zamanlanmış işte üçünü şart koşar, K103). İlk sürüm `callAfterResolving(Schedule::class)` ile buradaydı;

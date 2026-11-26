@@ -11,6 +11,7 @@ use App\Support\Health\LocalDiskUsage;
 use App\Support\Health\QueueBacklogCheck;
 use App\Support\Health\ReadinessProbe;
 use App\Support\Health\SchedulerHeartbeatCheck;
+use App\Support\Health\SchemaCheck;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
@@ -26,6 +27,7 @@ final class MonitoringServiceProvider extends ServiceProvider
 
         $this->app->bind(ReadinessProbe::class, fn (Application $app): ReadinessProbe => new ReadinessProbe([
             $app->make(DatabaseCheck::class),
+            $app->make(SchemaCheck::class),
             $app->make(QueueBacklogCheck::class),
             $app->make(SchedulerHeartbeatCheck::class),
             $app->make(DiskSpaceCheck::class),
