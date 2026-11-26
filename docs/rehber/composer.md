@@ -230,3 +230,20 @@ veriyordu. `git pull`, `git switch` ya da birleştirmeden sonra bu tek komut iki
 - Eşit mi? `composer install --dry-run` → "Nothing to install, update or remove" · `php artisan migrate:status --pending`
   → "No pending migrations" · `/api/health` yanıtında `schema` yok (K263).
 
+
+## 11. `composer setup` mevcut kurulumda anahtarı ezmez (Faz 20.6, `OPS-13`)
+
+Laravel iskeletinin `setup` betiği `php artisan key:generate`'i her koşuda çalıştırıyordu. Komut yalnızca
+`APP_ENV=production`'da onay ister; yerelde **sorusuz** yeni `APP_KEY` yazar. Anahtara bağlı olanlar bir anda
+geçersiz olur: `IpHasher` hash'leri (hız sınırı ve tekilleştirme kovaları), imzalı e-posta değişikliği ve doğrulama
+bağlantıları, sahte ödeme imzaları (`FakeGateway`), şifreli çerezler.
+
+Şimdi betik önce `.env`'e bakar: `APP_KEY=` satırında boşluk olmayan bir değer varsa (tırnaklı dahil) hiçbir şey
+yapmaz; boşsa ya da yalnızca boşluksa `key:generate --ansi` çalışır. İlk kurulumda (`.env.example`'dan kopya,
+anahtar boş) davranış aynı. Desende `\S` yerine `[^[:space:]]` var: `composer.json` içinde ters bölüye gerek kalmasın
+ve CRLF'li `.env`'de `\r` "dolu" sayılmasın.
+
+| Hata | Neden yanlış |
+|---|---|
+| "Ortamı eşitlemek" için `composer setup` | Eşitleme `composer sync`'tir (§10); `setup` ilk kurulum içindir |
+| Anahtarı elle değiştirip "oturumlar düştü" diye şaşırmak | Anahtar değişince imzalı ve şifreli her şey geçersizdir; bilerek yapılır (sızıntıdan sonra döndürme) |
