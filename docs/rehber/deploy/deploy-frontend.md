@@ -79,8 +79,10 @@ dosyalar bugünün tarihini taşır. Yani silinen yalnızca eski kopyalardır.
 
 ```bash
 export VITE_API_BASE_URL=/api
-export VITE_PLACES_SEARCH_ENABLED=false
 ```
+
+> Faz 21.7 (`FE-08`, K271): `VITE_PLACES_SEARCH_ENABLED` kaldırıldı; frontend'de konum önerisi araması yok, bayrak
+> okunmuyor.
 
 Sunucuda takip edilmeyen bir `.env.production` dosyası yerine ayarlar betikte
 durur: gözden geçirilir, geçmişi tutulur, yeni sunucuda unutulmaz. 🔴 `VITE_`

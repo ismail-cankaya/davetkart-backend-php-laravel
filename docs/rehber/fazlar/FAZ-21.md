@@ -319,3 +319,21 @@ Havuz dosyası depoda yoktu (Ubuntu varsayılanı `pm.max_children = 5`); OPcach
   (`k18:check` 4 + 2 + 4). Ayrı bir K18 temizliğinde düzeltilmeli.
 - Eski kılavuzlarda (`FAZ-7.md`, `PublishInvitationAction.md`, `kavramlar/php-dili.md` …) üç kodun adı geçmişin kaydı olarak
   duruyor; yeniden yazılmadı.
+
+## 21.7 — `FE-08`: konum araması (çoğu frontend)
+
+Karar **K271** (varsayılan "kaldır"): backend'de hiç yazılmamış `GET /api/public/places/search` için frontend'de
+bayrakla kapalı duran öneri araması silindi; "Ulaşım Bilgileri" alanı haritadan seçim ve bağlantı yapıştırma ile çalışır.
+Frontend `fe 8263923`: `services/places.ts`, `hooks/usePlaceSearch.ts`, `PlaceSuggestion` tipi, `VITE_PLACES_SEARCH_ENABLED`
+(`.env.example`, `vite-env.d.ts`), `docs/rehber/src/services/places.md`; `LocationSearchField.tsx`'ten yalnızca öneri kısmı
+çıktı (dosya "haritadan seç" akışını taşıdığı için silinmedi). Bayrak kapalıyken kanca hep boş döndüğünden ekran değişmedi.
+`verify:i18n` tabanı 781 → 780 (yalnızca azalış).
+
+Backend: `deploy/deploy-frontend.sh` artık `VITE_PLACES_SEARCH_ENABLED=false` export etmiyor; kılavuz
+[`deploy/deploy-frontend.md`](../deploy/deploy-frontend.md) §4 notu.
+
+| Kapı | Görülen |
+|---|---|
+| `npm run check` | çıkış 0 · `verify:i18n` 780 parça, 65 dosya · `verify:endpoints` "Tüm uçlar backend sözleşmesiyle eşleşiyor" |
+| `npm run e2e` | 6/6 (sihirbaz `createInvitation` "Davet Konumu"nu dolduruyor) |
+| `composer check` | pint passed · phpstan 0 · `k18: 39 dosya, 0 ihlal` · phpunit **1337/1337** |

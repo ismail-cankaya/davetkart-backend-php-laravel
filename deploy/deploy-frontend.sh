@@ -11,7 +11,6 @@ KEEP_OLD_ASSETS_DAYS=14
 # Uretim derleme ayarlari BURADA (depoda) durur; sunucuda gizli .env.production yok.
 # VITE_ degerleri tarayiciya gomulur: buraya ASLA sir yazilmaz.
 export VITE_API_BASE_URL=/api
-export VITE_PLACES_SEARCH_ENABLED=false
 
 step() { printf '\n==> [frontend] %s\n' "$1"; }
 
