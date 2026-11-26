@@ -2,7 +2,7 @@
 
 > **Başlangıç:** 26 Kasım 2026 · **Entegrasyon dalı:** `faz-20-critical-fixes` (`faz-19-fix` @ `7f589e7`'den)
 > **Kaynak:** docs deposu `audits/2026-11-26-post-faz-19-scan/REPORT.md` · takip tablosu `phases/faz-20/README.md`
-> **Kararlar:** docs deposu `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-20.md` (K263)
+> **Kararlar:** docs deposu `decisions/addenda/PHP-LARAVEL-SETUP-EK-FAZ-20.md` (K263, K264)
 > **Önceki:** [`FAZ-19.md`](FAZ-19.md) · Commit'leri bu fazda ajan attı (İsmail'in isteği).
 
 ## Fazın amacı
@@ -73,6 +73,40 @@ Ayrıntı [`../composer.md`](../composer.md) §9.
 `composer install` + `php artisan migrate` tek komut; `README.md`, [`../PROJE-KOMUTLARI.md`](../PROJE-KOMUTLARI.md) §5.2,
 [`../composer.md`](../composer.md) §10. Frontend karşılığı Vite kapalıyken `npm ci`.
 
+## 20.4 — `OPS-06` ↑: deploy bakım kipinde (K264, İsmail: seçenek A)
+
+### Sorun
+
+`deploy.sh` kodu `git pull` ile göçten önce yerine koyuyordu; OPcache varsayılanı yeni dosyayı ≤2 sn'de okur. Göç bitene
+kadar (ya da göç yarıda kalırsa kalıcı olarak) yeni kod eski şemayla çalışır; canlıda katı kip kapalı olduğu için belirti
+sessiz yanlış cevaptır. Kılavuz `set -e`'nin bunu önlediğini söylüyordu; önlemiyordu.
+
+Denerken ikinci bir hata çıktı: `trap … ERR` `set -E` olmadan fonksiyonların içine geçmez. `artisan()` içindeki her hata
+(ör. `migrate`) betiği durduruyor ama "deploy yarıda kesildi, önceki sürüm: …" mesajını hiç basmıyordu (eski betik,
+stub'lı deneme: çıkış 1, `HATA` satırı 0).
+
+### Değişiklik
+
+| Dosya | Ne | Kılavuz |
+|---|---|---|
+| `deploy/deploy.sh` | `set -Eeuo pipefail`; güvenlik kontrollerinden sonra `artisan down --retry=60`; `queue:restart`'tan sonra `artisan up`; hata mesajı bakım kipini söyler | [`../deploy/deploy.md`](../deploy/deploy.md) §1, adım 0b, §4, §5 |
+| `tests/Feature/MaintenanceModeTest.php` | bakımda API `503 {"error":{"code":"PROVIDER_UNAVAILABLE"}}`, `up`'tan sonra 200 | [`../tests/Feature/MaintenanceModeTest.md`](../tests/Feature/MaintenanceModeTest.md) |
+| frontend `src/locales/{tr,en}/errors.json` | `PROVIDER_UNAVAILABLE`: "Asistan…" → "Hizmet şu anda yanıt veremiyor" (ödeme/medya 503'lerinde de yanlıştı) | — |
+
+### Deneme (stub'lı, sunucusuz)
+
+`sudo`, `git`, `composer`, `curl` yerine çağrıyı kaydeden betikler PATH'in başında; `FAIL_ON` ile istenen adım düşürüldü:
+
+| Senaryo | Çıkış | `artisan` sırası | Mesaj |
+|---|---|---|---|
+| başarı | 0 | `down` → `package:discover` → `config:cache` → `route:cache` → `migrate` → `queue:restart` → `up` | frontend betiği koştu |
+| `migrate` düşer | 1 | … `migrate` (`up` yok) | `HATA … Onceki surum` + `Site BAKIM KIPINDE kaliyor` |
+| `config:cache` düşer | 1 | … `config:cache` (`up` yok) | aynı |
+| `up`'tan sonra `/api/ping` düşer | 22 | tam sıra | yalnızca `HATA` (bakım satırı yok: site açık); frontend betiği koşmadı |
+| `down` düşer | 1 | `down` | artisan'ın kendi hatası (tuzak henüz kurulmadı; site bakımda değil) |
+
+`MaintenanceModeTest` mutantı: `activate()`'ten sonra `deactivate()` → ilk test 200 görür, kırmızı.
+
 ## 20.6 — `OPS-13`: `composer setup` anahtarı ezmez
 
 `setup` yalnızca `APP_KEY` boşsa `key:generate` çalıştırır ([`../composer.md`](../composer.md) §11). Koruma ayrı bir
@@ -82,18 +116,18 @@ klasörde beş `.env` biçimiyle denendi (boş LF, boş CRLF, yalnızca boşluk 
 
 | Madde | Neden |
 |---|---|
-| 20.4 `OPS-06` ↑ (deploy sırasında kod şemanın önünde) | Karar İsmail'in: bakım kipi mi, sürüm klasörü mü (`phases/faz-20/README.md` §20.4). `deploy.md` §5 "`artisan down` bilerek eklenmedi" diyor; bu karar değişmeden betiğe dokunulmadı |
 | 20.5 `FE-59` (`/eposta-dogrula` sorgusuz 422) | Değişiklik gerekmiyor: sunucu doğru kodu (`EMAIL_VERIFICATION_INVALID`) döndürüyor, ekran doğru mesajı gösteriyor; frontend'de imza kontrolü kuralın ikinci kopyası olurdu |
 
 ## Doğrulama durumu (B7)
 
 | Kapı | Sonuç |
 |---|---|
-| `composer check` (`faz-20-critical-fixes` @ `73a8462`, 26 Kasım) | ✅ pint · PHPStan 0 · errors/plans/env:template · `k18: 32 dosya, 0 ihlal` · **1304/1304** (4760 doğrulama) |
+| `composer check` (`faz-20-critical-fixes` @ `6b3b450`, 20.4 dahil, 26 Kasım) | ✅ pint · PHPStan 0 · errors/plans/env:template · `k18: 32 dosya, 0 ihlal` · **1306/1306** (4765 doğrulama); 20.4'ten önce `73a8462`'de 1304/1304 |
 | `composer audit` | ✅ "No security vulnerability advisories found." |
 | `composer install --dry-run` · `migrate:status --pending` (yerel) | ✅ "Nothing to install, update or remove" · "No pending migrations" |
 | Frontend `npm run check` (`faz-19-fix` @ `5c68df3`, `node_modules` onarıldıktan sonra) | ✅ tsc · build · 15 `verify:*` · ilk yükleme 712,0 / 720 kB · misafir 790,2 / 800 kB |
-| Frontend `npm run e2e` (frontend `5c68df3` + bu backend ucu, `davetkart_e2e`) | ✅ **6/6** (yayın + hediye kodu, a11y 15 sayfa, hatalı form a11y, editör çıkışta kayıt, misafir LCV, Elit plan duvarı), 2,6 dk |
+| Frontend `npm run e2e` (`davetkart_e2e`) | ✅ **6/6** iki kez: frontend `5c68df3` + backend `73a8462` (2,6 dk) · frontend `faz-20-critical-fixes` @ `d10e7b2` + backend `6b3b450` (2,7 dk). Yayın + hediye kodu, a11y 15 sayfa, hatalı form a11y, editör çıkışta kayıt, misafir LCV, Elit plan duvarı |
+| Frontend `npm run check` (`02836ec`, 20.4 metni) | ✅ `verify:errors` 31 kod iki dilde, `verify:i18n` 781 |
 | Canlı sunucu: `/api/health`, OPcache ayarı | koşmadı |
 
 ## Elle doğrulama (İsmail)
@@ -102,3 +136,5 @@ klasörde beş `.env` biçimiyle denendi (boş LF, boş CRLF, yalnızca boşluk 
 2. `curl -i http://127.0.0.1:8000/api/health` → `failed` listesinde `schema` yok (yerelde `queue`, `scheduler`
    beklenir: işçi ve zamanlayıcı çalışmıyor).
 3. Bundan sonra `git pull` / dal değişiminden sonra: backend `composer sync`, frontend Vite'ı durdurup `npm ci`.
+4. Canlıda ilk deploy (K264): eski betikle başlar, `down` o seferlik `pull`'dan sonra açılır. Deploy'dan önce izleyicide
+   bakım penceresi aç; günlükte `Bakim kipi aciliyor` / `kapaniyor` satırlarını gör. Koşmadı (B7): gerçek sunucuda.
