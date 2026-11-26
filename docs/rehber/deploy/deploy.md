@@ -165,6 +165,10 @@ PHP derlenmiş kodu bellekte tutar (OPcache). Dosyalar değişse de eski sürüm
 çalışmaya devam edebilir. `reload`, `restart`'ın aksine süreçleri **kesintisiz**
 yeniler: devam eden istekler tamamlanır.
 
+> Faz 21.5 (K269): `opcache.validate_timestamps = 0`. Bu adım artık yalnızca "temizlik" değil, **zorunlu**: reload'suz
+> kod değişmez. Sunucuda elle dosya düzeltirsen de `sudo systemctl reload php8.5-fpm` gerekir.
+> Havuz ve bellek tablosu: [`php-fpm/davetkart.md`](php-fpm/davetkart.md).
+
 ### Adım 6: `queue:restart`
 İşçi kodu belleğe aldığı için bu sinyal olmadan 1 saat boyunca eski kodla çalışır.
 Komut işçiyi öldürmez; "o anki işi bitir ve çık" der. `davetkart-queue.service`

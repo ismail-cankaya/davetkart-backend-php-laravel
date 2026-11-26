@@ -229,3 +229,42 @@ Günlük satırları ve kuyruk işleri onları doğuran isteğe bağlanamıyordu
 
 `curl -si http://127.0.0.1:8000/api/ping | findstr X-Request-Id` koşulmadı (İsmail'in dev sunucusuna dokunulmadı); aynı
 yol testte üç uçla sınandı. Sunucuda nginx `log_format` adımı İsmail'in (kılavuz §6).
+
+## 21.5 — `OPS-07`: PHP-FPM havuzu ve OPcache
+
+### Sorun
+
+Havuz dosyası depoda yoktu (Ubuntu varsayılanı `pm.max_children = 5`); OPcache ayarı ve bellek bütçesi yazılı değildi.
+
+### Karar (K269, §A boş → varsayılan)
+
+- `deploy/php-fpm/davetkart.conf`: `pm = dynamic`, `max_children 4`, `start 2`, `min_spare 1`, `max_spare 3`,
+  `max_requests 500`; soket nginx ile aynı (`/run/php/php8.5-fpm.sock`, `www.conf` devre dışı); `request_terminate_timeout
+  60s` (nginx `fastcgi_read_timeout` en çok 60s); slowlog 5s; durum sayfası yalnızca soketten.
+- `deploy/php/davetkart.ini`: `opcache.memory_consumption=128`, `max_accelerated_files=20000`, `validate_timestamps=0`.
+- Bellek tablosu kılavuzda: tavanlar toplamı ~2 270 MB (2 048'i ~220 MB aşar), tipik ~500–1 000 MB; takas dosyası ya da
+  havuzda `memory_limit=192M` İsmail'e soru.
+
+### Değişen dosyalar
+
+| Dosya | Kılavuz |
+|---|---|
+| `deploy/php-fpm/davetkart.conf` (yeni) | [`deploy/php-fpm/davetkart.md`](../deploy/php-fpm/davetkart.md) |
+| `deploy/php/davetkart.ini` (OPcache) | [`deploy/php/davetkart.md`](../deploy/php/davetkart.md) "OPcache" |
+| — | [`deploy/deploy.md`](../deploy/deploy.md) Adım 5 notu: reload artık zorunlu |
+
+### B7 tablosu
+
+| İddia | Kanıt (görülen çıktı) |
+|---|---|
+| ini ayrıştırılıyor, OPcache değerleri yürürlükte | Herd PHP 8.5, `PHP_INI_SCAN_DIR` ile: `opcache.memory_consumption='128'`, `opcache.max_accelerated_files='20000'`, `opcache.validate_timestamps='0'`, `opcache yuklu: true` |
+| Havuz sözdizimi (`php-fpm8.5 -t`) | **koşmadı**: Windows'ta PHP-FPM yok |
+| Sunucu kurulumu | **koşmadı** (sunucuya istek yok); komutlar kılavuz §4, geri alma §5 |
+| `composer check` | pint passed · phpstan 0 · `k18: 38 dosya, 0 ihlal` · phpunit **1335/1335** · çıkış 0 (PHP kodu değişmedi) |
+
+### İsmail'e kalan (sunucu)
+
+1. Kılavuz §4'teki kurulum (havuzu kopyala, `www.conf` → `www.conf.dist`, slowlog dosyası, `php-fpm8.5 -t`, reload, ping).
+2. `deploy/php/davetkart.ini`'nin yeni hâli bir sonraki deploy'la sunucuya gelir; `phpenmod` bağlantısı olduğu için
+   yalnızca `systemctl reload php8.5-fpm` (deploy bunu yapıyor). Sonra `php-fpm8.5 -i | grep opcache.validate_timestamps`.
+3. Bellek payı kararı: takas dosyası mı, havuzda `memory_limit=192M` mi (kılavuz §3).

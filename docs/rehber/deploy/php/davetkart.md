@@ -48,6 +48,19 @@ mekanizmasını kullanır ve bunu hiç kullanmaz. **CVE-2026-109619** gibi PHP a
 saldırı yollarından biri bu özellik ile ilişkili olduğu için, ihtiyaç olmayan yüzeyi
 kapatıyoruz (savunma derinliği). Asıl koruma PHP'yi **8.5.12 ve üstünde** tutmak.
 
+### OPcache (Faz 21.5, `OPS-07`, K269)
+
+| Ayar | Değer | Neden |
+|---|---|---|
+| `opcache.memory_consumption` | 128 | Derlenmiş kodun paylaşılan belleği (MB). Laravel + vendor ~30–50 MB; pay bırakır |
+| `opcache.max_accelerated_files` | 20000 | `vendor/` binlerce dosya; dolarsa yeni dosyalar önbelleğe alınmaz |
+| `opcache.validate_timestamps` | 0 | Her istekte `stat()` yok. 🔴 Kod değişikliği **ancak** `systemctl reload php8.5-fpm` ile görülür |
+
+`validate_timestamps = 0` neden güvenli? `deploy.sh` kodu bakım kipinde çeker ve FPM'i reload eder (K264); reload
+OPcache'i boşaltır. Sunucuda bir dosyayı **elle** düzeltirsen reload etmeden etkisi olmaz. CLI'da (`artisan`) OPcache
+varsayılan kapalı (`opcache.enable_cli = 0`), komutlar her zaman diskteki kodu çalıştırır. Havuz ve bellek tablosu:
+[`../php-fpm/davetkart.md`](../php-fpm/davetkart.md).
+
 ## 3. Kurulum
 
 Depodaki dosya (Y8'de sunucuya kod gelince):
