@@ -37,7 +37,7 @@ PREV="${DAVETKART_DEPLOY_PREV:-$(git rev-parse --short HEAD)}"
 
 # Faz 20.4 (K264): kod `git pull` ile goclerden ONCE yerine gelir; yarim semayla cevap verilmesin.
 # Ikinci calistirmada (yeniden baslatma, ya da onceki deploy bakimda kaldiysa) yalnizca secenekleri yeniler.
-step "Bakim kipi aciliyor (API 503 + Retry-After)"
+step "Bakim kipi aciliyor (API 503)"
 artisan down --retry=60
 IN_MAINTENANCE=1
 
