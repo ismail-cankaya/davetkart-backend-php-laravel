@@ -167,3 +167,65 @@ Davranış değişmediği için testler ilk koşuda yeşildi (3/3). Koruma mutan
 ### Elle doğrulama
 
 Gerekmiyor: davranış değişmedi.
+
+## 21.3 — `FE-58`: ödeme dönüşünde onaysız yayın (frontend; kısa kayıt)
+
+Backend değişmedi. Karar **K267** (varsayılan): otomatik yayın kalır, K67 daraltıldı: ödeme **sunucuda** yayınlamaz
+(webhook yalnızca `paid` yapar), frontend yayın niyetli ödemenin dönüşünde sekme başına bir kez `POST
+/invitations/{id}/publish` ister; yetki ve plan kontrolü (402) yine burada. Frontend `fe ea9d8b1`: karar
+`src/utils/autoPublish.ts`'e taşındı, yenilemede ikinci istek gitmiyor (panelden kaldırılan davetiye sorulmadan yeniden
+yayınlanıyordu). `npm run check` 0, e2e 6/6, `verify:payment` 19 yeni denetim, 7 mutant öldü. Ayrıntı frontend
+`docs/rehber/src/utils/autoPublish.md`. Backend'e kalan (ayrı iş): `GET /orders/{id}` yanıtında
+`orders.first_published_at` olursa başka sekmede de yeniden yayın kapanır.
+
+## 21.4 — `OPS-08`: istek kimliği
+
+### Sorun
+
+Günlük satırları ve kuyruk işleri onları doğuran isteğe bağlanamıyordu.
+
+### Karar (K268, §A boş → varsayılan)
+
+- Her yanıtta `X-Request-Id` (ULID). Hata zarfı **değişmedi** (§A-1).
+- Gelen `X-Request-Id` yalnızca ULID ya da UUID ise kullanılır; değilse yenisi üretilir (§A-2; biçim ≤64'ü zaten sağlar).
+- Kimlik Laravel `Context`'ine (`request_id`): günlük satırının `extra`'sına ve kuyruk işinin yüküne kendiliğinden gider.
+- Ara katman global zincirin **en başında** (`prepend`).
+- Nginx önerisi (koşulmadı): erişim günlüğüne `$upstream_http_x_request_id`.
+
+### Değişen dosyalar
+
+| Dosya | Ne | Kılavuz |
+|---|---|---|
+| `app/Http/Middleware/AssignRequestId.php` | yeni | [`AssignRequestId.md`](../app/Http/Middleware/AssignRequestId.md) |
+| `bootstrap/app.php` | `$middleware->prepend(AssignRequestId::class)` | [`bootstrap/app.md`](../bootstrap/app.md) "Faz 21.4" |
+| `tests/Feature/RequestIdTest.php` | 7 test (14 vaka) | [`RequestIdTest.md`](../tests/Feature/RequestIdTest.md) |
+| `docs/08-HATA-SOZLESMESI.md` §4.1 | başlık notu, zarf aynı | — |
+
+### Testler ve mutantlar
+
+Önce kırmızı: 13 vakadan 12'si başarısız (zarf testi yokluk testi, geçti). Sonra 413 testi eklendi.
+
+| Mutant | Sonuç | Öldüren test |
+|---|---|---|
+| R1 ara katman kayıtlı değil | öldü | 13 vaka |
+| R2 gelen her kimlik kabul | öldü | `a_malformed_incoming_id_is_replaced` (6 vaka) |
+| R3 gelen kimlik hiç kabul edilmez | öldü | `a_well_formed_incoming_id_is_kept`, günlük, kuyruk |
+| R4 Context'e yazılmaz | öldü | günlük ve kuyruk testleri |
+| R5 `append` (zincirin sonu) | öldü | `an_early_response_from_the_global_stack_carries_it_too` |
+| R6 uzunluk sınırı yok | **yaşadı**: eşdeğer (ULID 26, UUID 36) → kontrol koddan kaldırıldı | — |
+| R7 UUID kabul edilmez | öldü | `a_well_formed_incoming_id_is_kept` (UUID) |
+
+### B7 tablosu
+
+| İddia | Kanıt (görülen çıktı) |
+|---|---|
+| Önce kırmızı | `tests=13, passed=1, failed=12` |
+| Yeşil | `tests=14, passed=14, assertions=40` |
+| Gerçek günlük satırı | yerelde `tinker` ile tek satır: `local.INFO: faz21-request-id-deneme  {"request_id":"01JDQZ3K8G4T6M2N5P7R9S1V3W"}` |
+| `composer check` | ilk koşu PHPStan'de düştü (`Log::channel()` → `LoggerInterface::getLogger()`; testte `Illuminate\Log\Logger` doğrulandı); ikinci: pint passed · phpstan 0 · `k18: 38 dosya, 0 ihlal` · phpunit **1335/1335**, 5240 assertion |
+| `npm run e2e` | 6/6 |
+
+### Elle doğrulama
+
+`curl -si http://127.0.0.1:8000/api/ping | findstr X-Request-Id` koşulmadı (İsmail'in dev sunucusuna dokunulmadı); aynı
+yol testte üç uçla sınandı. Sunucuda nginx `log_format` adımı İsmail'in (kılavuz §6).

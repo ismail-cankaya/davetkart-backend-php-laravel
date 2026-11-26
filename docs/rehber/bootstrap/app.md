@@ -472,3 +472,18 @@ gösteren senaryo o fazda oluşacak.
 | **Dependency Injection** | Bağımlılığı içeride `new`'lemek yerine dışarıdan alma |
 | **Open/Closed Principle** | Genişlemeye açık, değişikliğe kapalı (SOLID'in O'su) |
 | **İstek yaşam döngüsü** | İsteğin girişten yanıta kadar izlediği yol |
+
+---
+
+## 🆕 Faz 21.4 (`OPS-08`, K268): `AssignRequestId` global zincirin başında
+
+`$middleware->prepend(AssignRequestId::class)`: her isteğe ULID (ya da geçerli biçimdeki gelen `X-Request-Id`), Laravel
+`Context`'ine `request_id` olarak yazılır, yanıta başlık olarak döner. Global zincirin **en başında** durur, çünkü
+ondan önce dönen yanıtlar (bakım kipi 503, `ValidatePostSize` 413) kimliksiz kalırdı. §3'teki yolun yeni ilk adımı:
+
+```
+0. [AssignRequestId]  ← X-Request-Id, Context('request_id')
+1. public/index.php …
+```
+
+Ayrıntı: [`../app/Http/Middleware/AssignRequestId.md`](../app/Http/Middleware/AssignRequestId.md).

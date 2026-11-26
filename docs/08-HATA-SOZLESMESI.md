@@ -222,6 +222,10 @@ Bu yüzden `PROVIDER_UNAVAILABLE` da `retryAfter` parametresi taşır.
 > başına saatte 30 **başarısız** deneme (IP'den bağımsız). Üçü de aynı yanıtı verir (`retryAfter` + `Retry-After`);
 > istemci hangi kovaya takıldığını bilmez ve bilmesi gerekmez. Ayrıntı: `docs/rehber/app/Support/AccountLoginThrottle.md`.
 
+> Faz 21.4 (`OPS-08`, K268): **her** yanıt (başarı ya da hata) `X-Request-Id` başlığı taşır (ULID; istemci geçerli bir
+> ULID/UUID gönderdiyse o). Kimlik hata **zarfına girmez**: zarf K20'deki gibi kalır. Destek için "şu kodu söyleyin"
+> denecekse kod bu başlıktan okunur. Ayrıntı: `docs/rehber/app/Http/Middleware/AssignRequestId.md`.
+
 ### 4.2 Neden RFC 9457 (Problem Details) kullanılmıyor?
 
 HTTP hata gövdeleri için bir RFC standardı var:

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Exceptions\ApiExceptionRenderer;
 use App\Exceptions\HasErrorCode;
+use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\ForceJsonResponse;
 use App\Http\Middleware\RejectMalformedInput;
 use App\Http\Middleware\SecurityHeaders;
@@ -35,6 +36,9 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // OPS-08 (K268): her isteğe kimlik, global zincirin EN BAŞINDA; 429/404 gibi erken yanıtlar da taşısın.
+        $middleware->prepend(AssignRequestId::class);
+
         // Accept başlığını zincirin en başında application/json yapar;
         // böylece hemen ardından gelecek hız sınırı (rate limit) gibi
         // kontroller hata fırlatırsa yanıt HTML değil JSON döner.
