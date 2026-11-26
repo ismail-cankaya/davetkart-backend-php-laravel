@@ -5,6 +5,7 @@
 > **K181** (yayın adayı = `composer check` ✅ + `composer audit` ✅; K150'yi tamamlar)
 > **İlgili:** [`app/Services/Payment/ShopierGateway.md`](app/Services/Payment/ShopierGateway.md) §12 (K180,
 > aynı bulgunun kod tarafı) · faz kaydı [`fazlar/FAZ-19.md`](fazlar/FAZ-19.md) §19.1
+> **Faz 20.2 (`SEC-51`, 26 Kasım 2026):** aynı yolla ikinci yama → [§9](#9-faz-202-sec-51-symfony-8112)
 
 ---
 
@@ -195,3 +196,19 @@ composer audit --locked -d $d                    # çıkış 1: "Found 9 securit
 composer audit --locked                          # bu dalın lock'u: çıkış 0
 Remove-Item -Recurse -Force $d
 ```
+
+## 9. Faz 20.2 (`SEC-51`): Symfony 8.1.12
+
+26 Kasım 2026'da `composer audit` yeniden kırmızıydı: 25 Kasım'da yayımlanan **5 bildirim, 3 paket**. Kilit 19.1'den
+beri aynıydı; değişen, açık listesiydi. "Dün yeşildi" bugün yeşil demek değil: kapı (K181) her yayından önce koşar.
+
+| Paket | CVE | Konu |
+|---|---|---|
+| `symfony/http-kernel` | CVE-2026-133743 | Satır içi fragment'ta güvenilmeyen `Forwarded` başlıkları `asset()`/`absolute_url()` adresini değiştirir (önceki yamanın eksiği) |
+| `symfony/mailer` | CVE-2026-133751 · CVE-2026-133755 | `require_tls` araya giren biri tarafından atlatılabilir · STARTTLS'ten hemen sonra enjekte edilen yanıta güvenilir |
+| `symfony/routing` | CVE-2026-133746 · CVE-2026-133754 | `UrlGenerator` başka bir host'a adres üretebilir (önceki yamanın eksiği; host yer tutucusu) |
+
+Komut K179'un aynısı, kuru koşudan sonra: `composer update "symfony/*" -W`. Sonuç **yalnızca `composer.lock`**:
+14 paket yama sürümü (Symfony 8.1.9–8.1.11 → 8.1.12, `egulias/email-validator` 4.0.4 → 4.0.5); majör yok,
+`composer.json` değişmedi. Sonra `composer audit` → "No security vulnerability advisories found.", `composer check` yeşil.
+
