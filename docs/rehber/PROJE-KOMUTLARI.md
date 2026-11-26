@@ -267,6 +267,7 @@ Ayrıntı: [`ExportPlanRules.md`](app/Console/Commands/ExportPlanRules.md).
 ### 5.2 `composer` betikleri (artisan değil ama her gün kullanılanlar)
 
 ```powershell
+composer sync      # Faz 20.3: composer install + php artisan migrate — git pull / dal değişiminden sonra (composer.md §10)
 composer check     # pint --test + phpstan + errors:export / plans:export / env:template --check + k18:check + testler (commit öncesi)
 php artisan k18:check   # K259: daldaki değişen dosyalarda K18 (kısa yorum + kılavuz); docs/rehber/app/Console/Commands/CheckK18.md
 composer analyse   # yalnızca phpstan

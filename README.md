@@ -39,6 +39,7 @@ ile 8000'e yollar; yerelde CORS devreye girmez.
 
 | Komut | Ne yapar |
 |---|---|
+| `composer sync` | `git pull` / dal değişiminden sonra: `composer install` + `php artisan migrate` (Faz 20.3; frontend'de Vite kapalıyken `npm ci`) |
 | `composer check` | Faz bitiş kapısı: pint → phpstan → errors:export → plans:export → testler (fail-fast, **son satıra bak**) |
 | `composer lint` | Kod stilini düzeltir (`check` yalnızca bakar) |
 | `php artisan errors:export` | `contracts/error-codes.json`'u üretir (frontend'e tek yönlü kopyalanır) |

@@ -1,11 +1,11 @@
 # `composer.json` · `composer.lock` — Kılavuz: güvenlik güncellemesi ve `composer audit`
 
-> **Kod dosyaları:** `composer.lock` (19.1'de değişti) · `composer.json` (değişmedi)
+> **Kod dosyaları:** `composer.lock` (19.1'de ve 20.2'de değişti) · `composer.json` (20.3'te yalnızca `sync` betiği eklendi)
 > **Faz:** 19.1 — `SEC-07` (`AUD-2026-11-12`) · **Kararlar:** **K179** (güncellemenin kapsamı) ·
 > **K181** (yayın adayı = `composer check` ✅ + `composer audit` ✅; K150'yi tamamlar)
 > **İlgili:** [`app/Services/Payment/ShopierGateway.md`](app/Services/Payment/ShopierGateway.md) §12 (K180,
 > aynı bulgunun kod tarafı) · faz kaydı [`fazlar/FAZ-19.md`](fazlar/FAZ-19.md) §19.1
-> **Faz 20.2 (`SEC-51`, 26 Kasım 2026):** aynı yolla ikinci yama → [§9](#9-faz-202-sec-51-symfony-8112)
+> **Faz 20.2 (`SEC-51`, 26 Kasım 2026):** aynı yolla ikinci yama → [§9](#9-faz-202-sec-51-symfony-8112) · **Faz 20.3:** `composer sync` → [§10](#10-composer-sync-dal-değiştirince-ya-da-çekince-faz-203)
 
 ---
 
@@ -211,4 +211,22 @@ beri aynıydı; değişen, açık listesiydi. "Dün yeşildi" bugün yeşil deme
 Komut K179'un aynısı, kuru koşudan sonra: `composer update "symfony/*" -W`. Sonuç **yalnızca `composer.lock`**:
 14 paket yama sürümü (Symfony 8.1.9–8.1.11 → 8.1.12, `egulias/email-validator` 4.0.4 → 4.0.5); majör yok,
 `composer.json` değişmedi. Sonra `composer audit` → "No security vulnerability advisories found.", `composer check` yeşil.
+
+## 10. `composer sync`: dal değiştirince ya da çekince (Faz 20.3)
+
+```powershell
+composer sync      # composer install + php artisan migrate (yerel veritabanı)
+```
+
+Neden ayrı bir komut: 26 Kasım'da (`AUD-2026-11-26`, `OPS-10`/`OPS-11`) ana klasörün `vendor/`'ı kilidin 55 paket,
+veritabanı 4 göç gerisindeydi. Kapılar test veritabanında koştuğu için yeşildi; Hesap Ayarları'nın üç sayfası ise 500
+veriyordu. `git pull`, `git switch` ya da birleştirmeden sonra bu tek komut ikisini birden eşitler.
+
+- **Canlıda kullanılmaz:** canlının sırası `deploy/deploy.sh`'tedir (`--no-dev`, önbellek, `--force`). `APP_ENV=production`
+  iken `migrate` onay ister ve `--no-interaction` altında durur.
+- Göç durursa (ör. `2026_11_16_100000` çakışan veri bulursa) komut kırmızı biter; mesajdaki kılavuza bak, veriyi elle karar ver.
+- **Frontend için karşılığı:** Vite'ı durdur (`Ctrl+C`), sonra `npm ci`. Vite açıkken `npm ci` Windows'ta kilitli bir
+  `.node` dosyasında `EPERM` ile yarıda kalır ve `node_modules`'ü yarım bırakır (26 Kasım'da oldu; `npm install` onardı).
+- Eşit mi? `composer install --dry-run` → "Nothing to install, update or remove" · `php artisan migrate:status --pending`
+  → "No pending migrations" · `/api/health` yanıtında `schema` yok (K263).
 
