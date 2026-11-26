@@ -112,10 +112,36 @@ stub'lı deneme: çıkış 1, `HATA` satırı 0).
 `setup` yalnızca `APP_KEY` boşsa `key:generate` çalıştırır ([`../composer.md`](../composer.md) §11). Koruma ayrı bir
 klasörde beş `.env` biçimiyle denendi (boş LF, boş CRLF, yalnızca boşluk → üretir; dolu, tırnaklı → dokunmaz).
 
+## 20.5b — Hesap ayarlarının yazma akışları (Faz 14 elle doğrulaması, ilk kez)
+
+İsmail "başka hata var mı" diye sordu (26 Kasım). Faz 14'ün 15 adımlık elle doğrulaması (`FAZ-14-ELLE-DOGRULAMA.md`) hiç
+koşulmamıştı. Başsız Chromium ile `davetkart_e2e` üzerinde (e2e sunucuları, sahte ödeme `tinker`'dan imzalı webhook,
+`refunds:approve` gerçek komut) uçtan uca koşuldu: kayıt + doğrulama, iki Gold satın alma, panel rozeti, Planlarım,
+iptal talebi, `refunds:list`, onay "hayır" (değişmez) / "evet" (iade edildi), talebi geri çekme, gizlilik uyarısı,
+Gold ile yayın ("Kullanımda"), profil, iki oturum, yanlış/doğru parola (öteki cihaz düşer), e-posta değişikliği,
+bağlantının ikinci kullanımı. **16/16 geçti.** Bulunan tek hata 20.7'de. Betik repoya girmedi (oturumun geçici klasörü).
+
+## 20.7–20.10 — Frontend düzeltmeleri (yalnızca frontend deposu)
+
+| # | Bulgu | Ne | Denetim |
+|---|---|---|---|
+| 20.7 | `FE-57` (A) + yeni | 401 yakalayıcısı `logout()`'u `revoke: true` ile çağırıyordu: ölü token'la `POST /auth/logout` gidip ikinci 401 dönüyordu (yukarıdaki yolculuğun 12. adımında görüldü). Şimdi `revoke: false, expired: true`; giriş sayfası "Oturumunuz sona erdi…" der. `useAccountStore`'a sahiplik bekçisi: 401'den sonra aynı sekmede başka hesap girerse önceki hesabın hakları ve oturumları bellekte kalmaz | `verify:state` 6 yeni kontrol, 2 mutant öldü; yolculuk yeniden: `logout` isteği yok, not görünüyor |
+| 20.8 | `FE-55`, `FE-57` (C) | Planlarım "fiyatlar sayfasından plan alabilirsiniz" diyordu (orada satın alma düğmesi yok); paneldeki LCV kartı panelde olmayan "telefon önizlemesi"ni anıyordu (ipucu artık yalnızca ana sayfa vitrininde) | `tsc`, `verify:i18n` 781 |
+| 20.9 | `FE-57` (B) | Aynı metin ve tondaki bildirim üst üste yığılmaz; yenisi eskisinin yerini alır | `verify:render`, mutant öldü |
+| 20.10 | `FE-06` | Bilinmeyen adres açıklamasız ana sayfaya atılmıyor; ortak düzen içinde "Sayfa bulunamadı" (tembel parça 1,5 kB) | `verify:render` 3 kontrol, mutant öldü; gerçek tarayıcıda `/olmayan-sayfa`, `/fiyatlar` |
+
+`AUD-2026-11-12`'den kapanmış bulunanlar (koda bakıldı): `ARC-09` (Faz 18.3, aynı niyet aynı sipariş), `FE-09`
+(en büyük video 2,3 MB), `FE-56` (`ThreeStage` `still`). Gerçek tarayıcıda yalnızca `FE-09` dosya boyutuyla doğrulandı.
+
 ## Yapılmayanlar
 
 | Madde | Neden |
 |---|---|
+| `SEC-15` Kayıt ucu adresin kayıtlı olduğunu söylüyor (422 ↔ 201) | Düzeltmesi kayıt akışının sözleşmesini değiştirir (K11: kayıt oturum açar, `{user, token}`); ürün kararı |
+| `SEC-16` Hesap bazlı kaba kuvvet freni | Sertleştirme; eşik ve kilit süresi kararı |
+| `FE-58` Ödeme dönüşünde davetiye onaysız yayınlanıyor | K67 ile çelişki sorusu açık; ürün kararı |
+| `ARC-06` Hiç fırlatılmayan 3 hata kodu | Sözleşme temizliği; `ErrorCode.php`'ye dokunmak K18 cırcırıyla 9 yorum bloğunu taşımayı ister. Kullanıcıya etkisi yok |
+| `ARC-07` Frontend `.gitattributes` yok | Satır sonu normalizasyonu yüzlerce dosyaya dokunur; ayrı, tek amaçlı commit ister |
 | 20.5 `FE-59` (`/eposta-dogrula` sorgusuz 422) | Değişiklik gerekmiyor: sunucu doğru kodu (`EMAIL_VERIFICATION_INVALID`) döndürüyor, ekran doğru mesajı gösteriyor; frontend'de imza kontrolü kuralın ikinci kopyası olurdu |
 
 ## Doğrulama durumu (B7)
@@ -128,6 +154,9 @@ klasörde beş `.env` biçimiyle denendi (boş LF, boş CRLF, yalnızca boşluk 
 | Frontend `npm run check` (`faz-19-fix` @ `5c68df3`, `node_modules` onarıldıktan sonra) | ✅ tsc · build · 15 `verify:*` · ilk yükleme 712,0 / 720 kB · misafir 790,2 / 800 kB |
 | Frontend `npm run e2e` (`davetkart_e2e`) | ✅ **6/6** iki kez: frontend `5c68df3` + backend `73a8462` (2,6 dk) · frontend `faz-20-critical-fixes` @ `d10e7b2` + backend `6b3b450` (2,7 dk). Yayın + hediye kodu, a11y 15 sayfa, hatalı form a11y, editör çıkışta kayıt, misafir LCV, Elit plan duvarı |
 | Frontend `npm run check` (`02836ec`, 20.4 metni) | ✅ `verify:errors` 31 kod iki dilde, `verify:i18n` 781 |
+| Frontend `npm run check` (`f774f1b`, 20.10 dahil) | ✅ tsc · build · 15 `verify:*` · 712,8 / 720 kB · 791,1 / 800 kB · `verify:i18n` 781 |
+| Frontend `npm run e2e` (frontend `f774f1b` + backend `6b3b450`) | ✅ **6/6**, 2,8 dk |
+| Hesap yazma akışları (§20.5b, frontend `f774f1b`) | ✅ 16/16; beklenmeyen istek yok (yalnızca yanlış parola 422 ve düşen oturumun 401'i) |
 | Canlı sunucu: `/api/health`, OPcache ayarı | koşmadı |
 
 ## Elle doğrulama (İsmail)
