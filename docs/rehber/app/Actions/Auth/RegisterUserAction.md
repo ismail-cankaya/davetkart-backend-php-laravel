@@ -370,3 +370,33 @@ Token artık bu sınıfta değil, `IssueApiTokenAction`'da üretiliyor: hangi ci
 Transaction commit edildikten **sonra** `SendEmailVerificationAction` çağrılır, `VerifyEmailNotification` kuyruğa girer.
 İçeride gönderilseydi rollback'te var olmayan bir hesaba posta giderdi. Oturum (token) yine hemen açılır; doğrulanmamış
 hesap taslak hazırlayabilir, ödeme ve yayın `VerifiedEmailGuard`'da bekler. Yanıtta `user.emailVerified: false`.
+
+## 🆕 Faz 21 (21.2 · `SEC-15` · K266): kayıt ucu kayıtlı adresi söylüyor — kabul edilen risk
+
+**Durum.** Var olan adresle kayıt `422 REGISTRATION_FAILED`, yeni adresle `201` döner. `fields` yok (H6), ama durum kodu
+farkı adresin DavetKart'ta kayıtlı olduğunu söyler. Giriş (`INVALID_CREDENTIALS`) ve sıfırlama (`202`) uçları bunu
+kapatmıştı; zincirin en zayıf halkası kayıt.
+
+**Karar (varsayılan B).** Sözleşme aynı kalır (K11: kayıt `{user, token}` döner ve oturum açar). Tam kapatma için kayıt
+her zaman `202 {status: "check_email"}` dönmeli, oturum ancak doğrulama bağlantısından sonra açılmalıydı; bu frontend
+akışını ve e2e'yi değiştiren ayrı bir iş (K266 "tam kapatma").
+
+**Frenler (bugün kodda olan, 21.2'de testle kilitlendi):**
+
+| Fren | Nerede | Test |
+|---|---|---|
+| Adres + IP başına dakikada 5 (kayıtlı adresle deneme de sayılır) | `throttle:auth` → `AppServiceProvider::authLimits()` | `attempts_on_a_taken_address_fill_the_address_and_ip_bucket` |
+| IP başına dakikada 20 (çok adres taraması) | aynı | `scanning_many_addresses_from_one_ip_is_capped` |
+| İki yolda da Argon2id hash | `User::create()` → `hashed` cast'i parolayı **INSERT'ten önce** hash'ler; çakışma INSERT'te çıkar | `the_password_is_hashed_even_when_the_address_is_taken` |
+| `fields` yok | `RegistrationFailedException` | `AuthTest::register_does_not_reveal_that_the_email_is_taken` |
+
+Kova sayıları login'le aynı, çünkü kayıt ve giriş aynı `auth` limiter'ını paylaşır (aynı adres + IP için ortak kova).
+
+**Yanıt süresi.** 422 yolu 201 yolundan ancak birkaç milisaniye kısa: ikisinde de en pahalı adım (Argon2id, ~200 ms) aynı.
+201 yolu fazladan token satırı ve doğrulama postasının kuyruk satırını yazar. Bu fark **test edilmedi**: süre ölçen test
+CI makinesinin yüküne göre kırılgandır ve zaten durum kodu farkı süreden çok daha net bir sinyal. Korunan şey yapı:
+"önce adres var mı diye bak, varsa hash'lemeden dön" kısa yolunu `the_password_is_hashed_even_when_the_address_is_taken`
+yakalar (`tests/Support/CountingHasher` ile `Hash::make` sayılır).
+
+**Neyi kapatmaz (B6).** Çok IP'li bir saldırgan IP başına dakikada 20 adres tarayabilir; hesap başına kova (21.1) bunu
+durdurmaz, çünkü tarama her adresi bir kez dener.

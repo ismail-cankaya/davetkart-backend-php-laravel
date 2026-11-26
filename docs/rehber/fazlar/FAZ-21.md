@@ -109,3 +109,61 @@ fazla deneme" görmek. Geri almak için parola sıfırlama ya da `php artisan ca
 
 - `config/davetkart.php` `auth.login_rate_limit_per_minute = 5` hiçbir yerde okunmuyor; `authLimits()` 5'i sabit yazıyor.
   Yeni kovanın sayısı da sınıfta sabit (`config/davetkart.php`'ye dokunmak dosyanın 17 uzun yorum bloğunu K18'e sokardı).
+
+## 21.2 — `SEC-15`: kayıt ucu adresin kayıtlı olduğunu söylüyor
+
+### Sorun
+
+Var olan adresle kayıt `422 REGISTRATION_FAILED`, yeni adresle `201`. `fields` yok ama durum kodu farkı adresin kayıtlı
+olduğunu söylüyor.
+
+### Karar (K266, §A boş → varsayılan B)
+
+Sözleşme aynı (K11). Risk kabul edildi; frenler yazıldı ve testle kilitlendi. Tam kapatma (kayıt her zaman `202
+check_email`, oturum doğrulamadan sonra) K11'i ve frontend akışını değiştirir, ayrı iş.
+
+**Plandaki adımların karşılığı:**
+
+- "Kayıt ucuna e-posta + IP ve IP kovası ekle": kovalar **zaten vardı**. Kayıt rotası `throttle:auth` grubunda (adres + IP
+  5/dk, IP 20/dk) ve kayıtlı adresle deneme de sayılıyor (`Limit::by` her isteği sayar). Kod eklenmedi; üç testle kilitlendi.
+- "Çakışma yolunda `Hash::make` atlanıyor mu?": **atlanmıyor**. `User::create()` `hashed` cast'iyle parolayı INSERT'ten
+  önce hash'liyor; çakışma INSERT'te `UniqueConstraintViolationException` olarak çıkıyor. Yapı testle kilitlendi; süre
+  test edilmedi (gerekçe [`RegisterUserAction.md`](../app/Actions/Auth/RegisterUserAction.md) "Faz 21").
+
+### Değişen dosyalar
+
+| Dosya | Ne | Kılavuz |
+|---|---|---|
+| `tests/Feature/RegistrationEnumerationBrakesTest.php` | 3 test | [`RegistrationEnumerationBrakesTest.md`](../tests/Feature/RegistrationEnumerationBrakesTest.md) |
+| `tests/Support/CountingHasher.php` | `make()` sayan devredici | aynı kılavuz, son bölüm |
+| `docs/08-HATA-SOZLESMESI.md` §3.1 | "kabul edilen risk" notu | — |
+| `docs/rehber/app/Actions/Auth/RegisterUserAction.md` | Faz 21 bölümü (frenler tablosu, süre, B6) | — |
+
+`app/` değişmedi.
+
+### Testler ve mutantlar
+
+Davranış değişmediği için testler ilk koşuda yeşildi (3/3). Koruma mutantla gösterildi:
+
+| Mutant | Sonuç | Öldüren test |
+|---|---|---|
+| M1 kayıt rotası `throttle:auth` dışında | öldü | iki kova testi |
+| M2 IP kovası yok | öldü | `scanning_many_addresses_from_one_ip_is_capped` |
+| M3 adres + IP kovası adresi taşımaz (yalnızca IP) | önce **yaşadı** → "aynı IP'den başka adres 201" adımı eklendi → öldü | `attempts_on_a_taken_address_fill_the_address_and_ip_bucket` |
+| M4 kayıtlı adreste hash'siz kısa yol | öldü | `the_password_is_hashed_even_when_the_address_is_taken` |
+
+`Hash::partialMock()` ilk denemede `Call to a member function get() on null` verdi (kurucusuz taklit); yerine
+`CountingHasher` yazıldı.
+
+### B7 tablosu
+
+| İddia | Kanıt (görülen çıktı) |
+|---|---|
+| Yeni testler yeşil | `tests=3, passed=3, assertions=40` |
+| 4 mutant öldü | `mutate.py`: M1, M2, M4 KILLED; M3 test güçlendirildikten sonra KILLED |
+| `npm run e2e` | 6/6 (1,9 dk) |
+| `composer check` | pint passed · phpstan 0 · `k18: 37 dosya, 0 ihlal` · phpunit **1321/1321**, 5199 assertion · çıkış 0 |
+
+### Elle doğrulama
+
+Gerekmiyor: davranış değişmedi.

@@ -130,6 +130,12 @@ dediğine bakar — kayıt formu bir **hesap tarayıcısına** dönüşür.
 > kullanıcı bulunamasa bile sahte bir hash'e karşı doğrulama yapılır.
 > `RegisterUserAction`/`LoginUserAction` yazılırken uygulanacak (Faz 2).
 
+> ⚠️ **Kabul edilen risk (Faz 21.2, `SEC-15`, K266):** `REGISTRATION_FAILED` alan söylemez ama **durum kodu** (`422`
+> karşısında yeni adreste `201`) adresin kayıtlı olduğunu yine de söyler. Tam kapatma kaydı "postanızı kontrol edin"
+> akışına çevirmek ve K11'i (`{user, token}`) değiştirmek demek; Faz 21'de seçilmedi. Frenler: kayıt ucu `throttle:auth`
+> kovalarında (adres + IP 5/dk, IP 20/dk; kayıtlı adresle deneme de sayılır), iki yolda da parola hash'lenir (Argon2id),
+> `fields` yok. Ayrıntı: `docs/rehber/app/Actions/Auth/RegisterUserAction.md` "Faz 21".
+
 ### 3.2 Kaynak varlığının ifşası
 
 Başkasının davetiyesine erişim denemesinde **404** dönülür, 403 değil.
