@@ -45,3 +45,9 @@ Bu projede "Repository Pattern" ve "Fat Service" kalıpları KESİNLİKLE YASAKT
 - **N+1 Sorgu Problemi:** İlişkili veriler çekilirken her zaman `with()` ile Eager Loading kullanılmalıdır. Geliştirme ortamında N+1 hatalarını anında fark etmek için `Model::preventLazyLoading()` açık olacaktır.
 - **Polling ve Önbellek (Cache):** Özellikle public davetiye okuma sayfaları (`/api/public/invitations/{slug}`) gibi sık ziyaret edilen rotalarda yoğun Cache kullanımı ve ETag ile "304 Not Modified" optimizasyonları zorunludur.
 - **15 Saniye Kuralı:** İsteğe hemen cevap verilmeli, uzun sürecek (resim optimizasyonu, mail gönderimi vb.) işlemler asla ana HTTP sürecini bekletmemeli ve `app/Jobs/` (Kuyruk) sistemine gönderilmelidir.
+
+## 5. Git (İsmail, 2026-11-27)
+
+- **Commit, dal oluşturma ve push varsayılan olarak engellidir; her biri soruya tabidir.** İsmail açıkça istemedikçe
+  `git commit`, `git push`, `git branch`, `git checkout -b` / `git switch -c` çalıştırılmaz; değişiklik çalışma ağacında
+  bırakılır ve İsmail'e sorulur. `.claude/settings.json` bu komutlarda onay ister.
