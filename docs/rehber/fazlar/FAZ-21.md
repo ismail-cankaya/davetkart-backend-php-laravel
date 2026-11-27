@@ -495,3 +495,52 @@ Sonra: aynı filtre **91/91** (90 + yeni koruma), yeni `tests/Feature/Media/Imag
 
 Hedefte, EXIF'siz küçük bir JPEG kısa yoldan dokunulmadan geçer; sonuna eklenmiş PHP kuyruğu dosyada kalır (zararsız:
 uzantı sunucu seçimi, Nginx statik sunar). Kapatmak davranış değişikliği olurdu (kılavuz B6).
+
+## 21.13–21.18 — docs ve frontend maddeleri (kısa kayıt)
+
+| Madde | Ne | Nerede |
+|---|---|---|
+| 21.13 `SEC-18` | Token `localStorage` → `httpOnly` çerez **geçiş planı** (Sanctum SPA çerez kimliği, CSRF, K11 `{user}`, iki yollu geçiş, test planı, ön koşul K175 CSP zorlaması); kod yok. K274 (planlandı) | docs `phases/faz-21/README.md` Ek A |
+| 21.14 `OPS-09` | Yatay ölçek eşikleri (FPM, bellek, p95, PostgreSQL, disk, kuyruk, CPU), ikinci sunucuda kırılacaklar (file cache sayaçları ve kilitleri, bakım kipi dosya sürücüsü …), geçiş sırası PostgreSQL → Redis → ikinci sunucu; kod yok | docs `operations/deployment/YAYIN-PLANI.md` §6.1, `IZLEME.md` §6 |
+| 21.15 `SEC-17` | `archive/local-snapshots/` 16 dosya, 148 MB: açılmadan listelendi; `.env` içeren 3 arşivin yalnızca anahtar adları; silme ve döndürme İsmail'in | docs `phases/faz-21/README.md` Ek B |
+| 21.16 `FE-07` | Frontend `README.md` yazıldı, `CLAUDE.md`'de GenAI satırı ve kurulum komutları koda göre düzeltildi | frontend `fe 2cc799f` |
+| 21.17 `ARC-08` | Dal/worktree/etiket listesi ve İsmail'in komutları (hiçbiri koşulmadı) | docs `phases/faz-21/FAZ-21-ARC-08-KOMUTLARI.md` |
+| 21.18 `ARC-07` | Frontend `.gitattributes` (`* text=auto eol=lf` + ikili kalıplar); indeks zaten LF, `--renormalize` 0 dosya. K275 | frontend `fe d3a91d1`, `e28b599` |
+
+## Faz 21 kapanış özeti (27 Kasım 2026)
+
+| Madde | Bulgu | Sonuç | K | Commit'ler |
+|---|---|---|---|---|
+| 21.0 | — | Hazırlık, taban kapıları | — | be 6ffb824 |
+| 21.1 | `SEC-16` | Hesap başına başarısız giriş kovası (saatte 30), sahibe uyarı | K265 | be 245a71f |
+| 21.2 | `SEC-15` | Kayıt sayım riski kabul; frenler testle kilitli | K266 | be ec850e0 |
+| 21.3 | `FE-58` | Otomatik yayın kaldı, K67 daraltıldı, tekrar ziyarette istek yok | K267 | fe ea9d8b1 |
+| 21.4 | `OPS-08` | `X-Request-Id` + günlük/kuyruk bağlamı | K268 | be 26943a9 |
+| 21.5 | `OPS-07` | PHP-FPM havuzu + OPcache (sunucuda kurulmadı) | K269 | be a803fd3 |
+| 21.6 | `ARC-06` | Üç ölü hata kodu silindi (31 → 28) | K270 | be bea73f2 · fe 07b64f4 |
+| 21.7 | `FE-08` | Konum önerisi araması kaldırıldı | K271 | fe 8263923 · be 9393dcd |
+| 21.8 | `FE-03` | TypeScript `strict` | — | fe a739642 |
+| 21.9 | `TST-05` | Node 24 (`.nvmrc`) | K272 | fe 4a640dd · be 86445e4 |
+| 21.10 | `TST-06` | `composer test:parallel` (~33 sn) | — | be 0d40881, e307e08 |
+| 21.11 | `TST-03` | Satır kapsamı %95,9, CI kapısı 92,9 | K273 | be 5c68e03 |
+| 21.12 | `ARC-10` | Görsel işi bölündü (664 → 111) | — | be 05c43be |
+| 21.13 | `SEC-18` | plan | K274 | — |
+| 21.14 | `OPS-09` | plan | — | — |
+| 21.15 | `SEC-17` | liste | — | — |
+| 21.16 | `FE-07` | README + CLAUDE.md | — | fe 2cc799f |
+| 21.17 | `ARC-08` | liste | — | — |
+| 21.18 | `ARC-07` | `.gitattributes` | K275 | fe d3a91d1, e28b599 |
+
+**Bloke olan madde yok.** Kapı düzeltmeleri (her biri ≤3 deneme): 21.1 (PHPStan jenerik, test belleği → `phpunit.xml`
+256M), 21.4 (PHPStan `Log::channel`), 21.10 (Larastan `env()`), 21.12 (PHPStan test tipleri).
+
+### Son uçta kapılar (21.90)
+
+| Kapı | Sonuç (görülen çıktı) |
+|---|---|
+| `composer check` | pint passed · phpstan 0 · `errors:export`, `plans:export`, `env:template` temiz · `k18: 47 dosya, 0 ihlal` · phpunit **1354/1354**, 5303 assertion |
+| `composer audit` | "No security vulnerability advisories found." |
+| Frontend `npm ci` · `npm run check` · `npm run e2e` | `added 160 packages … found 0 vulnerabilities` · çıkış 0 (28 kod, i18n 780/65) · **6/6** |
+| Karar indeksi `--check` | `indeks 237 · tanım 237 · eksik 0 · tanımsız 0 · bekleyen 0` |
+
+Taban → son: phpunit 1306 → 1354 (+48 test), hata kataloğu 31 → 28, i18n tabanı 781 → 780.
