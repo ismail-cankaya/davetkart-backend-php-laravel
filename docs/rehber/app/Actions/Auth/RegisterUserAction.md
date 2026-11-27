@@ -400,3 +400,9 @@ yakalar (`tests/Support/CountingHasher` ile `Hash::make` sayılır).
 
 **Neyi kapatmaz (B6).** Çok IP'li bir saldırgan IP başına dakikada 20 adres tarayabilir; hesap başına kova (21.1) bunu
 durdurmaz, çünkü tarama her adresi bir kez dener.
+
+## 🆕 Faz 22 (22.1 · K276) — doğrulama ödemeyi beklemez
+
+Yukarıdaki "ödeme ve yayın `VerifiedEmailGuard`'da bekler" cümlesi geçersiz: guard kaldırıldı. Doğrulanmamış hesap ödeme
+yapar ve yayınlar; yalnızca ilk yayın indirimi doğrulama ister (`FirstPublishEligibility`). Panel bandı "hesap erişimini
+kaybetmemek için doğrula" hatırlatmasıdır, engel değildir.

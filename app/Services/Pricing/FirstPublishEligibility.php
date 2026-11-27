@@ -29,7 +29,7 @@ final class FirstPublishEligibility
      */
     public function isEligible(User $user, ?string $invitationId): bool
     {
-        // K191 (SEC-09): indirim hesaba bağlı; hesap ancak doğrulanmış adresle kanıtlanır.
+        // K191, K276'da korundu: indirim hesaba bağlı; hesap ancak doğrulanmış adresle kanıtlanır.
         if (! $user->hasVerifiedEmail()) {
             return false;
         }

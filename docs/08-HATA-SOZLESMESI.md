@@ -197,7 +197,7 @@ Durum kodu **kaba sınıflandırma**, `code` **ince ayrım**. İkisi birlikte ç
 | **503** | Servis geçici olarak kullanılamıyor | `PROVIDER_UNAVAILABLE` |
 
 > Faz 21.6 (`ARC-06`, K270): `TOKEN_EXPIRED`, `INVITATION_LOCKED`, `SLUG_TAKEN` katalogdan silindi; hiçbiri fırlatılmıyordu.
-> Katalog 28 kod (`contracts/error-codes.json`). Bir kod ancak onu fırlatan kodla birlikte eklenir (`ErrorCodeUsageTest`).
+> Katalog 27 kod (`contracts/error-codes.json`; Faz 22.1'de `EMAIL_NOT_VERIFIED` çıktı, K276). Bir kod ancak onu fırlatan kodla birlikte eklenir (`ErrorCodeUsageTest`).
 
 > 🔴 **401 ile 403 ayrımı ihlal edilemez.** Frontend `api.ts` interceptor'ı
 > 401'de oturumu düşürüyor. Yanlış kod kullanıcıyı sistemden atar.

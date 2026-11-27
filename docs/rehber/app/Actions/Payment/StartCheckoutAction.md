@@ -723,3 +723,9 @@ hediye) buradan gecer: kolonlarin kurali tek yerde.
 
 Liste fiyati = amount + discount; ayrica saklanmaz (E1).
 ```
+
+## 🆕 Faz 22 (22.1 · K276) — doğrulama kapısı kalktı
+
+Faz 19'un ilk satırı (`VerifiedEmailGuard::assertVerified($user)`) silindi. Doğrulanmamış hesap checkout başlatır; ilk yayın
+indirimi `FirstPublishEligibility`'de doğrulama istemeye devam ettiği için liste fiyatından öder.
+Test: `EmailVerificationTest::an_unverified_account_can_start_a_checkout_at_list_price` (sipariş 39900, `promotion` boş).

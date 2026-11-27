@@ -44,8 +44,8 @@ final class RegisterUserAction
                 ];
             });
 
-            // K191 (SEC-09): doğrulama postası commit'ten SONRA kuyruğa girer; oturum yine
-            // hemen açılır, ödeme ve yayın doğrulamayı bekler (VerifiedEmailGuard).
+            // K191: doğrulama postası commit'ten SONRA kuyruğa girer. K276: ödeme ve yayın
+            // doğrulamayı beklemez; yalnızca ilk yayın indirimi bekler (FirstPublishEligibility).
             $this->sendVerification->handle($registered['user']);
 
             return $registered;

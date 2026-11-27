@@ -22,11 +22,6 @@
             "params": [],
             "retryable": false
         },
-        "EMAIL_NOT_VERIFIED": {
-            "status": 403,
-            "params": [],
-            "retryable": false
-        },
         "EMAIL_VERIFICATION_INVALID": {
             "status": 422,
             "params": [],

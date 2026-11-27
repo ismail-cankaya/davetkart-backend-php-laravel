@@ -1,3 +1,6 @@
+> 🗄️ **Faz 22 (22.1 · K276): sınıf silindi.** E-posta doğrulaması ödemeyi ve yayını beklemiyor; aşağısı Faz 19 kaydıdır.
+> İndirim kuralı: [`FirstPublishEligibility.md`](../Services/Pricing/FirstPublishEligibility.md) "Faz 22".
+
 # `app/Support/VerifiedEmailGuard.php`
 
 > **Faz 19 (19.14 · K191, SEC-09)** · Kardeş: [`MediaDiskGuard.md`](MediaDiskGuard.md)

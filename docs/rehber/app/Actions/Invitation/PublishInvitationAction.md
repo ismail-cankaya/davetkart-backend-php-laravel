@@ -311,3 +311,9 @@ satırını sil → beş test kırmızı.
 `handle()` davetiyenin sahibini okur ve `VerifiedEmailGuard`'dan geçirir (kilit ve paywall'dan önce). Doğrulanmamış hesap
 403 `EMAIL_NOT_VERIFIED`; taslak oluşturma ve düzenleme serbest. Testler: `an_unverified_account_cannot_publish`,
 `InvitationTest::an_unverified_account_can_still_create_a_draft`.
+
+## 🆕 Faz 22 (22.1 · K276) — doğrulama kapısı kalktı
+
+Faz 19 bölümündeki guard çağrısı silindi. Kalsaydı doğrulanmamış hesap ödeyip davetiyesini yayınlayamazdı (ödeme dönüşündeki
+otomatik yayın 403 alırdı). Sıra yine sahiplik → durum → plan → hak. Test:
+`EmailVerificationTest::an_unverified_account_can_publish_a_paid_invitation`.

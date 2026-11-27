@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Enums\ErrorCode;
 use App\Enums\InvitationStatus;
+use App\Enums\SubscriptionTier;
 use App\Models\Invitation;
 use App\Models\Order;
 use App\Models\User;
@@ -20,7 +21,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
-/** Faz 19 (19.14 · K191, SEC-09): kayıt sonrası e-posta doğrulaması ve ödeme/yayın kapısı. */
+/** Faz 19 (19.14 · K191, SEC-09) + Faz 22.1 (K276): kayıt sonrası e-posta doğrulaması; ödeme/yayın kapısı yok, indirim doğrulama ister. */
 final class EmailVerificationTest extends TestCase
 {
     use RefreshDatabase;
@@ -137,33 +138,37 @@ final class EmailVerificationTest extends TestCase
         Notification::assertNothingSent();
     }
 
-    // ------------------------------------------------------------ KAPI (D2) VE İNDİRİM (D3)
+    // ------------------------------------------------------------ KAPI YOK (K276) VE İNDİRİM (D3)
 
+    /** K276 (Faz 22.1): doğrulama ödemeyi beklemez; doğrulanmamış hesap liste fiyatından öder. */
     #[Test]
-    public function an_unverified_account_cannot_start_a_checkout(): void
+    public function an_unverified_account_can_start_a_checkout_at_list_price(): void
     {
         $user = User::factory()->unverified()->create();
 
         $this->withToken($user->createToken('test')->plainTextToken)
             ->postJson(route('payments.checkout'), ['tier' => 'gold'])
-            ->assertForbidden()
-            ->assertJsonPath('error.code', ErrorCode::EmailNotVerified->value);
+            ->assertCreated();
 
-        $this->assertSame(0, Order::query()->count());
+        $order = Order::query()->sole();
+        $this->assertSame(39900, $order->amount_minor);
+        $this->assertNull($order->promotion);
     }
 
+    /** K276: ödeyen doğrulanmamış hesap davetiyesini yayınlar (ödeme sonrası otomatik yayın). */
     #[Test]
-    public function an_unverified_account_cannot_publish(): void
+    public function an_unverified_account_can_publish_a_paid_invitation(): void
     {
         $user = User::factory()->unverified()->create();
         $invitation = Invitation::factory()->for($user)->create();
+        Order::factory()->paid()->tier(SubscriptionTier::Elit)->forInvitation($invitation)->create();
 
         $this->withToken($user->createToken('test')->plainTextToken)
             ->postJson(route('invitations.publish', $invitation))
-            ->assertForbidden()
-            ->assertJsonPath('error.code', ErrorCode::EmailNotVerified->value);
+            ->assertOk()
+            ->assertJsonPath('data.status', InvitationStatus::Published->value);
 
-        $this->assertNotSame(InvitationStatus::Published, $invitation->fresh()?->status);
+        $this->assertNull($user->fresh()?->email_verified_at);
     }
 
     /** Önizleme (fiyat ucu) ve checkout aynı kuralı okur (K163): doğrulanmamışa indirim yok. */

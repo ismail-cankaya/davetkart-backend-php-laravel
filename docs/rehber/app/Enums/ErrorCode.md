@@ -733,3 +733,9 @@ Sizinti degil: plan fiyat sayfasi zaten herkese acik (08 §3.4).
 FILE_TOO_LARGE'in 'max'i gibi urun sabiti. 'remaining' YOK —
 kota doldugunda kalan zaten sifirdir, ikinci bir alan bilgi
 tasimaz (H9: beyaz liste, "her ihtimale karsi" degil).
+
+## 🆕 Faz 22 (22.1 · K276) — `EMAIL_NOT_VERIFIED` silindi
+
+E-posta doğrulaması artık ödemeyi ve yayını beklemiyor; kodu fırlatan `EmailNotVerifiedException` ve `VerifiedEmailGuard`
+kalktı. K270 kuralı gereği fırlatılmayan kod katalogda kalmaz: 28 → 27 kod (`contracts/error-codes.json`, frontend kopyası,
+tr/en çevirileri aynı maddede). Doğrulama bağlantısının kodu `EMAIL_VERIFICATION_INVALID` duruyor.

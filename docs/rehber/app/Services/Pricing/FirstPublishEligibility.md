@@ -152,3 +152,8 @@ ve dokuz test daha kırmızı.
 `isEligible()`'ın ilk satırı: doğrulanmamışsa `false`. İndirim hesaba bağlıydı ve hesap uydurma bir adresle saniyeler içinde
 açılabiliyordu: her davetiyede yeni hesap açan biri hiç liste fiyatı ödemezdi. Önizleme ve checkout aynı servisi okur (K163):
 doğrulanmamışa liste fiyatı, doğrulamadan sonra indirimli fiyat. Test: `an_unverified_account_gets_no_first_publish_discount`.
+
+## 🆕 Faz 22 (22.1 · K276) — kural korundu
+
+Ödeme ve yayın kapısı kalktı ama bu satır **kaldı** (İsmail'in kararı): indirim doğrulanmış hesaba. Doğrulanmamış hesap
+satın alabilir, liste fiyatından. Frontend bandı doğrulamanın indirimi açtığını söyler.

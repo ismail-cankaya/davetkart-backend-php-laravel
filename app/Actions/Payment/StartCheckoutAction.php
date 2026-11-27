@@ -29,7 +29,6 @@ use App\Services\Payment\RedirectAction;
 use App\Services\Payment\RequiresBuyerPhone;
 use App\Services\Pricing\TierResolver;
 use App\Support\GiftCodes\GiftCodeFormat;
-use App\Support\VerifiedEmailGuard;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Config;
@@ -51,7 +50,6 @@ final class StartCheckoutAction
         private readonly ReserveGiftCodeAction $reserveGiftCode,
         private readonly QuotePriceAction $quotePrice,
         private readonly PaymentMethods $methods,
-        private readonly VerifiedEmailGuard $emailGuard,
     ) {}
 
     /**
@@ -73,8 +71,7 @@ final class StartCheckoutAction
         ?string $giftCode = null,
         ?string $phone = null,
     ): CheckoutResult {
-        // K191 (SEC-09): doğrulanmamış adres bir iddiadır; ödeme kanıt ister.
-        $this->emailGuard->assertVerified($user);
+        // K276 (Faz 22.1): e-posta doğrulaması ödemeyi beklemez; yalnızca ilk yayın indirimi ister.
 
         // 3. KATMAN — yeterlilik: secilen plan davetiyenin modullerini kapsamali (paket aliminda yayin aninda sinanir).
         // Ayrintili aciklama: docs/rehber/app/Actions/Payment/StartCheckoutAction.md §A-E5-103

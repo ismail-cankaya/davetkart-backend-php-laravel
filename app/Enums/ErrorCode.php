@@ -54,9 +54,6 @@ enum ErrorCode: string
     /** E-posta degisikligi onay baglantisi gecersiz (Faz 14, K144). Tek kod, bes sebep (H6, E5). */
     case EmailChangeInvalid = 'EMAIL_CHANGE_INVALID';
 
-    /** Faz 19 (K191, SEC-09): adres doğrulanmadan ödeme başlatılamaz ve yayınlanamaz. */
-    case EmailNotVerified = 'EMAIL_NOT_VERIFIED';
-
     /**
      * Faz 19 (K191): doğrulama bağlantısı geçersiz. Tek kod, çok sebep (imza, süre,
      * kullanılmış, adres değişmiş, hesap yok); EMAIL_CHANGE_INVALID ile aynı gerekçe (H6).
@@ -98,7 +95,6 @@ enum ErrorCode: string
             self::RsvpDeadlinePassed,
             self::RsvpQuotaExceeded,
             self::MediaQuotaExceeded,
-            self::EmailNotVerified,
             self::DraftLimitReached,
             self::PaymentMethodDisabled => 403,
 

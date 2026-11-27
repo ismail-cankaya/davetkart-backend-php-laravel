@@ -158,7 +158,7 @@ final class InvitationTest extends TestCase
         $this->assertGreaterThan($lock, $count);
     }
 
-    /** K191 (SEC-09): doğrulama yalnızca ödeme ve yayını bekletir; taslak serbest. */
+    /** K191 → K276: doğrulanmamış hesap taslak açar (ödeme ve yayın da serbest, EmailVerificationTest). */
     #[Test]
     public function an_unverified_account_can_still_create_a_draft(): void
     {
