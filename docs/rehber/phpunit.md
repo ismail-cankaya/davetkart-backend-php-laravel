@@ -319,6 +319,14 @@ php artisan test --parallel
 > **veritabanı oluşturma yetkisi** olmalı. `postgres` süper kullanıcısında var.
 > İlk denemede sorun çıkarsa `--parallel`'siz koş — Faz 0 için gerekli değil.
 
+> 🆕 **Faz 21.10 (`TST-06`):** `brianium/paratest` dev bağımlılığı eklendi; `composer test:parallel` =
+> `config:clear` + `php artisan test --parallel`. Bu makinede (20 çekirdek) **~32 sn**, sıralı koşu **~140 sn**. Ad
+> düzeltmesi: Laravel `<ad>_test_<token>` üretir, yani `davetkart_test_test_1` … `davetkart_test_test_20`. Yalnızca
+> veritabanı trait'i (`RefreshDatabase`, `DatabaseTransactions`, `DatabaseMigrations`, `DatabaseTruncation`) kullanan
+> sınıflar o veritabanına geçer; trait'siz bir sınıf veritabanına yazarsa paralelde **ortak** `davetkart_test`'e yazar
+> (`ParallelTestDatabaseTest`). Şema değişince ilk koşu: `php artisan test --parallel --recreate-databases`.
+> `composer check` **sıralı kalır** (kapı tanımı değişmedi).
+
 ---
 
 ## 8. Sık yapılan hatalar

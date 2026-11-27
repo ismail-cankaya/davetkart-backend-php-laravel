@@ -361,3 +361,51 @@ kökü dahil), `ci.yml` ve `e2e.yml` `node-version-file`. Backend: `deploy/deplo
 | CI koşusu | **koşmadı** (push İsmail'in) |
 
 İsmail'e: sunucuda `node --version` (beklenen `v24.x`; Y6.5c `v24.22.1`).
+
+## 21.10 — `TST-06`: paralel testler
+
+### Karar (K yok: §A yok)
+
+`brianium/paratest` v7.20.0 (+ `fidry/cpu-core-counter` 1.4.1) dev bağımlılığı; `composer test:parallel` = `config:clear` +
+`php artisan test --parallel`. `composer check`'in test adımı **değişmedi** (sıralı). `check`'e alınması İsmail'e soru.
+
+### Ölçüm (27 Kasım, 20 çekirdek)
+
+| Koşu | Sonuç | Süre (duvar) |
+|---|---|---|
+| Sıralı `php artisan test` | 1337/1337 | 140,4 sn |
+| Paralel 1 (`--recreate-databases`) | 1337/1337 | 34,5 sn |
+| Paralel 2–4 | 1337/1337 ×3 | 32,8 · 33,3 · 32,3 sn |
+| İlk `composer test:parallel` | **Composer 300 sn süre sınırı** (`exceeded the timeout of 300 seconds`); yeniden üretilemedi | — |
+| Composer'ın `-d` bayraklarıyla doğrudan | 1337/1338: yeni testin ilk hâli kırmızı (aşağıda), asılma yok | 31 sn |
+| Paralel 5 (doğrudan), `composer test:parallel` cmd ve PowerShell yönlendirmesiyle | 1338/1338 ×3 | 31,8 · ~32 · ~30 sn |
+| `composer test:parallel` ardışık 3 | 1338/1338 ×3 | 33,8 · 34,4 · 34,7 sn |
+| Son hâliyle `composer test:parallel` | 1338/1338 | 33,8 sn |
+
+Kazanç ~4,2×. Kilit testleri (`#[Group('concurrency')]`, alt süreçli `LockRaceTest`) paralelde de yeşil: ayrı sıralı grup
+gerekmedi (alt süreç bağlantı adını config'ten okuyor).
+
+### Test
+
+`tests/Feature/ParallelTestDatabaseTest.php` ([kılavuz](../tests/Feature/ParallelTestDatabaseTest.md)): veritabanı trait'li
+bir sınıfın paralelde `davetkart_test_test_<token>`'da, sıralıda `davetkart_test`'te koştuğunu config ve `current_database()`
+ile sınar. İlk hâli trait'siz `TestSuiteIsolationTest`'e yazıldı ve paralelde kırmızı yandı (`'davetkart_test_test_19'`
+beklenirken `'davetkart_test'`): Laravel yalnızca DB trait'li sınıfları ayırıyor. Bu, testin ortak veritabanını
+yakaladığının kanıtı oldu; test trait'li ayrı sınıfa taşındı, `TestSuiteIsolationTest` değişmedi (deseni zaten
+`davetkart_test(_[a-z0-9_]+)?`). Trait'siz üç sınıf (`HardeningTest`, `HealthTest`, `MaintenanceModeTest`) veritabanına
+yazmıyor; bakım testi `array` önbelleğiyle süreç içinde.
+
+### B7 tablosu
+
+| İddia | Kanıt |
+|---|---|
+| `composer check` (sıralı) | ilk koşu Larastan `env()` kuralında düştü (test `Env::get`'e döndü), ikinci: pint passed · phpstan 0 · `k18: 39 dosya, 0 ihlal` · phpunit **1338/1338** (146 sn) |
+| `composer audit` | "No security vulnerability advisories found." |
+| `composer validate` | "./composer.json is valid" |
+
+### Gördüm, dokunmadım
+
+- Bir kez görülen 300 sn asılmanın nedeni bulunamadı; sonraki on paralel koşuda tekrarlanmadı. Composer süre sınırı
+  koşuyu kapattığı için sonsuza dek asılmaz (kapalı başarısızlık).
+- Bu maddenin ortasında İsmail'in `php artisan serve` ve Vite süreçleri artık çalışmıyordu (ajan durdurmadı; 21.0'da
+  açıktılar).

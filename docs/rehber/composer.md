@@ -247,3 +247,19 @@ ve CRLF'li `.env`'de `\r` "dolu" sayılmasın.
 |---|---|
 | "Ortamı eşitlemek" için `composer setup` | Eşitleme `composer sync`'tir (§10); `setup` ilk kurulum içindir |
 | Anahtarı elle değiştirip "oturumlar düştü" diye şaşırmak | Anahtar değişince imzalı ve şifreli her şey geçersizdir; bilerek yapılır (sızıntıdan sonra döndürme) |
+
+## 12. `composer test:parallel` (Faz 21.10, `TST-06`)
+
+```powershell
+composer test:parallel      # config:clear + php artisan test --parallel (paratest, çekirdek başına süreç)
+```
+
+| | Sıralı (`composer test`, `check` içindeki adım) | Paralel (`composer test:parallel`) |
+|---|---|---|
+| Süre (27 Kasım, 20 çekirdek, 1338 test) | ~140 sn | ~32–35 sn |
+| Veritabanı | `davetkart_test` | süreç başına `davetkart_test_test_<n>` |
+| Kapı | **evet** (`composer check`) | hayır: yalnızca hızlı geri bildirim |
+
+`brianium/paratest` (v7.20, PHPUnit 12) dev bağımlılığı; `composer audit` temiz. `check`'e alınması İsmail'in kararı:
+paralel koşu on kez yeşil (beşi doğrudan `php artisan test --parallel`, beşi `composer test:parallel`, 30–35 sn); bir kez,
+ilk `composer test:parallel` denemesinde, Composer'ın 300 sn süre sınırına takıldı ve yeniden üretilemedi. Ayrıntı: `fazlar/FAZ-21.md` §21.10.
