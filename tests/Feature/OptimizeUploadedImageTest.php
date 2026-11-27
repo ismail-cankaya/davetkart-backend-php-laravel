@@ -184,6 +184,24 @@ final class OptimizeUploadedImageTest extends TestCase
         );
     }
 
+    /**
+     * Faz 21.12 (AUD P54–P55): EXIF + dosya sonuna eklenmiş PHP kuyruğu taşıyan JPEG yeniden kodlanır; saklanan
+     * dosyada ikisi de yoktur. Kuyruksuz, hedefteki EXIF'siz dosya kısa yoldan dokunulmadan geçer (B6, kılavuz).
+     */
+    #[Test]
+    public function a_php_trailer_after_exif_is_dropped_with_the_rewrite(): void
+    {
+        $contents = $this->withExifOrientation($this->photoJpeg(400, 300, 40), 1)."<?php system(\$_GET['c']); ?>";
+        $media = $this->storeMedia($contents, 'image/jpeg');
+
+        $this->optimize($media);
+
+        $stored = Storage::disk($this->disk())->get($media->refresh()->path) ?? '';
+        $this->assertNotSame('', $stored);
+        $this->assertStringNotContainsString('<?php', $stored);
+        $this->assertStringNotContainsString("Exif\0\0", $stored);
+    }
+
     // -------------------------------------------------------- PNG -> WEBP
 
     /**

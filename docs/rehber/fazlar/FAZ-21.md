@@ -434,3 +434,64 @@ yazmıyor; bakım testi `array` önbelleğiyle süreç içinde.
 | `composer check` | pint passed · phpstan 0 · `k18: 39 dosya, 0 ihlal` · phpunit **1338/1338** |
 
 Kılavuz: [`.github/workflows/ci.md`](../.github/workflows/ci.md) (yerel ölçüm komutu, en düşük sınıflar, İsmail'e kalan).
+
+## 21.12 — `ARC-10`: `OptimizeUploadedImage` bölündü (saf yeniden düzenleme)
+
+### Taban
+
+`--filter "OptimizeUploadedImageTest|MediaTest|LockInventoryTest|DeleteReplaced"`: **90/90** (299 assertion).
+`OptimizeUploadedImageTest` 19 test. AUD P54–P55 korumaları: "saklanan dosyada EXIF yok" vardı
+(`the_exif_orientation_is_applied_and_the_metadata_is_dropped`, `a_file_with_exif_is_rewritten_even_when_it_does_not_shrink`);
+"PHP kuyruğu yok" yoktu → `a_php_trailer_after_exif_is_dropped_with_the_rewrite` eklendi (bugünkü kodda yeşil, davranışı kilitler).
+
+### Bölme
+
+İş 664 → 111 satır, yalnızca sırayı yönetiyor. Yeni sınıflar (CLAUDE.md'ye göre: dış servis değil → `app/Support/Media/`;
+veritabanı + dosya + olay + kuyruk birlikte → Action):
+
+| Sınıf | Eski metot(lar) |
+|---|---|
+| `App\Support\Media\ImageDecoder` | `encodeOptimized()`'ın çözme kısmı |
+| `App\Support\Media\ImageResizer` | `downscale()` |
+| `App\Support\Media\ExifOrientation` | `applyOrientation()`, `readOrientation()`, `rotate()`, `flip()`, `hasExifBlock()` |
+| `App\Support\Media\ImageEncoder` | `compress()`, `encode()`, `targetMimeType()`, `extensionFor()`, `targetBytes()` |
+| `App\Support\Media\MemoryBudget` | `withMemoryLimit()` |
+| `App\Support\Media\GdAlpha` | `keepAlpha()` |
+| `App\Actions\Media\SwapOptimizedMediaFileAction` | `swapFile()`, `newPath()` |
+
+K18: işin 264 satırlık yorumu sınıf kılavuzlarına **aynen** dağıtıldı ("Koddan taşınan notlar"); kodda 1–3 satır.
+Log metinleri ve bağlamları (`['media' => id]`) aynı.
+
+### Testler ve mutantlar
+
+Sonra: aynı filtre **91/91** (90 + yeni koruma), yeni `tests/Feature/Media/ImagePipelineTest.php` 15/15. 12 mutant
+(sınıf başına en az bir), hepsi öldü:
+
+| Mutant | Öldüren |
+|---|---|
+| P1 `GdAlpha` karıştırma açık | `gd_alpha_keeps_a_transparent_pixel_through_encoding` |
+| P2 palet truecolor'a çevrilmez | `the_decoder_turns_a_palette_png_into_truecolor` |
+| P3 genişlik sınırı | birim + `a_portrait_photo_is_reduced_by_its_height` |
+| P4 yön 6 ters | `orientation_six_turns_the_picture_ninety_degrees_clockwise` |
+| P5 `hasBlock` biçime bakmaz | `only_a_jpeg_with_an_exif_header_counts_as_carrying_exif` |
+| P6 PNG hedefi JPEG | birim + `a_png_becomes_a_webp_and_keeps_its_transparency` |
+| P7 kalite düşürülmez | birim + `quality_is_lowered_until_the_file_fits_the_target` |
+| P8 bellek geri yüklenmez | birim + `the_memory_limit_is_restored_after_the_job` |
+| P9 sınırsız da düşürülür | `the_budget_never_lowers_an_unlimited_or_higher_limit` |
+| P10 telafi silmesi yok | birim + `a_row_deleted_mid_flight_leaves_no_file_behind` |
+| P11 eski dosya silme işi yok | birim + `the_replaced_file_is_scheduled_for_deletion` |
+| P12 EXIF'li dosya yeniden yazılmaz | `a_file_with_exif_is_rewritten_even_when_it_does_not_shrink` + yeni P55 testi |
+
+### B7 tablosu
+
+| İddia | Kanıt |
+|---|---|
+| Uçtan uca aynen yeşil | `tests=91, passed=91, assertions=304` |
+| Birim testleri | `tests=15, passed=15, assertions=51` |
+| PHPStan (yeni dosyalar) | `phpstan passed, errors 0` |
+| `composer check` | ilk koşu PHPStan'de düştü (test yardımcılarında `int<1, max>` ve closure dönüş tipi), ikinci: pint passed · phpstan 0 · `k18: 47 dosya, 0 ihlal` · phpunit **1354/1354**, 5303 assertion |
+
+### Gördüm, dokunmadım
+
+Hedefte, EXIF'siz küçük bir JPEG kısa yoldan dokunulmadan geçer; sonuna eklenmiş PHP kuyruğu dosyada kalır (zararsız:
+uzantı sunucu seçimi, Nginx statik sunar). Kapatmak davranış değişikliği olurdu (kılavuz B6).

@@ -446,3 +446,236 @@ açık sayfalarda kırık görsel olurdu. Bu yüzden silme
 
 **Test:** `tests/Feature/OptimizeUploadedImageTest.php` —
 [kılavuzu](../../tests/Feature/OptimizeUploadedImageTest.md)
+
+---
+
+## 🆕 Faz 21.12 (`ARC-10`): iş bölündü, davranış değişmedi
+
+664 satır, dört sorumluluk (görüntü kütüphanesi, mahremiyet, kalite hedefi, depolama) tek sınıftaydı. İş artık yalnızca
+**sırayı** yönetiyor; adımlar:
+
+| Adım | Sınıf | Kılavuz |
+|---|---|---|
+| Çözme (palet → truecolor, alfa) | `App\Support\Media\ImageDecoder` | [`ImageDecoder.md`](../Support/Media/ImageDecoder.md) |
+| En uzun kenara küçültme | `App\Support\Media\ImageResizer` | [`ImageResizer.md`](../Support/Media/ImageResizer.md) |
+| EXIF yönü, EXIF bloğu var mı | `App\Support\Media\ExifOrientation` | [`ExifOrientation.md`](../Support/Media/ExifOrientation.md) |
+| Hedef biçim, kalite döngüsü, kodlama | `App\Support\Media\ImageEncoder` | [`ImageEncoder.md`](../Support/Media/ImageEncoder.md) |
+| Bellek bütçesi | `App\Support\Media\MemoryBudget` | [`MemoryBudget.md`](../Support/Media/MemoryBudget.md) |
+| Alfa bayrakları | `App\Support\Media\GdAlpha` | [`GdAlpha.md`](../Support/Media/GdAlpha.md) |
+| Yeni yola yaz + kilitli çevir + telafi + eski dosya | `App\Actions\Media\SwapOptimizedMediaFileAction` | [`SwapOptimizedMediaFileAction.md`](../Actions/Media/SwapOptimizedMediaFileAction.md) |
+
+İşte kalanlar: idempotans ve video kontrolü, dosya okuma, başlık (boyut), piksel koruması (`exceedsProcessingLimit`), kısa
+yol (`alreadyAtTarget`), `MemoryBudget::run(çöz → küçült → yön → kodla)`, yazmaya değer mi (`isWorthWriting`, KVKK), damga.
+Neden `handle()` parametresiz? `LockInventoryTest` işi `(new OptimizeUploadedImage($media))->handle()` ile çağırıyor; adımlar
+durumsuz olduğu için `new` ile, Action konteynerden (`app()`) alınıyor.
+
+Testler: uçtan uca `OptimizeUploadedImageTest` aynen yeşil (20 test, biri yeni: EXIF + PHP kuyruğu taşıyan JPEG yeniden
+kodlanınca saklanan dosyada ikisi de yok, AUD P54–P55); sınıf başına birim testleri `tests/Feature/Media/ImagePipelineTest.php`.
+
+**Neyi kapatmaz (B6):** kuyruksuz koşulda bile hedefte, EXIF'siz küçük bir JPEG kısa yoldan **dokunulmadan** geçer; sonuna
+eklenmiş bir PHP kuyruğu varsa dosyada kalır. Zararsız: uzantı sunucu seçimi (`.jpg`), Nginx medyayı statik sunar, PHP
+çalıştırmaz (`StoreUploadedMediaAction` 4. katman). Davranış değiştirmek bu maddenin kapsamı değil (saf yeniden düzenleme).
+
+## Koddan taşınan notlar (Faz 21.12, `ARC-10`, K18)
+
+Faz 21.12'ye kadar bu iş `app/Jobs/OptimizeUploadedImage.php` içinde, uzun yorumlarıyla duruyordu. Bölünürken kodda
+1–3 satırlık özet kaldı; aşağıda o günkü hâli yorumlarıyla **aynen** (anlam kaybı olmasın diye). Davranış değişmedi.
+
+### Eski sınıf başlığı ve özellikler
+
+```php
+/**
+ * Yuklenmis bir gorseli kuyrukta kucultur.
+ *
+ * 🔴 "15 SANIYE KURALI" (CLAUDE.md §4): istege HEMEN cevap verilir, uzun suren
+ * is ana HTTP surecini bekletmez. Frontend'in axios timeout'u 15 saniye; bir
+ * gorseli yeniden kodlamak buyuk dosyalarda saniyeler surer ve kullanici
+ * yukleme ekraninda beklerdi.
+ *
+ * Bu yuzden Action dosyayi diske yazip URL'i DONER; kucultme sonra olur.
+ *
+ * 🔴 Faz 9'da sinir 15 MB'a cikti ve is, gelen her seyi karsilayacak sekilde
+ * sertlestirildi. Dort esas karar:
+ *   1. Sikistirmayi ONCE TARAYICI yapar (frontend utils/compressImage.ts).
+ *      Buraya gelen dosya genelde zaten hedeftedir; o durumda is gorseli HIC
+ *      COZMEZ, yalnizca basligi okuyup damgasini atar (kisa yol).
+ *   2. Bellek bir YAPILANDIRMADIR, umut degil: GD piksel basina ~4 bayt ister
+ *      (24 MP ≈ 99 MB, olculdu) ve CLI varsayilani 128M'dir. Is, isini
+ *      yaparken sinirini yukseltir ve BITINCE geri indirir.
+ *   3. EXIF yonu UYGULANIR. GD meta veriyi atar; uygulanmasaydi dikey telefon
+ *      fotograflari kucultmeden sonra yan yatmis gorunurdu (tarayicilar
+ *      orijinali EXIF'e bakarak dogru cevirdigi icin hata ancak biz dosyaya
+ *      dokununca ortaya cikardi).
+ *   4. Cikti AYNI dosyanin uzerine yazilmaz, YENI bir yola yazilir ve satir
+ *      davetiye kilidi altinda o yola cevrilir. Gerekce: swapFile().
+ *
+ * ⚠️ `optimized_at` "bayt sayisi azaldi" demek DEGIL, "optimizasyon gecisi
+ * TAMAMLANDI" demek. Zaten hedefte olan bir gorselde hicbir sey degismeyebilir.
+ * Ayrintili aciklama: docs/rehber/app/Jobs/OptimizeUploadedImage.md
+ */
+final class OptimizeUploadedImage implements ShouldQueue
+
+    /**
+     * Gecici hatalar (disk mesgul, bellek) icin uc deneme; sonra failed_jobs.
+     * Sinirsiz deneme, bozuk bir dosya yuzunden kuyrugu tikardi.
+     */
+    public int $tries = 3;
+
+    /**
+     * Dosya is kosmadan SILINMISSE is sessizce duser.
+     *
+     * Galeriden silme (DeleteGalleryMediaAction) yuklemeden saniyeler sonra
+     * gelebilir. Bu bayrak olmasaydi model yeniden okunamaz, is uc kez
+     * ModelNotFoundException firlatir ve failed_jobs'a gercek bir hata gibi
+     * yazilirdi — oysa ortada kucultulecek bir dosya kalmamistir.
+     */
+    public bool $deleteWhenMissingModels = true;
+```
+
+### Eski `handle()`
+
+```php
+    public function handle(): void
+    {
+        // 1) Idempotans — VERIYLE saglaniyor, kuyruk mekanizmasiyla degil.
+        // ShouldBeUnique cache surucusune baglidir; cache temizlenirse sessizce
+        // devre disi kalir. Damga veritabaninda durur.
+        if ($this->media->isOptimized()) {
+            return;
+        }
+
+        // 2) Video bu isin konusu degil (MediaKind::isOptimizable).
+        if (! $this->media->kind->isOptimizable()) {
+            return;
+        }
+
+        $contents = Storage::disk($this->media->disk)->get($this->media->path);
+
+        if ($contents === null) {
+            // Dosya silinmis olabilir (davetiye silindi, elle temizlik).
+            // Hata degil: yapilacak is kalmadi. DAMGA DA ATILMAZ — dosya geri
+            // gelirse (ornegin yedekten) is yeniden calisabilsin.
+            Log::info('Optimize atlandi: dosya bulunamadi.', ['media' => $this->media->id]);
+
+            return;
+        }
+
+        // 3) Once BASLIK, sonra icerik. getimagesizefromstring yalnizca ilk
+        // baytlari okur: boyutlari cozmeden ogrenmek, hem kisa yolu hem bellek
+        // korumasini mumkun kilan sey budur.
+        $header = @getimagesizefromstring($contents);
+
+        if ($header === false) {
+            Log::warning('Gorsel cozulemedi.', ['media' => $this->media->id]);
+            $this->stamp();
+
+            return;
+        }
+
+        [$width, $height] = [(int) $header[0], (int) $header[1]];
+
+        // 4) 🔴 PIKSEL KORUMASI — dogrulamadaki `dimensions` kuralinin ikizi.
+        // Kural bugun her yuklemeyi eliyor; bu satir onun ARKASINDA duruyor
+        // cunku kuyrukta o kuraldan gecmemis satirlar olabilir: kural
+        // eklenmeden once yuklenmis dosyalar, elle acilmis isler, yarin
+        // eklenecek baska bir yukleme yolu. Cozme burada 4 bayt/piksel ister;
+        // sinirsiz bir gorsel isciyi bellek hatasiyla oldururdu.
+        $maxDimension = Config::integer('davetkart.media.optimize.max_dimension_px');
+
+        if ($width > $maxDimension || $height > $maxDimension) {
+            Log::warning('Gorsel cozunurlugu isleme sinirinin ustunde; optimize atlandi.', [
+                'media' => $this->media->id,
+                'width' => $width,
+                'height' => $height,
+                'max_dimension_px' => $maxDimension,
+            ]);
+            $this->stamp();
+
+            return;
+        }
+
+        // 5) KISA YOL: dosya zaten hedefteyse gorseli hic cozmeyiz. Tarayici
+        // sikistirmasi calisan her yukleme buradan cikar — yani sunucunun
+        // isi tek bir baslik okumasina iner.
+        if ($this->alreadyAtTarget($contents, $width, $height)) {
+            $this->stamp();
+
+            return;
+        }
+
+        $optimized = $this->encodeOptimized($contents, $width, $height);
+
+        if ($optimized === null || ! $this->isWorthWriting($optimized, $contents)) {
+            $this->stamp();
+
+            return;
+        }
+
+        $this->swapFile($optimized);
+    }
+```
+
+### Eski kararlar ve damga
+
+```php
+    /**
+     * Dosya oldugu gibi kalabilir mi?
+     *
+     * Dort kosul birden: hedef bicimde, hedef boyutun altinda, hedef olcunun
+     * altinda ve uzerinde silinecek meta veri yok. Biri bile tutmazsa gorsel
+     * cozulur.
+     */
+    private function alreadyAtTarget(string $contents, int $width, int $height): bool
+    {
+        if ($this->targetMimeType() !== $this->media->mime_type) {
+            return false;
+        }
+
+        if ($this->media->size_bytes > $this->targetBytes()) {
+            return false;
+        }
+
+        if (max($width, $height) > Config::integer('davetkart.media.optimize.max_edge_px')) {
+            return false;
+        }
+
+        return ! $this->hasExifBlock($contents);
+    }
+
+    /**
+     * Yeni dosyayi yazmaya deger mi?
+     *
+     * Uc sebepten biri yeterli:
+     *   1. Bicim degisti (PNG -> WebP). Donusumun sebebi zaten boyut.
+     *   2. Dosya kuculdu.
+     *   3. 🔴 Kaynakta EXIF vardi. Yeniden kodlanmis cikti meta veri TASIMAZ,
+     *      yani konum (GPS) bilgisi silinir. KVKK'ya gore konum kisisel
+     *      veridir (CLAUDE.md §3) ve misafirin yukledigi fotograf davetiye
+     *      sahibine gosteriliyor. Bu tek kosul icin dosyanin bir miktar
+     *      buyumesini kabul ediyoruz: burada eksilen sey bayt degil VERI.
+     *
+     * Hicbiri yoksa dosyaya DOKUNULMAZ. Yeniden kodlama bazen dosyayi
+     * BUYUTUR; "optimizasyon" adi altinda dosyayi buyutmek adin yalan
+     * soylemesi olurdu.
+     */
+    private function isWorthWriting(OptimizedImage $optimized, string $contents): bool
+    {
+        return $optimized->mimeType !== $this->media->mime_type
+            || $optimized->sizeBytes() < $this->media->size_bytes
+            || $this->hasExifBlock($contents);
+    }
+
+    /**
+     * "Optimizasyon gecisi tamamlandi" damgasi.
+     *
+     * Dosya degismemis olsa bile atilir: damga bayt sayisini degil, GECISIN
+     * tamamlandigini anlatir. Atilmasaydi ayni dosya her yeni iste yeniden
+     * cozulurdu.
+     */
+    private function stamp(): void
+    {
+        $this->media->optimized_at = now();
+        $this->media->save();
+    }
+```
+
