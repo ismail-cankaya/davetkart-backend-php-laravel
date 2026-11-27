@@ -405,7 +405,8 @@ yazmıyor; bakım testi `array` önbelleğiyle süreç içinde.
 
 ### Gördüm, dokunmadım
 
-- Bir kez görülen 300 sn asılmanın nedeni bulunamadı; sonraki on paralel koşuda tekrarlanmadı. Composer süre sınırı
+- Bir kez görülen 300 sn asılmanın nedeni bulunamadı; sonraki sekiz paralel koşunun hiçbiri asılmadı (biri yeni testin ilk
+  hâli yüzünden kırmızı bitti, yedisi yeşil). Toplam yeşil paralel koşu: 11 (5 doğrudan, 6 Composer üzerinden). Composer süre sınırı
   koşuyu kapattığı için sonsuza dek asılmaz (kapalı başarısızlık).
 - Bu maddenin ortasında İsmail'in `php artisan serve` ve Vite süreçleri artık çalışmıyordu (ajan durdurmadı; 21.0'da
   açıktılar).

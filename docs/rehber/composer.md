@@ -261,5 +261,5 @@ composer test:parallel      # config:clear + php artisan test --parallel (parate
 | Kapı | **evet** (`composer check`) | hayır: yalnızca hızlı geri bildirim |
 
 `brianium/paratest` (v7.20, PHPUnit 12) dev bağımlılığı; `composer audit` temiz. `check`'e alınması İsmail'in kararı:
-paralel koşu on kez yeşil (beşi doğrudan `php artisan test --parallel`, beşi `composer test:parallel`, 30–35 sn); bir kez,
+paralel koşu 11 kez yeşil (beşi doğrudan `php artisan test --parallel`, altısı `composer test:parallel`, 30–35 sn); bir kez,
 ilk `composer test:parallel` denemesinde, Composer'ın 300 sn süre sınırına takıldı ve yeniden üretilemedi. Ayrıntı: `fazlar/FAZ-21.md` §21.10.
