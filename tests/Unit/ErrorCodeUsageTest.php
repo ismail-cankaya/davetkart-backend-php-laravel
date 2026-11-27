@@ -30,16 +30,19 @@ final class ErrorCodeUsageTest extends TestCase
         $this->assertSame([], array_map(static fn (ErrorCode $code): string => $code->value, $unused));
     }
 
-    /** Silinen üç kod geri gelmesin; gelirse fırlatan kodla ve bu listeden çıkarılarak gelir. */
+    /**
+     * Silinen kodlar geri gelmesin; gelirse fırlatan kodla ve bu listeden çıkarılarak gelir.
+     * 22.1 (K276) `EMAIL_NOT_VERIFIED`'ı da sildi: katalog 28 → 27.
+     */
     #[Test]
     public function the_removed_codes_stay_removed(): void
     {
         $values = array_map(static fn (ErrorCode $code): string => $code->value, ErrorCode::cases());
 
-        foreach (['TOKEN_EXPIRED', 'INVITATION_LOCKED', 'SLUG_TAKEN'] as $removed) {
+        foreach (['TOKEN_EXPIRED', 'INVITATION_LOCKED', 'SLUG_TAKEN', 'EMAIL_NOT_VERIFIED'] as $removed) {
             $this->assertNotContains($removed, $values);
         }
-        $this->assertCount(28, $values);
+        $this->assertCount(27, $values);
     }
 
     private function appSourceWithoutTheCatalogue(): string
