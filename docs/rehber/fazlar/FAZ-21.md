@@ -410,3 +410,27 @@ yazmıyor; bakım testi `array` önbelleğiyle süreç içinde.
   koşuyu kapattığı için sonsuza dek asılmaz (kapalı başarısızlık).
 - Bu maddenin ortasında İsmail'in `php artisan serve` ve Vite süreçleri artık çalışmıyordu (ajan durdurmadı; 21.0'da
   açıktılar).
+
+## 21.11 — `TST-03`: satır kapsamı
+
+### Karar (K273, §A boş → varsayılan "ilk ölçümün 3 puan altı")
+
+- Yerelde `pcov`/`xdebug` yüklü değil (`php -m` boş). Herd'in `xdebug-8.5.dll`'i (3.5.0) **kurulmadan**, yalnızca ölçüm için
+  `PHP_INI_SCAN_DIR` + `XDEBUG_MODE=coverage` ortam değişkenleriyle yüklendi.
+- İlk ölçüm: **%95,9** (1338/1338, `php artisan test --parallel --coverage`, 107 sn). Eşik **92,9**.
+- CI (`.github/workflows/ci.yml`): `setup-php` `coverage: pcov`; `composer check`'ten sonra ayrı adım
+  `php artisan test --parallel --coverage --min=92.9 --coverage-clover=build/coverage/clover.xml`; clover artefakt olarak
+  saklanır. `composer check` değişmedi.
+
+### B7 tablosu
+
+| İddia | Kanıt (görülen çıktı) |
+|---|---|
+| Ölçüm | `Total: 95.9 %`, paratest 1338/1338 |
+| Eşik geçer | `--min=92.9` → çıkış 0; clover 478 KB, 285 dosya |
+| Eşik keser | `--min=99` → çıkış 1, `FAIL Code coverage below expected: 95.9 %. Minimum: 99.0 %.` |
+| YAML sözdizimi | **koşmadı** (yerelde ayrıştırıcı yok); fark gözle kontrol edildi (boşluk girintisi, sekme yok) |
+| CI koşusu (pcov) | **koşmadı** (push İsmail'in) |
+| `composer check` | pint passed · phpstan 0 · `k18: 39 dosya, 0 ihlal` · phpunit **1338/1338** |
+
+Kılavuz: [`.github/workflows/ci.md`](../.github/workflows/ci.md) (yerel ölçüm komutu, en düşük sınıflar, İsmail'e kalan).

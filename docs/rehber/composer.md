@@ -263,3 +263,8 @@ composer test:parallel      # config:clear + php artisan test --parallel (parate
 `brianium/paratest` (v7.20, PHPUnit 12) dev bağımlılığı; `composer audit` temiz. `check`'e alınması İsmail'in kararı:
 paralel koşu 11 kez yeşil (beşi doğrudan `php artisan test --parallel`, altısı `composer test:parallel`, 30–35 sn); bir kez,
 ilk `composer test:parallel` denemesinde, Composer'ın 300 sn süre sınırına takıldı ve yeniden üretilemedi. Ayrıntı: `fazlar/FAZ-21.md` §21.10.
+
+## 13. Satır kapsamı (Faz 21.11, `TST-03`)
+
+`composer check` değişmedi. Kapsam CI'da ayrı adımda: `php artisan test --parallel --coverage --min=92.9` (pcov). İlk
+ölçüm %95,9 (yerel, geçici xdebug). Ayrıntı: [`.github/workflows/ci.md`](.github/workflows/ci.md).

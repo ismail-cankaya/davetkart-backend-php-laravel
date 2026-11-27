@@ -54,7 +54,8 @@ jobs:
         with:
           php-version: "8.5"
           extensions: exif, gd, pgsql, pdo_pgsql, mbstring, bcmath, curl, zip
-          coverage: none
+          # TST-03 (Faz 21.11, K273): satir kapsami icin pcov (xdebug'dan hizli, yalnizca kapsam).
+          coverage: pcov
           tools: composer:v2
 
       - name: Composer önbelleğini geri yükle
@@ -87,6 +88,19 @@ jobs:
         # zamanla birbirinden sapar ve "yerelde gecti ama CI'da patladi"
         # kafa karisikligina yol acar.
         run: composer check
+
+      - name: Satır kapsamı (pcov, paralel)
+        # TST-03 (Faz 21.11, K273): composer check DEGISMEDI; kapsam ayri adim, ayni testler paralel (paratest).
+        # Esik = ilk olcum (27 Kasim, yerel xdebug: %95,9) - 3 puan. Dusurmek K kaydi ister.
+        run: php artisan test --parallel --coverage --min=92.9 --coverage-clover=build/coverage/clover.xml
+
+      - name: Kapsam raporunu sakla
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-clover
+          path: build/coverage/clover.xml
+          if-no-files-found: ignore
 
       - name: Composer güvenlik taraması
         # Neden "check" script'ine gomulmedi de ayri adim oldu?
