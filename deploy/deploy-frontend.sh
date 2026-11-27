@@ -47,6 +47,14 @@ elif [ "$TAG" != "$BACKEND_TAG" ]; then
     echo "UYARI: frontend $TAG, backend $BACKEND_TAG: iki depo ayni etikette degil. Once backend'i yayinla." >&2
 fi
 
+# TST-05 (Faz 21.9): derleme Node'u frontend'in .nvmrc'siyle ayni major olmali. Farkliysa UYARI, DURDURMAZ.
+WANT_NODE="$( { tr -d '[:space:]' < .nvmrc; } 2>/dev/null || true)"
+HAVE_NODE="$(node --version 2>/dev/null || echo yok)"
+HAVE_NODE="${HAVE_NODE#v}"
+if [ -n "$WANT_NODE" ] && [ "$HAVE_NODE" != "$WANT_NODE" ] && [ "${HAVE_NODE#"$WANT_NODE".}" = "$HAVE_NODE" ]; then
+    echo "UYARI: sunucuda Node $HAVE_NODE, frontend .nvmrc '$WANT_NODE' istiyor. Derleme yine de deneniyor." >&2
+fi
+
 step "npm ci (--ignore-scripts: bagimliliklarin kurulum betikleri calismaz)"
 npm ci --ignore-scripts --no-audit --no-fund
 

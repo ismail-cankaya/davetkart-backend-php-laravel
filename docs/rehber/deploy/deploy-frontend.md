@@ -124,3 +124,20 @@ istek yenisini alır (`index.html` `no-cache`).
 | Kullanıcıda "ChunkLoadError" | Eski asset'ler silinmiş (14 günden uzun açık kalan sekme: yenilemesi yeter) |
 | Site değişmedi | Tarayıcı `index.html`'i önbellekte tutuyor: Nginx `no-cache` kuralı bozulmuş |
 | `UYARI: … iki depo ayni etikette degil` | Backend henüz aynı sürüme alınmamış ya da etiket itilmemiş. Önce `bash deploy/deploy.sh` (§1b) |
+
+## 🆕 Faz 21.9 (`TST-05`, K272): Node sürümü uyarısı
+
+`git pull`'dan sonra, `npm ci`'dan önce betik sunucudaki `node --version`'ı frontend'in `.nvmrc`'siyle (bugün `24`)
+karşılaştırır. Major farklıysa (ya da `.nvmrc` tam sürümse ve tutmuyorsa) **UYARI** yazar ve **devam eder**: derleme
+farklı bir Node'la da çoğu zaman başarılı olur, ama kapıların (CI, yerel) koştuğu sürüm bu değildir. `.nvmrc` yoksa
+(eski frontend sürümü) sessiz geçer.
+
+| `.nvmrc` | `node --version` | Sonuç |
+|---|---|---|
+| `24` | `v24.22.1` | sessiz |
+| `24` | `v22.11.0` / `v25.0.0` | UYARI, derleme sürer |
+| `24.22.1` | `v24.18.0` | UYARI |
+| yok | herhangi | sessiz |
+
+Yerelde `bash -n` ve sahte `node` ile (PATH'e konan betik) bu tablo sınandı; sunucuda koşmadı. İsmail'e: sunucuda
+`node --version` (Y6.5c'ye göre `v24.22.1`, beklenen sessiz geçiş).

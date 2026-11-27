@@ -337,3 +337,27 @@ Backend: `deploy/deploy-frontend.sh` artık `VITE_PLACES_SEARCH_ENABLED=false` e
 | `npm run check` | çıkış 0 · `verify:i18n` 780 parça, 65 dosya · `verify:endpoints` "Tüm uçlar backend sözleşmesiyle eşleşiyor" |
 | `npm run e2e` | 6/6 (sihirbaz `createInvitation` "Davet Konumu"nu dolduruyor) |
 | `composer check` | pint passed · phpstan 0 · `k18: 39 dosya, 0 ihlal` · phpunit **1337/1337** |
+
+## 21.8 — `FE-03`: TypeScript `strict` (frontend; kısa kayıt)
+
+Backend değişmedi. Frontend `fe a739642`: `tsconfig.json` `"strict": true`; `npx tsc --noEmit --strict`'in 20 hatası (15
+`particleEngine.ts`, 2 `PreviewSection.tsx`, 1'er `EditorWorkspace.tsx`, `lazyPresets.ts`, `TemplateRenderer.tsx`) davranış
+değişmeden kapandı (`as`/`!` yok). `noUncheckedIndexedAccess` denemesi 124 dosyada 719 hata, kapalı kaldı. `npm run check` 0,
+`a11y:envelopes` 0 ihlal (342/373, 11 belirsiz, 20 kendi kapısı: Hat B ile aynı), e2e 6/6. Ayrıntı frontend
+`docs/rehber/tsconfig.md`.
+
+## 21.9 — `TST-05`: Node sürümü
+
+Karar **K272** (varsayılan Node 24): frontend `fe 4a640dd` `.nvmrc` = `24`, `package.json` `engines` `>=24 <25` (kilit
+kökü dahil), `ci.yml` ve `e2e.yml` `node-version-file`. Backend: `deploy/deploy-frontend.sh` `git pull`'dan sonra
+`node --version`'ı `.nvmrc` ile karşılaştırır; uyuşmazsa UYARI, durdurmaz. Kılavuz
+[`deploy/deploy-frontend.md`](../deploy/deploy-frontend.md) "Faz 21.9".
+
+| Kapı | Görülen |
+|---|---|
+| Uyarı parçası | `bash -n` temiz; sahte `node` ile 9 durum (`.nvmrc` yokken çıkan yönlendirme hatası susturulduktan sonra 3'ü yeniden): `24`/`v24.22.1` sessiz, `24`/`v22.11.0`, `v25.0.0`, `v240.1.0`, Node yok → UYARI ve "devam"; `.nvmrc` yok → sessiz |
+| `npm run check` | çıkış 0 |
+| `composer check` | pint passed · phpstan 0 · `k18: 39 dosya, 0 ihlal` · phpunit **1337/1337** (203 sn; frontend kapısıyla eşzamanlı) · çıkış 0 |
+| CI koşusu | **koşmadı** (push İsmail'in) |
+
+İsmail'e: sunucuda `node --version` (beklenen `v24.x`; Y6.5c `v24.22.1`).
