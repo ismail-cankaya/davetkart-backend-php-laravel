@@ -28,7 +28,7 @@ final class TextSlotsContractTest extends TestCase
         $this->assertNotEmpty($contract['slots']);
 
         foreach ($contract['slots'] as $key => $slot) {
-            $this->assertMatchesRegularExpression('/^[a-z]+\.[A-Za-z.]+$/', $key);
+            $this->assertMatchesRegularExpression('/^[a-z]+\.[A-Za-z0-9.]+$/', $key);
             $this->assertSame(explode('.', $key)[0], $slot['group'], $key);
             $this->assertContains($slot['scope'], ['shared', 'category', 'template'], $key);
             $this->assertIsInt($slot['maxLength'], $key);
