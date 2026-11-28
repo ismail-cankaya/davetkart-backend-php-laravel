@@ -57,10 +57,12 @@ final class TextSlotsContractTest extends TestCase
     #[Test]
     public function the_rule_caps_the_number_of_texts(): void
     {
-        // Sınır dil başına değiştirilen metin sayısıdır, sözleşmedeki anahtar sayısı değil (Faz 26'da 167 anahtar).
+        // Sınır dil başına değiştirilen metin sayısıdır, sözleşmedeki anahtar sayısı değil (Faz 26.3'te 307 anahtar).
+        // Yer tutuculu anahtarlar ({date}, {count}, {name}) yer tutucularıyla doldurulur.
         $texts = [];
         foreach (array_slice(TextSlots::keys(), 0, TextSlots::maxOverrides()) as $key) {
-            $texts[$key] = $key === 'rsvp.deadline' ? '{date}' : 'x';
+            $placeholders = TextSlots::slot($key)['placeholders'] ?? [];
+            $texts[$key] = $placeholders === [] ? 'x' : implode(' ', array_map(fn (string $name): string => '{'.$name.'}', $placeholders));
         }
         $this->assertCount(min(TextSlots::maxOverrides(), count(TextSlots::keys())), $texts);
         $this->assertTrue(TextSlots::isValidOverrides(['tr' => $texts]));

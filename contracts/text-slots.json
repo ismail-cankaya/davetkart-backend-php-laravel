@@ -23,7 +23,19 @@
             "maxLength": 24,
             "multiline": false
         },
+        "countdown.hoursLower": {
+            "group": "countdown",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "countdown.minutes": {
+            "group": "countdown",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "countdown.minutesLower": {
             "group": "countdown",
             "scope": "shared",
             "maxLength": 24,
@@ -41,13 +53,43 @@
             "maxLength": 24,
             "multiline": false
         },
+        "countdown.secondsShort": {
+            "group": "countdown",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.baby-ay-besigi.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.baby-ay-besigi.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "design.baby-donence.figurlereDokunun": {
             "group": "design",
             "scope": "shared",
             "maxLength": 32,
             "multiline": false
         },
+        "design.baby-kazi-kazan.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "design.baby-kazi-kazan.birSurprizimizVar": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.baby-kazi-kazan.geriSayimBasligi": {
             "group": "design",
             "scope": "shared",
             "maxLength": 32,
@@ -57,6 +99,54 @@
             "group": "design",
             "scope": "shared",
             "maxLength": 32,
+            "multiline": false
+        },
+        "design.baby-kazi-kazan.kaziIsim": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.baby-kazi-kazan.kaziSurpriz": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.baby-kazi-kazan.kaziTarih": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.baby-kazi-kazan.kaziyarakKesfedin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "design.baby-kazi-kazan.kiminIcin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.baby-kazi-kazan.neZaman": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.baby-kazi-kazan.parmaginizlaKazin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "design.baby-kazi-kazan.veSurpriz": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
             "multiline": false
         },
         "design.dogum-gunu-arcade.1up": {
@@ -119,10 +209,34 @@
             "maxLength": 24,
             "multiline": false
         },
+        "design.dogum-gunu-gazete.masthead": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.dogum-gunu-havai-fisek.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.dogum-gunu-havai-fisek.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "design.dogum-gunu-havai-fisek.gokyuzuneDokunun": {
             "group": "design",
             "scope": "shared",
             "maxLength": 32,
+            "multiline": false
+        },
+        "design.dogum-gunu-kinetik.ustKelime": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
             "multiline": false
         },
         "design.dogum-gunu-mumlar.atla": {
@@ -143,7 +257,64 @@
             "maxLength": 88,
             "multiline": false
         },
+        "design.dogum-gunu-mumlar.iyiKiDogdun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-mumlar.mumKaldi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false,
+            "placeholders": [
+                "count"
+            ]
+        },
         "design.dogum-gunu-sergi-devam-eden.sonOda": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-sergi-devam-eden.suruyor": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-sergi-retrospektif.dortDonem": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-sergi.acilis": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-sergi.karisikTeknik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 56,
+            "multiline": false
+        },
+        "design.dogum-gunu-sergi.sergiAdi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-surpriz-makinesi.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.dogum-gunu-surpriz-makinesi.hepsiAcildi": {
             "group": "design",
             "scope": "shared",
             "maxLength": 24,
@@ -155,10 +326,64 @@
             "maxLength": 40,
             "multiline": false
         },
+        "design.dogum-gunu-surpriz-makinesi.kapsuleDokun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-surpriz-makinesi.koluCevir": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-surpriz-makinesi.koluCevirKesfet": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 72,
+            "multiline": false
+        },
+        "design.dogum-gunu-surpriz-makinesi.makinedenCikanlar": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "design.dogum-gunu-surpriz-makinesi.programda": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-surpriz-makinesi.surpriz": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-surpriz-makinesi.surprizMakinesi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.dogum-gunu-surpriz-makinesi.telefonuEgerek": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 56,
+            "multiline": false
+        },
         "design.dugun-altin-toz.ayrintilarAsagida": {
             "group": "design",
             "scope": "shared",
             "maxLength": 32,
+            "multiline": false
+        },
+        "design.dugun-gazete.masthead": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
             "multiline": false
         },
         "design.dugun-kar-kuresi.kureyiSallaYaDaDokun": {
@@ -167,16 +392,52 @@
             "maxLength": 40,
             "multiline": false
         },
+        "design.dugun-karanlik-oda.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.dugun-karanlik-oda.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
         "design.dugun-karanlik-oda.kareleriSurukleyinTelefonuSa": {
             "group": "design",
             "scope": "shared",
             "maxLength": 104,
             "multiline": true
         },
+        "design.dugun-karanlik-oda.sallamaIzni": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.dugun-kelebek.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.dugun-kelebek.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "design.dugun-kelebek.parmaginiziGezdirinDokununHa": {
             "group": "design",
             "scope": "shared",
             "maxLength": 72,
+            "multiline": false
+        },
+        "design.dugun-kinetik.ustKelime": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
             "multiline": false
         },
         "design.dugun-kitap-sayfa.birAskHikayesi": {
@@ -197,6 +458,12 @@
             "maxLength": 40,
             "multiline": false
         },
+        "design.dugun-kitap-sayfa.hikayemiz": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "design.dugun-kitap-sayfa.hikayemizinDevaminiBirlikteY": {
             "group": "design",
             "scope": "shared",
@@ -215,6 +482,36 @@
             "maxLength": 24,
             "multiline": false
         },
+        "design.dugun-kitap-sayfa.soz1": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 72,
+            "multiline": false
+        },
+        "design.dugun-kitap-sayfa.soz2": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.dugun-kitap-sayfa.soz3": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "design.dugun-kitap-sayfa.soz4": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "design.dugun-kristal-balo.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
         "design.dugun-kule-saati.saatiKurmakIcinDokunun": {
             "group": "design",
             "scope": "shared",
@@ -227,7 +524,43 @@
             "maxLength": 48,
             "multiline": false
         },
+        "design.dugun-opera.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "design.dugun-opera.perde": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dugun-opera.perdeyiAc": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dugun-opera.perdeyiKapat": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dugun-saray-kapisi.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.dugun-saray-kapisi.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dugun-sergi-beyaz-kup.acilis": {
             "group": "design",
             "scope": "shared",
             "maxLength": 24,
@@ -237,6 +570,18 @@
             "group": "design",
             "scope": "shared",
             "maxLength": 32,
+            "multiline": false
+        },
+        "design.dugun-yasemin.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.dugun-yasemin.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
             "multiline": false
         },
         "design.dugun-yorunge.surukleCevir": {
@@ -249,6 +594,12 @@
             "group": "design",
             "scope": "shared",
             "maxLength": 24,
+            "multiline": false
+        },
+        "design.gyro.oynat": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
             "multiline": false
         },
         "design.harita-zarf.gununHaritasi": {
@@ -299,10 +650,34 @@
             "maxLength": 24,
             "multiline": false
         },
+        "design.kina-al-duvak.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.kina-al-duvak.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.kina-bugulu-ayna.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "design.kina-bugulu-ayna.buguyuTamamenSil": {
             "group": "design",
             "scope": "shared",
             "maxLength": 32,
+            "multiline": false
+        },
+        "design.kina-bugulu-ayna.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
             "multiline": false
         },
         "design.kina-bugulu-ayna.ve": {
@@ -317,6 +692,18 @@
             "maxLength": 48,
             "multiline": false
         },
+        "design.kina-gazete.masthead": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.kina-kinetik.ustKelime": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "design.kir-arazisi.serinDere": {
             "group": "design",
             "scope": "shared",
@@ -329,6 +716,36 @@
             "maxLength": 24,
             "multiline": false
         },
+        "design.kurumsal-gazete.masthead": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.kurumsal-izometrik.galeriKati": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.kurumsal-kinetik.ustKelime": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.kurumsal-lansman.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.kurumsal-lansman.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
         "design.kurumsal-lansman.spotuYonlendirmekIcinDokunun": {
             "group": "design",
             "scope": "shared",
@@ -339,6 +756,12 @@
             "group": "design",
             "scope": "shared",
             "maxLength": 32,
+            "multiline": false
+        },
+        "design.kurumsal-terminal.yolTarifi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
             "multiline": false
         },
         "design.kusak-hero.masallah": {
@@ -389,6 +812,66 @@
             "maxLength": 24,
             "multiline": false
         },
+        "design.mezuniyet-gazete.masthead": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.mezuniyet-kara-tahta.adlar": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.mezuniyet-kara-tahta.geriSayim": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.mezuniyet-kara-tahta.not": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.mezuniyet-kara-tahta.parmaginlaYaz": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 72,
+            "multiline": false
+        },
+        "design.mezuniyet-kara-tahta.silgiyeDokun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 88,
+            "multiline": false
+        },
+        "design.mezuniyet-kara-tahta.tarihVeYer": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.mezuniyet-kep.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.mezuniyet-kep.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.mezuniyet-kinetik.ustKelime": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "design.mezuniyet-yillik.arkadaslarininNotlari": {
             "group": "design",
             "scope": "shared",
@@ -401,10 +884,40 @@
             "maxLength": 32,
             "multiline": false
         },
+        "design.mezuniyet-yillik.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
         "design.mezuniyet-yillik.buSayfayaSeninImzanEksik": {
             "group": "design",
             "scope": "shared",
             "maxLength": 48,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.imza1": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.imza2": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.imza3": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.imza4": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
             "multiline": false
         },
         "design.mezuniyet-yillik.imzalar": {
@@ -449,6 +962,12 @@
             "maxLength": 24,
             "multiline": false
         },
+        "design.mezuniyet-yillik.toren": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
         "design.mezuniyet-yillik.torendeBizimleOlYilligiBirli": {
             "group": "design",
             "scope": "shared",
@@ -473,6 +992,30 @@
             "maxLength": 24,
             "multiline": false
         },
+        "design.nisan-gazete.masthead": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.nisan-harita-kroki.buradayiz": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.nisan-iplik.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.nisan-iplik.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "design.nisan-kahve-fali.faliHemenGoster": {
             "group": "design",
             "scope": "shared",
@@ -491,10 +1034,28 @@
             "maxLength": 48,
             "multiline": false
         },
+        "design.nisan-kinetik.ustKelime": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "design.nisan-kiraz-agaci.dokunRuzgarEssin": {
             "group": "design",
             "scope": "shared",
             "maxLength": 32,
+            "multiline": false
+        },
+        "design.nisan-koi.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.nisan-koi.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
             "multiline": false
         },
         "design.nisan-koi.ile": {
@@ -515,6 +1076,30 @@
             "maxLength": 24,
             "multiline": false
         },
+        "design.nisan-sergi.birOmur": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.nisan-sergi.onizleme": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.nisan-sergi.onizlemeyeKalan": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.nisan-sergi.yakinda": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "design.ortak.evSahibi": {
             "group": "design",
             "scope": "shared",
@@ -527,7 +1112,31 @@
             "maxLength": 56,
             "multiline": false
         },
+        "design.parti-havuz.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.parti-havuz.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "design.parti-havuz.suyaDokunun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.parti-kinetik.ustKelime": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.parti-kokteyl.baslik": {
             "group": "design",
             "scope": "shared",
             "maxLength": 24,
@@ -537,6 +1146,24 @@
             "group": "design",
             "scope": "shared",
             "maxLength": 64,
+            "multiline": false
+        },
+        "design.parti-kokteyl.egerekCalkala": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.parti-lazer.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.parti-lazer.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
             "multiline": false
         },
         "design.parti-lazer.parmaginlaLazerleriYonlendir": {
@@ -563,7 +1190,103 @@
             "maxLength": 24,
             "multiline": false
         },
+        "design.sergi-eser.bugunAd": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sergi-eser.bugunTeknik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.sergi-eser.esikAd": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sergi-eser.esikTeknik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.sergi-eser.ikiYarimAd": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sergi-eser.ikiYarimTeknik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "design.sergi-eser.ilkIslerAd": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sergi-eser.ilkIslerTeknik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.sergi-eser.kesifDonemiAd": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sergi-eser.kesifDonemiTeknik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.sergi-eser.oyunDonemiAd": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sergi-eser.oyunDonemiTeknik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.sergi-eser.yeniYasAd": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sergi-eser.yeniYasTeknik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 64,
+            "multiline": false
+        },
         "design.sergi-kapi.isigiYakin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sergi.acilisaKalan": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sunnet-gazete.masthead": {
             "group": "design",
             "scope": "shared",
             "maxLength": 24,
@@ -573,6 +1296,63 @@
             "group": "design",
             "scope": "shared",
             "maxLength": 48,
+            "multiline": false
+        },
+        "design.sunnet-golge-oyunu.sahne1": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 88,
+            "multiline": false
+        },
+        "design.sunnet-golge-oyunu.sahne2": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 72,
+            "multiline": false
+        },
+        "design.sunnet-golge-oyunu.sahne3": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 64,
+            "multiline": false
+        },
+        "design.sunnet-golge-oyunu.sahne3Adli": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 72,
+            "multiline": false,
+            "placeholders": [
+                "name"
+            ]
+        },
+        "design.sunnet-kinetik.ustKelime": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sunnet-sehzade.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.sunnet-sehzade.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sunnet-ucan-hali.baslik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sunnet-ucan-hali.geriSayimBasligi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
             "multiline": false
         },
         "design.sunnet-ucan-hali.kaydirinSehrinUstundenUcalim": {
@@ -689,6 +1469,12 @@
             "maxLength": 216,
             "multiline": true
         },
+        "hero.blueprint.durum": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "hero.blueprint.konum": {
             "group": "hero",
             "scope": "shared",
@@ -701,6 +1487,12 @@
             "maxLength": 24,
             "multiline": false
         },
+        "hero.blueprint.onaylandi": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "hero.blueprint.pafta": {
             "group": "hero",
             "scope": "shared",
@@ -708,6 +1500,12 @@
             "multiline": false
         },
         "hero.blueprint.proje": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.brutal.venue": {
             "group": "hero",
             "scope": "shared",
             "maxLength": 24,
@@ -747,6 +1545,18 @@
             "group": "hero",
             "scope": "shared",
             "maxLength": 48,
+            "multiline": false
+        },
+        "hero.herbaryum.lokasyon": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.herbaryum.tur": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
             "multiline": false
         },
         "hero.noir.gunKaldi": {
@@ -809,8 +1619,20 @@
             "maxLength": 24,
             "multiline": false
         },
+        "hero.takvim.takvim": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "hero.ticket.davetNo": {
             "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "label.countdown": {
+            "group": "label",
             "scope": "shared",
             "maxLength": 24,
             "multiline": false
@@ -828,6 +1650,12 @@
             "multiline": false
         },
         "label.invite": {
+            "group": "label",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "label.place": {
             "group": "label",
             "scope": "shared",
             "maxLength": 24,
@@ -926,7 +1754,25 @@
             "maxLength": 40,
             "multiline": false
         },
+        "rsvp.menuChicken": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "rsvp.menuLabel": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "rsvp.menuMeat": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "rsvp.menuVegetarian": {
             "group": "rsvp",
             "scope": "shared",
             "maxLength": 24,
