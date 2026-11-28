@@ -33,6 +33,7 @@ dosya neden böyle yazıldı"* sorusunu cevaplar. Buradaki faz özetleri ise
 | **22** | Yayın öncesi son faz: eksikler ve düzenlemeler (madde listesi açık). 22.1 e-posta doğrulaması satın almayı ve yayını engellemez, panelde hatırlatma bandı; ilk yayın indirimi doğrulama ister (K276) | ⏳ 22.1 kod ✅ · `composer check` **koşmadı** (bulut alanında PHP 8.3) · frontend `npm run check` ✅ · e2e koşmadı | [FAZ-22.md](FAZ-22.md) | [FAZ-22.md](FAZ-22.md) §22.1 "Elle doğrulama" |
 | **24** | v2.0 altyapı: davetiye dili (`locale`) ve değiştirilen şablon metinleri (`text_overrides`, `has_custom_texts` → Elit), sözleşme `contracts/text-slots.json` (K300–K305); Faz 22 ucunun üç kırmızısı (24.0) | ✅ kod · `composer check` 1385/1385 ✅ · sunucu adımları koşmadı | [FAZ-24.md](FAZ-24.md) | [FAZ-24.md](FAZ-24.md) "Elle doğrulama" |
 | **25** | v2.0 editör (backend payı): metin önerisi ucu, sohbetle ortak kota (K310) · misafir "bu davetiyeyi bildir" ucu ve `invitation_reports` (K313) | ✅ kod · `composer check` 1398/1398 ✅ · sunucu adımları koşmadı | [FAZ-25.md](FAZ-25.md) | [FAZ-25.md](FAZ-25.md) "Elle doğrulama" |
+| **27–29** | v2.1 Önizleme ve Tasarım Stüdyosu (backend payı): yayındaki davetiye için taslak katmanı (K323, K324) · 24 saatlik imzalı "telefonda aç" önizlemesi (K328) | ✅ kod · `composer check` 1415/1415 ✅ · sunucu adımları koşmadı | [FAZ-27.md](FAZ-27.md) | [FAZ-27.md](FAZ-27.md) "Elle doğrulama" |
 
 > 🔴 23 Eylül 2026: backend "bitti" gözden geçirmesi →
 > `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md`
