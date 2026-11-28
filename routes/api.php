@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\GiftCodeController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\InvitationPendingController;
+use App\Http\Controllers\Api\V1\InvitationPreviewController;
 use App\Http\Controllers\Api\V1\InvitationTextSuggestionController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\OrderController;
@@ -148,6 +149,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->whereUlid('invitation')
         ->name('invitations.pending.destroy');
 
+    // "Telefonda ac" (Faz 29.4, K328): 24 saatlik imzali onizleme baglantisi (taslak dahil).
+    Route::post('/invitations/{invitation}/preview-link', [InvitationPreviewController::class, 'store'])
+        ->whereUlid('invitation')
+        ->name('invitations.preview-link.store');
+
     // Yayinlama (Faz 7) — PAYWALL KAPISI.
     // Ayrinti: docs/rehber/routes/api.md T7.
     Route::post('/invitations/{invitation}/publish', [InvitationController::class, 'publish'])
@@ -230,6 +236,13 @@ Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(func
         ->withoutMiddleware('throttle:api')
         ->middleware('throttle:public-read')
         ->name('invitations.show');
+
+    // Faz 29.4 (K328): imzali onizleme (goreli imza, sure 24 saat); taslak dahil, onbelleksiz, ETag yok.
+    Route::get('/invitations/{invitation}/preview', [InvitationPreviewController::class, 'show'])
+        ->whereUlid('invitation')
+        ->withoutMiddleware(['throttle:api', SetEtag::class])
+        ->middleware(['signed:relative', 'throttle:public-read'])
+        ->name('invitations.preview');
 
     // 🔴 Sistemin TEK auth'suz YAZMA yolu (Faz 5).
     // Ayrinti: docs/rehber/routes/api.md T16.

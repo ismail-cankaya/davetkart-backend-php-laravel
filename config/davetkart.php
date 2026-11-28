@@ -314,6 +314,12 @@ return [
         'email_verification_path' => '/eposta-dogrula', // K191
     ],
 
+    // Faz 29.4 (K328): "telefonda aç" imzalı önizleme bağlantısının ömrü (dakika).
+    'preview_link' => [
+        'ttl_minutes' => 1440,
+        'path' => '/preview',
+    ],
+
     // Kullaniciya giden mail (K96): TEK dil, Turkce. K21'in (API tek dil,
     // metin dondurmez) BILINCLI istisnasi: mail kullanicinin dogrudan okudugu
     // bir metin ve kullanicinin dil tercihi bugun saklanmiyor.

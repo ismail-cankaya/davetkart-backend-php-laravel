@@ -1126,6 +1126,11 @@ medyasi ayni 404'u alir (H7).
 `apiResource`'un altında durmaları sorun değil (`/pending` bir `show` kimliğiyle çakışmaz: `whereUlid`). Ayrıntı:
 `app/Actions/Invitation/SavePendingChangesAction.md`.
 
+### T7c — telefonda aç (Faz 29.4, K328)
+
+`POST /invitations/{invitation}/preview-link` (sahibi) ve `GET /public/invitations/{invitation}/preview` (`signed:relative`,
+`throttle:public-read`, ETag yok). Ayrıntı: `app/Http/Controllers/Api/V1/InvitationPreviewController.md`.
+
 ### T7 — satır 182: `Route::post('/invitations/{invitation}/publish', [InvitationController::class, 'publish'])`
 
 Yayinlama (Faz 7) — PAYWALL KAPISI.
