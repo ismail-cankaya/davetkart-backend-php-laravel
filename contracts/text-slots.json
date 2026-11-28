@@ -41,6 +41,546 @@
             "maxLength": 24,
             "multiline": false
         },
+        "design.baby-donence.figurlereDokunun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.baby-kazi-kazan.birSurprizimizVar": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.baby-kazi-kazan.hepsiniBirdenAc": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.dogum-gunu-arcade.1up": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-arcade.dokunBoslukZiplaHiz": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 56,
+            "multiline": false
+        },
+        "design.dogum-gunu-arcade.insertCoin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-arcade.jetonlariToplaTarihMekanVePr": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 80,
+            "multiline": false
+        },
+        "design.dogum-gunu-arcade.oyunuAtla": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-arcade.player2": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-arcade.ready": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-arcade.stageClear": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-arcade.tekrarOyna": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-balon.hepsiniGoster": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-havai-fisek.gokyuzuneDokunun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.dogum-gunu-mumlar.atla": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-mumlar.birDilekTut": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-mumlar.davetiyeniAcmakIcinMumlaraDo": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 88,
+            "multiline": false
+        },
+        "design.dogum-gunu-sergi-devam-eden.sonOda": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dogum-gunu-surpriz-makinesi.hepsiniBirdenGoster": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.dugun-altin-toz.ayrintilarAsagida": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.dugun-kar-kuresi.kureyiSallaYaDaDokun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.dugun-karanlik-oda.kareleriSurukleyinTelefonuSa": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 104,
+            "multiline": true
+        },
+        "design.dugun-kelebek.parmaginiziGezdirinDokununHa": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 72,
+            "multiline": false
+        },
+        "design.dugun-kitap-sayfa.birAskHikayesi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.dugun-kitap-sayfa.birVarmisBirYokmus": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.dugun-kitap-sayfa.davetkartIleHazirlandi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.dugun-kitap-sayfa.hikayemizinDevaminiBirlikteY": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 80,
+            "multiline": false
+        },
+        "design.dugun-kitap-sayfa.kosedenTutupCevirin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.dugun-kitap-sayfa.son": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dugun-kule-saati.saatiKurmakIcinDokunun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.dugun-murekkep.dokununBirDamlaDahaDussun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "design.dugun-opera.perde": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.dugun-sergi-duvar-yazisi.kaliciKoleksiyon": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.dugun-yorunge.surukleCevir": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.etiket.kurator": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.harita-zarf.gununHaritasi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.harita-zarf.haritayiAcin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.hazine-adasi.maviKoy": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.invitation-composition.davetkartIleHazirlandi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.iz-kapak.durakProgramda": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.kagit-zarf.muhreDokunarakAcin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.kapak-kapisi.kapagiAcin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.kavusak-arazisi.kavusak": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.kina-bugulu-ayna.buguyuTamamenSil": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.kina-bugulu-ayna.ve": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.kina-ceyiz-sandigi.sandigiAcmakIcinDokunun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "design.kir-arazisi.serinDere": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.kitap-sayac.kalanSure": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.kurumsal-lansman.spotuYonlendirmekIcinDokunun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 56,
+            "multiline": false
+        },
+        "design.kurumsal-terminal.davetkartEvent": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.kusak-hero.masallah": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.lejant.1CmBirOmur": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.lejant.durakProgramda": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.lejant.lejant": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.lejant.temsiliHarita": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.lejant.varisa": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.lejant.yeniSekmedeAcilir": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.lejant.yolTarifi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.arkadaslarininNotlari": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.asagiKaydirin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.buSayfayaSeninImzanEksik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.imzalar": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.mezun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.mezuniyetToreni": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.sayfayiCevirin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.sayfayiParmaginizlaSolaCekin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 56,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.sinif": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.sinifinYildizi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.torendeBizimleOlYilligiBirli": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 80,
+            "multiline": false
+        },
+        "design.mezuniyet-yillik.unutulmayanlar": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.nisan-bulmaca.saat": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.nisan-bulmaca.yer": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.nisan-kahve-fali.faliHemenGoster": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.nisan-kahve-fali.falin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.nisan-kahve-fali.fincaniKapatmakIcinDokun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "design.nisan-kiraz-agaci.dokunRuzgarEssin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "design.nisan-koi.ile": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.nisan-koi.suyaDokununKoilereYemAtin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "design.nisan-mektup.sozVerdik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.ortak.evSahibi": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.parti-disko-topu.kaydirCevirDokunRitmiDusur": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 56,
+            "multiline": false
+        },
+        "design.parti-havuz.suyaDokunun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.parti-kokteyl.egCalkalaDokunBuzlarTokussun": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 64,
+            "multiline": false
+        },
+        "design.parti-lazer.parmaginlaLazerleriYonlendir": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "design.sayfalar.bolum": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sayfayi-cevirin.sayfayiCevirin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sehir-plani.sakinSular": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sergi-kapi.isigiYakin": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "design.sunnet-golge-oyunu.dokunSahneSurukleIsik": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "design.sunnet-ucan-hali.kaydirinSehrinUstundenUcalim": {
+            "group": "design",
+            "scope": "shared",
+            "maxLength": 56,
+            "multiline": false
+        },
         "details.dateLabel": {
             "group": "details",
             "scope": "shared",

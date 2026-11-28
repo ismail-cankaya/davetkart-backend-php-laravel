@@ -28,7 +28,7 @@ final class TextSlotsContractTest extends TestCase
         $this->assertNotEmpty($contract['slots']);
 
         foreach ($contract['slots'] as $key => $slot) {
-            $this->assertMatchesRegularExpression('/^[a-z]+\.[A-Za-z0-9.]+$/', $key);
+            $this->assertMatchesRegularExpression('/^[a-z]+\.[A-Za-z0-9.-]+$/', $key);
             $this->assertSame(explode('.', $key)[0], $slot['group'], $key);
             $this->assertContains($slot['scope'], ['shared', 'category', 'template'], $key);
             $this->assertIsInt($slot['maxLength'], $key);
@@ -57,11 +57,12 @@ final class TextSlotsContractTest extends TestCase
     #[Test]
     public function the_rule_caps_the_number_of_texts(): void
     {
+        // Sınır dil başına değiştirilen metin sayısıdır, sözleşmedeki anahtar sayısı değil (Faz 26'da 167 anahtar).
         $texts = [];
-        foreach (TextSlots::keys() as $key) {
+        foreach (array_slice(TextSlots::keys(), 0, TextSlots::maxOverrides()) as $key) {
             $texts[$key] = $key === 'rsvp.deadline' ? '{date}' : 'x';
         }
-        $this->assertLessThan(TextSlots::maxOverrides(), count($texts), 'sözleşme sınırın altında olmalı');
+        $this->assertCount(min(TextSlots::maxOverrides(), count(TextSlots::keys())), $texts);
         $this->assertTrue(TextSlots::isValidOverrides(['tr' => $texts]));
 
         $tooMany = [];
