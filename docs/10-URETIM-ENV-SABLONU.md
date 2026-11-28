@@ -257,6 +257,11 @@ FRONTEND_URL=https://davetkart.com
 
 # --- Yerel ayarlar -----------------------------------------------------------
 DAVETKART_DEFAULT_TIMEZONE=Europe/Istanbul
+
+# --- Bildirimler (Faz 25, K313) ---------------------------------------------
+# Misafirin "bu davetiyeyi bildir" kaydi bu adrese kuyrukta posta olarak gider.
+# Bos birakilirsa yalnizca invitation_reports tablosuna yazilir.
+DAVETKART_REPORTS_EMAIL=
 ```
 
 ---

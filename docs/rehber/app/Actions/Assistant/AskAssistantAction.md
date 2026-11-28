@@ -180,3 +180,40 @@ App\Models\AssistantUsage::where('user_id', $u->id)->first()->message_count;  //
 | **Atomik deyim** | Veritabaninin bolunmeden uyguladigi tek ifade |
 | **Idempotans** | Ayni islemi tekrarlamanin sonucu degistirmemesi |
 | **Fail-closed** | Supheli durumda **kisitlayici** tarafa dusmek |
+
+## K18 taşıması (Faz 24, 2026-11-28)
+
+`app/Actions/Assistant/AskAssistantAction.php` değiştiği için K18 cırcırı dosyanın tamamını denetledi; 3 satırı aşan yorum blokları kısaltıldı, tam metinleri aşağıda (değiştirilmeden).
+
+### K18-1
+
+Eski satır 12, şunun üstünde: `final class AskAssistantAction`.
+
+> Kullanicinin mesajini AI saglayicisina vekaleten iletir.
+> 🔴 Katmanli savunma (L1) — en ucuzdan pahaliya, ve buradaki "pahali"
+> kelimesi mecaz degil: son katman PARA HARCAR.
+> 0. auth:sanctum        -> rota katmani; kimliksiz istek buraya HIC gelmez
+> 1. throttle:assistant  -> rota katmani; cache'te bir sayac (mikrosaniye)
+> 2. Uzunluk siniri      -> AskAssistantRequest; tek strlen (mikrosaniye)
+> 3. GUNLUK KOTA         -> burada; iki SQL deyimi (milisaniye)
+> 4. Saglayici cagrisi   -> burada; ag + para (saniyeler)
+> Sira tesadufi degil: her katman kendinden sonrakinin maliyetini haklı
+> cikaracak kadar ucuz olmali.
+> Ayrintili aciklama: docs/rehber/app/Actions/Assistant/AskAssistantAction.md
+
+### K18-2
+
+Eski satır 47, şunun üstünde: `$this->quota->handle($user);`.
+
+> 🔴 SIRA: once kota DUSULUR, sonra cagri yapilir.
+> Tersi daha "adil" gorunurdu (cagri basarisizsa hak yanmasin) ama
+> yanlis tarafa hata yapardi: cagri yapildiktan SONRA sayaci
+> artirirken bir hata olursa, saglayici ZATEN FATURALAMIS olur ve biz
+> bunu hic saymamis oluruz. Bir zaman asiminda dahi Gemini istegi
+> islemis olabilir — "cevap alamadim" ile "para harcanmadi" ayni sey
+> DEGILDIR.
+> Bu, L7'nin ("dis servis transaction'a dahil degildir, geri
+> alinamayan is en sona") kota eksenindeki tamamlayicisidir: geri
+> alinamayan is en sonda, ama onun BEDELI en basta yazilir.
+> Fail-safe yon: supheli durumda kullanici bir mesaj kaybeder,
+> sistem para kaybetmez (B6: kilavuz §6 bu bedeli acikca yaziyor).

@@ -286,6 +286,11 @@ return [
     ],
 
     // İletişim formu: sistemin DÖRDÜNCÜ auth'suz yazma yolu.
+    // Faz 25 (K313): misafir bildirimleri bu adrese kuyrukta posta olarak gider; boşsa yalnızca kaydedilir.
+    'reports' => [
+        'notify_email' => env('DAVETKART_REPORTS_EMAIL'),
+    ],
+
     'contact' => [
         'max_message_chars' => 2000,
 

@@ -102,7 +102,8 @@ final class TextSlots
         return $restored;
     }
 
-    private static function isValidText(string $key, mixed $text): bool
+    /** Tek bir metin bu anahtar için geçerli mi (asistan önerisi süzgeci de kullanır, K310). */
+    public static function isValidText(string $key, mixed $text): bool
     {
         $slot = self::slot($key);
 

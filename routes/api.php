@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\EmailVerificationController;
 use App\Http\Controllers\Api\V1\GiftCodeController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\InvitationTextSuggestionController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PasswordController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\PublicContactController;
 use App\Http\Controllers\Api\V1\PublicEmailChangeController;
 use App\Http\Controllers\Api\V1\PublicInvitationController;
+use App\Http\Controllers\Api\V1\PublicInvitationReportController;
 use App\Http\Controllers\Api\V1\PublicMediaController;
 use App\Http\Controllers\Api\V1\PublicPaymentWebhookController;
 use App\Http\Controllers\Api\V1\PublicRsvpController;
@@ -193,6 +195,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/assistant/chat', AssistantController::class)
         ->middleware('throttle:assistant')
         ->name('assistant.chat');
+
+    // Faz 25 (K310): şablon metni önerisi — davetiye SAHİBİ, sohbetle aynı kova ve günlük kota.
+    Route::post('/invitations/{invitation}/text-suggestions', InvitationTextSuggestionController::class)
+        ->whereUlid('invitation')
+        ->middleware('throttle:assistant')
+        ->name('invitations.text-suggestions');
 });
 
 // 🔴 K12: auth gerektirmeyen rotalarin TEK yeri. Buraya rota eklemek onu internete acmaktir.
@@ -230,6 +238,12 @@ Route::prefix('public')->name('public.')->middleware(SetEtag::class)->group(func
         ->whereUlid('invitation')
         ->middleware('throttle:media')
         ->name('invitations.media.store');
+
+    // Faz 25 (K313): misafir "bu davetiyeyi bildir" — auth'suz yazma; iletişim formunun dar kovası + honeypot.
+    Route::post('/invitations/{invitation}/report', PublicInvitationReportController::class)
+        ->whereUlid('invitation')
+        ->middleware('throttle:contact')
+        ->name('invitations.report');
 
     // 🔴 Ucuncu auth'suz yazma yolu (Faz 7): yazan bilinen bir makine; tek savunma imza dogrulamasi.
     // Ayrinti: docs/rehber/routes/api.md T18.
