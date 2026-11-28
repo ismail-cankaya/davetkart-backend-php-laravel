@@ -12,10 +12,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Yeni kullanici olusturur ve ilk API token'ini uretir.
- *
  * Gelen veri RegisterRequest'ten gecmistir; burada TEKRAR DOGRULANMAZ.
- * Benzersizlik, veritabani UNIQUE kisitiyla korunur — `unique` kurali degil (H6).
- * Ayrintili aciklama: docs/rehber/app/Actions/Auth/RegisterUserAction.md
+ * Ayrıntı: docs/rehber/app/Actions/Auth/RegisterUserAction.md §K18-1
  */
 final class RegisterUserAction
 {

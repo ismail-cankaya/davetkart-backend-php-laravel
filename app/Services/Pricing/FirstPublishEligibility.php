@@ -11,16 +11,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * "Bu kullanıcı, BU hedef için şu an ilk yayın indirimine uygun mu?" (Faz 18.3, SEC-01 · K159)
- *
  * 🔴 Kuralın TEK yeri. Fiyat önizlemesi de checkout da buraya sorar; iki kopya
- * olsaydı ekrandaki fiyat ile karttan çekilen fiyat ayrışırdı (K128).
- *
- * İndirim tek kullanımlık bir haktır ve iki şekilde kapanır:
- *   1. Kullanılmış  -> `paid_at` damgalı bir sipariş var (K131).
- *   2. AYRILMIŞ     -> başka bir hedefin ödeme bekleyen siparişi onu tutuyor.
- *
- * Salt okunur: kilit yok, yazma yok. Kilidi alan StartCheckoutAction'dır.
- * Ayrıntılı açıklama: docs/rehber/app/Services/Pricing/FirstPublishEligibility.md
+ * Ayrıntı: docs/rehber/app/Services/Pricing/FirstPublishEligibility.md §K18-1
  */
 final class FirstPublishEligibility
 {

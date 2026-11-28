@@ -406,3 +406,16 @@ durdurmaz, çünkü tarama her adresi bir kez dener.
 Yukarıdaki "ödeme ve yayın `VerifiedEmailGuard`'da bekler" cümlesi geçersiz: guard kaldırıldı. Doğrulanmamış hesap ödeme
 yapar ve yayınlar; yalnızca ilk yayın indirimi doğrulama ister (`FirstPublishEligibility`). Panel bandı "hesap erişimini
 kaybetmemek için doğrula" hatırlatmasıdır, engel değildir.
+
+## K18 taşıması (Faz 24, 2026-11-28)
+
+`app/Actions/Auth/RegisterUserAction.php` değiştiği için K18 cırcırı dosyanın tamamını denetledi; 3 satırı aşan yorum blokları kısaltıldı, tam metinleri aşağıda (değiştirilmeden).
+
+### K18-1
+
+Eski satır 13, şunun üstünde: `final class RegisterUserAction`.
+
+> Yeni kullanici olusturur ve ilk API token'ini uretir.
+> Gelen veri RegisterRequest'ten gecmistir; burada TEKRAR DOGRULANMAZ.
+> Benzersizlik, veritabani UNIQUE kisitiyla korunur — `unique` kurali degil (H6).
+> Ayrintili aciklama: docs/rehber/app/Actions/Auth/RegisterUserAction.md

@@ -10,10 +10,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * User modelini frontend sozlesmesine cevirir (types.ts -> AuthUser).
- *
  * snake_case -> camelCase donusumunun yapildigi TEK yer (CLAUDE.md §1).
- * Beyaz liste: burada adi gecmeyen hicbir alan disari cikmaz.
- * Ayrintili aciklama: docs/rehber/app/Http/Resources/UserResource.md
+ * Ayrıntı: docs/rehber/app/Http/Resources/UserResource.md §K18-1
  *
  * @mixin User
  */

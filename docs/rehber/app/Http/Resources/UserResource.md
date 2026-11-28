@@ -366,3 +366,16 @@ $r->response()->getContent();    // {"data":{"id":...}}       ← zarflı
 
 `emailVerified: bool` (`email_verified_at !== null`). Arayüz "adresini doğrula" bandını buna göre gösterir. Tarih değil
 bool: arayüzün ihtiyacı yalnızca durum (en az veri).
+
+## K18 taşıması (Faz 24, 2026-11-28)
+
+`app/Http/Resources/UserResource.php` değiştiği için K18 cırcırı dosyanın tamamını denetledi; 3 satırı aşan yorum blokları kısaltıldı, tam metinleri aşağıda (değiştirilmeden).
+
+### K18-1
+
+Eski satır 11, şunun üstünde: `final class UserResource extends JsonResource`.
+
+> User modelini frontend sozlesmesine cevirir (types.ts -> AuthUser).
+> snake_case -> camelCase donusumunun yapildigi TEK yer (CLAUDE.md §1).
+> Beyaz liste: burada adi gecmeyen hicbir alan disari cikmaz.
+> Ayrintili aciklama: docs/rehber/app/Http/Resources/UserResource.md

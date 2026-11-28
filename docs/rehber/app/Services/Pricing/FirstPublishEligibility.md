@@ -157,3 +157,20 @@ doğrulanmamışa liste fiyatı, doğrulamadan sonra indirimli fiyat. Test: `an_
 
 Ödeme ve yayın kapısı kalktı ama bu satır **kaldı** (İsmail'in kararı): indirim doğrulanmış hesaba. Doğrulanmamış hesap
 satın alabilir, liste fiyatından. Frontend bandı doğrulamanın indirimi açtığını söyler.
+
+## K18 taşıması (Faz 24, 2026-11-28)
+
+`app/Services/Pricing/FirstPublishEligibility.php` değiştiği için K18 cırcırı dosyanın tamamını denetledi; 3 satırı aşan yorum blokları kısaltıldı, tam metinleri aşağıda (değiştirilmeden).
+
+### K18-1
+
+Eski satır 12, şunun üstünde: `final class FirstPublishEligibility`.
+
+> "Bu kullanıcı, BU hedef için şu an ilk yayın indirimine uygun mu?" (Faz 18.3, SEC-01 · K159)
+> 🔴 Kuralın TEK yeri. Fiyat önizlemesi de checkout da buraya sorar; iki kopya
+> olsaydı ekrandaki fiyat ile karttan çekilen fiyat ayrışırdı (K128).
+> İndirim tek kullanımlık bir haktır ve iki şekilde kapanır:
+> 1. Kullanılmış  -> `paid_at` damgalı bir sipariş var (K131).
+> 2. AYRILMIŞ     -> başka bir hedefin ödeme bekleyen siparişi onu tutuyor.
+> Salt okunur: kilit yok, yazma yok. Kilidi alan StartCheckoutAction'dır.
+> Ayrıntılı açıklama: docs/rehber/app/Services/Pricing/FirstPublishEligibility.md

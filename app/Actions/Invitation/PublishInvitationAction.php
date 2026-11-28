@@ -17,24 +17,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Davetiyeyi yayina alir — projenin PAYWALL KAPISI.
- *
  * 🔴 Bu sinif Faz 3'ten beri BOS BIR ISKELET olarak duruyordu. Bilerek:
- * K47, "yayin ucu Faz 4'te yazilirsa paywall'siz bir bedava yol acilir"
- * demisti. Iskelet bugun, kapiyi kilitleyecek anahtarlar (TierResolver,
- * PublishEntitlementResolver) var olduktan SONRA dolduruluyor.
- *
- * Sira, ucuzdan pahaliya ve gizliden aciga (L1 + H7):
- *   1. Sahiplik      -> Gate::authorize('publish') (controller) -> yoksa 404
- *   2. Durum         -> zaten yayindaysa 409
- *   3. Gereken plan  -> TierResolver (SUNUCUDA hesaplanir)
- *   4. Sahip olunan  -> PublishEntitlementResolver (K42: iki kaynak, tek arayuz)
- *   5. Yayin         -> status + published_at, kilitli transaction icinde
- *   6. Damga         -> orders.first_published_at (Faz 18.4, K164)
- *
- * 🔴 Istemciden gelen `tier` bilgisi HICBIR ADIMDA kullanilmaz (docs/09).
- * Frontend'in `activeTier`'i yalnizca arayuz karari ve DevTools'tan
- * degistirilebilir.
- * Ayrintili aciklama: docs/rehber/app/Actions/Invitation/PublishInvitationAction.md
+ * Ayrıntı: docs/rehber/app/Actions/Invitation/PublishInvitationAction.md §K18-1
  */
 final class PublishInvitationAction
 {
@@ -55,10 +39,7 @@ final class PublishInvitationAction
         return DB::transaction(function () use ($invitation): Invitation {
             // 🔴 Satir kilitlenip YENIDEN OKUNUYOR. Elimizdeki nesne rota
             // baglamasindan geldi ve o okumadan bu ana kadar baska bir istek
-            // davetiyeyi yayinlamis olabilirdi. Kilitsiz calisilsaydi iki
-            // es zamanli istek ikisi de "yayinda degil" gorur ve ikisi de
-            // yayinlardi — 409 hic firlamaz, published_at iki kez yazilirdi
-            // (check-then-act, E9; Faz 5 ve 6'daki kota kilitleriyle ayni desen).
+            // Ayrıntı: docs/rehber/app/Actions/Invitation/PublishInvitationAction.md §K18-2
             $fresh = Invitation::query()
                 ->whereKey($invitation->getKey())
                 ->lockForUpdate()
@@ -66,8 +47,7 @@ final class PublishInvitationAction
 
             // 2. KATMAN — durum catismasi. 409, cunku istek gecerli ama kaynak
             // zaten o durumda (docs/08 §4). Sessizce basarili donmek
-            // kullaniciya iki kez yayinladigini (ve belki iki kez odedigini)
-            // dusundururdu.
+            // Ayrıntı: docs/rehber/app/Actions/Invitation/PublishInvitationAction.md §K18-3
             if ($fresh->status === InvitationStatus::Published) {
                 throw new InvitationAlreadyPublishedException;
             }
@@ -82,14 +62,7 @@ final class PublishInvitationAction
 
             // 4b. SERBEST HAKKI BAGLA (Faz 9). Faz 10 (K99): fiyat sayfasindan
             // alinan paket de burada baglanir.
-            //
-            // 🔴 Yalnizca eldeki hak YETMIYORSA denenir. Ters sirada yazsaydik
-            // (once bagla, sonra sor), davetiyesinin zaten yeterli bir
-            // siparisi olan kullanici her yayinda bagsiz bir siparisini de
-            // harcardi. Bir tuketim adimi, tuketmeden once "gerekli mi" diye
-            // sorar.
-            //
-            // Kosullu calismasi bir OPTIMIZASYON DEGIL, bir IS KURALIDIR.
+            // Ayrıntı: docs/rehber/app/Actions/Invitation/PublishInvitationAction.md §K18-4
             if ($owned === null || ! $owned->covers($required)) {
                 if ($this->claims->handle($fresh, $required)) {
                     // Baglandi: hak tablosu degisti, cevabi YENIDEN sor.
@@ -117,8 +90,7 @@ final class PublishInvitationAction
 
             // save() -> 'updated' -> InvitationChanged -> ClearInvitationCache
             // (K48). Olay MODELDEN yapisal olarak firliyor; bu Action'in
-            // cache'i temizlemeyi HATIRLAMASI gerekmiyor — Faz 4'te tam olarak
-            // bu unutulma riski icin oyle tasarlanmisti.
+            // Ayrıntı: docs/rehber/app/Actions/Invitation/PublishInvitationAction.md §K18-5
             $fresh->save();
 
             // 6. KATMAN — DAMGA (Faz 18.4, SEC-02 · K164): hak veren siparişler "bir davetiyeyi
