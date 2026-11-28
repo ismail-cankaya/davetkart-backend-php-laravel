@@ -11,6 +11,12 @@
             "maxLength": 24,
             "multiline": false
         },
+        "countdown.daysLower": {
+            "group": "countdown",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "countdown.hours": {
             "group": "countdown",
             "scope": "shared",
@@ -18,6 +24,12 @@
             "multiline": false
         },
         "countdown.minutes": {
+            "group": "countdown",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "countdown.minutesShort": {
             "group": "countdown",
             "scope": "shared",
             "maxLength": 24,
@@ -137,10 +149,184 @@
             "maxLength": 216,
             "multiline": true
         },
+        "hero.blueprint.konum": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.blueprint.olcek11": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.blueprint.pafta": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.blueprint.proje": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.gazete.dk": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.gazete.fiyatsiz": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.gazete.geriSayim": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.gazete.yil1Sayi1": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.herbaryum.herbaryum": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.herbaryum.koleksiyonDavetkartArsivi": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "hero.noir.gunKaldi": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.posta.alici": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.posta.davetkart": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.posta.saatKaldi": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.posta.ucakPostasi": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.riso.saatKaldi": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
         "hero.tagline": {
             "group": "hero",
             "scope": "category",
             "maxLength": 72,
+            "multiline": false
+        },
+        "hero.takvim.dakika": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.takvim.gunKaldi": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.takvim.saat": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "hero.ticket.davetNo": {
+            "group": "hero",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "label.date": {
+            "group": "label",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "label.guests": {
+            "group": "label",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "label.invite": {
+            "group": "label",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "label.program": {
+            "group": "label",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "label.remaining": {
+            "group": "label",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "label.scroll": {
+            "group": "label",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "label.time": {
+            "group": "label",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "label.timeLeft": {
+            "group": "label",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "label.venue": {
+            "group": "label",
+            "scope": "shared",
+            "maxLength": 24,
             "multiline": false
         },
         "rsvp.appleCalendar": {
