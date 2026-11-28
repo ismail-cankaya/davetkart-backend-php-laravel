@@ -11,11 +11,8 @@ use Illuminate\Support\Facades\Config;
 
 /**
  * Davetiyenin MISAFIRE acik surumu — types.ts -> Invitation.
- *
  * 🔴 C4: sahibin surumu (InvitationResource) her alani her zaman doner; bu
- * surum KAPALI MODULUN VERISINI HIC GONDERMEZ. `status` ve `updatedAt` de yok:
- * misafirin isine yaramaz, dolayisiyla sozlesmede yeri de yok (C5).
- * Ayrintili aciklama: docs/rehber/app/Http/Resources/PublicInvitationResource.md
+ * Ayrıntı: docs/rehber/app/Http/Resources/PublicInvitationResource.md §K18-1
  *
  * @mixin Invitation
  */
@@ -60,13 +57,7 @@ final class PublicInvitationResource extends JsonResource
 
             // 🔴 K63 (Faz 7): duvar saatinin hangi dilimde okunacagi.
             // Faz 4'te acik soru olarak birakilmisti — sayac, misafirin KENDI
-            // cihazinin dilimini varsayiyordu ve Berlin'deki misafir dugunu
-            // bir saat once saniyordu.
-            //
-            // Bu alan ZORUNLU gider (C7): sayac onsuz dogru hesaplayamaz,
-            // dolayisiyla opsiyonel olamaz. Davetiyede yoksa config
-            // varsayilani gonderilir — misafire "bilmiyorum" demek, ona
-            // sessizce yanlis saati gostermekten daha kotudur.
+            // Ayrıntı: docs/rehber/app/Http/Resources/PublicInvitationResource.md §K18-2
             'timezone' => $this->timezone ?? Config::string('davetkart.default_timezone'),
 
             'venue' => $this->venue ?? '',
@@ -90,6 +81,10 @@ final class PublicInvitationResource extends JsonResource
 
             // Faz 10 (10.66 · K102): Elit'te "DavetKart ile hazırlandı" yok.
             'showBranding' => $this->showBranding,
+
+            // Faz 24 (K302, K303): misafir de kullanicinin metinlerini gorur; yoksa {} (varsayilanlar).
+            'locale' => $this->locale,
+            'textOverrides' => (object) $this->text_overrides,
         ];
 
         // 🔴 C4: kapali modulun VERISI govdeye hic girmez — bos string olarak

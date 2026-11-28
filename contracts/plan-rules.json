@@ -1,5 +1,6 @@
 {
     "moduleTiers": {
+        "has_custom_texts": "elit",
         "show_envelope": "gold",
         "show_gallery": "elit",
         "show_gift": "elit",

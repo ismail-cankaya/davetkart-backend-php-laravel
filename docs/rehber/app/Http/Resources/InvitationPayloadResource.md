@@ -414,3 +414,27 @@ Ayrıntı: `FAZ-7.md` §8.
 `galleryImages` gibi **sunucunun** alanı: frontend `toPayload()`'da onu gövdeden çıkarıyor
 (FE 10.21). Misafir sürümündeki (`PublicInvitationResource`) alanla aynı ad, aynı yer: frontend'de tek
 bir koşul iki ekrana da hizmet ediyor.
+
+## K18 taşıması (Faz 24, 2026-11-28)
+
+`app/Http/Resources/InvitationPayloadResource.php` değiştiği için K18 cırcırı dosyanın tamamını denetledi; 3 satırı aşan yorum blokları kısaltıldı, tam metinleri aşağıda (değiştirilmeden).
+
+### K18-1
+
+Eski satır 11, şunun üstünde: `final class InvitationPayloadResource extends JsonResource`.
+
+> Davetiyenin TASARIM verisi — types.ts -> Invitation ile birebir.
+> Sunucu ustverisi (id, status, updatedAt) burada DEGIL, InvitationResource'ta.
+> Ayrim isteklerdeki { invitation: {...} } sarmaliyla simetriktir.
+> 🔴 Bu SAHIBIN gordugu bicimdir. Misafire acik surum Faz 4'te ayri bir sinif
+> olacak; hediye ve LCV verisi orada kapali modulde MASKELENIR.
+> Ayrintili aciklama: docs/rehber/app/Http/Resources/InvitationPayloadResource.md
+
+### K18-2
+
+Eski satır 94, şunun üstünde: `'galleryImages' => MediaResource::collection($this->orderedGalleryMedia()),`.
+
+> Galeri, KULLANICININ SIRASIYLA (`gallery_media_ids`). Sahip
+> kimlikleri de gorur: silme ucu dosyayi kimligiyle ister. Misafir
+> surumunde kimlik yok (PublicGalleryImageResource).
+> timelineEvents ile ayni sozlesme: `galleryMedia` yuklu olmali.

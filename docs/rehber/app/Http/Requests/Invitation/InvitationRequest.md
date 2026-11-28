@@ -549,3 +549,44 @@ ikinci yarısı.
 
 Her kayıtta biçim + mod-97 (`Iban.md`). Boşluk ve küçük harf kabul ediliyor; değer yazıldığı gibi
 saklanıyor. Boş (`null`) hâlâ geçerli: hediye modülü kapalıyken IBAN zorunlu değil.
+
+## K18 taşıması (Faz 24, 2026-11-28)
+
+`app/Http/Requests/Invitation/InvitationRequest.php` değiştiği için K18 cırcırı dosyanın tamamını denetledi; 3 satırı aşan yorum blokları kısaltıldı, tam metinleri aşağıda (değiştirilmeden).
+
+### K18-1
+
+Eski satır 10, şunun üstünde: `abstract class InvitationRequest extends FormRequest`.
+
+> Store ve Update isteklerinin ortak kural tabani.
+> D1: kurallar istegin GONDERDIGI adlarla (camelCase) yazilir.
+> D4: camelCase -> snake_case eslemesi bu katmanda yapilir; Action HTTP alan
+> adlarini bilmez.
+> Ayrintili aciklama: docs/rehber/app/Http/Requests/Invitation/InvitationRequest.md
+
+### K18-2
+
+Eski satır 20, şunun üstünde: `private const COLUMN_MAP = [`.
+
+> Istek alani -> veritabani kolonu. ACIKCA yazilir, turetilmez.
+> `showRSVP` sihirli bir donusumle `show_rsvp` olmaz (Str::snake onu
+> `show_r_s_v_p` yapar). Listede olmayan alan (phoneBackground,
+> galleryImages) sessizce dusser — beyaz liste (C1).
+
+### K18-3
+
+Eski satır 90, şunun üstünde: `'invitation.timezone' => ['sometimes', 'nullable', 'string', 'timezone', 'max:64'],`.
+
+> K63: IANA saat dilimi kimligi. 'timezone' kurali degeri PHP'nin
+> kayitli listesine karsi dogrular — uydurma bir deger ('TR+3')
+> veritabanina hic ulasmaz. Kural ADI sozlesmenin parcasidir (D6):
+> hata zarfina {"rule":"timezone"} diye cikar, sinif adi sizmaz.
+
+### K18-4
+
+Eski satır 105, şunun üstünde: `'invitation.iban' => ['sometimes', 'nullable', 'string', 'max:34', 'iban'],`.
+
+> Faz 10 (10.62 · K105): her kayitta bicim + mod-97. Bosluk ve kucuk
+> harf kabul edilir; deger yazildigi gibi saklanir (Iban::isValid
+> kendi icinde normalize eder). max:34 kolonun boyu: dortlu
+> gruplanmis TR IBAN'i 32 karakter, sigar.

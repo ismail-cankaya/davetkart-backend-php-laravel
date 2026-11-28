@@ -781,3 +781,177 @@ ortam ayarı değil. Ayrıntı: `StoreUploadedMediaAction` kılavuzu §Faz 19.
 ## 🆕 Faz 19 (19.26 · K192, FE-50) — `invitations.max_drafts_per_user`
 
 50. Yalnızca yayınlanmamış davetiyeler sayılır. Env değişkeni yok (ürün kararı). Ayrıntı: `CreateInvitationAction` kılavuzu.
+
+## K18 taşıması (Faz 24, 2026-11-28)
+
+`config/davetkart.php` değiştiği için K18 cırcırı dosyanın tamamını denetledi; 3 satırı aşan yorum blokları kısaltıldı, tam metinleri aşağıda (değiştirilmeden).
+
+### K18-1
+
+Eski satır 23, şunun üstünde: `'pricing' => [`.
+
+> Faz 13: fiyat indirimleri. Yukaridaki 'price' LISTE fiyatidir; musteriye
+> gosterilen ve kartindan cekilen tutar App\Actions\Pricing\QuotePriceAction'da
+> hesaplanir (K129) ve frontend onu API'den okur — frontend'de fiyat YOK (K128).
+> env() BILEREK YOK (release_window_days ile ayni gerekce): indirim orani
+> musteriye verilmis bir TICARI SOZ, ortamdan ortama degismez.
+
+### K18-2
+
+Eski satır 32, şunun üstünde: `'first_publish_percent' => 60,`.
+
+> Kullanicinin ILK yayini (hic odenmis siparisi yok — hediye kodlu
+> ucretsiz siparis dahil, K131). 0 = kapali. Ust sinir 90: tutar
+> indirimle 0'a inemez, ucretsiz yayin yalnizca hediye kodunun isi
+> (orders_gift_amount_check).
+
+### K18-3
+
+Eski satır 63, şunun üstünde: `'preset_tiers' => [`.
+
+> Faz 10 (10.66 · K102): tema -> gereken en dusuk plan. Fiyat karti Standart'a
+> "Temel sablon koleksiyonu", Gold ve Elit'e "Premium tema koleksiyonu" diyor.
+> Premium = arka plani VIDEO olan temalar (Ismail'in karari, 1 Ekim 2026).
+> Listede olmayan tema her planda yayinlanir. Kimlikler frontend
+> src/data.ts -> TEMPLATE_PRESETS ile ayni; frontend'te `minimumTier`.
+
+### K18-4
+
+Eski satır 94, şunun üstünde: `'kurumsal-lansman' => 'gold',`.
+
+> Faz 17: premium koleksiyon. Dördü kodla üretilmiş videolu, beşi canlı
+> WebGL / sensörlü etkileşimli (İsmail'in onayı, 2026-11-05: premium
+> artık "videolu" değil "premium etkileşimli" demek). Aynı turun iki
+> şablonu (dogum-gunu-surpriz-makinesi, baby-kazi-kazan) Standart'tır.
+
+### K18-5
+
+Eski satır 112, şunun üstünde: `'rate_limit' => [`.
+
+> Faz 10 (10.60 · K104): 300 kişilik bir düğün davetiyesi aynı akşam
+> gönderilir; eski sayılar (IP 10/dk, davetiye 60/saat) ilk saatte
+> gelen yanıtların bir kısmını 429 ile geri çeviriyordu. Salonda
+> herkes aynı Wi-Fi'da, yani aynı IP'de.
+
+### K18-6
+
+Eski satır 140, şunun üstünde: `'rate_limit' => [`.
+
+> 🔴 Misafirin yukleme ucu icin hiz siniri (6.16). LCV metninden AYRI
+> ve daha DAR: orada honeypot ilk savunmaydi, dosya yuklemede oyle bir
+> katman YOK (bkz. StoreGuestMediaAction kilavuzu §2). Ustelik bir
+> istek yuzlerce KB degil onlarca MB tasiyor.
+> Faz 10 (10.60 · K104): salon Wi-Fi'ı (tek IP) ve düğün gecesi için
+> büyütüldü (eski: IP 5/dk, davetiye 40/saat). LCV'den yine dar.
+> Faz 19 (19.10 · K186, SEC-06): IP 15 -> 60. Salonun tek IP'si için 15
+> dar kaldı; asıl fren davetiye başına saatlik kova (150).
+
+### K18-7
+
+Eski satır 153, şunun üstünde: `'orphan_grace_hours' => 1,`.
+
+> 🔴 Bir misafir yuklemesinin, hicbir LCV yanitina baglanmadan diskte
+> bekleyebilecegi sure (saat). Suresi dolan yuklemeler
+> `media:prune-orphans` tarafindan silinir.
+> Faz 19 (19.13 · K190, SEC-08): 24 -> 1. Yetim, kotayı tutan bir
+> DoS aracıydı; misafir yükleyip formu dakikalar içinde gönderir.
+> Temizlik saatlik koşar (routes/console.php), yani yetim en çok ~2 saat yaşar.
+
+### K18-8
+
+Eski satır 173, şunun üstünde: `'max_edge_px' => 2000,`.
+
+> 🔴 EN UZUN KENAR, genislik DEGIL. Genisligi sinirlamak dikey
+> fotografi serbest birakiyordu: 3000x4000'lik bir kare 2000x2667
+> olarak kaliyordu — 5,3 MP, yani hedeflenenin bir buçuk kati.
+> 2000 nereden? Galeri en fazla 448 CSS px genisliginde gosteriliyor
+> (frontend Gallery.tsx, max-w-md); 3x ekranda bile 1344 px yeter.
+
+### K18-9
+
+Eski satır 180, şunun üstünde: `'max_dimension_px' => 8192,`.
+
+> 🔴 Cozme (decode) belleginin ust siniri BU SATIRDIR: GD piksel
+> basina ~4 bayt ister, yani 8192x8192 ≈ 67 MP ≈ 270 MB. Dogrulama
+> bunu asan dosyayi hic kabul etmez (MediaRequest) ve is de ikinci
+> kez sorar. Kucuk bir dosyanin devasa piksel acmasi ("sikistirma
+> bombasi") misafir ucunda bir DoS yolu olurdu.
+
+### K18-10
+
+Eski satır 210, şunun üstünde: `'max_size_kb' => 15360,`.
+
+> 🔴 15 MB, "kullanicinin yukleyebilecegi en buyuk fotograf" degil
+> "sunucunun kabul ettigi en buyuk dosya"dir. Tarayici dosyayi
+> gondermeden once 2 MB'in altina indiriyor (frontend
+> utils/compressImage.ts); bu sinir o katman atlandiginda devrede.
+> ⚠️ PHP'nin upload_max_filesize ve post_max_size degerleri bu
+> sinirdan BUYUK olmali, yoksa dosya Laravel'e hic ulasmaz
+> (docs/06, docs/10).
+
+### K18-11
+
+Eski satır 222, şunun üstünde: `'rsvp_photo' => [`.
+
+> 🔴 max_per_invitation her turde ZORUNLU: LCV medyasini kimligi
+> bilinmeyen misafir yukluyor. Hiz siniri "ne siklikta"ya bakar, kota
+> "ne kadar"a — ikisi birbirinin yerine gecmez (L3). Bu sinir olmasa
+> gonderim yapmadan yuklenen "yetim" dosyalarla disk doldurulabilirdi.
+
+### K18-12
+
+Eski satır 243, şunun üstünde: `'release_window_days' => 3,`.
+
+> 🔴 Yayinlanmis bir davetiye silinince, o davetiye icin odenmis TEKIL
+> siparisin hakki geri alinabilir mi? Pencere YAYIN anindan itibaren
+> sayilir; kapaliysa hak yanar (DeleteInvitationAction).
+> env() BILEREK YOK — default_timezone'dan farkli olarak bu bir ORTAM
+> farki degil, kullaniciya verilmis bir TICARI SOZ. env'e baglansaydi
+> staging'de 30, uretimde 3 olabilir ve ikisi sessizce ayrisirdi;
+> "kac gun" sorusunun tek bir dogru cevabi var ve o cevap repoda,
+> degisiklik gecmisiyle birlikte durmali.
+
+### K18-13
+
+Eski satır 255, şunun üstünde: `'refunds' => [`.
+
+> İade (iptal) talebi (Faz 14, K139). Kullanıcı KULLANILMAMIŞ, parası
+> ödenmiş bir hakkı ödeme anından itibaren bu kadar gün içinde iptal
+> edip iade isteyebilir. release_window_days ile aynı gerekçe: ticari söz,
+> env() YOK. 14 gün, mesafeli satışın cayma süresine denk gelir.
+
+### K18-14
+
+Eski satır 316, şunun üstünde: `'rate_limit' => [`.
+
+> 🔴 Hız sınırı kotanın YERİNE GEÇMEZ (L3). Kota "bugün kaç mesaj"a
+> bakar ve veritabanında sayılır (cache silinse bile durur); bu kova
+> "ne sıklıkta"ya bakar ve en ucuz katman olarak en başta durur (L1).
+> Kotasız bir dakikada 30 çağrı, günlük bütçeyi tek seferde yakardı.
+
+### K18-15
+
+Eski satır 329, şunun üstünde: `'rate_limit' => [`.
+
+> LCV'den (10/dk) daha DAR: meşru bir kullanıcı iletişim formunu
+> günde bir kez doldurur, LCV gönderimi ise bir davetiye için onlarca
+> misafirden gelir. Üst kaynak (davetiye) kovası YOK — bu formun
+> bağlı olduğu bir davetiye yok; tek anahtar IP.
+
+### K18-16
+
+Eski satır 339, şunun üstünde: `'frontend' => [`.
+
+> Faz 10 (10.30): frontend'in kok adresi. Maildeki baglantilar MUTLAK
+> olmak zorunda (parola sifirlama). Adres istegin Host basligindan DEGIL
+> buradan okunur: baslik istemcinin elinde (trustedproxy.md §4, B6).
+> Gelistirmede Vite 3000'de, API'yi proxy'liyor (frontend vite.config.ts).
+
+### K18-17
+
+Eski satır 358, şunun üstünde: `'retention' => [`.
+
+> Faz 10 (10.42 · K98 / S-1): saklama sureleri. KVKK'nin veri en aza
+> indirme ilkesi: amaci biten kisisel veri saklanmaz. `data:purge` her
+> gece bunlari uygular. env() YOK: ortam farki degil, kullaniciya verilen
+> bir soz (KVKK aydinlatma metni bu sayilari yazacak).

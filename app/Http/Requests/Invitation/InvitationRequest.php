@@ -4,24 +4,20 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Invitation;
 
+use App\Support\TextSlots;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
  * Store ve Update isteklerinin ortak kural tabani.
- *
  * D1: kurallar istegin GONDERDIGI adlarla (camelCase) yazilir.
- * D4: camelCase -> snake_case eslemesi bu katmanda yapilir; Action HTTP alan
- * adlarini bilmez.
- * Ayrintili aciklama: docs/rehber/app/Http/Requests/Invitation/InvitationRequest.md
+ * Ayrıntı: docs/rehber/app/Http/Requests/Invitation/InvitationRequest.md §K18-1
  */
 abstract class InvitationRequest extends FormRequest
 {
     /**
      * Istek alani -> veritabani kolonu. ACIKCA yazilir, turetilmez.
-     *
      * `showRSVP` sihirli bir donusumle `show_rsvp` olmaz (Str::snake onu
-     * `show_r_s_v_p` yapar). Listede olmayan alan (phoneBackground,
-     * galleryImages) sessizce dusser — beyaz liste (C1).
+     * Ayrıntı: docs/rehber/app/Http/Requests/Invitation/InvitationRequest.md §K18-2
      *
      * @var array<string, string>
      */
@@ -48,6 +44,8 @@ abstract class InvitationRequest extends FormRequest
         'giftOptions' => 'gift_options',
         'rsvpDeadline' => 'rsvp_deadline',
         'askMenuPreference' => 'ask_menu_preference',
+        'locale' => 'locale',
+        'textOverrides' => 'text_overrides',
     ];
 
     /** Yetki karari Policy'nin isi; controller authorizeResource ile cagirir. */
@@ -86,8 +84,7 @@ abstract class InvitationRequest extends FormRequest
 
             // K63: IANA saat dilimi kimligi. 'timezone' kurali degeri PHP'nin
             // kayitli listesine karsi dogrular — uydurma bir deger ('TR+3')
-            // veritabanina hic ulasmaz. Kural ADI sozlesmenin parcasidir (D6):
-            // hata zarfina {"rule":"timezone"} diye cikar, sinif adi sizmaz.
+            // Ayrıntı: docs/rehber/app/Http/Requests/Invitation/InvitationRequest.md §K18-3
             'invitation.timezone' => ['sometimes', 'nullable', 'string', 'timezone', 'max:64'],
 
             'invitation.showEnvelope' => ['sometimes', 'boolean'],
@@ -101,8 +98,7 @@ abstract class InvitationRequest extends FormRequest
             'invitation.accountHolder' => ['sometimes', 'nullable', 'string', 'max:120'],
             // Faz 10 (10.62 · K105): her kayitta bicim + mod-97. Bosluk ve kucuk
             // harf kabul edilir; deger yazildigi gibi saklanir (Iban::isValid
-            // kendi icinde normalize eder). max:34 kolonun boyu: dortlu
-            // gruplanmis TR IBAN'i 32 karakter, sigar.
+            // Ayrıntı: docs/rehber/app/Http/Requests/Invitation/InvitationRequest.md §K18-4
             'invitation.iban' => ['sometimes', 'nullable', 'string', 'max:34', 'iban'],
             'invitation.giftOptions' => ['sometimes', 'nullable', 'array', 'max:10'],
             // Faz 10 (10.19, K92): `strict` — duz `integer` true'yu 1, "500"u 500
@@ -112,6 +108,13 @@ abstract class InvitationRequest extends FormRequest
 
             'invitation.rsvpDeadline' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
             'invitation.askMenuPreference' => ['sometimes', 'boolean'],
+
+            // Faz 24 (K302): davetiyenin dili; gecerli diller metin sozlesmesinden (v2.0: yalnizca tr).
+            'invitation.locale' => ['sometimes', 'string', 'in:'.implode(',', TextSlots::locales())],
+            // Faz 24 (K303, K304): degistirilen sabit metinler. Bilinmeyen anahtar, sinir asimi,
+            // tek satirlikta satir sonu, eksik yer tutucu, desteklenmeyen dil -> 'text_overrides'.
+            // Paket kurali burada DEGIL: yayinda ve yayindaki guncellemede TierResolver'da (K305).
+            'invitation.textOverrides' => ['sometimes', 'nullable', 'array', TextSlots::RULE],
 
             // K44: id STRING'dir ve taninmayan deger hata degil, YENI satir demektir.
             // Aidiyet kontrolu senkronizasyonda, iliski uzerinden yapilir (3.10).

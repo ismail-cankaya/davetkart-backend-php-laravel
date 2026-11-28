@@ -7,9 +7,11 @@ namespace App\Models;
 use App\Enums\InvitationStatus;
 use App\Enums\MediaKind;
 use App\Events\InvitationChanged;
+use App\Support\TextSlots;
 use Carbon\CarbonImmutable;
 use Database\Factories\InvitationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,14 +23,8 @@ use Illuminate\Support\Facades\Config;
 
 /**
  * Kullanicinin olusturdugu davetiye.
- *
  * 🔴 `user_id`, `status` ve `published_at` BILEREK doldurulabilir DEGIL:
- * sahiplik iliski uzerinden, durum ise yayin akisi tarafindan belirlenir.
- *
- * 🔴 `gallery_media_ids` de doldurulabilir DEGIL: galeri sirasini yalnizca
- * medya Action'lari yazar (yukleme ekler, silme cikarir). Istek govdesinden
- * gelen bir liste baska davetiyenin dosyasina isaret edebilirdi.
- * Ayrintili aciklama: docs/rehber/app/Models/Invitation.md
+ * Ayrıntı: docs/rehber/app/Models/Invitation.md §K18-1
  */
 #[Fillable([
     'category_id', 'preset_id', 'palette',
@@ -37,6 +33,7 @@ use Illuminate\Support\Facades\Config;
     'show_gallery', 'show_gift', 'show_rsvp',
     'bank_name', 'account_holder', 'iban', 'gift_options',
     'rsvp_deadline', 'ask_menu_preference',
+    'locale', 'text_overrides',
 ])]
 class Invitation extends Model
 {
@@ -45,11 +42,8 @@ class Invitation extends Model
 
     /**
      * Eloquent olayi -> alan (domain) olayi haritasi.
-     *
      * Cache temizleme buradan tetiklenir. Action'lardan ELLE firlatmak yerine
-     * modele gomuldu: yeni bir yazma yolu eklendiginde kimsenin hatirlamasi
-     * gerekmesin. `created` BILEREK yok — yeni kaydin cache girdisi olamaz.
-     * Ayrintili aciklama: docs/rehber/app/Models/Invitation.md §11
+     * Ayrıntı: docs/rehber/app/Models/Invitation.md §K18-2
      */
     protected $dispatchesEvents = [
         'updated' => InvitationChanged::class,
@@ -88,16 +82,45 @@ class Invitation extends Model
             'show_gift' => 'boolean',
             'show_rsvp' => 'boolean',
             'ask_menu_preference' => 'boolean',
+            'has_custom_texts' => 'boolean',
         ];
     }
 
     /**
-     * Misafire acik surumun cache anahtari.
+     * Kullanicinin degistirdigi sabit sablon metinleri (Faz 24, K303) ve paket bayragi (K305).
+     * 🔴 `has_custom_texts` BURADA, `fill()` aninda yazilir: UpdateInvitationAction paket
+     * Ayrıntı: docs/rehber/app/Models/Invitation.md §K18-3
      *
+     * @return Attribute<array<string, array<string, string>>, array<string, array<string, string>>|null>
+     */
+    protected function textOverrides(): Attribute
+    {
+        return Attribute::make(
+            get: static function (?string $value): array {
+                if ($value === null || $value === '') {
+                    return [];
+                }
+
+                /** @var array<string, array<string, string>> $decoded */
+                $decoded = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+
+                return $decoded;
+            },
+            set: static function (?array $value): array {
+                $kept = TextSlots::normalize($value);
+
+                return [
+                    'text_overrides' => $kept === null ? null : json_encode($kept, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+                    'has_custom_texts' => $kept !== null,
+                ];
+            },
+        );
+    }
+
+    /**
+     * Misafire acik surumun cache anahtari.
      * Controller yazar (4.3), ClearInvitationCache siler (4.6): iki tuketici,
-     * TEK uretici (C3). Anahtari elle kuran ikinci bir yer olsaydi, birinde
-     * yapilan bir degisiklik digerini sessizce bayat cache'e kilitlerdi.
-     * Ayrintili aciklama: docs/rehber/app/Models/Invitation.md §10
+     * Ayrıntı: docs/rehber/app/Models/Invitation.md §K18-4
      */
     public static function publicCacheKey(string $id): string
     {
@@ -126,11 +149,8 @@ class Invitation extends Model
 
     /**
      * Bu davetiyeye gelen LCV yanitlari.
-     *
      * Siralama BILEREK yok. Program adimlarinin sirasi anlamin parcasiydi ve
-     * iliskiye gomulmustu; LCV listesinin sirasi ise bir SUNUM tercihidir —
-     * kota sorgusu hic siralamaz, panel en yeniyi ustte ister. Karar cagirana
-     * birakildi (Faz 3, 2.8'in ayni ailesi).
+     * Ayrıntı: docs/rehber/app/Models/Invitation.md §K18-5
      *
      * @return HasMany<Rsvp, $this>
      */
@@ -141,12 +161,8 @@ class Invitation extends Model
 
     /**
      * Bu davetiye ICIN alinmis siparisler — yalnizca TEKIL alimlar (K42).
-     *
      * 🔴 Paket alimlar (invitation_id = NULL) bu iliskiden GORUNMEZ ve bu bir
-     * eksiklik degil: iliski bir yabanci anahtari izler, "hesabin her
-     * davetiyesi" gibi bir kurali izleyemez. Yayin hakki bu iliskiden DEGIL,
-     * PublishEntitlementResolver arayuzunden sorulur (7.9) — iki kaynagi tek
-     * cevaba indiren yer orasidir.
+     * Ayrıntı: docs/rehber/app/Models/Invitation.md §K18-6
      *
      * @return HasMany<Order, $this>
      */
@@ -157,10 +173,8 @@ class Invitation extends Model
 
     /**
      * Bu davetiyeye yuklenmis dosyalarin KAYITLARI.
-     *
      * Siralama yok: galeri sirasi bu tabloda degil, `gallery_media_ids`
-     * dizisinde tutuluyor. Buradaki satirlar sunucunun kaydi — kota sayimi ve
-     * temizlik icin.
+     * Ayrıntı: docs/rehber/app/Models/Invitation.md §K18-7
      *
      * @return HasMany<Media, $this>
      */
@@ -171,10 +185,8 @@ class Invitation extends Model
 
     /**
      * Yalnizca galeri dosyalari — Resource'larin eager load ettigi iliski.
-     *
      * `media()` LCV foto/videolarini da tasir; galeriyi cizmek icin misafirlerin
-     * yukledigi yuzlerce dosyayi bellege almak gereksiz olurdu. Siralama yine
-     * YOK: sira `orderedGalleryMedia()`'da, dizi uzerinden kurulur.
+     * Ayrıntı: docs/rehber/app/Models/Invitation.md §K18-8
      *
      * @return HasMany<Media, $this>
      */
@@ -185,10 +197,8 @@ class Invitation extends Model
 
     /**
      * `gallery_media_ids` kolonunun TIPLI okumasi.
-     *
      * Kolon JSON; cast bize `array` verir ama icerigini garanti etmez. Metin
-     * olmayan her oge atilir — bozuk bir oge galeriyi degil yalnizca kendisini
-     * dusurur.
+     * Ayrıntı: docs/rehber/app/Models/Invitation.md §K18-9
      *
      * @return list<string>
      */
@@ -205,10 +215,8 @@ class Invitation extends Model
 
     /**
      * Galerideki dosyalar KULLANICININ SIRASIYLA.
-     *
      * 🔴 `galleryMedia` iliskisi YUKLU olmali (kati kip, 3.9). Dizide olup
-     * satiri olmayan kimlik sessizce atlanir: misafire kirik bir gorsel
-     * gostermek, o ogeyi hic gostermemekten kotudur.
+     * Ayrıntı: docs/rehber/app/Models/Invitation.md §K18-10
      *
      * @return Collection<int, Media>
      */
@@ -231,15 +239,7 @@ class Invitation extends Model
     /**
      * Odenmis TEKIL siparisin hakkinin serbest birakilabilecegi son an (K82).
      * `null` = davetiye hic yayinlanmadi; hak harcanmadi, pencere sorusu yok.
-     *
-     * 🔴 Kuralin TEK kaynagi (Faz 10, 10.21): DeleteInvitationAction silme
-     * aninda buna bakar, InvitationResource ayni degeri `releasableUntil`
-     * olarak sahibine gosterir. Frontend "3 gun"u kendisi hesaplasaydi,
-     * config degistiginde silme uyarisi ile gercek davranis sessizce
-     * ayrisirdi.
-     *
-     * Bir SURE, bir takvim gunu degil: saat dilimi girmez
-     * (DeleteInvitationAction kilavuzu, K71'in tersi).
+     * Ayrıntı: docs/rehber/app/Models/Invitation.md §K18-11
      */
     public function releaseWindowEndsAt(): ?CarbonImmutable
     {

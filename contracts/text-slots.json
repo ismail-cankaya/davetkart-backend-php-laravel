@@ -1,0 +1,288 @@
+{
+    "version": 1,
+    "locales": [
+        "tr"
+    ],
+    "maxOverrides": 120,
+    "slots": {
+        "countdown.days": {
+            "group": "countdown",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "countdown.hours": {
+            "group": "countdown",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "countdown.minutes": {
+            "group": "countdown",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "countdown.seconds": {
+            "group": "countdown",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "details.dateLabel": {
+            "group": "details",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "details.directions": {
+            "group": "details",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "details.eyebrow": {
+            "group": "details",
+            "scope": "category",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "details.heading": {
+            "group": "details",
+            "scope": "category",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "details.venueLabel": {
+            "group": "details",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "envelope.hint": {
+            "group": "envelope",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "envelope.label": {
+            "group": "envelope",
+            "scope": "category",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "gallery.eyebrow": {
+            "group": "gallery",
+            "scope": "category",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "gallery.heading": {
+            "group": "gallery",
+            "scope": "category",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "gift.amountsLabel": {
+            "group": "gift",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "gift.bankLabel": {
+            "group": "gift",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "gift.copied": {
+            "group": "gift",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "gift.copy": {
+            "group": "gift",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "gift.eyebrow": {
+            "group": "gift",
+            "scope": "category",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "gift.heading": {
+            "group": "gift",
+            "scope": "category",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "gift.holderLabel": {
+            "group": "gift",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "gift.ibanLabel": {
+            "group": "gift",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "gift.note": {
+            "group": "gift",
+            "scope": "category",
+            "maxLength": 216,
+            "multiline": true
+        },
+        "hero.tagline": {
+            "group": "hero",
+            "scope": "category",
+            "maxLength": 72,
+            "multiline": false
+        },
+        "rsvp.appleCalendar": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 48,
+            "multiline": false
+        },
+        "rsvp.attending": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "rsvp.calendarHint": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 112,
+            "multiline": true
+        },
+        "rsvp.countLabel": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "rsvp.deadline": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 96,
+            "multiline": false,
+            "placeholders": [
+                "date"
+            ]
+        },
+        "rsvp.declined": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "rsvp.eyebrow": {
+            "group": "rsvp",
+            "scope": "category",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "rsvp.googleCalendar": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "rsvp.heading": {
+            "group": "rsvp",
+            "scope": "category",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "rsvp.menuLabel": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "rsvp.nameError": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "rsvp.nameLabel": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "rsvp.namePlaceholder": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "rsvp.returningNote": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 136,
+            "multiline": true
+        },
+        "rsvp.sending": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "rsvp.statusLabel": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 24,
+            "multiline": false
+        },
+        "rsvp.submit": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "rsvp.successNew": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 56,
+            "multiline": false
+        },
+        "rsvp.successUpdate": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 40,
+            "multiline": false
+        },
+        "rsvp.thanks": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "rsvp.update": {
+            "group": "rsvp",
+            "scope": "shared",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "timeline.eyebrow": {
+            "group": "timeline",
+            "scope": "category",
+            "maxLength": 32,
+            "multiline": false
+        },
+        "timeline.heading": {
+            "group": "timeline",
+            "scope": "category",
+            "maxLength": 48,
+            "multiline": false
+        }
+    }
+}

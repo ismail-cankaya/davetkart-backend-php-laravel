@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Rules\PasswordPolicy;
+use App\Support\TextSlots;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\ServiceProvider;
 
@@ -19,6 +20,12 @@ final class ValidationServiceProvider extends ServiceProvider
         Validator::extend(
             PasswordPolicy::UNCOMMON,
             static fn (string $attribute, mixed $value): bool => is_string($value) && ! PasswordPolicy::isCommon($value),
+        );
+
+        // Faz 24 (K303): degistirilen davetiye metinleri sozlesmeye uyuyor mu.
+        Validator::extend(
+            TextSlots::RULE,
+            static fn (string $attribute, mixed $value): bool => TextSlots::isValidOverrides($value),
         );
     }
 }

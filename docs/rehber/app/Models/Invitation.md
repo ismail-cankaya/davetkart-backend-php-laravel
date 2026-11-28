@@ -752,3 +752,141 @@ değil. Ayrıntı: [`DeleteInvitationAction.md`](../Actions/Invitation/DeleteInv
 `strtolower($id)`: büyük harfli bir istek (`/public/invitations/01J…`) küçük harfli olanla **aynı**
 önbellek girdisine düşüyor. Ayrı bir girdi açsaydı `ClearInvitationCache` onu hiç silmezdi.
 Ayrıntı: `ResolvePublicInvitationAction.md` → *Faz 10*.
+
+
+## 12. Değiştirilen metinler ve paket bayrağı (Faz 24, K303, K305)
+
+`text_overrides` kullanıcının değiştirdiği sabit şablon metinleridir: yalnızca değişenler, dile göre gruplu
+(`{"tr": {"rsvp.submit": "Geliyorum!"}}`). Okurken her zaman dizi döner (`null` → `[]`); yazarken `TextSlots::normalize()`
+boş dil gruplarını düşürür, hiç metin kalmadıysa `null` saklanır.
+
+Mutator iki kolonu **birlikte** yazar: `text_overrides` ve `has_custom_texts`. Bayrak `fill()` anında, bellekte
+güncellenir. Gerekçe: `UpdateInvitationAction` gereken paketi `save()`'den önce bellekteki modelde ölçer
+(`ensureRaisedTierIsOwned`); bayrak veritabanında hesaplansaydı orada bayat kalır ve yayındaki Gold davetiyeye özel
+metin eklemek Elit istemeden geçerdi.
+
+`has_custom_texts` `#[Fillable]`'da **yok**: istekten yazılamaz, yalnızca mutator yazar. `config('davetkart.module_tiers')`
+onu bir modül gibi okur (`'has_custom_texts' => 'elit'`), bu yüzden `TierResolver`, `PublishInvitationAction` ve
+`UpdateInvitationAction` değişmedi.
+
+Şablon değiştirince yeni şablonda görünmeyen özel metinler de bayrağı `true` tutar (K309): aksi halde şablon değiştirip
+yayınlayıp geri dönerek Elit kapısı atlanırdı.
+
+## K18 taşıması (Faz 24, 2026-11-28)
+
+`app/Models/Invitation.php` değiştiği için K18 cırcırı dosyanın tamamını denetledi; 3 satırı aşan yorum blokları kısaltıldı, tam metinleri aşağıda (değiştirilmeden).
+
+### K18-1
+
+Eski satır 24, şunun üstünde: `#[Fillable([`.
+
+> Kullanicinin olusturdugu davetiye.
+> 🔴 `user_id`, `status` ve `published_at` BILEREK doldurulabilir DEGIL:
+> sahiplik iliski uzerinden, durum ise yayin akisi tarafindan belirlenir.
+> 🔴 `gallery_media_ids` de doldurulabilir DEGIL: galeri sirasini yalnizca
+> medya Action'lari yazar (yukleme ekler, silme cikarir). Istek govdesinden
+> gelen bir liste baska davetiyenin dosyasina isaret edebilirdi.
+> 🔴 `has_custom_texts` de doldurulabilir DEGIL (Faz 24, K305): yalnizca
+> `text_overrides` mutator'i yazar, paket kurali ona bakar.
+> Ayrintili aciklama: docs/rehber/app/Models/Invitation.md
+
+### K18-2
+
+Eski satır 52, şunun üstünde: `protected $dispatchesEvents = [`.
+
+> Eloquent olayi -> alan (domain) olayi haritasi.
+> Cache temizleme buradan tetiklenir. Action'lardan ELLE firlatmak yerine
+> modele gomuldu: yeni bir yazma yolu eklendiginde kimsenin hatirlamasi
+> gerekmesin. `created` BILEREK yok — yeni kaydin cache girdisi olamaz.
+> Ayrintili aciklama: docs/rehber/app/Models/Invitation.md §11
+
+### K18-3
+
+Eski satır 101, şunun üstünde: `protected function textOverrides(): Attribute`.
+
+> Kullanicinin degistirdigi sabit sablon metinleri (Faz 24, K303) ve paket bayragi (K305).
+> 🔴 `has_custom_texts` BURADA, `fill()` aninda yazilir: UpdateInvitationAction paket
+> kontrolunu `save()`'den ONCE bellekteki modelde yapar. Veritabaninin hesapladigi bir
+> kolon orada bayat kalir ve yayindaki davetiyede Elit kapisi atlanirdi.
+> Ayrintili aciklama: docs/rehber/app/Models/Invitation.md §12
+
+### K18-4
+
+Eski satır 135, şunun üstünde: `public static function publicCacheKey(string $id): string`.
+
+> Misafire acik surumun cache anahtari.
+> Controller yazar (4.3), ClearInvitationCache siler (4.6): iki tuketici,
+> TEK uretici (C3). Anahtari elle kuran ikinci bir yer olsaydi, birinde
+> yapilan bir degisiklik digerini sessizce bayat cache'e kilitlerdi.
+> Ayrintili aciklama: docs/rehber/app/Models/Invitation.md §10
+
+### K18-5
+
+Eski satır 168, şunun üstünde: `public function rsvps(): HasMany`.
+
+> Bu davetiyeye gelen LCV yanitlari.
+> Siralama BILEREK yok. Program adimlarinin sirasi anlamin parcasiydi ve
+> iliskiye gomulmustu; LCV listesinin sirasi ise bir SUNUM tercihidir —
+> kota sorgusu hic siralamaz, panel en yeniyi ustte ister. Karar cagirana
+> birakildi (Faz 3, 2.8'in ayni ailesi).
+
+### K18-6
+
+Eski satır 183, şunun üstünde: `public function orders(): HasMany`.
+
+> Bu davetiye ICIN alinmis siparisler — yalnizca TEKIL alimlar (K42).
+> 🔴 Paket alimlar (invitation_id = NULL) bu iliskiden GORUNMEZ ve bu bir
+> eksiklik degil: iliski bir yabanci anahtari izler, "hesabin her
+> davetiyesi" gibi bir kurali izleyemez. Yayin hakki bu iliskiden DEGIL,
+> PublishEntitlementResolver arayuzunden sorulur (7.9) — iki kaynagi tek
+> cevaba indiren yer orasidir.
+
+### K18-7
+
+Eski satır 199, şunun üstünde: `public function media(): HasMany`.
+
+> Bu davetiyeye yuklenmis dosyalarin KAYITLARI.
+> Siralama yok: galeri sirasi bu tabloda degil, `gallery_media_ids`
+> dizisinde tutuluyor. Buradaki satirlar sunucunun kaydi — kota sayimi ve
+> temizlik icin.
+
+### K18-8
+
+Eski satır 213, şunun üstünde: `public function galleryMedia(): HasMany`.
+
+> Yalnizca galeri dosyalari — Resource'larin eager load ettigi iliski.
+> `media()` LCV foto/videolarini da tasir; galeriyi cizmek icin misafirlerin
+> yukledigi yuzlerce dosyayi bellege almak gereksiz olurdu. Siralama yine
+> YOK: sira `orderedGalleryMedia()`'da, dizi uzerinden kurulur.
+
+### K18-9
+
+Eski satır 227, şunun üstünde: `public function galleryMediaIds(): array`.
+
+> `gallery_media_ids` kolonunun TIPLI okumasi.
+> Kolon JSON; cast bize `array` verir ama icerigini garanti etmez. Metin
+> olmayan her oge atilir — bozuk bir oge galeriyi degil yalnizca kendisini
+> dusurur.
+
+### K18-10
+
+Eski satır 247, şunun üstünde: `public function orderedGalleryMedia(): Collection`.
+
+> Galerideki dosyalar KULLANICININ SIRASIYLA.
+> 🔴 `galleryMedia` iliskisi YUKLU olmali (kati kip, 3.9). Dizide olup
+> satiri olmayan kimlik sessizce atlanir: misafire kirik bir gorsel
+> gostermek, o ogeyi hic gostermemekten kotudur.
+
+### K18-11
+
+Eski satır 272, şunun üstünde: `public function releaseWindowEndsAt(): ?CarbonImmutable`.
+
+> Odenmis TEKIL siparisin hakkinin serbest birakilabilecegi son an (K82).
+> `null` = davetiye hic yayinlanmadi; hak harcanmadi, pencere sorusu yok.
+> 🔴 Kuralin TEK kaynagi (Faz 10, 10.21): DeleteInvitationAction silme
+> aninda buna bakar, InvitationResource ayni degeri `releasableUntil`
+> olarak sahibine gosterir. Frontend "3 gun"u kendisi hesaplasaydi,
+> config degistiginde silme uyarisi ile gercek davranis sessizce
+> ayrisirdi.
+> Bir SURE, bir takvim gunu degil: saat dilimi girmez
+> (DeleteInvitationAction kilavuzu, K71'in tersi).

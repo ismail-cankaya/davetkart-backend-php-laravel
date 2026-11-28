@@ -10,13 +10,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * Davetiyenin TASARIM verisi — types.ts -> Invitation ile birebir.
- *
  * Sunucu ustverisi (id, status, updatedAt) burada DEGIL, InvitationResource'ta.
- * Ayrim isteklerdeki { invitation: {...} } sarmaliyla simetriktir.
- *
- * 🔴 Bu SAHIBIN gordugu bicimdir. Misafire acik surum Faz 4'te ayri bir sinif
- * olacak; hediye ve LCV verisi orada kapali modulde MASKELENIR.
- * Ayrintili aciklama: docs/rehber/app/Http/Resources/InvitationPayloadResource.md
+ * Ayrıntı: docs/rehber/app/Http/Resources/InvitationPayloadResource.md §K18-1
  *
  * @mixin Invitation
  */
@@ -81,6 +76,11 @@ final class InvitationPayloadResource extends JsonResource
             'rsvpDeadline' => $this->rsvp_deadline?->format('Y-m-d') ?? '',
             'askMenuPreference' => $this->ask_menu_preference,
 
+            // Faz 24 (K302, K303): dil ve degistirilen sabit metinler. Bos koleksiyon nesne
+            // olarak gider ({}), dizi olarak degil: frontend anahtar -> metin haritasi bekler.
+            'locale' => $this->locale,
+            'textOverrides' => (object) $this->text_overrides,
+
             // whenLoaded KULLANILMIYOR: sozlesme bu anahtari ZORUNLU kilar.
             // Iliski yuklenmemisse yerelde LazyLoadingViolation firlar — sessiz
             // yanlis veri yerine gurultulu hata. Gerekcesi kilavuz §5'te.
@@ -88,8 +88,7 @@ final class InvitationPayloadResource extends JsonResource
 
             // Galeri, KULLANICININ SIRASIYLA (`gallery_media_ids`). Sahip
             // kimlikleri de gorur: silme ucu dosyayi kimligiyle ister. Misafir
-            // surumunde kimlik yok (PublicGalleryImageResource).
-            // timelineEvents ile ayni sozlesme: `galleryMedia` yuklu olmali.
+            // Ayrıntı: docs/rehber/app/Http/Resources/InvitationPayloadResource.md §K18-2
             'galleryImages' => MediaResource::collection($this->orderedGalleryMedia()),
         ];
     }

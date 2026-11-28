@@ -418,3 +418,30 @@ Test: `PublicInvitationTest::the_public_invitation_reports_the_guest_upload_flag
 > önbellekten gelen yükte `guestUploads`'ı her istekte config'ten yeniden yazar; bayrak değişince `cache:clear`
 > gerekmez. Resource alanı yine üretir (alanın varlığı = LCV açık). Test:
 > `the_guest_upload_flag_is_not_frozen_in_the_cached_payload`.
+
+## K18 taşıması (Faz 24, 2026-11-28)
+
+`app/Http/Resources/PublicInvitationResource.php` değiştiği için K18 cırcırı dosyanın tamamını denetledi; 3 satırı aşan yorum blokları kısaltıldı, tam metinleri aşağıda (değiştirilmeden).
+
+### K18-1
+
+Eski satır 12, şunun üstünde: `final class PublicInvitationResource extends JsonResource`.
+
+> Davetiyenin MISAFIRE acik surumu — types.ts -> Invitation.
+> 🔴 C4: sahibin surumu (InvitationResource) her alani her zaman doner; bu
+> surum KAPALI MODULUN VERISINI HIC GONDERMEZ. `status` ve `updatedAt` de yok:
+> misafirin isine yaramaz, dolayisiyla sozlesmede yeri de yok (C5).
+> Ayrintili aciklama: docs/rehber/app/Http/Resources/PublicInvitationResource.md
+
+### K18-2
+
+Eski satır 61, şunun üstünde: `'timezone' => $this->timezone ?? Config::string('davetkart.default_timezone'),`.
+
+> 🔴 K63 (Faz 7): duvar saatinin hangi dilimde okunacagi.
+> Faz 4'te acik soru olarak birakilmisti — sayac, misafirin KENDI
+> cihazinin dilimini varsayiyordu ve Berlin'deki misafir dugunu
+> bir saat once saniyordu.
+> Bu alan ZORUNLU gider (C7): sayac onsuz dogru hesaplayamaz,
+> dolayisiyla opsiyonel olamaz. Davetiyede yoksa config
+> varsayilani gonderilir — misafire "bilmiyorum" demek, ona
+> sessizce yanlis saati gostermekten daha kotudur.
