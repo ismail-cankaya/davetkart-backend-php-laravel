@@ -560,7 +560,7 @@ final class InvitationTest extends TestCase
         // tasarim `invitation` altinda; yeni bir alan ancak bu satir
         // degistirilerek eklenebilir.
         $this->assertSame(
-            ['id', 'status', 'updatedAt', 'publishedAt', 'releasableUntil', 'invitation'],
+            ['id', 'status', 'updatedAt', 'publishedAt', 'releasableUntil', 'invitation', 'hasPendingChanges', 'pendingChanges'],
             array_keys($data),
         );
     }

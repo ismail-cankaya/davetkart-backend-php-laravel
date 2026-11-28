@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\EmailVerificationController;
 use App\Http\Controllers\Api\V1\GiftCodeController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\InvitationPendingController;
 use App\Http\Controllers\Api\V1\InvitationTextSuggestionController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\OrderController;
@@ -134,6 +135,18 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/invitations/{invitation}/media/{media}', [MediaController::class, 'destroy'])
         ->whereUlid(['invitation', 'media'])
         ->name('invitations.media.destroy');
+
+    // Taslak katmani (Faz 27.3, K323): yayindaki davetiyenin yayinlanmamis degisiklikleri; yayinlama paket kapisindan gecer.
+    // Ayrinti: docs/rehber/routes/api.md T7b.
+    Route::put('/invitations/{invitation}/pending', [InvitationPendingController::class, 'update'])
+        ->whereUlid('invitation')
+        ->name('invitations.pending.update');
+    Route::post('/invitations/{invitation}/pending/publish', [InvitationPendingController::class, 'publish'])
+        ->whereUlid('invitation')
+        ->name('invitations.pending.publish');
+    Route::delete('/invitations/{invitation}/pending', [InvitationPendingController::class, 'destroy'])
+        ->whereUlid('invitation')
+        ->name('invitations.pending.destroy');
 
     // Yayinlama (Faz 7) — PAYWALL KAPISI.
     // Ayrinti: docs/rehber/routes/api.md T7.

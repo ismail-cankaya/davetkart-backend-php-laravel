@@ -14,14 +14,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Mevcut davetiyeyi gunceller; program listesi gonderildiyse senkronize eder.
- *
- * Yetki kontrolu BURADA DEGIL: Policy controller'da calisir (3.7).
- *
- * 🔴 Faz 10 (K88): YAYINDAKI davetiyede paywall bu Action'da da sorulur.
- * Soru yalnizca yayin aninda sorulsaydi, Standart ile yayinlanan bir
- * davetiyenin Elit modulleri sonradan bir PUT ile acilabilirdi (rapor §1.1,
- * denetim K-1). Taslak serbesttir: denemenin bedeli olmaz (K43'un ruhu).
+ * Davetiyeyi gunceller, programi senkronize eder; yayindaki davetiyede paket farkini sorar (K88). Yetki Policy'de.
  * Ayrintili aciklama: docs/rehber/app/Actions/Invitation/UpdateInvitationAction.md
  */
 final class UpdateInvitationAction
@@ -42,11 +35,7 @@ final class UpdateInvitationAction
     public function handle(Invitation $invitation, array $attributes, ?array $timelineEvents): Invitation
     {
         return DB::transaction(function () use ($invitation, $attributes, $timelineEvents): Invitation {
-            // 🔴 Satir kilitlenip YENIDEN OKUNUYOR (E9). Rota baglamasindan
-            // gelen nesne bayat olabilir: arada es zamanli bir "yayinla"
-            // istegi davetiyeyi yayina almis olabilir. PublishInvitationAction
-            // ayni satiri kilitledigi icin ikisi artik SIRAYLA calisir; biri
-            // digerinin yazdigini gormeden karar veremez.
+            // 🔴 Satir kilitlenip YENIDEN OKUNUYOR (E9): es zamanli "yayinla" ile SIRAYLA calisir (kilavuz).
             $fresh = Invitation::query()
                 ->whereKey($invitation->getKey())
                 ->lockForUpdate()
@@ -56,6 +45,11 @@ final class UpdateInvitationAction
             $requiredBefore = $this->tiers->requiredFor($fresh);
 
             $fresh->fill($attributes);
+
+            // K324: canlıya yazılan alanlar yayınlanmamış taslaktan düşer (alan bazında son yazan kazanır).
+            $fresh->pending_changes = PendingChanges::of($fresh)
+                ->without(array_keys($attributes), $timelineEvents !== null)
+                ->toColumn();
 
             // Kontrol save()'den ONCE: reddedilen istek hicbir satir yazmaz ve
             // InvitationChanged olayi hic firlamaz (cache bosuna temizlenmez).
@@ -81,12 +75,7 @@ final class UpdateInvitationAction
     }
 
     /**
-     * Degisiklik gereken plani YUKSELTIYORSA, yeni gereksinim sahip olunan
-     * planca kapsanmali.
-     *
-     * 🔴 Gereksinimi yukseltmeyen her degisiklik serbesttir: modul kapatmak,
-     * metin duzeltmek. Hak iade ya da fiyat haritasi degisikligiyle azalmis
-     * olsa bile kullanici davetiyesini duzenleyebilmeli (kilavuz §9.3).
+     * Gereksinim YUKSELIYORSA sahip olunan plan kapsamali; yukseltmeyen her degisiklik serbest (kilavuz §9.3).
      */
     private function ensureRaisedTierIsOwned(Invitation $invitation, SubscriptionTier $before): void
     {

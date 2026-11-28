@@ -446,3 +446,15 @@ composer check
 | Gereksinim hesabı | [`../../Services/Pricing/TierResolver.md`](../../Services/Pricing/TierResolver.md) |
 | Testler | [`../../../tests/Feature/PaywallTest.md`](../../../tests/Feature/PaywallTest.md) §11 |
 | Kaynak bulgu | `davetkart-docs: audits/2026-09-23-backend-review/GOZDEN-GECIRME-RAPORU.md` §1.1 · `davetkart-docs: audits/2026-09-24-test-audit/TEST-DENETIMI-2026-09-24.md` K-1 |
+
+## Faz 27.3 (K324): taslaktan düşme
+
+`fill()`'den hemen sonra, yazılan kolonlar `pending_changes`'tan çıkarılır; program gönderildiyse taslaktaki program da
+düşer. Hızlı düzenleme ("Kaydet ve yayınla") ile stüdyo taslağı alan bazında çakışmaz: son yazan kazanır.
+`PublishPendingChangesAction` da bu Action'ı çağırdığı için başarılı yayından sonra taslak boşalır.
+
+Sınıf ve metot yorumlarından taşınan notlar (K18, Faz 27.3): yetki kontrolü burada değil, Policy'de (3.7). Soru
+yalnızca yayın anında sorulsaydı Standart ile yayınlanan davetiyenin Elit modülleri sonradan bir PUT ile açılabilirdi
+(rapor §1.1, denetim K-1); taslak serbest (K43). Satır kilitlenip yeniden okunur: rota bağlamasından gelen nesne bayat
+olabilir, `PublishInvitationAction` aynı satırı kilitlediği için ikisi sırayla çalışır (E9). Gereksinimi yükseltmeyen
+değişiklik (modül kapatmak, metin düzeltmek) hak iade ya da fiyat değişikliğiyle azalmış olsa bile serbesttir (§9.3).

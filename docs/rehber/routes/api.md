@@ -1119,6 +1119,13 @@ baglamasi degil, metin — dosya DeleteGalleryMediaAction'da davetiyenin
 galeri iliskisi uzerinden aranir (P3). Baska davetiyenin dosyasi ve LCV
 medyasi ayni 404'u alir (H7).
 
+### T7b — taslak katmanı (Faz 27.3, K323)
+
+`PUT /invitations/{invitation}/pending`, `POST /invitations/{invitation}/pending/publish`,
+`DELETE /invitations/{invitation}/pending` → `InvitationPendingController`. Sabit segmentli oldukları için
+`apiResource`'un altında durmaları sorun değil (`/pending` bir `show` kimliğiyle çakışmaz: `whereUlid`). Ayrıntı:
+`app/Actions/Invitation/SavePendingChangesAction.md`.
+
 ### T7 — satır 182: `Route::post('/invitations/{invitation}/publish', [InvitationController::class, 'publish'])`
 
 Yayinlama (Faz 7) — PAYWALL KAPISI.

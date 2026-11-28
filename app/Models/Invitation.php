@@ -83,6 +83,9 @@ class Invitation extends Model
             'show_rsvp' => 'boolean',
             'ask_menu_preference' => 'boolean',
             'has_custom_texts' => 'boolean',
+
+            // Faz 27.3 (K323): yalnızca Action'lar yazar (fillable değil).
+            'pending_changes' => 'array',
         ];
     }
 

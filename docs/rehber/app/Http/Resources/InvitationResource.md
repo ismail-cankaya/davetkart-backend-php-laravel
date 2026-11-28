@@ -280,3 +280,13 @@ göreceği imzayı göstersin. Karar bir iş kuralı (*"Elit imzasızdır"*), bu
 controller `ResolveBrandingAction`'dan alıp `withBranding()` ile veriyor ve kaynak onu
 `InvitationPayloadResource`'a geçiriyor. Varsayılan `true`: unutulan bir çağrı imzayı gösterir, vaat
 edilmeyen bir şeyi (imzasız yayın) vermez.
+
+## Faz 27.3 (K323): taslak
+
+`hasPendingChanges` (bool) ve `pendingChanges` (`null` ya da `{ invitation: {…istek alanlarıyla…}, timelineEvents }`).
+Kolon → alan eşlemesi açık yazılı (`PENDING_FIELDS`, `InvitationRequest::COLUMN_MAP`'in tersi). Frontend düzenlerken
+canlı veri üstüne taslağı koyar. `PublicInvitationResource` bunu taşımaz.
+
+Sınıf yorumundan taşınan not (K18): istek `{ invitation: {...} }` gönderir, yanıt
+`{ id, status, updatedAt, publishedAt, releasableUntil, invitation, hasPendingChanges, pendingChanges }` döner; misafirin
+bir davetiyenin ne zaman yayınlandığını ya da ödemenin geri alınabilirliğini bilmesi için sebep yok.
